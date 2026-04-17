@@ -1,4 +1,5 @@
 import {
+  AfterViewInit,
   Component,
   ElementRef,
   EventEmitter,
@@ -65,13 +66,12 @@ export interface PlaceResult {
     </div>
   `,
 })
-export class LocationPickerComponent implements OnDestroy {
+export class LocationPickerComponent implements AfterViewInit, OnDestroy {
   @ViewChild('addressInput') addressInputRef!: ElementRef<HTMLInputElement>;
   @ViewChild('mapContainer') mapContainerRef!: ElementRef;
   @Output() locationSelected = new EventEmitter<PlaceResult | null>();
   @Input() required = false;
-  @Input() initialLat = 40.416775;
-  @Input() initialLng = -3.70379;
+  @Input() initialValue: PlaceResult | null = null;
 
   readonly result   = signal<PlaceResult | null>(null);
   readonly mapError = signal<string | null>(null);
@@ -83,6 +83,16 @@ export class LocationPickerComponent implements OnDestroy {
   private map: google.maps.Map | null = null;
   private marker: google.maps.Marker | null = null;
   private initialized = false;
+
+  ngAfterViewInit(): void {
+    if (this.initialValue) {
+      this.addressValue = this.initialValue.address;
+      this.result.set(this.initialValue);
+      this.locationSelected.emit(this.initialValue);
+      // mapContainer renders after result() is set — needs one tick
+      setTimeout(() => this.renderMap(this.initialValue!.lat, this.initialValue!.lng), 50);
+    }
+  }
 
   async initAutocomplete(): Promise<void> {
     this.touched.set(true);

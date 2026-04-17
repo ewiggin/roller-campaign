@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { VolunteerFormData, GoogleSheetsService } from '../../services/google-sheets.service';
+import { VolunteerFormData, GoogleSheetsService, ExistingFormData } from '../../services/google-sheets.service';
 import { LocationPickerComponent, PlaceResult } from '../location-picker/location-picker.component';
 
 type Step = 'code' | 'form' | 'success';
@@ -27,7 +27,7 @@ const DIAS_LABEL: Record<typeof DIAS[number], string> = {
         <!-- Header -->
         <div class="text-center mb-8">
           <div class="text-5xl mb-3">🛒🏖️</div>
-          <h1 class="text-3xl font-bold text-indigo-800">Carritos se van de vacaciones</h1>
+          <h1 class="text-3xl font-bold text-indigo-800">Los carritos se van de vacaciones</h1>
           <p class="text-gray-600 mt-2">Formulario de disponibilidad de voluntarios</p>
         </div>
 
@@ -36,14 +36,14 @@ const DIAS_LABEL: Record<typeof DIAS[number], string> = {
           <div class="bg-white rounded-2xl shadow-lg p-6 space-y-4">
             <div class="space-y-1">
               <label class="block text-sm font-semibold text-gray-700">
-                Código de voluntario <span class="text-red-500">*</span>
+                Código de voluntario Builder Assistant<span class="text-red-500">*</span>
               </label>
               <p class="text-xs text-gray-500">Introduce tu número de identificación de voluntario</p>
               <input
                 type="text"
                 [formControl]="codeControl"
                 (keydown.enter)="validateCode()"
-                placeholder="Ej. 12345"
+                placeholder="Ej. 1234567"
                 class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
                 [class.border-red-400]="codeError()"
                 [disabled]="isValidating()"
@@ -75,6 +75,11 @@ const DIAS_LABEL: Record<typeof DIAS[number], string> = {
 
         <!-- PASO 2: Formulario -->
         @if (step() === 'form') {
+          @if (initialLocation()) {
+            <div class="mb-4 text-center text-sm text-indigo-600 font-medium">
+              Ya tienes datos registrados. Puedes modificarlos y volver a enviar.
+            </div>
+          }
           <form [formGroup]="form" (ngSubmit)="onSubmit()" class="bg-white rounded-2xl shadow-lg p-6 space-y-5">
 
             <!-- Código confirmado + nombre -->
@@ -99,6 +104,7 @@ const DIAS_LABEL: Record<typeof DIAS[number], string> = {
               <p class="text-xs text-gray-500">Indica tu dirección para facilitar la coordinación</p>
               <app-location-picker
                 [required]="true"
+                [initialValue]="initialLocation()"
                 (locationSelected)="onLocationSelected($event)"
               />
               @if (locationTouched() && !selectedLocation()) {
@@ -228,6 +234,7 @@ export class VolunteerFormComponent {
   readonly volunteerName = signal('');
   readonly selectedLocation = signal<PlaceResult | null>(null);
   readonly locationTouched = signal(false);
+  readonly initialLocation = signal<PlaceResult | null>(null);
 
   readonly dias = DIAS;
   readonly diasLabel = DIAS_LABEL;
@@ -282,6 +289,7 @@ export class VolunteerFormComponent {
       if (result !== null) {
         this.volunteerRow = result.fila;
         this.volunteerName.set(result.nombre);
+        this.applyExistingData(result.formData);
         this.step.set('form');
       } else {
         this.codeError.set('Código no encontrado. Revisa que sea correcto.');
@@ -290,6 +298,34 @@ export class VolunteerFormComponent {
       this.codeError.set('No se pudo verificar el código. Inténtalo de nuevo.');
     } finally {
       this.isValidating.set(false);
+    }
+  }
+
+  private applyExistingData(data: ExistingFormData | null): void {
+    if (!data) return;
+
+    this.form.patchValue({ plazasCoche: data.plazasCoche });
+    this.turnosGroup.patchValue({
+      lunesManana:     data.lunesManana,
+      lunesTarde:      data.lunesTarde,
+      martesManana:    data.martesManana,
+      martesTarde:     data.martesTarde,
+      miercolesManana: data.miercolesManana,
+      miercolesTarde:  data.miercolesTarde,
+      juevesManana:    data.juevesManana,
+      juevesTarde:     data.juevesTarde,
+      viernesManana:   data.viernesManana,
+      viernesTarde:    data.viernesTarde,
+      sabadoManana:    data.sabadoManana,
+      sabadoTarde:     data.sabadoTarde,
+      domingoManana:   data.domingoManana,
+      domingoTarde:    data.domingoTarde,
+    });
+
+    if (data.direccion && data.lat && data.lon) {
+      const location: PlaceResult = { address: data.direccion, lat: data.lat, lng: data.lon };
+      this.initialLocation.set(location);
+      this.selectedLocation.set(location);
     }
   }
 

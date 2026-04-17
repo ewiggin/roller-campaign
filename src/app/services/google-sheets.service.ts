@@ -25,9 +25,32 @@ export interface VolunteerFormData {
   domingoTarde: boolean;
 }
 
+export interface ExistingFormData {
+  plazasCoche: number;
+  direccion: string;
+  mapsLink: string;
+  lat: number | null;
+  lon: number | null;
+  lunesManana: boolean;
+  lunesTarde: boolean;
+  martesManana: boolean;
+  martesTarde: boolean;
+  miercolesManana: boolean;
+  miercolesTarde: boolean;
+  juevesManana: boolean;
+  juevesTarde: boolean;
+  viernesManana: boolean;
+  viernesTarde: boolean;
+  sabadoManana: boolean;
+  sabadoTarde: boolean;
+  domingoManana: boolean;
+  domingoTarde: boolean;
+}
+
 export interface ValidateResult {
   fila: number;
   nombre: string;
+  formData: ExistingFormData | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -38,7 +61,12 @@ export class GoogleSheetsService {
     const url = `${environment.appsScriptUrl}?codigo=${encodeURIComponent(codigo)}`;
     const response = await fetch(url, { method: 'GET' });
     const data = await response.json();
-    return data.valid === true ? { fila: data.fila as number, nombre: data.nombre as string } : null;
+    if (data.valid !== true) return null;
+    return {
+      fila:     data.fila     as number,
+      nombre:   data.nombre   as string,
+      formData: data.formData as ExistingFormData | null,
+    };
   }
 
   async saveRow(data: VolunteerFormData): Promise<void> {

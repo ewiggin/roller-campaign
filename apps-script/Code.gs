@@ -113,7 +113,39 @@ function doGet(e) {
 
     var fila = indice + 2;
     var nombre = datos[indice][COL_NOMBRE - 1].toString().trim();
-    return jsonResponse({ valid: true, fila: fila, nombre: nombre });
+
+    var formData = null;
+    var lastCol = sheet.getLastColumn();
+    if (lastCol >= EXTRA_HEADERS_START_COL) {
+      var numCols = Math.min(lastCol - EXTRA_HEADERS_START_COL + 1, EXTRA_HEADERS.length);
+      var extra = sheet.getRange(fila, EXTRA_HEADERS_START_COL, 1, numCols).getValues()[0];
+      var hasData = extra[0] !== '' || extra[1] !== '';
+      if (hasData) {
+        formData = {
+          plazasCoche:     parseInt(extra[0]) || 0,
+          direccion:       extra[1]  || '',
+          lunesManana:     extra[2]  === 'Sí',
+          lunesTarde:      extra[3]  === 'Sí',
+          martesManana:    extra[4]  === 'Sí',
+          martesTarde:     extra[5]  === 'Sí',
+          miercolesManana: extra[6]  === 'Sí',
+          miercolesTarde:  extra[7]  === 'Sí',
+          juevesManana:    extra[8]  === 'Sí',
+          juevesTarde:     extra[9]  === 'Sí',
+          viernesManana:   extra[10] === 'Sí',
+          viernesTarde:    extra[11] === 'Sí',
+          sabadoManana:    extra[12] === 'Sí',
+          sabadoTarde:     extra[13] === 'Sí',
+          domingoManana:   extra[14] === 'Sí',
+          domingoTarde:    extra[15] === 'Sí',
+          mapsLink:        numCols > 16 ? (extra[16] || '') : '',
+          lat:             numCols > 17 ? (parseFloat(extra[17]) || null) : null,
+          lon:             numCols > 18 ? (parseFloat(extra[18]) || null) : null,
+        };
+      }
+    }
+
+    return jsonResponse({ valid: true, fila: fila, nombre: nombre, formData: formData });
 
   } catch (err) {
     return jsonResponse({ valid: false, error: err.toString() });
