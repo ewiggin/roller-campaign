@@ -4,14 +4,16 @@ import {
   ElementRef,
   EventEmitter,
   Input,
+  OnChanges,
   OnDestroy,
   Output,
+  SimpleChanges,
   ViewChild,
   signal,
-} from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
-import { environment } from '../../../environments/environment';
+} from "@angular/core";
+import { FormsModule } from "@angular/forms";
+import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
+import { environment } from "../../../environments/environment";
 
 export interface PlaceResult {
   address: string;
@@ -20,12 +22,11 @@ export interface PlaceResult {
 }
 
 @Component({
-  selector: 'app-location-picker',
+  selector: "app-location-picker",
   standalone: true,
   imports: [FormsModule],
   template: `
     <div class="space-y-2">
-
       <!-- Input con autocomplete -->
       <div class="relative">
         <input
@@ -39,7 +40,10 @@ export interface PlaceResult {
           autocomplete="off"
         />
         @if (result()) {
-          <span class="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-base">✓</span>
+          <span
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-base"
+            >✓</span
+          >
         }
       </div>
 
@@ -49,11 +53,17 @@ export interface PlaceResult {
 
       <!-- Mapa -->
       @if (result()) {
-        <div class="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+        <div
+          class="rounded-xl overflow-hidden border border-gray-200 shadow-sm"
+        >
           <div #mapContainer class="h-52 w-full"></div>
           <p class="text-xs text-gray-500 px-3 py-1.5 bg-gray-50">
             📍 {{ result()!.lat.toFixed(5) }}, {{ result()!.lng.toFixed(5) }} ·
-            <button type="button" (click)="clearResult()" class="text-indigo-500 hover:underline">
+            <button
+              type="button"
+              (click)="clearResult()"
+              class="text-indigo-500 hover:underline"
+            >
               Cambiar dirección
             </button>
           </p>
@@ -66,18 +76,20 @@ export interface PlaceResult {
     </div>
   `,
 })
-export class LocationPickerComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('addressInput') addressInputRef!: ElementRef<HTMLInputElement>;
-  @ViewChild('mapContainer') mapContainerRef!: ElementRef;
+export class LocationPickerComponent
+  implements AfterViewInit, OnChanges, OnDestroy
+{
+  @ViewChild("addressInput") addressInputRef!: ElementRef<HTMLInputElement>;
+  @ViewChild("mapContainer") mapContainerRef!: ElementRef;
   @Output() locationSelected = new EventEmitter<PlaceResult | null>();
   @Input() required = false;
   @Input() initialValue: PlaceResult | null = null;
 
-  readonly result   = signal<PlaceResult | null>(null);
+  readonly result = signal<PlaceResult | null>(null);
   readonly mapError = signal<string | null>(null);
-  readonly touched  = signal(false);
+  readonly touched = signal(false);
 
-  addressValue = '';
+  addressValue = "";
 
   private autocomplete: google.maps.places.Autocomplete | null = null;
   private map: google.maps.Map | null = null;
@@ -86,12 +98,26 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     if (this.initialValue) {
-      this.addressValue = this.initialValue.address;
-      this.result.set(this.initialValue);
-      this.locationSelected.emit(this.initialValue);
-      // mapContainer renders after result() is set — needs one tick
-      setTimeout(() => this.renderMap(this.initialValue!.lat, this.initialValue!.lng), 50);
+      this.applyInitialValue(this.initialValue);
     }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (
+      changes["initialValue"] &&
+      changes["initialValue"].currentValue &&
+      !changes["initialValue"].previousValue
+    ) {
+      this.applyInitialValue(changes["initialValue"].currentValue);
+    }
+  }
+
+  private applyInitialValue(value: PlaceResult): void {
+    this.addressValue = value.address;
+    this.result.set(value);
+    this.locationSelected.emit(value);
+    // mapContainer renders after result() is set — needs one tick
+    setTimeout(() => this.renderMap(value.lat, value.lng), 50);
   }
 
   async initAutocomplete(): Promise<void> {
@@ -100,14 +126,16 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
     this.initialized = true;
 
     try {
-      setOptions({ key: environment.googleMapsApiKey, v: 'weekly' });
-      const { Autocomplete } = await importLibrary('places') as google.maps.PlacesLibrary;
+      setOptions({ key: environment.googleMapsApiKey, v: "weekly" });
+      const { Autocomplete } = (await importLibrary(
+        "places",
+      )) as google.maps.PlacesLibrary;
 
       this.autocomplete = new Autocomplete(this.addressInputRef.nativeElement, {
-        fields: ['formatted_address', 'geometry'],
+        fields: ["formatted_address", "geometry"],
       });
 
-      this.autocomplete.addListener('place_changed', () => {
+      this.autocomplete.addListener("place_changed", () => {
         const place = this.autocomplete!.getPlace();
         if (!place.geometry?.location) return;
 
@@ -123,31 +151,39 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
         setTimeout(() => this.renderMap(lat, lng), 50);
       });
     } catch {
-      this.mapError.set('No se pudo cargar Google Places. Verifica la clave de API.');
+      this.mapError.set(
+        "No se pudo cargar Google Places. Verifica la clave de API.",
+      );
     }
   }
 
   private async renderMap(lat: number, lng: number): Promise<void> {
     if (!this.mapContainerRef?.nativeElement) return;
     try {
-      const { Map } = await importLibrary('maps') as google.maps.MapsLibrary;
+      setOptions({ key: environment.googleMapsApiKey, v: "weekly" });
+      const { Map } = (await importLibrary("maps")) as google.maps.MapsLibrary;
       const pos = { lat, lng };
 
       if (!this.map) {
         this.map = new Map(this.mapContainerRef.nativeElement, {
-          center: pos, zoom: 15,
-          mapTypeControl: false, streetViewControl: false, fullscreenControl: false,
+          center: pos,
+          zoom: 15,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
         });
         this.marker = new google.maps.Marker({ position: pos, map: this.map });
       } else {
         this.map.setCenter(pos);
         this.marker?.setPosition(pos);
       }
-    } catch { /* mapa no crítico */ }
+    } catch {
+      /* mapa no crítico */
+    }
   }
 
   clearResult(): void {
-    this.addressValue = '';
+    this.addressValue = "";
     this.result.set(null);
     this.locationSelected.emit(null);
     this.map = null;
