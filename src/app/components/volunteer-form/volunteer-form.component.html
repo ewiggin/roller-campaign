@@ -27,7 +27,8 @@
             Introduce tu número de identificación de voluntario
           </p>
           <input
-            type="text"
+            type="number"
+            pattern="[0-9]*"
             [formControl]="codeControl"
             (keydown.enter)="validateCode()"
             placeholder="Ej. 1234567"
