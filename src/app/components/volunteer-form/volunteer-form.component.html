@@ -28,6 +28,7 @@
           </p>
           <input
             type="number"
+            inputmode="numeric"
             pattern="[0-9]*"
             [formControl]="codeControl"
             (keydown.enter)="validateCode()"

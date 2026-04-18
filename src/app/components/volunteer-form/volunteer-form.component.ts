@@ -58,7 +58,7 @@ export class VolunteerFormComponent {
 
   private volunteerRow = 0;
 
-  codeControl!: FormControl<string | null>;
+  codeControl!: FormControl<number | null>;
   form!: FormGroup;
   turnosGroup!: FormGroup;
 
@@ -66,7 +66,7 @@ export class VolunteerFormComponent {
     private fb: FormBuilder,
     public sheetsService: GoogleSheetsService,
   ) {
-    this.codeControl = fb.control("", Validators.required);
+    this.codeControl = fb.control<number | null>(null, Validators.required);
     this.turnosGroup = fb.group({
       lunesManana: [false],
       lunesTarde: [false],
@@ -95,7 +95,7 @@ export class VolunteerFormComponent {
   }
 
   async validateCode(): Promise<void> {
-    const codigo = this.codeControl.value?.trim();
+    const codigo = this.codeControl.value != null ? String(this.codeControl.value) : null;
     if (!codigo) return;
 
     this.isValidating.set(true);
@@ -170,7 +170,7 @@ export class VolunteerFormComponent {
     try {
       const turnos = this.turnosGroup.getRawValue();
       const data: VolunteerFormData = {
-        codigoVoluntario: this.codeControl.value!,
+        codigoVoluntario: String(this.codeControl.value!),
         fila: this.volunteerRow,
         direccion: this.selectedLocation()!.address,
         mapsLink: `https://www.google.com/maps?q=${this.selectedLocation()!.lat},${this.selectedLocation()!.lng}`,
