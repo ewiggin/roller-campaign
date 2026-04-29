@@ -23,6 +23,7 @@ export class GuestFormComponent {
   readonly codeError = signal<string | null>(null);
   readonly submitError = signal<string | null>(null);
   readonly submitSuccess = signal(false);
+  readonly carAvailable = signal(false);
   private guestRow = 0;
 
   codeControl!: FormControl<string | null>;
@@ -96,6 +97,13 @@ export class GuestFormComponent {
       latitud: place?.lat ?? null,
       longitud: place?.lng ?? null,
     });
+  }
+
+  toggleCar() {
+    this.carAvailable.set(!this.carAvailable());
+    if (!this.carAvailable()) {
+      this.form.get('plazasCoche')?.patchValue(0);
+    }
   }
 
   async onSubmit(): Promise<void> {
