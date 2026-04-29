@@ -52,6 +52,7 @@ export class VolunteerFormComponent {
   readonly selectedLocation = signal<PlaceResult | null>(null);
   readonly locationTouched = signal(false);
   readonly initialLocation = signal<PlaceResult | null>(null);
+  readonly carAvailable = signal(false);
 
   readonly dias = DIAS;
   readonly diasLabel = DIAS_LABEL;
@@ -95,7 +96,8 @@ export class VolunteerFormComponent {
   }
 
   async validateCode(): Promise<void> {
-    const codigo = this.codeControl.value != null ? String(this.codeControl.value) : null;
+    const codigo =
+      this.codeControl.value != null ? String(this.codeControl.value) : null;
     if (!codigo) return;
 
     this.isValidating.set(true);
@@ -158,6 +160,13 @@ export class VolunteerFormComponent {
   decrementPlazas(): void {
     const v = this.form.get("plazasCoche")?.value ?? 0;
     if (v > 0) this.form.get("plazasCoche")?.setValue(v - 1);
+  }
+
+  toggleCar() {
+    this.carAvailable.set(!this.carAvailable());
+    if (!this.carAvailable()) {
+      this.form.get("plazasCoche")?.patchValue(0);
+    }
   }
 
   async onSubmit(): Promise<void> {
