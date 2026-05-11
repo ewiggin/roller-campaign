@@ -85,6 +85,7 @@ export class VolunteerFormComponent {
       domingoTarde: [false],
     });
     this.form = fb.group({
+      region: ['', Validators.required],
       plazasCoche: [0],
       turnos: this.turnosGroup,
     });
@@ -120,10 +121,15 @@ export class VolunteerFormComponent {
     }
   }
 
+  isInvalid(field: string): boolean {
+    const control = this.form.get(field);
+    return !!(control?.invalid && control?.touched);
+  }
+
   private applyExistingData(data: ExistingFormData | null): void {
     if (!data) return;
 
-    this.form.patchValue({ plazasCoche: data.plazasCoche });
+    this.form.patchValue({ region: data.region ?? '', plazasCoche: data.plazasCoche });
     this.turnosGroup.patchValue({
       lunesManana: data.lunesManana,
       lunesTarde: data.lunesTarde,
@@ -174,6 +180,7 @@ export class VolunteerFormComponent {
     this.locationTouched.set(true);
     if (this.form.invalid || !this.selectedLocation()) return;
 
+
     this.submitError.set(null);
 
     try {
@@ -181,6 +188,7 @@ export class VolunteerFormComponent {
       const data: VolunteerFormData = {
         codigoVoluntario: String(this.codeControl.value!),
         fila: this.volunteerRow,
+        region: this.form.get('region')!.value,
         direccion: this.selectedLocation()!.address,
         mapsLink: `https://www.google.com/maps?q=${this.selectedLocation()!.lat},${this.selectedLocation()!.lng}`,
         lat: this.selectedLocation()!.lat,

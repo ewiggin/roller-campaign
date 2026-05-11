@@ -35,6 +35,7 @@
  * 26  Maps
  * 27  Lat
  * 28  Lon
+ * 29  Región de participación
  */
 
 var SHEET_NAME = 'Voluntarios';
@@ -65,6 +66,7 @@ var EXTRA_HEADERS = [
   'Maps',
   'Lat',
   'Lon',
+  'Región de participación',
 ];
 
 // Índice de la primera columna extra (base 1)
@@ -141,6 +143,7 @@ function doGet(e) {
           mapsLink:        numCols > 16 ? (extra[16] || '') : '',
           lat:             numCols > 17 ? (parseFloat(extra[17]) || null) : null,
           lon:             numCols > 18 ? (parseFloat(extra[18]) || null) : null,
+          region:          numCols > 19 ? (extra[19] || '') : '',
         };
       }
     }
@@ -234,6 +237,7 @@ function buildExtraColumns(data) {
     data.mapsLink || '',                       // 26  Maps
     data.lat      ?? '',                       // 27  Lat
     data.lon      ?? '',                       // 28  Lon
+    data.region   || '',                       // 29  Región de participación
   ];
 }
 
@@ -267,6 +271,7 @@ function doPostTest() {
         sabadoTarde:      true,
         domingoManana:    false,
         domingoTarde:     false,
+        region:           'Mallorca',
       })
     }
   };
