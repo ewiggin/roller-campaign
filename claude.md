@@ -1,25 +1,54 @@
-# Carritos se van de vacaciones - Formularios
+# form-guests
 
-Este proyecto es un formulario sin backend que debe conectarse a Google Docs para poder leer y escribir un Google Sheet.
+Formulario Angular para invitados del evento "Carritos se van de vacaciones".
+Ver contexto completo en `../CLAUDE.md`.
 
-## Tecnologia de frontend
+## Propósito
 
-El formulario debe ser construido con:
+Invitado introduce su código → valida contra la hoja "Invitados" (columna B) → rellena datos de viaje y hospedaje → guarda en columnas 31–43 del Sheet.
 
-- Angular
-- CSS con tailwindcss
+## Stack
 
-## Base de datos
+- Angular 21, TailwindCSS 4, TypeScript 5.9
+- Backend: Google Apps Script (`apps-script/Code.gs`)
+- Google Maps JS API para picker de ubicación
 
-- Google Sheet utilizando su api oficial
+## Archivos clave
 
-## Los campos que debe pedir el formulario son:
+```
+src/app/components/guest-form/        # Formulario principal
+src/app/components/location-picker/   # Picker Google Maps (reutilizable)
+src/app/services/google-sheets.service.ts  # GuestFormData + GET/POST
+src/environments/environment.ts       # appsScriptUrl + googleMapsApiKey
+apps-script/Code.gs                   # Apps Script (desplegar manualmente)
+```
 
-- Ciudad de origen
-- Plazas de coche disponibles
-- Habla inglés
-- Fecha real de llegada
-- Fecha real de salida
-- Dirección del hospedaje
-  - Posibilidad de poder marcar en google maps el lugar del hospedaje para poder obtener las coordenadas.
+## Campos del formulario
 
+| Campo | Columna Sheet |
+|---|---|
+| Nombre completo | 31 |
+| Ciudad de origen | 32 |
+| Plazas de coche | 33 |
+| Habla inglés | 34 |
+| Llegada real (fecha + hora) | 35–36 |
+| Salida real (fecha + hora) | 37–38 |
+| Dirección hospedaje | 39 |
+| Enlace Google Maps | 40 |
+| Latitud / Longitud | 41–42 |
+| Medio de transporte | 43 |
+
+## Apps Script
+
+- **URL producción:** ver `src/environments/environment.ts`
+- GET `?codigo=XXX` → `{ valid, fila }`
+- POST JSON → escribe columnas 31–43 en la fila del invitado
+- POST usa `mode: 'no-cors'` (respuesta opaca, no se puede leer)
+
+## Comandos
+
+```bash
+npm start     # Dev server localhost:4200
+npm run build # Build producción → dist/form-guests/
+npm test      # Vitest
+```
