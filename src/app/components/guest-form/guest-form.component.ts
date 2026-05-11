@@ -36,6 +36,7 @@ export class GuestFormComponent {
     this.codeControl = fb.control('', Validators.required);
     this.form = fb.group({
       nombreCompleto: ['', Validators.required],
+      region: ['', Validators.required],
       ciudadOrigen: ['', Validators.required],
       plazasCoche: [0],
       hablaIngles: [false],
@@ -133,7 +134,7 @@ export class GuestFormComponent {
       };
       await this.sheetsService.saveRow(data);
       this.submitSuccess.set(true);
-      this.form.reset({ plazasCoche: 0, hablaIngles: false, horaLlegada: '', horaSalida: '', medioTransporte: '', medioTransporteOtro: '' });
+      this.form.reset({ plazasCoche: 0, hablaIngles: false, horaLlegada: '', horaSalida: '', medioTransporte: '', medioTransporteOtro: '', region: '' });
     } catch (err: any) {
       this.submitError.set(err.message ?? 'Error desconocido al enviar');
     }

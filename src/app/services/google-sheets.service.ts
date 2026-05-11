@@ -5,6 +5,7 @@ export interface GuestFormData {
   codigoInvitado: string;
   nombreCompleto: string;
   fila: number;
+  region: string;
   ciudadOrigen: string;
   plazasCoche: number;
   hablaIngles: boolean;

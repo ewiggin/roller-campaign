@@ -50,6 +50,7 @@
  * 41  Latitud
  * 42  Longitud
  * 43  Medio de transporte (formulario)
+ * 44  Región de participación
  */
 
 var SHEET_NAME = 'Invitados';
@@ -71,6 +72,7 @@ var EXTRA_HEADERS = [
   'Latitud',
   'Longitud',
   'Medio de transporte (formulario)',
+  'Región de participación',
 ];
 
 // Índice de la primera columna extra (base 1)
@@ -197,6 +199,7 @@ function buildExtraColumns(data) {
     data.latitud  ?? '',             // 41  Latitud
     data.longitud ?? '',             // 42  Longitud
     transporte,                      // 43  Medio de transporte (formulario)
+    data.region             || '',  // 44  Región de participación
   ];
 }
 

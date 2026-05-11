@@ -110,6 +110,31 @@
             }
           </div>
 
+          <!-- Región de participación -->
+          <div class="space-y-2">
+            <label class="block text-sm font-semibold text-gray-700">
+              Región en la que participas <span class="text-red-500">*</span>
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              @for (region of ['Costa Brava', 'Málaga', 'Mallorca', 'Tenerife']; track region) {
+                <label
+                  class="flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2.5 cursor-pointer text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="form.get('region')?.value === region"
+                  [class.bg-indigo-50]="form.get('region')?.value === region"
+                  [class.text-indigo-700]="form.get('region')?.value === region"
+                  [class.border-gray-300]="form.get('region')?.value !== region"
+                  [class.text-gray-600]="form.get('region')?.value !== region"
+                >
+                  <input type="radio" class="hidden" formControlName="region" [value]="region" />
+                  {{ region }}
+                </label>
+              }
+            </div>
+            @if (isInvalid('region')) {
+              <p class="text-xs text-red-500">Selecciona una región</p>
+            }
+          </div>
+
           <!-- Ciudad de origen -->
           <div class="space-y-1">
             <label class="block text-sm font-semibold text-gray-700">
@@ -202,10 +227,13 @@
           <!-- Medio de transporte -->
           <div class="space-y-2">
             <label class="block text-sm font-semibold text-gray-700">
-              ¿Cómo llegarás a la zona? <span class="text-red-500">*</span>
+              ¿Cómo llegarás a la región asignada? <span class="text-red-500">*</span>
             </label>
             <div class="grid grid-cols-3 gap-2">
-              @for (opcion of ['Coche', 'Tren', 'Avión', 'Autobús', 'Ferri', 'Otra']; track opcion) {
+              @for (
+                opcion of ['Coche', 'Tren', 'Avión', 'Autobús', 'Ferri', 'Otra'];
+                track opcion
+              ) {
                 <label
                   class="flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2.5 cursor-pointer text-sm font-medium transition-colors"
                   [class.border-indigo-500]="form.get('medioTransporte')?.value === opcion"
@@ -242,7 +270,7 @@
           <div class="grid sm:grid-cols-2 gap-4">
             <div class="space-y-1">
               <label class="block text-sm font-semibold text-gray-700">
-                Llegada a la región <span class="text-red-500">*</span>
+                Llegada a la región asignada <span class="text-red-500">*</span>
               </label>
               <input
                 type="date"
