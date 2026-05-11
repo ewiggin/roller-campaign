@@ -36,11 +36,20 @@
  * 29  Necesita alojamiento especial
  * 30  ¿Itinerario completo?
  *
- * Columnas extra añadidas por el formulario (31-34):
- * 31  Ciudad de origen
- * 32  Plazas de coche disponibles
- * 33  Latitud hospedaje
- * 34  Longitud hospedaje
+ * Columnas extra añadidas por el formulario (31-43):
+ * 31  Nombre completo
+ * 32  Ciudad de origen
+ * 33  Plazas de coche disponibles
+ * 34  Habla inglés
+ * 35  Llegada real
+ * 36  Hora de llegada
+ * 37  Salida real
+ * 38  Hora de salida
+ * 39  Dirección del hospedaje
+ * 40  Enlace de Google Maps
+ * 41  Latitud
+ * 42  Longitud
+ * 43  Medio de transporte (formulario)
  */
 
 var SHEET_NAME = 'Invitados';
@@ -61,6 +70,7 @@ var EXTRA_HEADERS = [
   'Enlace de Google Maps',
   'Latitud',
   'Longitud',
+  'Medio de transporte (formulario)',
 ];
 
 // Índice de la primera columna extra (base 1)
@@ -169,6 +179,10 @@ function buildExtraColumns(data) {
     ? 'https://www.google.com/maps?q=' + data.latitud + ',' + data.longitud
     : '';
 
+  var transporte = (data.medioTransporte === 'Otra')
+    ? (data.medioTransporteOtro || 'Otra')
+    : (data.medioTransporte || '');
+
   return [
     data.nombreCompleto      || '',  // 31  Nombre completo
     data.ciudadOrigen        || '',  // 32  Ciudad de origen
@@ -182,6 +196,7 @@ function buildExtraColumns(data) {
     mapsLink,                        // 40  Enlace de Google Maps
     data.latitud  ?? '',             // 41  Latitud
     data.longitud ?? '',             // 42  Longitud
+    transporte,                      // 43  Medio de transporte (formulario)
   ];
 }
 
@@ -209,6 +224,8 @@ function doPostTest() {
         direccionHospedaje:   'Calle Mayor 1, Alicante',
         latitud:              38.3452,
         longitud:             -0.4810,
+        medioTransporte:      'Tren',
+        medioTransporteOtro:  '',
       })
     }
   };

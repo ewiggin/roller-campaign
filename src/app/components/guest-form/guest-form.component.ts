@@ -46,6 +46,8 @@ export class GuestFormComponent {
       direccionHospedaje: ['', Validators.required],
       latitud: [null as number | null],
       longitud: [null as number | null],
+      medioTransporte: ['', Validators.required],
+      medioTransporteOtro: [''],
     });
   }
 
@@ -99,6 +101,16 @@ export class GuestFormComponent {
     });
   }
 
+  get isOtroTransporte(): boolean {
+    return this.form.get('medioTransporte')?.value === 'Otra';
+  }
+
+  onTransporteChange(): void {
+    if (!this.isOtroTransporte) {
+      this.form.get('medioTransporteOtro')?.setValue('');
+    }
+  }
+
   toggleCar() {
     this.carAvailable.set(!this.carAvailable());
     if (!this.carAvailable()) {
@@ -121,7 +133,7 @@ export class GuestFormComponent {
       };
       await this.sheetsService.saveRow(data);
       this.submitSuccess.set(true);
-      this.form.reset({ plazasCoche: 0, hablaIngles: false, horaLlegada: '', horaSalida: '' });
+      this.form.reset({ plazasCoche: 0, hablaIngles: false, horaLlegada: '', horaSalida: '', medioTransporte: '', medioTransporteOtro: '' });
     } catch (err: any) {
       this.submitError.set(err.message ?? 'Error desconocido al enviar');
     }

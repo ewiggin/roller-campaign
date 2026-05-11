@@ -15,6 +15,8 @@ export interface GuestFormData {
   direccionHospedaje: string;
   latitud: number | null;
   longitud: number | null;
+  medioTransporte: string;
+  medioTransporteOtro: string;
 }
 
 @Injectable({ providedIn: 'root' })

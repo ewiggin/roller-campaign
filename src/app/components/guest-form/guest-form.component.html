@@ -131,7 +131,8 @@
           <div class="space-y-1">
             <div>
               <label class="block text-sm font-semibold text-gray-700"
-                >¿Puedes ofrecer tu coche?</label
+                >En la predicación, ¿puedes ofrecer tu coche para llevar a otros invitados que no
+                sean de tu grupo?</label
               >
               <label class="inline-flex items-center gap-3 cursor-pointer select-none">
                 <div
@@ -198,11 +199,50 @@
             </label>
           </div>
 
+          <!-- Medio de transporte -->
+          <div class="space-y-2">
+            <label class="block text-sm font-semibold text-gray-700">
+              ¿Cómo llegarás a la zona? <span class="text-red-500">*</span>
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+              @for (opcion of ['Coche', 'Tren', 'Avión', 'Autobús', 'Ferri', 'Otra']; track opcion) {
+                <label
+                  class="flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2.5 cursor-pointer text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="form.get('medioTransporte')?.value === opcion"
+                  [class.bg-indigo-50]="form.get('medioTransporte')?.value === opcion"
+                  [class.text-indigo-700]="form.get('medioTransporte')?.value === opcion"
+                  [class.border-gray-300]="form.get('medioTransporte')?.value !== opcion"
+                  [class.text-gray-600]="form.get('medioTransporte')?.value !== opcion"
+                >
+                  <input
+                    type="radio"
+                    class="hidden"
+                    formControlName="medioTransporte"
+                    [value]="opcion"
+                    (change)="onTransporteChange()"
+                  />
+                  {{ opcion }}
+                </label>
+              }
+            </div>
+            @if (isInvalid('medioTransporte')) {
+              <p class="text-xs text-red-500">Selecciona una opción</p>
+            }
+            @if (isOtroTransporte) {
+              <input
+                type="text"
+                formControlName="medioTransporteOtro"
+                placeholder="¿Cómo llegarás?"
+                class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+              />
+            }
+          </div>
+
           <!-- Fechas y horas -->
           <div class="grid sm:grid-cols-2 gap-4">
             <div class="space-y-1">
               <label class="block text-sm font-semibold text-gray-700">
-                Llegada <span class="text-red-500">*</span>
+                Llegada a la región <span class="text-red-500">*</span>
               </label>
               <input
                 type="date"
