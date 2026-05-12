@@ -36,6 +36,7 @@ export class GuestFormComponent {
     this.codeControl = fb.control('', Validators.required);
     this.form = fb.group({
       nombreCompleto: ['', Validators.required],
+      email: ['', [Validators.required, Validators.email]],
       region: ['', Validators.required],
       ciudadOrigen: ['', Validators.required],
       plazasCoche: [0],
@@ -49,6 +50,8 @@ export class GuestFormComponent {
       longitud: [null as number | null],
       medioTransporte: ['', Validators.required],
       medioTransporteOtro: [''],
+      numeroVuelo: [''],
+      necesitaTransporteAeropuerto: [false],
     });
   }
 
@@ -106,9 +109,17 @@ export class GuestFormComponent {
     return this.form.get('medioTransporte')?.value === 'Otra';
   }
 
+  get isAvion(): boolean {
+    return this.form.get('medioTransporte')?.value === 'Avión';
+  }
+
   onTransporteChange(): void {
     if (!this.isOtroTransporte) {
       this.form.get('medioTransporteOtro')?.setValue('');
+    }
+    if (!this.isAvion) {
+      this.form.get('numeroVuelo')?.setValue('');
+      this.form.get('necesitaTransporteAeropuerto')?.setValue(false);
     }
   }
 
@@ -134,7 +145,7 @@ export class GuestFormComponent {
       };
       await this.sheetsService.saveRow(data);
       this.submitSuccess.set(true);
-      this.form.reset({ plazasCoche: 0, hablaIngles: false, horaLlegada: '', horaSalida: '', medioTransporte: '', medioTransporteOtro: '', region: '' });
+      this.form.reset({ plazasCoche: 0, hablaIngles: false, horaLlegada: '', horaSalida: '', medioTransporte: '', medioTransporteOtro: '', numeroVuelo: '', necesitaTransporteAeropuerto: false, region: '' });
     } catch (err: any) {
       this.submitError.set(err.message ?? 'Error desconocido al enviar');
     }

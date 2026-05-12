@@ -4,6 +4,7 @@ import { environment } from '../../environments/environment';
 export interface GuestFormData {
   codigoInvitado: string;
   nombreCompleto: string;
+  email: string;
   fila: number;
   region: string;
   ciudadOrigen: string;
@@ -18,6 +19,8 @@ export interface GuestFormData {
   longitud: number | null;
   medioTransporte: string;
   medioTransporteOtro: string;
+  numeroVuelo: string;
+  necesitaTransporteAeropuerto: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

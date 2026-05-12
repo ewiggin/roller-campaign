@@ -51,6 +51,9 @@
  * 42  Longitud
  * 43  Medio de transporte (formulario)
  * 44  Región de participación
+ * 45  Email
+ * 46  Número de vuelo
+ * 47  Necesita transporte del aeropuerto
  */
 
 var SHEET_NAME = 'Invitados';
@@ -73,6 +76,9 @@ var EXTRA_HEADERS = [
   'Longitud',
   'Medio de transporte (formulario)',
   'Región de participación',
+  'Email',
+  'Número de vuelo',
+  'Necesita transporte del aeropuerto',
 ];
 
 // Índice de la primera columna extra (base 1)
@@ -200,6 +206,9 @@ function buildExtraColumns(data) {
     data.longitud ?? '',             // 42  Longitud
     transporte,                      // 43  Medio de transporte (formulario)
     data.region             || '',  // 44  Región de participación
+    data.email              || '',  // 45  Email
+    data.numeroVuelo        || '',  // 46  Número de vuelo
+    data.necesitaTransporteAeropuerto ? 'Sí' : 'No',  // 47  Necesita transporte del aeropuerto
   ];
 }
 
@@ -227,8 +236,11 @@ function doPostTest() {
         direccionHospedaje:   'Calle Mayor 1, Alicante',
         latitud:              38.3452,
         longitud:             -0.4810,
-        medioTransporte:      'Tren',
+        medioTransporte:      'Avión',
         medioTransporteOtro:  '',
+        email:                'ana.garcia@ejemplo.com',
+        numeroVuelo:          'IB3456',
+        necesitaTransporteAeropuerto: true,
       })
     }
   };

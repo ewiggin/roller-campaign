@@ -110,6 +110,23 @@
             }
           </div>
 
+          <!-- Email -->
+          <div class="space-y-1">
+            <label class="block text-sm font-semibold text-gray-700">
+              Email <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              formControlName="email"
+              placeholder="tu@email.com"
+              class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+              [class.border-red-400]="isInvalid('email')"
+            />
+            @if (isInvalid('email')) {
+              <p class="text-xs text-red-500">Introduce un email válido</p>
+            }
+          </div>
+
           <!-- Región de participación -->
           <div class="space-y-2">
             <label class="block text-sm font-semibold text-gray-700">
@@ -263,6 +280,38 @@
                 placeholder="¿Cómo llegarás?"
                 class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
               />
+            }
+            @if (isAvion) {
+              <input
+                type="text"
+                formControlName="numeroVuelo"
+                placeholder="Número de vuelo: Ej. IB3456"
+                class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+              />
+              <label class="block text-sm font-semibold text-gray-700 pt-1">
+                ¿Necesitas transporte del aeropuerto hasta el hotel?
+                <span class="text-xs">(No podemos garantizar que pueda haber transporte)</span>
+              </label>
+              <label class="inline-flex items-center gap-3 cursor-pointer select-none">
+                <div
+                  class="relative w-12 h-6 rounded-full transition-colors duration-200"
+                  [class.bg-indigo-500]="form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.bg-gray-300]="!form.get('necesitaTransporteAeropuerto')?.value"
+                  (click)="
+                    form
+                      .get('necesitaTransporteAeropuerto')
+                      ?.setValue(!form.get('necesitaTransporteAeropuerto')?.value)
+                  "
+                >
+                  <div
+                    class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                    [class.translate-x-6]="form.get('necesitaTransporteAeropuerto')?.value"
+                  ></div>
+                </div>
+                <span class="text-sm text-gray-700">
+                  {{ form.get('necesitaTransporteAeropuerto')?.value ? 'Sí' : 'No' }}
+                </span>
+              </label>
             }
           </div>
 
