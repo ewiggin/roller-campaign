@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment — contains secrets (JWT_SECRET, ADMIN_PASSWORD, DATABASE_URL)
+.env
+.env.local
+.env.*.local
+
+# SQLite dev databases
+*.db
+*.db-shm
+*.db-wal
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
