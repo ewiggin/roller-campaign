@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -23,6 +24,9 @@ export class RegionsService {
   ) {}
 
   async create(dto: CreateRegionDto): Promise<RegionResponseDto> {
+    const exists = await this.regionsRepository.findOne({ where: { name: dto.name } });
+    if (exists) throw new ConflictException('El nombre de región ya existe');
+
     const region = this.regionsRepository.create({
       name: dto.name,
       event_start_date: dto.event_start_date ?? null,

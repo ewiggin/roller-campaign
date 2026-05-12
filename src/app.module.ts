@@ -6,6 +6,8 @@ import { UsersModule } from './users/users.module';
 import { RegionsModule } from './regions/regions.module';
 import { GuestGroupsModule } from './guest-groups/guest-groups.module';
 import { GuestsModule } from './guests/guests.module';
+import { VolunteersModule } from './volunteers/volunteers.module';
+import { TurnsModule } from './turns/turns.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { GuestsModule } from './guests/guests.module';
     RegionsModule,
     GuestGroupsModule,
     GuestsModule,
+    VolunteersModule,
+    TurnsModule,
   ],
 })
 export class AppModule {}
