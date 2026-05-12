@@ -19,17 +19,17 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { TurnsService } from './turns.service';
-import { CreateTurnDto } from './dto/create-turn.dto';
-import { UpdateTurnDto } from './dto/update-turn.dto';
-import { TurnListQueryDto } from './dto/turn-list-query.dto';
-import { TurnResponseDto } from './dto/turn-response.dto';
-import { AssignVolunteerDto } from './dto/assign-volunteer.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { AssignVolunteerDto } from './dto/assign-volunteer.dto';
+import { CreateTurnDto } from './dto/create-turn.dto';
+import { TurnListQueryDto } from './dto/turn-list-query.dto';
+import { TurnResponseDto } from './dto/turn-response.dto';
+import { UpdateTurnDto } from './dto/update-turn.dto';
+import { TurnsService } from './turns.service';
 
 @ApiTags('turns')
 @ApiBearerAuth()
@@ -41,12 +41,15 @@ export class TurnsController {
   @Post()
   @Roles('region_admin')
   @ApiCreatedResponse({ type: TurnResponseDto })
-  create(@Body() dto: CreateTurnDto, @CurrentUser() user: JwtPayload): Promise<TurnResponseDto> {
+  create(
+    @Body() dto: CreateTurnDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<TurnResponseDto> {
     return this.svc.create(dto, user);
   }
 
   @Get()
-  @Roles('region_admin')
+  @Roles('region_admin', 'volunteer')
   @ApiOkResponse({ description: 'Lista paginada de turnos' })
   findAll(@Query() query: TurnListQueryDto, @CurrentUser() user: JwtPayload) {
     return this.svc.findAll(query, user);
@@ -55,7 +58,10 @@ export class TurnsController {
   @Get(':id')
   @Roles('region_admin')
   @ApiOkResponse({ type: TurnResponseDto })
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<TurnResponseDto> {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<TurnResponseDto> {
     return this.svc.findOne(id, user);
   }
 
@@ -74,7 +80,10 @@ export class TurnsController {
   @Roles('region_admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<void> {
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
     return this.svc.remove(id, user);
   }
 
