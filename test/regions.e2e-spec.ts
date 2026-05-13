@@ -38,17 +38,12 @@ describe('Regions (e2e)', () => {
       expect(res.body.id).toBeDefined();
     });
 
-    it('returns 409 for duplicate region name', async () => {
-      try {
-        await request(server)
-          .post('/api/regions')
-          .set('Authorization', auth())
-          .send({ name: 'Madrid Norte' })
-          .expect(500); // TypeORM unique constraint
-      } catch {
-        // nothing
-      }
-    });
+    it('returns 409 for duplicate region name', () =>
+      request(server)
+        .post('/api/regions')
+        .set('Authorization', auth())
+        .send({ name: 'Madrid Norte' })
+        .expect(409));
 
     it('returns 400 for missing name', () =>
       request(server)

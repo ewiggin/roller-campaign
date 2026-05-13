@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Region } from '../../regions/entities/region.entity';
 import type { Guest } from '../../guests/entities/guest.entity';
+import type { Host } from '../../hosts/entities/host.entity';
 
 @Entity('guest_groups')
 export class GuestGroup {
@@ -25,6 +26,13 @@ export class GuestGroup {
 
   @Column()
   region_id: string;
+
+  @ManyToOne('Host', { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'host_id' })
+  host: Host;
+
+  @Column({ nullable: true, default: null })
+  host_id: string | null;
 
   @OneToMany('Guest', (guest: Guest) => guest.group)
   guests: Guest[];

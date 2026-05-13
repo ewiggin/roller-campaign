@@ -7,13 +7,16 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as XLSX from 'xlsx';
 import { GuestGroup } from './entities/guest-group.entity';
+import { Host } from '../hosts/entities/host.entity';
 import { User } from '../users/entities/user.entity';
 import { Region } from '../regions/entities/region.entity';
 import { Guest } from '../guests/entities/guest.entity';
 import { CreateGuestGroupDto } from './dto/create-guest-group.dto';
 import { UpdateGuestGroupDto } from './dto/update-guest-group.dto';
 import { GuestGroupResponseDto } from './dto/guest-group-response.dto';
+import { ImportGroupResponseDto } from './dto/import-group-response.dto';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Injectable()
@@ -27,6 +30,8 @@ export class GuestGroupsService {
     private readonly regionsRepository: Repository<Region>,
     @InjectRepository(Guest)
     private readonly guestsRepository: Repository<Guest>,
+    @InjectRepository(Host)
+    private readonly hostsRepository: Repository<Host>,
   ) {}
 
   async create(dto: CreateGuestGroupDto, currentUser: JwtPayload): Promise<GuestGroupResponseDto> {
@@ -121,6 +126,54 @@ export class GuestGroupsService {
     await this.guestsRepository.update({ id: guestId }, { is_group_contact: true });
   }
 
+  async importFromExcel(
+    buffer: Buffer,
+    regionId: string,
+    currentUser: JwtPayload,
+  ): Promise<ImportGroupResponseDto> {
+    await this.assertRegionAccess(regionId, currentUser);
+
+    const region = await this.regionsRepository.findOne({ where: { id: regionId } });
+    if (!region) throw new NotFoundException('Región no encontrada');
+
+    const wb = XLSX.read(buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
+
+    const codes = rows
+      .map((r) => {
+        const raw = r['group_code'] ?? r['Group Code'] ?? r['Código de Grupo'] ?? Object.values(r)[0];
+        if (typeof raw !== 'string') return null;
+        const code = raw.trim();
+        return code.includes('-') ? code : (code.match(/.{1,4}/g)!.join('-'));
+      })
+      .filter((c): c is string => !!c);
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const code of codes) {
+      const exists = await this.groupsRepository.findOne({ where: { group_code: code } });
+      if (exists) {
+        skipped++;
+        continue;
+      }
+      await this.groupsRepository.save(
+        this.groupsRepository.create({ group_code: code, region_id: regionId }),
+      );
+      created++;
+    }
+
+    return { created, skipped, total: codes.length };
+  }
+
+  generateTemplate(): Buffer {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([['group_code'], ['GRP-001'], ['GRP-002']]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Groups');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
   private async assertRegionAccess(regionId: string, currentUser: JwtPayload): Promise<void> {
     if (currentUser.role === 'superadmin') return;
     if (currentUser.role === 'region_admin') {
@@ -135,11 +188,35 @@ export class GuestGroupsService {
     throw new ForbiddenException();
   }
 
-  toDto(group: GuestGroup, guestCount: number): GuestGroupResponseDto {
+  async assignHost(id: string, hostId: string | null, currentUser: JwtPayload): Promise<GuestGroupResponseDto> {
+    const group = await this.groupsRepository.findOne({ where: { id } });
+    if (!group) throw new NotFoundException('Grupo no encontrado');
+    await this.assertRegionAccess(group.region_id, currentUser);
+
+    if (hostId !== null) {
+      const host = await this.hostsRepository.findOne({ where: { id: hostId } });
+      if (!host) throw new NotFoundException('Congregación no encontrada');
+      if (host.region_id !== group.region_id) {
+        throw new BadRequestException('La congregación no pertenece a la misma región que el grupo');
+      }
+    }
+
+    group.host_id = hostId;
+    const saved = await this.groupsRepository.save(group);
+    const guestCount = await this.guestsRepository.count({ where: { group_id: id } });
+    const hostName = hostId
+      ? (await this.hostsRepository.findOne({ where: { id: hostId } }))?.name ?? null
+      : null;
+    return this.toDto(saved, guestCount, hostName);
+  }
+
+  toDto(group: GuestGroup, guestCount: number, hostName?: string | null): GuestGroupResponseDto {
     const dto = new GuestGroupResponseDto();
     dto.id = group.id;
     dto.group_code = group.group_code;
     dto.region_id = group.region_id;
+    dto.host_id = group.host_id ?? null;
+    dto.host_name = hostName ?? null;
     dto.guest_count = guestCount;
     dto.created_at = group.created_at;
     dto.updated_at = group.updated_at;
