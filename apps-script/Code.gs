@@ -86,8 +86,9 @@ var EXTRA_HEADERS_START_COL = 31;
 
 /**
  * GET ?codigo=XXX
- * Devuelve { valid: true } si el código existe en la columna 2,
+ * Devuelve { valid: true, fila: N } si el código existe en la columna 2,
  * { valid: false } si no existe.
+ * El mapa código→fila se cachea 5 minutos para evitar escanear el Sheet en cada petición.
  */
 function doGet(e) {
   try {
@@ -96,26 +97,38 @@ function doGet(e) {
       return jsonResponse({ valid: false, error: 'Falta el parámetro codigo' });
     }
 
-    var sheet = SpreadsheetApp
-      .getActiveSpreadsheet()
-      .getSheetByName(SHEET_NAME);
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get('codigosMap');
+    var codigosMap;
 
-    if (!sheet) {
-      return jsonResponse({ valid: false, error: 'Hoja no encontrada' });
+    if (cached) {
+      codigosMap = JSON.parse(cached);
+    } else {
+      var sheet = SpreadsheetApp
+        .getActiveSpreadsheet()
+        .getSheetByName(SHEET_NAME);
+
+      if (!sheet) {
+        return jsonResponse({ valid: false, error: 'Hoja no encontrada' });
+      }
+
+      var lastRow = sheet.getLastRow();
+      var valores = sheet
+        .getRange(2, COL_CODIGO_INVITADO, lastRow - 1, 1)
+        .getValues();
+
+      codigosMap = {};
+      for (var i = 0; i < valores.length; i++) {
+        var c = valores[i][0].toString().trim();
+        if (c) codigosMap[c] = i + 2;
+      }
+      cache.put('codigosMap', JSON.stringify(codigosMap), 300);
     }
 
-    var lastRow  = sheet.getLastRow();
-    var codigos  = sheet
-      .getRange(2, COL_CODIGO_INVITADO, lastRow - 1, 1)
-      .getValues()
-      .map(function(r) { return r[0].toString().trim(); });
-
-    var indice = codigos.indexOf(codigo.trim());
-    if (indice === -1) {
+    var fila = codigosMap[codigo.trim()];
+    if (!fila) {
       return jsonResponse({ valid: false });
     }
-    // +2 porque el array empieza en la fila 2 (fila 1 son cabeceras)
-    var fila = indice + 2;
     return jsonResponse({ valid: true, fila: fila });
 
   } catch (err) {
