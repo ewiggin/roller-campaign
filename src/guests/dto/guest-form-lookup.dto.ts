@@ -19,6 +19,9 @@ export class GuestFormLookupResponseDto {
   @ApiProperty({ example: false })
   speaks_english: boolean;
 
+  @ApiPropertyOptional({ example: ['Inglés', 'Catalán'], nullable: true })
+  other_languages: string[] | null;
+
   @ApiPropertyOptional({ example: '2024-06-14', nullable: true })
   real_arrival: string | null;
 

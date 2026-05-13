@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsEmail,
   IsInt,
@@ -30,6 +31,12 @@ export class GuestFormSubmitDto {
   @ApiProperty({ example: false })
   @IsBoolean()
   speaks_english: boolean;
+
+  @ApiPropertyOptional({ example: ['Inglés', 'Catalán'], nullable: true })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  other_languages?: string[] | null;
 
   @ApiProperty({ example: '2024-06-14' })
   @IsString()
