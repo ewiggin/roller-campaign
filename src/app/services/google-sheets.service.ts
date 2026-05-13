@@ -4,6 +4,7 @@ import { environment } from '../../environments/environment';
 export interface VolunteerFormData {
   codigoVoluntario: string;
   fila: number;
+  email: string;
   region: string;
   direccion: string;
   mapsLink: string;
@@ -28,6 +29,7 @@ export interface VolunteerFormData {
 
 export interface ExistingFormData {
   region: string;
+  email: string;
   plazasCoche: number;
   direccion: string;
   mapsLink: string;

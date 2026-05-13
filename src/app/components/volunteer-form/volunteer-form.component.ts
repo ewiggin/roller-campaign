@@ -85,6 +85,7 @@ export class VolunteerFormComponent {
       domingoTarde: [false],
     });
     this.form = fb.group({
+      email: ['', [Validators.required, Validators.email]],
       region: ['', Validators.required],
       plazasCoche: [0],
       turnos: this.turnosGroup,
@@ -129,7 +130,7 @@ export class VolunteerFormComponent {
   private applyExistingData(data: ExistingFormData | null): void {
     if (!data) return;
 
-    this.form.patchValue({ region: data.region ?? '', plazasCoche: data.plazasCoche });
+    this.form.patchValue({ email: data.email ?? '', region: data.region ?? '', plazasCoche: data.plazasCoche });
     this.turnosGroup.patchValue({
       lunesManana: data.lunesManana,
       lunesTarde: data.lunesTarde,
@@ -188,6 +189,7 @@ export class VolunteerFormComponent {
       const data: VolunteerFormData = {
         codigoVoluntario: String(this.codeControl.value!),
         fila: this.volunteerRow,
+        email: this.form.get('email')!.value,
         region: this.form.get('region')!.value,
         direccion: this.selectedLocation()!.address,
         mapsLink: `https://www.google.com/maps?q=${this.selectedLocation()!.lat},${this.selectedLocation()!.lng}`,

@@ -36,6 +36,7 @@
  * 27  Lat
  * 28  Lon
  * 29  Región de participación
+ * 30  Email
  */
 
 var SHEET_NAME = 'Voluntarios';
@@ -67,6 +68,7 @@ var EXTRA_HEADERS = [
   'Lat',
   'Lon',
   'Región de participación',
+  'Email',
 ];
 
 // Índice de la primera columna extra (base 1)
@@ -74,8 +76,9 @@ var EXTRA_HEADERS_START_COL = 10;
 
 /**
  * GET ?codigo=XXX
- * Devuelve { valid: true, fila: N, nombre: '...' } si el código existe,
+ * Devuelve { valid: true, fila: N, nombre: '...', formData } si el código existe,
  * { valid: false } si no existe.
+ * El mapa código→{fila,nombre} se cachea 5 minutos para evitar escanear el Sheet en cada petición.
  */
 function doGet(e) {
   try {
@@ -84,37 +87,57 @@ function doGet(e) {
       return jsonResponse({ valid: false, error: 'Falta el parámetro codigo' });
     }
 
-    var sheet = SpreadsheetApp
-      .getActiveSpreadsheet()
-      .getSheetByName(SHEET_NAME);
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get('voluntariosMap');
+    var voluntariosMap;
+    var sheet;
 
-    if (!sheet) {
-      return jsonResponse({ valid: false, error: 'Hoja no encontrada: ' + SHEET_NAME });
-    }
+    if (cached) {
+      voluntariosMap = JSON.parse(cached);
+    } else {
+      sheet = SpreadsheetApp
+        .getActiveSpreadsheet()
+        .getSheetByName(SHEET_NAME);
 
-    var lastRow = sheet.getLastRow();
-    if (lastRow < 2) {
-      return jsonResponse({ valid: false });
-    }
-
-    var datos = sheet
-      .getRange(2, COL_CODIGO_VOLUNTARIO, lastRow - 1, COL_NOMBRE)
-      .getValues();
-
-    var indice = -1;
-    for (var i = 0; i < datos.length; i++) {
-      if (datos[i][COL_CODIGO_VOLUNTARIO - 1].toString().trim() === codigo.trim()) {
-        indice = i;
-        break;
+      if (!sheet) {
+        return jsonResponse({ valid: false, error: 'Hoja no encontrada: ' + SHEET_NAME });
       }
+
+      var lastRow = sheet.getLastRow();
+      voluntariosMap = {};
+
+      if (lastRow >= 2) {
+        var datos = sheet
+          .getRange(2, COL_CODIGO_VOLUNTARIO, lastRow - 1, COL_NOMBRE)
+          .getValues();
+
+        for (var i = 0; i < datos.length; i++) {
+          var c = datos[i][COL_CODIGO_VOLUNTARIO - 1].toString().trim();
+          if (c) {
+            voluntariosMap[c] = {
+              fila:   i + 2,
+              nombre: datos[i][COL_NOMBRE - 1].toString().trim(),
+            };
+          }
+        }
+      }
+      cache.put('voluntariosMap', JSON.stringify(voluntariosMap), 300);
     }
 
-    if (indice === -1) {
+    var entry = voluntariosMap[codigo.trim()];
+    if (!entry) {
       return jsonResponse({ valid: false });
     }
 
-    var fila = indice + 2;
-    var nombre = datos[indice][COL_NOMBRE - 1].toString().trim();
+    var fila   = entry.fila;
+    var nombre = entry.nombre;
+
+    // formData: lectura fresca de la fila concreta del voluntario
+    if (!sheet) {
+      sheet = SpreadsheetApp
+        .getActiveSpreadsheet()
+        .getSheetByName(SHEET_NAME);
+    }
 
     var formData = null;
     var lastCol = sheet.getLastColumn();
@@ -144,6 +167,7 @@ function doGet(e) {
           lat:             numCols > 17 ? (parseFloat(extra[17]) || null) : null,
           lon:             numCols > 18 ? (parseFloat(extra[18]) || null) : null,
           region:          numCols > 19 ? (extra[19] || '') : '',
+          email:           numCols > 20 ? (extra[20] || '') : '',
         };
       }
     }
@@ -238,6 +262,7 @@ function buildExtraColumns(data) {
     data.lat      ?? '',                       // 27  Lat
     data.lon      ?? '',                       // 28  Lon
     data.region   || '',                       // 29  Región de participación
+    data.email    || '',                       // 30  Email
   ];
 }
 
@@ -272,6 +297,7 @@ function doPostTest() {
         domingoManana:    false,
         domingoTarde:     false,
         region:           'Mallorca',
+        email:            'voluntario@ejemplo.com',
       })
     }
   };
