@@ -2,13 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { RegionsModule } from './regions/regions.module';
 import { GuestGroupsModule } from './guest-groups/guest-groups.module';
 import { GuestsModule } from './guests/guests.module';
-import { VolunteersModule } from './volunteers/volunteers.module';
-import { TurnsModule } from './turns/turns.module';
 import { HostsModule } from './hosts/hosts.module';
+import { RegionsModule } from './regions/regions.module';
+import { TurnsModule } from './turns/turns.module';
+import { UsersModule } from './users/users.module';
+import { VolunteersModule } from './volunteers/volunteers.module';
 
 @Module({
   imports: [
