@@ -23,6 +23,7 @@ import { CreateRegionDto } from './dto/create-region.dto';
 import { UpdateRegionDto } from './dto/update-region.dto';
 import { AddCoordinatorDto } from './dto/add-coordinator.dto';
 import { RegionResponseDto } from './dto/region-response.dto';
+import { RegionStatsDto } from './dto/region-stats.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -41,6 +42,13 @@ export class RegionsController {
   @ApiCreatedResponse({ type: RegionResponseDto })
   create(@Body() dto: CreateRegionDto): Promise<RegionResponseDto> {
     return this.regionsService.create(dto);
+  }
+
+  @Get('stats')
+  @Roles('region_admin')
+  @ApiOkResponse({ type: [RegionStatsDto] })
+  getStats(@CurrentUser() user: JwtPayload): Promise<RegionStatsDto[]> {
+    return this.regionsService.getStats(user);
   }
 
   @Get()

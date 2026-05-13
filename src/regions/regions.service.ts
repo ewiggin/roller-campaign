@@ -6,12 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Region } from './entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateRegionDto } from './dto/create-region.dto';
 import { UpdateRegionDto } from './dto/update-region.dto';
 import { RegionResponseDto } from './dto/region-response.dto';
+import { RegionStatsDto } from './dto/region-stats.dto';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class RegionsService {
     private readonly regionsRepository: Repository<Region>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(dto: CreateRegionDto): Promise<RegionResponseDto> {
@@ -146,6 +148,71 @@ export class RegionsService {
       return;
     }
     throw new ForbiddenException();
+  }
+
+  async getStats(currentUser: JwtPayload): Promise<RegionStatsDto[]> {
+    // Resolve which regions the user can see
+    let regionIds: string[] | null = null;
+    if (currentUser.role === 'region_admin') {
+      const user = await this.usersRepository.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      regionIds = (user?.regions ?? []).map((r) => r.id);
+      if (regionIds.length === 0) return [];
+    } else if (currentUser.role !== 'superadmin') {
+      return [];
+    }
+
+    const regions = regionIds
+      ? await this.regionsRepository.find({ where: { id: In(regionIds) } })
+      : await this.regionsRepository.find();
+
+    if (regions.length === 0) return [];
+
+    const ids = regions.map((r) => r.id);
+    const isPostgres = this.dataSource.options.type === 'postgres';
+    const placeholders = ids.map((_, i) => isPostgres ? `$${i + 1}` : '?').join(', ');
+
+    // Single query: counts per region using CTEs
+    const rows = await this.dataSource.query<Array<{
+      region_id: string;
+      guest_count: string;
+      volunteer_count: string;
+      turn_count: string;
+      covered_turns: string;
+    }>>(
+      `SELECT
+        r.id AS region_id,
+        COUNT(DISTINCT g.id) AS guest_count,
+        COUNT(DISTINCT vr."volunteersId") AS volunteer_count,
+        COUNT(DISTINCT t.id) AS turn_count,
+        COUNT(DISTINCT CASE WHEN tv."turnsId" IS NOT NULL THEN t.id END) AS covered_turns
+      FROM regions r
+      LEFT JOIN guests g ON g.region_id = r.id
+      LEFT JOIN volunteer_regions vr ON vr."regionsId" = r.id
+      LEFT JOIN turns t ON t.region_id = r.id
+      LEFT JOIN turn_volunteers tv ON tv."turnsId" = t.id
+      WHERE r.id IN (${placeholders})
+      GROUP BY r.id`,
+      ids,
+    );
+
+    const statsMap = new Map(rows.map((row) => [row.region_id, row]));
+
+    return regions.map((r) => {
+      const s = statsMap.get(r.id);
+      const dto = new RegionStatsDto();
+      dto.region_id = r.id;
+      dto.region_name = r.name;
+      dto.event_start_date = r.event_start_date;
+      dto.event_end_date = r.event_end_date;
+      dto.guest_count = parseInt(s?.guest_count ?? '0', 10);
+      dto.volunteer_count = parseInt(s?.volunteer_count ?? '0', 10);
+      dto.turn_count = parseInt(s?.turn_count ?? '0', 10);
+      dto.covered_turns = parseInt(s?.covered_turns ?? '0', 10);
+      return dto;
+    }).sort((a, b) => a.region_name.localeCompare(b.region_name));
   }
 
   private toDto(region: Region): RegionResponseDto {

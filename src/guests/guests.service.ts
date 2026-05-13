@@ -20,6 +20,8 @@ import { UpdateGuestDto } from './dto/update-guest.dto';
 import { GuestResponseDto } from './dto/guest-response.dto';
 import { GuestListQueryDto } from './dto/guest-list-query.dto';
 import { GuestMeResponseDto, GuestMeRegionDto, GuestTokenResponseDto } from './dto/guest-me-response.dto';
+import { GuestFormLookupResponseDto } from './dto/guest-form-lookup.dto';
+import { GuestFormSubmitDto } from './dto/guest-form-submit.dto';
 import {
   ImportGuestRowDto,
   ImportParseResponseDto,
@@ -210,7 +212,7 @@ export class GuestsService {
     return this.toDto(saved);
   }
 
-  parseExcel(buffer: Buffer, regionId: string): ImportParseResponseDto {
+  parseExcel(buffer: Buffer, regionId?: string): ImportParseResponseDto {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { raw: false, defval: null });
@@ -224,8 +226,8 @@ export class GuestsService {
       const rowNum = i + 2;
       const rowErrors: string[] = [];
 
-      const guest_code = this.parseString(row['guest_code']);
-      const group_code = this.parseString(row['group_code']);
+      const guest_code = this.normalizeCode(this.parseString(row['guest_code']));
+      const group_code = this.normalizeCode(this.parseString(row['group_code']));
       const full_name = this.parseString(row['full_name']);
 
       if (!guest_code) rowErrors.push('guest_code es obligatorio');
@@ -316,6 +318,7 @@ export class GuestsService {
       valid,
       errors,
       duplicates: [],
+      duplicateRows: [],
       summary: {
         total: rows.length,
         valid: valid.length,
@@ -325,7 +328,7 @@ export class GuestsService {
     };
   }
 
-  async parseWithDuplicates(buffer: Buffer, regionId: string): Promise<ImportParseResponseDto> {
+  async parseWithDuplicates(buffer: Buffer, regionId?: string): Promise<ImportParseResponseDto> {
     const preview = this.parseExcel(buffer, regionId);
 
     if (preview.valid.length > 0) {
@@ -336,8 +339,9 @@ export class GuestsService {
       });
       const existingCodes = new Set(existing.map((g) => g.guest_code));
 
-      const duplicates = preview.valid.filter((r) => existingCodes.has(r.guest_code));
-      preview.duplicates = duplicates.map((r) => r.guest_code);
+      const duplicateRows = preview.valid.filter((r) => existingCodes.has(r.guest_code));
+      preview.duplicates = duplicateRows.map((r) => r.guest_code);
+      preview.duplicateRows = duplicateRows;
       preview.valid = preview.valid.filter((r) => !existingCodes.has(r.guest_code));
 
       preview.summary.duplicates = preview.duplicates.length;
@@ -348,88 +352,146 @@ export class GuestsService {
   }
 
   async commitImport(dto: ImportCommitDto, currentUser: JwtPayload): Promise<ImportCommitResponseDto> {
-    await this.assertRegionAccess(dto.regionId, currentUser);
-
-    const region = await this.regionsRepository.findOne({ where: { id: dto.regionId } });
-    if (!region) throw new NotFoundException('Región no encontrada');
-
     const groupCache = new Map<string, GuestGroup>();
     let createdGroups = 0;
     let createdGuests = 0;
+    let updatedGuests = 0;
+    let groupsNotFound = 0;
+    const notFoundRows: ImportGuestRowDto[] = [];
 
-    for (const row of dto.rows) {
-      let group = groupCache.get(row.group_code);
-      if (!group) {
-        const found = await this.groupsRepository.findOne({ where: { group_code: row.group_code } });
-        if (!found) {
-          group = await this.groupsRepository.save(
+    if (dto.regionId) {
+      // ── Mode A: fixed region ──────────────────────────────────────────────
+      await this.assertRegionAccess(dto.regionId, currentUser);
+      const region = await this.regionsRepository.findOne({ where: { id: dto.regionId } });
+      if (!region) throw new NotFoundException('Región no encontrada');
+
+      for (const row of dto.rows) {
+        let group = groupCache.get(row.group_code);
+        if (!group) {
+          const found = await this.groupsRepository.findOne({ where: { group_code: row.group_code } });
+          group = found ?? await this.groupsRepository.save(
             this.groupsRepository.create({ group_code: row.group_code, region_id: dto.regionId }),
           );
-          createdGroups++;
-        } else {
-          group = found;
+          if (!found) createdGroups++;
+          groupCache.set(row.group_code, group);
         }
-        groupCache.set(row.group_code, group);
+
+        const exists = await this.guestsRepository.findOne({ where: { guest_code: row.guest_code } });
+        if (exists) continue;
+
+        await this.guestsRepository.save(
+          this.guestsRepository.create({ ...this.rowToGuestFields(row), group_id: group.id, region_id: dto.regionId }),
+        );
+        createdGuests++;
       }
+    } else {
+      // ── Mode B: derive region from group ─────────────────────────────────
+      for (const row of dto.rows) {
+        let group = groupCache.get(row.group_code);
+        if (!group) {
+          const found = await this.groupsRepository.findOne({ where: { group_code: row.group_code } });
+          if (!found) {
+            groupsNotFound++;
+            notFoundRows.push(row);
+            continue;
+          }
+          if (!await this.hasRegionAccess(found.region_id, currentUser)) continue;
+          group = found;
+          groupCache.set(row.group_code, group);
+        }
 
-      const exists = await this.guestsRepository.findOne({ where: { guest_code: row.guest_code } });
-      if (exists) continue;
+        const exists = await this.guestsRepository.findOne({ where: { guest_code: row.guest_code } });
+        if (exists) continue;
 
-      await this.guestsRepository.save(
-        this.guestsRepository.create({
-          guest_code: row.guest_code,
-          full_name: row.full_name,
-          group_id: group.id,
-          region_id: dto.regionId,
-          is_minor: row.is_minor ?? false,
-          status: (row.status as Guest['status']) ?? 'pending',
-          branch: row.branch ?? null,
-          is_group_contact: row.is_group_contact ?? false,
-          native_language: row.native_language ?? null,
-          other_languages: row.other_languages ?? null,
-          speaks_english: row.speaks_english ?? false,
-          is_special_servant: row.is_special_servant ?? false,
-          origin_city: row.origin_city ?? null,
-          email: row.email ?? null,
-          available_from: row.available_from ?? null,
-          available_to: row.available_to ?? null,
-          arrival_transport: (row.arrival_transport as Guest['arrival_transport']) ?? null,
-          arrival_other_transport: row.arrival_other_transport ?? null,
-          arrival_date: row.arrival_date ?? null,
-          arrival_time: row.arrival_time ?? null,
-          arrival_place: row.arrival_place ?? null,
-          arrival_airport: row.arrival_airport ?? null,
-          arrival_airline: row.arrival_airline ?? null,
-          arrival_flight: row.arrival_flight ?? null,
-          real_arrival: row.real_arrival ?? null,
-          real_arrival_time: row.real_arrival_time ?? null,
-          needs_airport_transfer: row.needs_airport_transfer ?? false,
-          departure_transport: (row.departure_transport as Guest['departure_transport']) ?? null,
-          departure_other_transport: row.departure_other_transport ?? null,
-          departure_date: row.departure_date ?? null,
-          departure_time: row.departure_time ?? null,
-          departure_place: row.departure_place ?? null,
-          departure_airport: row.departure_airport ?? null,
-          departure_airline: row.departure_airline ?? null,
-          departure_flight: row.departure_flight ?? null,
-          real_departure: row.real_departure ?? null,
-          real_departure_time: row.real_departure_time ?? null,
-          accommodation: row.accommodation ?? null,
-          checkin_date: row.checkin_date ?? null,
-          checkout_date: row.checkout_date ?? null,
-          needs_special_accommodation: row.needs_special_accommodation ?? false,
-          hosting_address: row.hosting_address ?? null,
-          maps_link: row.maps_link ?? null,
-          lat: row.lat ?? null,
-          lng: row.lng ?? null,
-          transport_mode: row.transport_mode ?? null,
-          car_seats: row.car_seats ?? null,
-        }),
-      );
-      createdGuests++;
+        await this.guestsRepository.save(
+          this.guestsRepository.create({ ...this.rowToGuestFields(row), group_id: group.id, region_id: group.region_id }),
+        );
+        createdGuests++;
+      }
     }
 
-    return { created_guests: createdGuests, created_groups: createdGroups, total: dto.rows.length };
+    // ── Updates (updateRows) ──────────────────────────────────────────────
+    for (const row of dto.updateRows ?? []) {
+      const guest = await this.guestsRepository.findOne({ where: { guest_code: row.guest_code } });
+      if (!guest) continue;
+      if (!await this.hasRegionAccess(guest.region_id, currentUser)) continue;
+
+      // Resolve new group if group_code changed, within the same region
+      let newGroupId = guest.group_id;
+      if (row.group_code) {
+        let group = groupCache.get(row.group_code);
+        if (!group) {
+          const found = await this.groupsRepository.findOne({ where: { group_code: row.group_code } });
+          if (found && found.region_id === guest.region_id) {
+            group = found;
+            groupCache.set(row.group_code, group);
+          }
+        }
+        if (group) newGroupId = group.id;
+      }
+
+      Object.assign(guest, this.rowToGuestFields(row), { group_id: newGroupId });
+      await this.guestsRepository.save(guest);
+      updatedGuests++;
+    }
+
+    return {
+      created_guests: createdGuests,
+      updated_guests: updatedGuests,
+      created_groups: createdGroups,
+      total: dto.rows.length + (dto.updateRows?.length ?? 0),
+      ...(dto.regionId ? {} : { groups_not_found: groupsNotFound, groups_not_found_rows: notFoundRows }),
+    };
+  }
+
+  private rowToGuestFields(row: ImportGuestRowDto) {
+    return {
+      guest_code: row.guest_code,
+      full_name: row.full_name,
+      is_minor: row.is_minor ?? false,
+      status: (row.status as Guest['status']) ?? 'pending',
+      branch: row.branch ?? null,
+      is_group_contact: row.is_group_contact ?? false,
+      native_language: row.native_language ?? null,
+      other_languages: row.other_languages ?? null,
+      speaks_english: row.speaks_english ?? false,
+      is_special_servant: row.is_special_servant ?? false,
+      origin_city: row.origin_city ?? null,
+      email: row.email ?? null,
+      available_from: row.available_from ?? null,
+      available_to: row.available_to ?? null,
+      arrival_transport: (row.arrival_transport as Guest['arrival_transport']) ?? null,
+      arrival_other_transport: row.arrival_other_transport ?? null,
+      arrival_date: row.arrival_date ?? null,
+      arrival_time: row.arrival_time ?? null,
+      arrival_place: row.arrival_place ?? null,
+      arrival_airport: row.arrival_airport ?? null,
+      arrival_airline: row.arrival_airline ?? null,
+      arrival_flight: row.arrival_flight ?? null,
+      real_arrival: row.real_arrival ?? null,
+      real_arrival_time: row.real_arrival_time ?? null,
+      needs_airport_transfer: row.needs_airport_transfer ?? false,
+      departure_transport: (row.departure_transport as Guest['departure_transport']) ?? null,
+      departure_other_transport: row.departure_other_transport ?? null,
+      departure_date: row.departure_date ?? null,
+      departure_time: row.departure_time ?? null,
+      departure_place: row.departure_place ?? null,
+      departure_airport: row.departure_airport ?? null,
+      departure_airline: row.departure_airline ?? null,
+      departure_flight: row.departure_flight ?? null,
+      real_departure: row.real_departure ?? null,
+      real_departure_time: row.real_departure_time ?? null,
+      accommodation: row.accommodation ?? null,
+      checkin_date: row.checkin_date ?? null,
+      checkout_date: row.checkout_date ?? null,
+      needs_special_accommodation: row.needs_special_accommodation ?? false,
+      hosting_address: row.hosting_address ?? null,
+      maps_link: row.maps_link ?? null,
+      lat: row.lat ?? null,
+      lng: row.lng ?? null,
+      transport_mode: row.transport_mode ?? null,
+      car_seats: row.car_seats ?? null,
+    };
   }
 
   async generateAccessToken(guestId: string, currentUser: JwtPayload): Promise<GuestTokenResponseDto> {
@@ -479,6 +541,21 @@ export class GuestsService {
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
+  exportRowsToExcel(rows: ImportGuestRowDto[]): Buffer {
+    const headers = Object.keys(EXCEL_COLUMNS);
+    const data = rows.map((row) =>
+      headers.map((h) => {
+        const key = EXCEL_COLUMNS[h] as keyof ImportGuestRowDto;
+        const val = row[key];
+        return Array.isArray(val) ? val.join(', ') : (val ?? '');
+      }),
+    );
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    XLSX.utils.book_append_sheet(wb, ws, 'No encontrados');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
   private async assertRegionAccess(regionId: string, currentUser: JwtPayload): Promise<void> {
     if (currentUser.role === 'superadmin') return;
     if (currentUser.role === 'region_admin') {
@@ -493,10 +570,96 @@ export class GuestsService {
     throw new ForbiddenException();
   }
 
+  private async hasRegionAccess(regionId: string, currentUser: JwtPayload): Promise<boolean> {
+    if (currentUser.role === 'superadmin') return true;
+    if (currentUser.role === 'region_admin') {
+      const user = await this.usersRepository.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      return (user?.regions ?? []).some((r) => r.id === regionId);
+    }
+    return false;
+  }
+
+  async lookupByCode(code: string): Promise<GuestFormLookupResponseDto> {
+    const upper = code.trim().toUpperCase();
+    const normalized = upper.includes('-') ? upper : (upper.match(/.{1,4}/g) ?? []).join('-');
+    const candidates = Array.from(new Set([upper, normalized]));
+
+    const guest = await this.guestsRepository.findOne({
+      where: candidates.map((c) => ({ guest_code: c })),
+    });
+    if (!guest) throw new NotFoundException('Código de invitado no encontrado');
+
+    const region = await this.regionsRepository.findOne({ where: { id: guest.region_id } });
+
+    return {
+      guest_code: guest.guest_code,
+      full_name: guest.full_name,
+      email: guest.email,
+      origin_city: guest.origin_city,
+      car_seats: guest.car_seats,
+      speaks_english: guest.speaks_english,
+      other_languages: guest.other_languages,
+      real_arrival: guest.real_arrival,
+      real_arrival_time: guest.real_arrival_time,
+      real_departure: guest.real_departure,
+      real_departure_time: guest.real_departure_time,
+      hosting_address: guest.hosting_address,
+      lat: guest.lat,
+      lng: guest.lng,
+      transport_mode: guest.transport_mode,
+      arrival_other_transport: guest.arrival_other_transport,
+      arrival_flight: guest.arrival_flight,
+      needs_airport_transfer: guest.needs_airport_transfer,
+      region_name: region?.name ?? '',
+    };
+  }
+
+  async submitForm(code: string, dto: GuestFormSubmitDto): Promise<void> {
+    const upper = code.trim().toUpperCase();
+    const normalized = upper.includes('-') ? upper : (upper.match(/.{1,4}/g) ?? []).join('-');
+    const candidates = Array.from(new Set([upper, normalized]));
+
+    const guest = await this.guestsRepository.findOne({
+      where: candidates.map((c) => ({ guest_code: c })),
+    });
+    if (!guest) throw new NotFoundException('Código de invitado no encontrado');
+
+    Object.assign(guest, {
+      full_name: dto.full_name,
+      email: dto.email,
+      origin_city: dto.origin_city,
+      car_seats: dto.car_seats,
+      speaks_english: dto.speaks_english,
+      other_languages: dto.other_languages ?? null,
+      real_arrival: dto.real_arrival,
+      real_arrival_time: dto.real_arrival_time,
+      real_departure: dto.real_departure,
+      real_departure_time: dto.real_departure_time,
+      hosting_address: dto.hosting_address,
+      lat: dto.lat,
+      lng: dto.lng,
+      transport_mode: dto.transport_mode,
+      arrival_other_transport: dto.arrival_other_transport,
+      arrival_flight: dto.arrival_flight,
+      needs_airport_transfer: dto.needs_airport_transfer,
+    });
+
+    await this.guestsRepository.save(guest);
+  }
+
   toDto(guest: Guest): GuestResponseDto {
     const dto = new GuestResponseDto();
     Object.assign(dto, guest);
     return dto;
+  }
+
+  private normalizeCode(code: string | null): string | null {
+    if (!code) return null;
+    if (code.includes('-')) return code;
+    return code.match(/.{1,4}/g)!.join('-');
   }
 
   private parseString(val: unknown): string | null {

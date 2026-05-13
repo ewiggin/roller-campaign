@@ -10,19 +10,27 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { GuestGroupsService } from './guest-groups.service';
 import { CreateGuestGroupDto } from './dto/create-guest-group.dto';
 import { UpdateGuestGroupDto } from './dto/update-guest-group.dto';
 import { GuestGroupResponseDto } from './dto/guest-group-response.dto';
+import { ImportGroupResponseDto } from './dto/import-group-response.dto';
 import { SetContactDto } from './dto/set-contact.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -36,6 +44,39 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 @Controller('guest-groups')
 export class GuestGroupsController {
   constructor(private readonly service: GuestGroupsService) {}
+
+  @Get('import/template')
+  @Roles('region_admin')
+  @ApiOkResponse({ description: 'Plantilla Excel para importación de grupos' })
+  getTemplate(@Res() res: Response): void {
+    const buffer = this.service.generateTemplate();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="plantilla-grupos.xlsx"');
+    res.send(buffer);
+  }
+
+  @Post('import')
+  @Roles('region_admin')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiOkResponse({ type: ImportGroupResponseDto })
+  async importGroups(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('regionId') regionId: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ImportGroupResponseDto> {
+    if (!file) throw new Error('No file received');
+    return this.service.importFromExcel(file.buffer, regionId, user);
+  }
 
   @Post()
   @Roles('region_admin')
@@ -81,6 +122,17 @@ export class GuestGroupsController {
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.service.remove(id);
+  }
+
+  @Patch(':id/host')
+  @Roles('region_admin')
+  @ApiOkResponse({ type: GuestGroupResponseDto })
+  assignHost(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { hostId: string | null },
+    @CurrentUser() user: JwtPayload,
+  ): Promise<GuestGroupResponseDto> {
+    return this.service.assignHost(id, body.hostId ?? null, user);
   }
 
   @Patch(':id/contact')

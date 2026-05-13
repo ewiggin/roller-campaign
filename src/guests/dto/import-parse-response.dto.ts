@@ -87,8 +87,13 @@ export class ImportParseResponseDto {
   @ApiProperty({ type: [ImportErrorDto] })
   errors: ImportErrorDto[];
 
+  /** Códigos de invitados que ya existen en la BD. */
   @ApiProperty({ example: ['G-005', 'G-012'] })
   duplicates: string[];
+
+  /** Filas completas de los duplicados (para poder pasarlas al commit como updateRows). */
+  @ApiProperty({ type: [ImportGuestRowDto] })
+  duplicateRows: ImportGuestRowDto[];
 
   @ApiProperty({ type: ImportSummaryDto })
   summary: ImportSummaryDto;

@@ -32,7 +32,7 @@ import { UpdateGuestDto } from './dto/update-guest.dto';
 import { GuestResponseDto } from './dto/guest-response.dto';
 import { GuestListQueryDto } from './dto/guest-list-query.dto';
 import { MigrateGuestDto } from './dto/migrate-guest.dto';
-import { ImportParseResponseDto } from './dto/import-parse-response.dto';
+import { ImportParseResponseDto, ImportGuestRowDto } from './dto/import-parse-response.dto';
 import { ImportCommitDto, ImportCommitResponseDto } from './dto/import-commit.dto';
 import { GuestTokenResponseDto } from './dto/guest-me-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -67,7 +67,7 @@ export class GuestsController {
   @ApiOkResponse({ type: ImportParseResponseDto })
   async parseImport(
     @UploadedFile() file: Express.Multer.File,
-    @Query('regionId') regionId: string,
+    @Query('regionId') regionId: string | undefined,
     @CurrentUser() user: JwtPayload,
   ): Promise<ImportParseResponseDto> {
     if (!file) throw new Error('No se recibió ningún archivo');
@@ -80,6 +80,17 @@ export class GuestsController {
   @ApiOkResponse({ type: ImportCommitResponseDto })
   commitImport(@Body() dto: ImportCommitDto, @CurrentUser() user: JwtPayload): Promise<ImportCommitResponseDto> {
     return this.service.commitImport(dto, user);
+  }
+
+  @Post('import/export-not-found')
+  @Roles('region_admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Excel con filas cuyo grupo no fue encontrado' })
+  exportNotFound(@Body() dto: { rows: ImportGuestRowDto[] }, @Res() res: Response): void {
+    const buffer = this.service.exportRowsToExcel(dto.rows);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="invitados-sin-grupo.xlsx"');
+    res.send(buffer);
   }
 
   @Post()

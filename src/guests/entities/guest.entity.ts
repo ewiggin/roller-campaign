@@ -10,8 +10,20 @@ import {
 import { GuestGroup } from '../../guest-groups/entities/guest-group.entity';
 import { Region } from '../../regions/entities/region.entity';
 
-export type GuestStatus = 'pending' | 'confirmed' | 'cancelled' | 'arrived' | 'blocked';
-export type TransportMode = 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'motorbike' | 'other';
+export type GuestStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'cancelled'
+  | 'arrived'
+  | 'blocked';
+export type TransportMode =
+  | 'car'
+  | 'bus'
+  | 'train'
+  | 'plane'
+  | 'ferry'
+  | 'motorbike'
+  | 'other';
 
 @Entity('guests')
 export class Guest {
@@ -22,7 +34,10 @@ export class Guest {
   @Column({ unique: true })
   guest_code: string;
 
-  @ManyToOne(() => GuestGroup, (group) => group.guests, { nullable: false, onDelete: 'RESTRICT' })
+  @ManyToOne(() => GuestGroup, (group) => group.guests, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'group_id' })
   group: GuestGroup;
 

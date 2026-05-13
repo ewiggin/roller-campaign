@@ -8,6 +8,7 @@ import { GuestGroupsModule } from './guest-groups/guest-groups.module';
 import { GuestsModule } from './guests/guests.module';
 import { VolunteersModule } from './volunteers/volunteers.module';
 import { TurnsModule } from './turns/turns.module';
+import { HostsModule } from './hosts/hosts.module';
 
 @Module({
   imports: [
@@ -21,7 +22,10 @@ import { TurnsModule } from './turns/turns.module';
             type: 'postgres',
             url: config.get('DATABASE_URL'),
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
+            migrations: [__dirname + '/migrations/*{.ts,.js}'],
             synchronize: false,
+            migrationsRun: true,
+            ssl: { rejectUnauthorized: false },
           };
         }
         return {
@@ -39,6 +43,7 @@ import { TurnsModule } from './turns/turns.module';
     GuestsModule,
     VolunteersModule,
     TurnsModule,
+    HostsModule,
   ],
 })
 export class AppModule {}
