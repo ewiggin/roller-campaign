@@ -1,5 +1,5 @@
-import { Component, inject, computed } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, computed, inject } from '@angular/core';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
 
@@ -27,8 +27,8 @@ export class AdminLayoutComponent {
     { label: 'Hosts', path: '/admin/hosts', icon: 'home' },
     { label: 'Guest Groups', path: '/admin/guest-groups', icon: 'folder' },
     { label: 'Guests', path: '/admin/guests', icon: 'users' },
-    { label: 'Volunteers', path: '/admin/volunteers', icon: 'user-check' },
-    { label: 'Turns', path: '/admin/turns', icon: 'calendar' },
+    // { label: 'Volunteers', path: '/admin/volunteers', icon: 'user-check' },
+    // { label: 'Turns', path: '/admin/turns', icon: 'calendar' },
   ];
 
   protected readonly adminNavItems: NavItem[] = [
