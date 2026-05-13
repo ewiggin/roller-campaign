@@ -242,7 +242,9 @@ export class InitialSchema1747180000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "turn_volunteers"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "turns"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "volunteer_availability"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "volunteer_role_assignments"`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "volunteer_role_assignments"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "volunteer_regions"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "volunteers"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "volunteer_roles"`);

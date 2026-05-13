@@ -24,7 +24,7 @@ import { VolunteersModule } from './volunteers/volunteers.module';
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
             migrations: [__dirname + '/migrations/*{.ts,.js}'],
             synchronize: false,
-            migrationsRun: true,
+            logging: ['error', 'migration'],
             ssl: { rejectUnauthorized: false },
           };
         }
