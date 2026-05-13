@@ -1,0 +1,80 @@
+<div>
+  <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100 mb-5">Dashboard</h2>
+
+  @if (loading()) {
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      @for (i of [1,2,3]; track i) {
+        <div class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden">
+          <div class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700">
+            <div class="animate-pulse h-3 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
+          </div>
+          <div class="divide-y divide-gray-100 dark:divide-zinc-800">
+            @for (j of [1,2,3]; track j) {
+              <div class="px-5 py-4 flex items-center justify-between">
+                <div class="animate-pulse h-3 bg-gray-200 dark:bg-zinc-700 rounded w-1/3"></div>
+                <div class="animate-pulse h-3 bg-gray-200 dark:bg-zinc-700 rounded w-8"></div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  } @else if (error()) {
+    <div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900 px-5 py-4">
+      <p class="text-sm text-red-600 dark:text-red-400">{{ error() }}</p>
+    </div>
+  } @else if (summaries().length === 0) {
+    <div class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] px-5 py-10 text-center">
+      <p class="text-sm text-gray-400 dark:text-zinc-500">No regions found.</p>
+    </div>
+  } @else {
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      @for (s of summaries(); track s.region_id) {
+        <div class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden">
+          <!-- Region header -->
+          <div class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
+            <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide truncate">
+              {{ s.region_name }}
+            </span>
+            @if (s.event_start_date) {
+              <span class="text-[10px] text-gray-400 dark:text-zinc-500 ml-2 shrink-0">
+                {{ s.event_start_date | date:'d MMM yyyy' }}
+                @if (s.event_end_date) { – {{ s.event_end_date | date:'d MMM yyyy' }} }
+              </span>
+            }
+          </div>
+
+          <!-- Stats grid -->
+          <div class="divide-y divide-gray-100 dark:divide-zinc-800">
+            <div class="px-5 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+              <span class="text-sm text-gray-500 dark:text-zinc-400">Guests</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">{{ s.guestCount }}</span>
+            </div>
+            <div class="px-5 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+              <span class="text-sm text-gray-500 dark:text-zinc-400">Volunteers</span>
+              <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">{{ s.volunteerCount }}</span>
+            </div>
+            <div class="px-5 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+              <span class="text-sm text-gray-500 dark:text-zinc-400">Turns</span>
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">{{ s.turnCount }}</span>
+                @if (s.turnCount > 0) {
+                  <span
+                    class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1"
+                    [class]="s.coveredTurns === s.turnCount
+                      ? 'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800'
+                      : s.coveredTurns === 0
+                        ? 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800'
+                        : 'bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800'"
+                  >
+                    {{ s.coveredTurns }}/{{ s.turnCount }} covered
+                  </span>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
