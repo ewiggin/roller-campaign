@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class TurnVolunteerDto {
+export class ActivityVolunteerDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
 
@@ -11,7 +11,7 @@ export class TurnVolunteerDto {
   full_name: string;
 }
 
-export class TurnResponseDto {
+export class ActivityResponseDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
 
@@ -27,11 +27,11 @@ export class TurnResponseDto {
   @ApiProperty({ example: '13:00' })
   end_time: string;
 
-  @ApiPropertyOptional({ example: 'Turno de bienvenida', nullable: true })
+  @ApiPropertyOptional({ example: 'Actividad de bienvenida', nullable: true })
   description: string | null;
 
-  @ApiProperty({ type: [TurnVolunteerDto] })
-  volunteers: TurnVolunteerDto[];
+  @ApiProperty({ type: [ActivityVolunteerDto] })
+  volunteers: ActivityVolunteerDto[];
 
   @ApiProperty({ example: 2 })
   volunteer_count: number;

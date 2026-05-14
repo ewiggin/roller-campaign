@@ -20,8 +20,8 @@ export class RegionStatsDto {
   volunteer_count: number;
 
   @ApiProperty({ example: 12 })
-  turn_count: number;
+  activity_count: number;
 
   @ApiProperty({ example: 8 })
-  covered_turns: number;
+  covered_activities: number;
 }

@@ -46,8 +46,8 @@ export class Volunteer {
   @OneToMany(() => VolunteerAvailability, (a) => a.volunteer)
   availability: VolunteerAvailability[];
 
-  @ManyToMany('Turn', (turn: { volunteers: Volunteer[] }) => turn.volunteers)
-  turns: unknown[];
+  @ManyToMany('Activity', (activity: { volunteers: Volunteer[] }) => activity.volunteers)
+  activities: unknown[];
 
   @CreateDateColumn()
   created_at: Date;

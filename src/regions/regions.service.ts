@@ -179,20 +179,20 @@ export class RegionsService {
       region_id: string;
       guest_count: string;
       volunteer_count: string;
-      turn_count: string;
-      covered_turns: string;
+      activity_count: string;
+      covered_activities: string;
     }>>(
       `SELECT
         r.id AS region_id,
         COUNT(DISTINCT g.id) AS guest_count,
         COUNT(DISTINCT vr."volunteersId") AS volunteer_count,
-        COUNT(DISTINCT t.id) AS turn_count,
-        COUNT(DISTINCT CASE WHEN tv."turnsId" IS NOT NULL THEN t.id END) AS covered_turns
+        COUNT(DISTINCT a.id) AS activity_count,
+        COUNT(DISTINCT CASE WHEN av."activitiesId" IS NOT NULL THEN a.id END) AS covered_activities
       FROM regions r
       LEFT JOIN guests g ON g.region_id = r.id
       LEFT JOIN volunteer_regions vr ON vr."regionsId" = r.id
-      LEFT JOIN turns t ON t.region_id = r.id
-      LEFT JOIN turn_volunteers tv ON tv."turnsId" = t.id
+      LEFT JOIN activities a ON a.region_id = r.id
+      LEFT JOIN activity_volunteers av ON av."activitiesId" = a.id
       WHERE r.id IN (${placeholders})
       GROUP BY r.id`,
       ids,
@@ -209,8 +209,8 @@ export class RegionsService {
       dto.event_end_date = r.event_end_date;
       dto.guest_count = parseInt(s?.guest_count ?? '0', 10);
       dto.volunteer_count = parseInt(s?.volunteer_count ?? '0', 10);
-      dto.turn_count = parseInt(s?.turn_count ?? '0', 10);
-      dto.covered_turns = parseInt(s?.covered_turns ?? '0', 10);
+      dto.activity_count = parseInt(s?.activity_count ?? '0', 10);
+      dto.covered_activities = parseInt(s?.covered_activities ?? '0', 10);
       return dto;
     }).sort((a, b) => a.region_name.localeCompare(b.region_name));
   }

@@ -3,7 +3,7 @@ import { IsISO8601, IsNotEmpty, IsOptional, IsString, IsUUID, Matches } from 'cl
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-export class CreateTurnDto {
+export class CreateActivityDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   @IsUUID()
   region_id: string;
@@ -20,7 +20,7 @@ export class CreateTurnDto {
   @Matches(TIME_REGEX, { message: 'end_time debe tener formato HH:MM' })
   end_time: string;
 
-  @ApiPropertyOptional({ example: 'Turno de bienvenida en el aeropuerto' })
+  @ApiPropertyOptional({ example: 'Actividad de bienvenida en el aeropuerto' })
   @IsOptional()
   @IsString()
   @IsNotEmpty()

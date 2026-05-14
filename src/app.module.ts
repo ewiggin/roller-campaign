@@ -6,7 +6,7 @@ import { GuestGroupsModule } from './guest-groups/guest-groups.module';
 import { GuestsModule } from './guests/guests.module';
 import { HostsModule } from './hosts/hosts.module';
 import { RegionsModule } from './regions/regions.module';
-import { TurnsModule } from './turns/turns.module';
+import { ActivitiesModule } from './activities/activities.module';
 import { UsersModule } from './users/users.module';
 import { VolunteersModule } from './volunteers/volunteers.module';
 
@@ -42,7 +42,7 @@ import { VolunteersModule } from './volunteers/volunteers.module';
     GuestGroupsModule,
     GuestsModule,
     VolunteersModule,
-    TurnsModule,
+    ActivitiesModule,
     HostsModule,
   ],
 })

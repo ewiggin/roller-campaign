@@ -12,8 +12,8 @@ import {
 import { Region } from '../../regions/entities/region.entity';
 import { Volunteer } from '../../volunteers/entities/volunteer.entity';
 
-@Entity('turns')
-export class Turn {
+@Entity('activities')
+export class Activity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -36,8 +36,8 @@ export class Turn {
   @Column({ type: 'varchar', nullable: true, default: null })
   description: string | null;
 
-  @ManyToMany(() => Volunteer, (v) => v.turns, { eager: false })
-  @JoinTable({ name: 'turn_volunteers' })
+  @ManyToMany(() => Volunteer, (v) => v.activities, { eager: false })
+  @JoinTable({ name: 'activity_volunteers' })
   volunteers: Volunteer[];
 
   @CreateDateColumn()
