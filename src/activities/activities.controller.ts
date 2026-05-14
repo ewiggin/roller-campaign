@@ -25,9 +25,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { ActivitiesService } from './activities.service';
-import { ActivityListQueryDto } from './dto/activity-list-query.dto';
-import { ActivityResponseDto } from './dto/activity-response.dto';
+import { AssignGuestGroupDto } from './dto/assign-guest-group.dto';
 import { AssignVolunteerDto } from './dto/assign-volunteer.dto';
+import { ActivityListQueryDto } from './dto/activity-list-query.dto';
+import { ActivityResponseDto, AvailableGroupForActivityDto } from './dto/activity-response.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 
@@ -41,30 +42,21 @@ export class ActivitiesController {
   @Post()
   @Roles('region_admin')
   @ApiCreatedResponse({ type: ActivityResponseDto })
-  create(
-    @Body() dto: CreateActivityDto,
-    @CurrentUser() user: JwtPayload,
-  ): Promise<ActivityResponseDto> {
+  create(@Body() dto: CreateActivityDto, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto> {
     return this.svc.create(dto, user);
   }
 
   @Get()
   @Roles('region_admin', 'volunteer')
   @ApiOkResponse({ description: 'Lista paginada de actividades' })
-  findAll(
-    @Query() query: ActivityListQueryDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  findAll(@Query() query: ActivityListQueryDto, @CurrentUser() user: JwtPayload) {
     return this.svc.findAll(query, user);
   }
 
   @Get(':id')
   @Roles('region_admin')
   @ApiOkResponse({ type: ActivityResponseDto })
-  findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtPayload,
-  ): Promise<ActivityResponseDto> {
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto> {
     return this.svc.findOne(id, user);
   }
 
@@ -83,12 +75,11 @@ export class ActivitiesController {
   @Roles('region_admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
-  remove(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: JwtPayload,
-  ): Promise<void> {
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<void> {
     return this.svc.remove(id, user);
   }
+
+  // ── Volunteers ────────────────────────────────────────────────────────────
 
   @Post(':id/volunteers')
   @Roles('region_admin')
@@ -112,5 +103,61 @@ export class ActivitiesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<ActivityResponseDto> {
     return this.svc.unassignVolunteer(id, volunteerId, user);
+  }
+
+  // ── Available groups ──────────────────────────────────────────────────────
+
+  @Get(':id/available-groups')
+  @Roles('region_admin')
+  @ApiOkResponse({ type: [AvailableGroupForActivityDto] })
+  getAvailableGroups(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<AvailableGroupForActivityDto[]> {
+    return this.svc.getAvailableGroups(id, user);
+  }
+
+  // ── Guest groups ──────────────────────────────────────────────────────────
+
+  @Post(':id/guest-groups')
+  @Roles('region_admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  assignGuestGroup(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignGuestGroupDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.assignGuestGroup(id, dto.groupId, user);
+  }
+
+  @Delete(':id/guest-groups/:groupId')
+  @Roles('region_admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  unassignGuestGroup(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.unassignGuestGroup(id, groupId, user);
+  }
+
+  // ── Publish ───────────────────────────────────────────────────────────────
+
+  @Post(':id/publish')
+  @Roles('region_admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  publish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto> {
+    return this.svc.publish(id, user);
+  }
+
+  @Post(':id/unpublish')
+  @Roles('region_admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  unpublish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto> {
+    return this.svc.unpublish(id, user);
   }
 }

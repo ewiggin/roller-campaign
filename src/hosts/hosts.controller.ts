@@ -1,7 +1,8 @@
 import {
   Body, Controller, Delete, Get, HttpCode, HttpStatus,
-  Param, ParseUUIDPipe, Patch, Post, Query, UseGuards,
+  Param, ParseUUIDPipe, Patch, Post, Query, Res, UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiBearerAuth, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { HostsService } from './hosts.service';
 import { CreateHostDto, UpdateHostDto, HostResponseDto, GroupSuggestionsResponseDto } from './dto/host.dto';
@@ -64,6 +65,20 @@ export class HostsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<HostResponseDto> {
     return this.service.update(id, dto, user);
+  }
+
+  @Get(':id/guests/export')
+  @Roles('region_admin')
+  @ApiOkResponse({ description: 'Excel con invitados asignados al host' })
+  async exportGuests(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { buffer, filename } = await this.service.exportGuestsByHost(id, user);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 
   @Delete(':id')

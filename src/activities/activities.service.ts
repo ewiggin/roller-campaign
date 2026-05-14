@@ -7,20 +7,26 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { Guest } from '../guests/entities/guest.entity';
+import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import { Activity } from './entities/activity.entity';
-import { ActivityResponseDto } from './dto/activity-response.dto';
+import { ActivityResponseDto, AvailableGroupForActivityDto } from './dto/activity-response.dto';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+
+const ACTIVITY_RELATIONS = { volunteers: true, guestGroups: true };
 
 @Injectable()
 export class ActivitiesService {
   constructor(
     @InjectRepository(Activity) private readonly activitiesRepo: Repository<Activity>,
     @InjectRepository(Volunteer) private readonly volunteersRepo: Repository<Volunteer>,
+    @InjectRepository(GuestGroup) private readonly groupsRepo: Repository<GuestGroup>,
+    @InjectRepository(Guest) private readonly guestsRepo: Repository<Guest>,
     @InjectRepository(Region) private readonly regionsRepo: Repository<Region>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
   ) {}
@@ -36,7 +42,11 @@ export class ActivitiesService {
       start_time: dto.start_time,
       end_time: dto.end_time,
       description: dto.description ?? null,
+      lat: dto.lat ?? null,
+      lng: dto.lng ?? null,
+      status: 'draft',
       volunteers: [],
+      guestGroups: [],
     });
     const saved = await this.activitiesRepo.save(activity);
     return this.toDto(saved);
@@ -53,7 +63,8 @@ export class ActivitiesService {
 
     const qb = this.activitiesRepo
       .createQueryBuilder('a')
-      .leftJoinAndSelect('a.volunteers', 'volunteers');
+      .leftJoinAndSelect('a.volunteers', 'volunteers')
+      .leftJoinAndSelect('a.guestGroups', 'guestGroups');
 
     if (currentUser.role === 'volunteer') {
       const v = await this.volunteersRepo.findOne({ where: { user_id: currentUser.sub } });
@@ -61,19 +72,15 @@ export class ActivitiesService {
       qb.innerJoin('a.volunteers', 'myVol', 'myVol.id = :myVolId', { myVolId: v.id });
       if (date) qb.andWhere('a.date = :date', { date });
       const total = await qb.getCount();
-      const activities = await qb
-        .skip((page - 1) * limit)
-        .take(limit)
-        .orderBy('a.date', 'ASC')
-        .getMany();
-      return { data: activities.map(this.toDto), total, page, limit };
+      const activities = await qb.skip((page - 1) * limit).take(limit).orderBy('a.date', 'ASC').getMany();
+      const groupCounts = await this.getGroupGuestCounts(
+        [...new Set(activities.flatMap((a) => (a.guestGroups ?? []).map((g) => g.id)))],
+      );
+      return { data: activities.map((a) => this.toDto(a, groupCounts)), total, page, limit };
     }
 
     if (currentUser.role === 'region_admin') {
-      const user = await this.usersRepo.findOne({
-        where: { id: currentUser.sub },
-        relations: { regions: true },
-      });
+      const user = await this.usersRepo.findOne({ where: { id: currentUser.sub }, relations: { regions: true } });
       const adminIds = (user?.regions ?? []).map((r) => r.id);
       if (adminIds.length === 0) return { data: [], total: 0, page, limit };
 
@@ -98,18 +105,21 @@ export class ActivitiesService {
       .addOrderBy('a.start_time', 'ASC')
       .getMany();
 
-    return { data: activities.map(this.toDto), total, page, limit };
+    const groupCounts = await this.getGroupGuestCounts(
+      [...new Set(activities.flatMap((a) => (a.guestGroups ?? []).map((g) => g.id)))],
+    );
+    return { data: activities.map((a) => this.toDto(a, groupCounts)), total, page, limit };
   }
 
   async findOne(id: string, currentUser: JwtPayload): Promise<ActivityResponseDto> {
-    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: { volunteers: true } });
+    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: ACTIVITY_RELATIONS });
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
-    return this.toDto(activity);
+    return this.toDtoWithCounts(activity);
   }
 
   async update(id: string, dto: UpdateActivityDto, currentUser: JwtPayload): Promise<ActivityResponseDto> {
-    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: { volunteers: true } });
+    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: ACTIVITY_RELATIONS });
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
 
@@ -119,7 +129,7 @@ export class ActivitiesService {
 
     Object.assign(activity, dto);
     const saved = await this.activitiesRepo.save(activity);
-    return this.toDto(saved);
+    return this.toDtoWithCounts(saved);
   }
 
   async remove(id: string, currentUser: JwtPayload): Promise<void> {
@@ -130,63 +140,220 @@ export class ActivitiesService {
   }
 
   async assignVolunteer(id: string, volunteerId: string, currentUser: JwtPayload): Promise<ActivityResponseDto> {
-    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: { volunteers: true } });
+    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: ACTIVITY_RELATIONS });
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
 
-    const volunteer = await this.volunteersRepo.findOne({
-      where: { id: volunteerId },
-      relations: { regions: true },
-    });
+    const volunteer = await this.volunteersRepo.findOne({ where: { id: volunteerId }, relations: { regions: true } });
     if (!volunteer) throw new NotFoundException('Voluntario no encontrado');
 
-    const inRegion = volunteer.regions.some((r) => r.id === activity.region_id);
-    if (!inRegion) throw new BadRequestException('El voluntario no pertenece a la región de esta actividad');
+    if (!volunteer.regions.some((r) => r.id === activity.region_id)) {
+      throw new BadRequestException('El voluntario no pertenece a la región de esta actividad');
+    }
 
-    const already = activity.volunteers.some((v) => v.id === volunteerId);
-    if (!already) {
+    if (!activity.volunteers.some((v) => v.id === volunteerId)) {
       activity.volunteers.push(volunteer);
       await this.activitiesRepo.save(activity);
     }
-    return this.toDto(activity);
+    return this.toDtoWithCounts(activity);
   }
 
   async unassignVolunteer(id: string, volunteerId: string, currentUser: JwtPayload): Promise<ActivityResponseDto> {
-    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: { volunteers: true } });
+    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: ACTIVITY_RELATIONS });
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
 
     activity.volunteers = activity.volunteers.filter((v) => v.id !== volunteerId);
     await this.activitiesRepo.save(activity);
-    return this.toDto(activity);
+    return this.toDtoWithCounts(activity);
+  }
+
+  async assignGuestGroup(id: string, groupId: string, currentUser: JwtPayload): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: ACTIVITY_RELATIONS });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const group = await this.groupsRepo.findOne({ where: { id: groupId } });
+    if (!group) throw new NotFoundException('Grupo no encontrado');
+
+    if (group.region_id !== activity.region_id) {
+      throw new BadRequestException('El grupo no pertenece a la región de esta actividad');
+    }
+
+    if (!activity.guestGroups.some((g) => g.id === groupId)) {
+      activity.guestGroups.push(group);
+      await this.activitiesRepo.save(activity);
+    }
+    return this.toDtoWithCounts(activity);
+  }
+
+  async unassignGuestGroup(id: string, groupId: string, currentUser: JwtPayload): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: ACTIVITY_RELATIONS });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    activity.guestGroups = activity.guestGroups.filter((g) => g.id !== groupId);
+    await this.activitiesRepo.save(activity);
+    return this.toDtoWithCounts(activity);
+  }
+
+  async publish(id: string, currentUser: JwtPayload): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: ACTIVITY_RELATIONS });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    activity.status = 'published';
+    await this.activitiesRepo.save(activity);
+    return this.toDtoWithCounts(activity);
+  }
+
+  async unpublish(id: string, currentUser: JwtPayload): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: ACTIVITY_RELATIONS });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    activity.status = 'draft';
+    await this.activitiesRepo.save(activity);
+    return this.toDtoWithCounts(activity);
+  }
+
+  async getAvailableGroups(id: string, currentUser: JwtPayload): Promise<AvailableGroupForActivityDto[]> {
+    const activity = await this.activitiesRepo.findOne({
+      where: { id },
+      relations: { guestGroups: true },
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const assignedIds = new Set(activity.guestGroups.map((g) => g.id));
+
+    const [groups, guests] = await Promise.all([
+      this.groupsRepo.find({
+        where: { region_id: activity.region_id },
+        relations: ['host'],
+      }),
+      this.guestsRepo.find({
+        where: { region_id: activity.region_id },
+        select: { id: true, group_id: true, available_from: true, available_to: true },
+      }),
+    ]);
+
+    const guestsByGroup = new Map<string, { available_from: string | null; available_to: string | null }[]>();
+    for (const g of guests) {
+      if (!guestsByGroup.has(g.group_id)) guestsByGroup.set(g.group_id, []);
+      guestsByGroup.get(g.group_id)!.push({ available_from: g.available_from, available_to: g.available_to });
+    }
+
+    const result: AvailableGroupForActivityDto[] = [];
+
+    for (const group of groups) {
+      if (assignedIds.has(group.id)) continue;
+
+      const groupGuests = guestsByGroup.get(group.id) ?? [];
+      if (groupGuests.length > 0 && activity.date) {
+        const hasAvailabilityData = groupGuests.some((g) => g.available_from || g.available_to);
+        if (hasAvailabilityData) {
+          const anyAvailable = groupGuests.some((g) => {
+            if (g.available_from && activity.date > g.available_from === false) return false;
+            if (g.available_from && activity.date < g.available_from) return false;
+            if (g.available_to && activity.date > g.available_to) return false;
+            return true;
+          });
+          if (!anyAvailable) continue;
+        }
+      }
+
+      const host = (group as any).host as { lat: number | null; lng: number | null; name: string } | null;
+      const distance_km =
+        activity.lat && activity.lng && host?.lat && host?.lng
+          ? this.haversineKm(activity.lat, activity.lng, host.lat, host.lng)
+          : null;
+
+      result.push({
+        id: group.id,
+        group_code: group.group_code,
+        host_id: group.host_id,
+        host_name: host?.name ?? null,
+        host_lat: host?.lat ?? null,
+        host_lng: host?.lng ?? null,
+        distance_km: distance_km !== null ? Math.round(distance_km * 10) / 10 : null,
+        guest_count: groupGuests.length,
+      });
+    }
+
+    return result.sort((a, b) => {
+      if (a.distance_km === null && b.distance_km === null) return 0;
+      if (a.distance_km === null) return 1;
+      if (b.distance_km === null) return -1;
+      return a.distance_km - b.distance_km;
+    });
+  }
+
+  private async getGroupGuestCounts(groupIds: string[]): Promise<Map<string, number>> {
+    if (groupIds.length === 0) return new Map();
+    const rows = await this.guestsRepo
+      .createQueryBuilder('g')
+      .select('g.group_id', 'group_id')
+      .addSelect('COUNT(g.id)', 'count')
+      .where('g.group_id IN (:...groupIds)', { groupIds })
+      .groupBy('g.group_id')
+      .getRawMany<{ group_id: string; count: string }>();
+    return new Map(rows.map((r) => [r.group_id, parseInt(r.count, 10)]));
+  }
+
+  private async toDtoWithCounts(activity: Activity): Promise<ActivityResponseDto> {
+    const groupIds = (activity.guestGroups ?? []).map((g) => g.id);
+    const counts = await this.getGroupGuestCounts(groupIds);
+    return this.toDto(activity, counts);
+  }
+
+  private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   private async assertRegionAccess(regionId: string, currentUser: JwtPayload): Promise<void> {
     if (currentUser.role === 'superadmin') return;
     if (currentUser.role === 'region_admin') {
-      const user = await this.usersRepo.findOne({
-        where: { id: currentUser.sub },
-        relations: { regions: true },
-      });
+      const user = await this.usersRepo.findOne({ where: { id: currentUser.sub }, relations: { regions: true } });
       if ((user?.regions ?? []).some((r) => r.id === regionId)) return;
       throw new ForbiddenException();
     }
     throw new ForbiddenException();
   }
 
-  private toDto = (activity: Activity): ActivityResponseDto => ({
+  private toDto = (activity: Activity, groupCounts: Map<string, number> = new Map()): ActivityResponseDto => ({
     id: activity.id,
     region_id: activity.region_id,
     date: activity.date,
     start_time: activity.start_time,
     end_time: activity.end_time,
     description: activity.description,
+    status: activity.status,
+    lat: activity.lat,
+    lng: activity.lng,
     volunteers: (activity.volunteers ?? []).map((v) => ({
       id: v.id,
       volunteer_code: v.volunteer_code,
       full_name: v.full_name,
     })),
     volunteer_count: (activity.volunteers ?? []).length,
+    guest_groups: (activity.guestGroups ?? []).map((g) => ({
+      id: g.id,
+      group_code: g.group_code,
+      guest_count: groupCounts.get(g.id) ?? 0,
+    })),
+    total_guests_assigned: (activity.guestGroups ?? []).reduce(
+      (sum, g) => sum + (groupCounts.get(g.id) ?? 0), 0,
+    ),
     created_at: activity.created_at,
     updated_at: activity.updated_at,
   });

@@ -48,14 +48,20 @@ export class GuestGroupsService {
     return this.toDto(saved, 0);
   }
 
-  async findAll(regionId: string | undefined, currentUser: JwtPayload): Promise<GuestGroupResponseDto[]> {
+  async findAll(
+    regionId: string | undefined,
+    currentUser: JwtPayload,
+    page = 1,
+    limit = 50,
+  ): Promise<{ data: GuestGroupResponseDto[]; total: number; page: number; limit: number }> {
     if (currentUser.role !== 'superadmin' && currentUser.role !== 'region_admin') {
       throw new ForbiddenException();
     }
 
     const query = this.groupsRepository
       .createQueryBuilder('gg')
-      .loadRelationCountAndMap('gg.guest_count', 'gg.guests');
+      .loadRelationCountAndMap('gg.guest_count', 'gg.guests')
+      .orderBy('gg.group_code', 'ASC');
 
     if (regionId) {
       await this.assertRegionAccess(regionId, currentUser);
@@ -66,12 +72,18 @@ export class GuestGroupsService {
         relations: { regions: true },
       });
       const ids = (user?.regions ?? []).map((r) => r.id);
-      if (ids.length === 0) return [];
+      if (ids.length === 0) return { data: [], total: 0, page, limit };
       query.where('gg.region_id IN (:...ids)', { ids });
     }
 
-    const groups = await query.getMany();
-    return groups.map((g) => this.toDto(g, (g as GuestGroup & { guest_count?: number }).guest_count ?? 0));
+    const total = await query.getCount();
+    const groups = await query.skip((page - 1) * limit).take(limit).getMany();
+    return {
+      data: groups.map((g) => this.toDto(g, (g as GuestGroup & { guest_count?: number }).guest_count ?? 0)),
+      total,
+      page,
+      limit,
+    };
   }
 
   async findOne(id: string, currentUser: JwtPayload): Promise<GuestGroupResponseDto> {

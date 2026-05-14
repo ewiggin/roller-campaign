@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import * as XLSX from 'xlsx';
 import { Host } from './entities/host.entity';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { Guest } from '../guests/entities/guest.entity';
@@ -106,37 +107,47 @@ export class HostsService {
       .where('gg.region_id = :regionId', { regionId: host.region_id })
       .getMany();
 
-    const withDistance = await Promise.all(
-      groups.map(async (group) => {
-        const guestCount = (group as GuestGroup & { guest_count?: number }).guest_count ?? 0;
-        let distance_km: number | null = null;
+    // One query: first guest with accommodation coords per group
+    const groupIds = groups.map((g) => g.id);
+    const guestCoords = groupIds.length > 0
+      ? await this.guestsRepo
+          .createQueryBuilder('g')
+          .select('g.group_id', 'group_id')
+          .addSelect('g.lat', 'lat')
+          .addSelect('g.lng', 'lng')
+          .where('g.group_id IN (:...groupIds)', { groupIds })
+          .andWhere('g.lat IS NOT NULL')
+          .andWhere('g.lng IS NOT NULL')
+          .getRawMany<{ group_id: string; lat: string; lng: string }>()
+      : [];
 
-        if (host.lat !== null && host.lng !== null) {
-          const coords = await this.guestsRepo
-            .createQueryBuilder('g')
-            .select('AVG(g.lat)', 'avg_lat')
-            .addSelect('AVG(g.lng)', 'avg_lng')
-            .where('g.group_id = :groupId', { groupId: group.id })
-            .andWhere('g.lat IS NOT NULL')
-            .andWhere('g.lng IS NOT NULL')
-            .getRawOne<{ avg_lat: string; avg_lng: string }>();
+    // Keep only the first row per group (first guest with coords)
+    const coordByGroup = new Map<string, { lat: number; lng: number }>();
+    for (const row of guestCoords) {
+      if (!coordByGroup.has(row.group_id)) {
+        coordByGroup.set(row.group_id, { lat: parseFloat(row.lat), lng: parseFloat(row.lng) });
+      }
+    }
 
-          const avgLat = parseFloat(coords?.avg_lat ?? '');
-          const avgLng = parseFloat(coords?.avg_lng ?? '');
-          if (!isNaN(avgLat) && !isNaN(avgLng)) {
-            distance_km = this.haversine(host.lat, host.lng, avgLat, avgLng);
-          }
+    const withDistance = groups.map((group) => {
+      const guestCount = (group as GuestGroup & { guest_count?: number }).guest_count ?? 0;
+      let distance_km: number | null = null;
+
+      if (host.lat !== null && host.lng !== null) {
+        const coord = coordByGroup.get(group.id);
+        if (coord) {
+          distance_km = Math.round(this.haversine(host.lat, host.lng, coord.lat, coord.lng) * 10) / 10;
         }
+      }
 
-        const dto: GroupSuggestionDto = {
-          id: group.id,
-          group_code: group.group_code,
-          guest_count: guestCount,
-          distance_km,
-        };
-        return { dto, host_id: group.host_id };
-      }),
-    );
+      const dto: GroupSuggestionDto = {
+        id: group.id,
+        group_code: group.group_code,
+        guest_count: guestCount,
+        distance_km,
+      };
+      return { dto, host_id: group.host_id };
+    });
 
     const sort = (a: GroupSuggestionDto, b: GroupSuggestionDto) => {
       if (a.distance_km === null && b.distance_km === null) return a.group_code.localeCompare(b.group_code);
@@ -203,6 +214,65 @@ export class HostsService {
       .groupBy('gg.host_id')
       .getRawMany<{ host_id: string; cnt: string }>();
     return new Map(rows.map((r) => [r.host_id, parseInt(r.cnt, 10)]));
+  }
+
+  async exportGuestsByHost(id: string, currentUser: JwtPayload): Promise<{ buffer: Buffer; filename: string }> {
+    const host = await this.hostsRepo.findOne({ where: { id } });
+    if (!host) throw new NotFoundException('Host no encontrado');
+    await this.assertRegionAccess(host.region_id, currentUser);
+
+    const groups = await this.groupsRepo.find({ where: { host_id: id } });
+    const groupIds = groups.map((g) => g.id);
+    const groupCodeMap = new Map(groups.map((g) => [g.id, g.group_code]));
+
+    const guests = groupIds.length > 0
+      ? await this.guestsRepo.find({
+          where: { group_id: In(groupIds) },
+          order: { group_id: 'ASC', full_name: 'ASC' },
+        })
+      : [];
+
+    const headers = [
+      'Grupo', 'Código', 'Nombre', 'Email', 'Ciudad origen',
+      'Habla inglés', 'Otros idiomas',
+      'Llegada fecha', 'Llegada hora', 'Salida fecha', 'Salida hora',
+      'Transporte', 'Vuelo', 'Transp. aeropuerto', 'Dirección alojamiento', 'Estado',
+    ];
+
+    const rows = guests.map((g) => [
+      groupCodeMap.get(g.group_id) ?? '',
+      g.guest_code,
+      g.full_name,
+      g.email ?? '',
+      g.origin_city ?? '',
+      g.speaks_english ? 'Sí' : 'No',
+      (g.other_languages ?? []).join(', '),
+      g.real_arrival ?? '',
+      g.real_arrival_time ?? '',
+      g.real_departure ?? '',
+      g.real_departure_time ?? '',
+      g.transport_mode ?? '',
+      g.arrival_flight ?? '',
+      g.needs_airport_transfer ? 'Sí' : 'No',
+      g.hosting_address ?? '',
+      g.status,
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+    // Column widths
+    ws['!cols'] = [
+      { wch: 12 }, { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 18 },
+      { wch: 12 }, { wch: 24 },
+      { wch: 13 }, { wch: 11 }, { wch: 13 }, { wch: 11 },
+      { wch: 14 }, { wch: 10 }, { wch: 18 }, { wch: 36 }, { wch: 12 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Invitados');
+    const buffer = Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+    const safeName = host.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return { buffer, filename: `invitados-${safeName}.xlsx` };
   }
 
   toDto(host: Host, groupCount: number, guestCount = 0): HostResponseDto {

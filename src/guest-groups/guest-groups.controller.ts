@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -90,9 +91,11 @@ export class GuestGroupsController {
   @ApiOkResponse({ type: [GuestGroupResponseDto] })
   findAll(
     @Query('regionId') regionId: string | undefined,
+    @Query('page', new ParseIntPipe({ optional: true })) page = 1,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit = 50,
     @CurrentUser() user: JwtPayload,
-  ): Promise<GuestGroupResponseDto[]> {
-    return this.service.findAll(regionId, user);
+  ) {
+    return this.service.findAll(regionId, user, page, limit);
   }
 
   @Get(':id')
