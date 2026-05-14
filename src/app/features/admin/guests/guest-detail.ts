@@ -140,7 +140,7 @@ export class GuestDetailComponent implements OnInit {
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.regionsSvc.getAll().subscribe({ next: (r) => this.regions.set(r) });
-    this.groupsSvc.getAll().subscribe({ next: (g) => this.groups.set(g) });
+    this.groupsSvc.getAll().subscribe({ next: (g) => this.groups.set(g.data) });
     this.loadGuest(id);
   }
 

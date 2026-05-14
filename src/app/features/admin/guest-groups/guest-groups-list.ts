@@ -33,6 +33,10 @@ export class GuestGroupsListComponent implements OnInit {
   readonly loading = signal(true);
   readonly error = signal('');
   readonly selectedRegionId = signal('');
+  readonly total = signal(0);
+  readonly page = signal(1);
+  readonly limit = 50;
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 
   readonly activeModal = signal<ActiveModal>(null);
   readonly saving = signal(false);
@@ -70,12 +74,6 @@ export class GuestGroupsListComponent implements OnInit {
     region_id: ['', Validators.required],
   });
 
-  readonly groupsByRegion = computed(() => {
-    const rid = this.selectedRegionId();
-    const groups = this.groups();
-    return rid ? groups.filter((g) => g.region_id === rid) : groups;
-  });
-
   readonly regionName = computed(() => {
     const rid = this.selectedRegionId();
     return this.regions().find((r) => r.id === rid)?.name ?? '';
@@ -101,9 +99,14 @@ export class GuestGroupsListComponent implements OnInit {
 
   private loadGroups() {
     this.loading.set(true);
-    this.svc.getAll().subscribe({
-      next: (g) => {
-        this.groups.set(g);
+    this.svc.getAll({
+      regionId: this.selectedRegionId() || undefined,
+      page: this.page(),
+      limit: this.limit,
+    }).subscribe({
+      next: (res) => {
+        this.groups.set(res.data);
+        this.total.set(res.total);
         this.loading.set(false);
       },
       error: () => {
@@ -115,6 +118,16 @@ export class GuestGroupsListComponent implements OnInit {
 
   selectRegion(id: string) {
     this.selectedRegionId.set(id);
+    this.page.set(1);
+    this.loadGroups();
+  }
+
+  prevPage() {
+    if (this.page() > 1) { this.page.update((p) => p - 1); this.loadGroups(); }
+  }
+
+  nextPage() {
+    if (this.page() < this.totalPages()) { this.page.update((p) => p + 1); this.loadGroups(); }
   }
 
   openCreate() {

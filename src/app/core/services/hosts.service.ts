@@ -27,6 +27,10 @@ export class HostsService {
     return this.http.patch<Host>(`/api/hosts/${id}`, payload);
   }
 
+  downloadGuestsExcel(id: string) {
+    return this.http.get(`/api/hosts/${id}/guests/export`, { responseType: 'blob' });
+  }
+
   remove(id: string) {
     return this.http.delete<void>(`/api/hosts/${id}`);
   }

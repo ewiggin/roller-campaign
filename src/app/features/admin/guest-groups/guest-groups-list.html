@@ -66,20 +66,27 @@
     <div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900 px-5 py-4">
       <p class="text-sm text-red-600 dark:text-red-400">{{ error() }}</p>
     </div>
-  } @else if (groupsByRegion().length === 0) {
+  } @else if (groups().length === 0) {
     <div class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] px-5 py-10 text-center">
       <p class="text-sm text-gray-400 dark:text-zinc-500">No groups in this region.</p>
     </div>
   } @else {
     <div class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden">
-      <div class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700">
+      <div class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
         <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
-          {{ groupsByRegion().length }} group{{ groupsByRegion().length !== 1 ? 's' : '' }}
+          {{ total() }} group{{ total() !== 1 ? 's' : '' }}
           @if (regionName()) { — {{ regionName() }} }
         </span>
+        @if (totalPages() > 1) {
+          <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
+            <button (click)="prevPage()" [disabled]="page() === 1" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors">‹</button>
+            <span class="text-xs">{{ page() }} / {{ totalPages() }}</span>
+            <button (click)="nextPage()" [disabled]="page() === totalPages()" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors">›</button>
+          </div>
+        }
       </div>
       <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
-        @for (group of groupsByRegion(); track group.id) {
+        @for (group of groups(); track group.id) {
           <li class="px-5 py-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
             <!-- Group info — clickable to open guests modal -->
             <button (click)="openGuests(group)" class="flex-1 min-w-0 text-left">

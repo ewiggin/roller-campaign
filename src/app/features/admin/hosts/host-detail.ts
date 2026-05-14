@@ -23,6 +23,7 @@ export class HostDetailComponent implements OnInit {
   readonly suggestionsLoading = signal(true);
 
   readonly assigning = signal<string | null>(null);
+  readonly downloading = signal(false);
 
   readonly totalGuests = computed(() =>
     this.assigned().reduce((sum, g) => sum + g.guest_count, 0),
@@ -86,6 +87,24 @@ export class HostDetailComponent implements OnInit {
     if (km === null) return '—';
     if (km < 1) return `${Math.round(km * 1000)} m`;
     return `${km.toFixed(1)} km`;
+  }
+
+  downloadExcel() {
+    const h = this.host();
+    if (!h || this.downloading()) return;
+    this.downloading.set(true);
+    this.svc.downloadGuestsExcel(h.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invitados-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.downloading.set(false);
+      },
+      error: () => this.downloading.set(false),
+    });
   }
 
   private sortFn(a: GroupSuggestion, b: GroupSuggestion): number {

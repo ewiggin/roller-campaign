@@ -54,6 +54,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/guests/guest-detail').then((m) => m.GuestDetailComponent),
       },
+      {
+        path: 'activities',
+        loadComponent: () =>
+          import('./features/admin/activities/activities-list').then((m) => m.ActivitiesListComponent),
+      },
     ],
   },
   { path: '**', redirectTo: 'admin' },

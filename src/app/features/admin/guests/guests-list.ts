@@ -71,7 +71,7 @@ export class GuestsListComponent implements OnInit {
         if (r.length > 0) this.filterRegion.set(r[0].id);
       },
     });
-    this.groupsSvc.getAll().subscribe({ next: (g) => this.groups.set(g) });
+    this.groupsSvc.getAll({ limit: 500 }).subscribe({ next: (res) => this.groups.set(res.data) });
     this.load();
   }
 

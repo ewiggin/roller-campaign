@@ -9,6 +9,13 @@ export interface GuestGroup {
   updated_at: string;
 }
 
+export interface GuestGroupListResponse {
+  data: GuestGroup[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface CreateGuestGroupPayload {
   group_code: string;
   region_id: string;

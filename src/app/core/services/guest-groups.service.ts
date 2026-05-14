@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import type { GuestGroup, CreateGuestGroupPayload } from '../models/guest-group.model';
+import { HttpParams } from '@angular/common/http';
+import type { GuestGroup, GuestGroupListResponse, CreateGuestGroupPayload } from '../models/guest-group.model';
 export type { GuestGroup };
 
 export interface ImportGroupResult {
@@ -13,9 +14,12 @@ export interface ImportGroupResult {
 export class GuestGroupsService {
   private readonly http = inject(HttpClient);
 
-  getAll(regionId?: string) {
-    const params = regionId ? `?regionId=${regionId}` : '';
-    return this.http.get<GuestGroup[]>(`/api/guest-groups${params}`);
+  getAll(query: { regionId?: string; page?: number; limit?: number } = {}) {
+    let params = new HttpParams();
+    if (query.regionId) params = params.set('regionId', query.regionId);
+    if (query.page) params = params.set('page', String(query.page));
+    if (query.limit) params = params.set('limit', String(query.limit));
+    return this.http.get<GuestGroupListResponse>('/api/guest-groups', { params });
   }
 
   create(payload: CreateGuestGroupPayload) {
