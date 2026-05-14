@@ -55,19 +55,19 @@
               <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">{{ s.volunteerCount }}</span>
             </div>
             <div class="px-5 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-zinc-800/50">
-              <span class="text-sm text-gray-500 dark:text-zinc-400">Turns</span>
+              <span class="text-sm text-gray-500 dark:text-zinc-400">Activities</span>
               <div class="flex items-center gap-2">
-                <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">{{ s.turnCount }}</span>
-                @if (s.turnCount > 0) {
+                <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">{{ s.activityCount }}</span>
+                @if (s.activityCount > 0) {
                   <span
                     class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1"
-                    [class]="s.coveredTurns === s.turnCount
+                    [class]="s.coveredActivities === s.activityCount
                       ? 'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800'
-                      : s.coveredTurns === 0
+                      : s.coveredActivities === 0
                         ? 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800'
                         : 'bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800'"
                   >
-                    {{ s.coveredTurns }}/{{ s.turnCount }} covered
+                    {{ s.coveredActivities }}/{{ s.activityCount }} covered
                   </span>
                 }
               </div>

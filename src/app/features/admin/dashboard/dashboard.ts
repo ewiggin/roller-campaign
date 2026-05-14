@@ -25,8 +25,8 @@ export class DashboardComponent implements OnInit {
             event_end_date: r.event_end_date,
             guestCount: r.guest_count,
             volunteerCount: r.volunteer_count,
-            turnCount: r.turn_count,
-            coveredTurns: r.covered_turns,
+            activityCount: r.activity_count,
+            coveredActivities: r.covered_activities,
           })),
         );
         this.loading.set(false);

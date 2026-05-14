@@ -8,8 +8,8 @@ export interface RegionSummary {
   event_end_date: string | null;
   guestCount: number;
   volunteerCount: number;
-  turnCount: number;
-  coveredTurns: number;
+  activityCount: number;
+  coveredActivities: number;
 }
 
 interface RegionStatsDto {
@@ -19,8 +19,8 @@ interface RegionStatsDto {
   event_end_date: string | null;
   guest_count: number;
   volunteer_count: number;
-  turn_count: number;
-  covered_turns: number;
+  activity_count: number;
+  covered_activities: number;
 }
 
 @Injectable({ providedIn: 'root' })
