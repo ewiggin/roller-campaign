@@ -6,34 +6,54 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ILike, In, Repository } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
-import { Guest } from './entities/guest.entity';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
-import { User } from '../users/entities/user.entity';
 import { Region } from '../regions/entities/region.entity';
+import { User } from '../users/entities/user.entity';
 import { CreateGuestDto } from './dto/create-guest.dto';
-import { UpdateGuestDto } from './dto/update-guest.dto';
-import { GuestResponseDto } from './dto/guest-response.dto';
-import { GuestListQueryDto } from './dto/guest-list-query.dto';
-import { GuestMeResponseDto, GuestMeRegionDto, GuestTokenResponseDto } from './dto/guest-me-response.dto';
 import { GuestFormLookupResponseDto } from './dto/guest-form-lookup.dto';
 import { GuestFormSubmitDto } from './dto/guest-form-submit.dto';
+import { GuestListQueryDto } from './dto/guest-list-query.dto';
 import {
+  GuestMeResponseDto,
+  GuestTokenResponseDto,
+} from './dto/guest-me-response.dto';
+import { GuestResponseDto } from './dto/guest-response.dto';
+import {
+  ImportCommitDto,
+  ImportCommitResponseDto,
+} from './dto/import-commit.dto';
+import {
+  ImportErrorDto,
   ImportGuestRowDto,
   ImportParseResponseDto,
-  ImportErrorDto,
 } from './dto/import-parse-response.dto';
-import { ImportCommitDto, ImportCommitResponseDto } from './dto/import-commit.dto';
-import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { UpdateGuestDto } from './dto/update-guest.dto';
+import { Guest } from './entities/guest.entity';
 
 const GUEST_TOKEN_TYPE = 'guest_access';
 
-const TRANSPORT_VALUES = ['car', 'bus', 'train', 'plane', 'ferry', 'motorbike', 'other'];
-const STATUS_VALUES = ['pending', 'confirmed', 'cancelled', 'arrived', 'blocked'];
+const TRANSPORT_VALUES = [
+  'car',
+  'bus',
+  'train',
+  'plane',
+  'ferry',
+  'motorbike',
+  'other',
+];
+const STATUS_VALUES = [
+  'pending',
+  'confirmed',
+  'cancelled',
+  'arrived',
+  'blocked',
+];
 
 const EXCEL_COLUMNS: Record<string, keyof ImportGuestRowDto> = {
   guest_code: 'guest_code',
@@ -99,16 +119,25 @@ export class GuestsService {
     private readonly config: ConfigService,
   ) {}
 
-  async create(dto: CreateGuestDto, currentUser: JwtPayload): Promise<GuestResponseDto> {
+  async create(
+    dto: CreateGuestDto,
+    currentUser: JwtPayload,
+  ): Promise<GuestResponseDto> {
     await this.assertRegionAccess(dto.region_id, currentUser);
 
-    const exists = await this.guestsRepository.findOne({ where: { guest_code: dto.guest_code } });
+    const exists = await this.guestsRepository.findOne({
+      where: { guest_code: dto.guest_code },
+    });
     if (exists) throw new ConflictException('El código de invitado ya existe');
 
-    const group = await this.groupsRepository.findOne({ where: { id: dto.group_id } });
+    const group = await this.groupsRepository.findOne({
+      where: { id: dto.group_id },
+    });
     if (!group) throw new NotFoundException('Grupo no encontrado');
     if (group.region_id !== dto.region_id) {
-      throw new BadRequestException('El grupo no pertenece a la región indicada');
+      throw new BadRequestException(
+        'El grupo no pertenece a la región indicada',
+      );
     }
 
     const guest = this.guestsRepository.create(dto);
@@ -119,8 +148,16 @@ export class GuestsService {
   async findAll(
     query: GuestListQueryDto,
     currentUser: JwtPayload,
-  ): Promise<{ data: GuestResponseDto[]; total: number; page: number; limit: number }> {
-    if (currentUser.role !== 'superadmin' && currentUser.role !== 'region_admin') {
+  ): Promise<{
+    data: GuestResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    if (
+      currentUser.role !== 'superadmin' &&
+      currentUser.role !== 'region_admin'
+    ) {
       throw new ForbiddenException();
     }
 
@@ -134,7 +171,8 @@ export class GuestsService {
         relations: { regions: true },
       });
       const adminRegionIds = (user?.regions ?? []).map((r) => r.id);
-      if (adminRegionIds.length === 0) return { data: [], total: 0, page, limit };
+      if (adminRegionIds.length === 0)
+        return { data: [], total: 0, page, limit };
 
       if (regionId) {
         if (!adminRegionIds.includes(regionId)) throw new ForbiddenException();
@@ -164,21 +202,31 @@ export class GuestsService {
     return { data: guests.map(this.toDto), total, page, limit };
   }
 
-  async findOne(id: string, currentUser: JwtPayload): Promise<GuestResponseDto> {
+  async findOne(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<GuestResponseDto> {
     const guest = await this.guestsRepository.findOne({ where: { id } });
     if (!guest) throw new NotFoundException('Invitado no encontrado');
     await this.assertRegionAccess(guest.region_id, currentUser);
     return this.toDto(guest);
   }
 
-  async update(id: string, dto: UpdateGuestDto, currentUser: JwtPayload): Promise<GuestResponseDto> {
+  async update(
+    id: string,
+    dto: UpdateGuestDto,
+    currentUser: JwtPayload,
+  ): Promise<GuestResponseDto> {
     const guest = await this.guestsRepository.findOne({ where: { id } });
     if (!guest) throw new NotFoundException('Invitado no encontrado');
     await this.assertRegionAccess(guest.region_id, currentUser);
 
     if (dto.guest_code && dto.guest_code !== guest.guest_code) {
-      const exists = await this.guestsRepository.findOne({ where: { guest_code: dto.guest_code } });
-      if (exists) throw new ConflictException('El código de invitado ya existe');
+      const exists = await this.guestsRepository.findOne({
+        where: { guest_code: dto.guest_code },
+      });
+      if (exists)
+        throw new ConflictException('El código de invitado ya existe');
     }
 
     Object.assign(guest, dto);
@@ -192,15 +240,24 @@ export class GuestsService {
     await this.guestsRepository.remove(guest);
   }
 
-  async migrate(id: string, targetGroupId: string, currentUser: JwtPayload): Promise<GuestResponseDto> {
+  async migrate(
+    id: string,
+    targetGroupId: string,
+    currentUser: JwtPayload,
+  ): Promise<GuestResponseDto> {
     const guest = await this.guestsRepository.findOne({ where: { id } });
     if (!guest) throw new NotFoundException('Invitado no encontrado');
     await this.assertRegionAccess(guest.region_id, currentUser);
 
-    const targetGroup = await this.groupsRepository.findOne({ where: { id: targetGroupId } });
-    if (!targetGroup) throw new NotFoundException('Grupo de destino no encontrado');
+    const targetGroup = await this.groupsRepository.findOne({
+      where: { id: targetGroupId },
+    });
+    if (!targetGroup)
+      throw new NotFoundException('Grupo de destino no encontrado');
     if (targetGroup.region_id !== guest.region_id) {
-      throw new BadRequestException('La migración entre regiones no está permitida');
+      throw new BadRequestException(
+        'La migración entre regiones no está permitida',
+      );
     }
 
     if (guest.is_group_contact) {
@@ -215,7 +272,10 @@ export class GuestsService {
   parseExcel(buffer: Buffer, regionId?: string): ImportParseResponseDto {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { raw: false, defval: null });
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      raw: false,
+      defval: null,
+    });
 
     const valid: ImportGuestRowDto[] = [];
     const errors: ImportErrorDto[] = [];
@@ -226,8 +286,12 @@ export class GuestsService {
       const rowNum = i + 2;
       const rowErrors: string[] = [];
 
-      const guest_code = this.normalizeCode(this.parseString(row['guest_code']));
-      const group_code = this.normalizeCode(this.parseString(row['group_code']));
+      const guest_code = this.normalizeCode(
+        this.parseString(row['guest_code']),
+      );
+      const group_code = this.normalizeCode(
+        this.parseString(row['group_code']),
+      );
       const full_name = this.parseString(row['full_name']);
 
       if (!guest_code) rowErrors.push('guest_code es obligatorio');
@@ -249,12 +313,19 @@ export class GuestsService {
       }
 
       const departure_transport = this.parseString(row['departure_transport']);
-      if (departure_transport && !TRANSPORT_VALUES.includes(departure_transport)) {
+      if (
+        departure_transport &&
+        !TRANSPORT_VALUES.includes(departure_transport)
+      ) {
         rowErrors.push(`departure_transport inválido: ${departure_transport}`);
       }
 
       if (rowErrors.length > 0) {
-        errors.push({ row: rowNum, guest_code: guest_code ?? '', reason: rowErrors.join('; ') });
+        errors.push({
+          row: rowNum,
+          guest_code: guest_code ?? '',
+          reason: rowErrors.join('; '),
+        });
         continue;
       }
 
@@ -272,7 +343,10 @@ export class GuestsService {
         is_group_contact: this.parseBool(row['is_group_contact']),
         native_language: this.parseString(row['native_language']),
         other_languages: other_languages_raw
-          ? other_languages_raw.split(',').map((s) => s.trim()).filter(Boolean)
+          ? other_languages_raw
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
           : null,
         speaks_english: this.parseBool(row['speaks_english']),
         is_special_servant: this.parseBool(row['is_special_servant']),
@@ -281,7 +355,9 @@ export class GuestsService {
         available_from: this.parseString(row['available_from']),
         available_to: this.parseString(row['available_to']),
         arrival_transport: this.parseString(row['arrival_transport']),
-        arrival_other_transport: this.parseString(row['arrival_other_transport']),
+        arrival_other_transport: this.parseString(
+          row['arrival_other_transport'],
+        ),
         arrival_date: this.parseString(row['arrival_date']),
         arrival_time: this.parseString(row['arrival_time']),
         arrival_place: this.parseString(row['arrival_place']),
@@ -292,7 +368,9 @@ export class GuestsService {
         real_arrival_time: this.parseString(row['real_arrival_time']),
         needs_airport_transfer: this.parseBool(row['needs_airport_transfer']),
         departure_transport: this.parseString(row['departure_transport']),
-        departure_other_transport: this.parseString(row['departure_other_transport']),
+        departure_other_transport: this.parseString(
+          row['departure_other_transport'],
+        ),
         departure_date: this.parseString(row['departure_date']),
         departure_time: this.parseString(row['departure_time']),
         departure_place: this.parseString(row['departure_place']),
@@ -304,7 +382,9 @@ export class GuestsService {
         accommodation: this.parseString(row['accommodation']),
         checkin_date: this.parseString(row['checkin_date']),
         checkout_date: this.parseString(row['checkout_date']),
-        needs_special_accommodation: this.parseBool(row['needs_special_accommodation']),
+        needs_special_accommodation: this.parseBool(
+          row['needs_special_accommodation'],
+        ),
         hosting_address: this.parseString(row['hosting_address']),
         maps_link: this.parseString(row['maps_link']),
         lat: this.parseFloat(row['lat']),
@@ -328,7 +408,10 @@ export class GuestsService {
     };
   }
 
-  async parseWithDuplicates(buffer: Buffer, regionId?: string): Promise<ImportParseResponseDto> {
+  async parseWithDuplicates(
+    buffer: Buffer,
+    regionId?: string,
+  ): Promise<ImportParseResponseDto> {
     const preview = this.parseExcel(buffer, regionId);
 
     if (preview.valid.length > 0) {
@@ -339,10 +422,14 @@ export class GuestsService {
       });
       const existingCodes = new Set(existing.map((g) => g.guest_code));
 
-      const duplicateRows = preview.valid.filter((r) => existingCodes.has(r.guest_code));
+      const duplicateRows = preview.valid.filter((r) =>
+        existingCodes.has(r.guest_code),
+      );
       preview.duplicates = duplicateRows.map((r) => r.guest_code);
       preview.duplicateRows = duplicateRows;
-      preview.valid = preview.valid.filter((r) => !existingCodes.has(r.guest_code));
+      preview.valid = preview.valid.filter(
+        (r) => !existingCodes.has(r.guest_code),
+      );
 
       preview.summary.duplicates = preview.duplicates.length;
       preview.summary.valid = preview.valid.length;
@@ -351,7 +438,10 @@ export class GuestsService {
     return preview;
   }
 
-  async commitImport(dto: ImportCommitDto, currentUser: JwtPayload): Promise<ImportCommitResponseDto> {
+  async commitImport(
+    dto: ImportCommitDto,
+    currentUser: JwtPayload,
+  ): Promise<ImportCommitResponseDto> {
     const groupCache = new Map<string, GuestGroup>();
     let createdGroups = 0;
     let createdGuests = 0;
@@ -362,25 +452,40 @@ export class GuestsService {
     if (dto.regionId) {
       // ── Mode A: fixed region ──────────────────────────────────────────────
       await this.assertRegionAccess(dto.regionId, currentUser);
-      const region = await this.regionsRepository.findOne({ where: { id: dto.regionId } });
+      const region = await this.regionsRepository.findOne({
+        where: { id: dto.regionId },
+      });
       if (!region) throw new NotFoundException('Región no encontrada');
 
       for (const row of dto.rows) {
         let group = groupCache.get(row.group_code);
         if (!group) {
-          const found = await this.groupsRepository.findOne({ where: { group_code: row.group_code } });
-          group = found ?? await this.groupsRepository.save(
-            this.groupsRepository.create({ group_code: row.group_code, region_id: dto.regionId }),
-          );
+          const found = await this.groupsRepository.findOne({
+            where: { group_code: row.group_code },
+          });
+          group =
+            found ??
+            (await this.groupsRepository.save(
+              this.groupsRepository.create({
+                group_code: row.group_code,
+                region_id: dto.regionId,
+              }),
+            ));
           if (!found) createdGroups++;
           groupCache.set(row.group_code, group);
         }
 
-        const exists = await this.guestsRepository.findOne({ where: { guest_code: row.guest_code } });
+        const exists = await this.guestsRepository.findOne({
+          where: { guest_code: row.guest_code },
+        });
         if (exists) continue;
 
         await this.guestsRepository.save(
-          this.guestsRepository.create({ ...this.rowToGuestFields(row), group_id: group.id, region_id: dto.regionId }),
+          this.guestsRepository.create({
+            ...this.rowToGuestFields(row),
+            group_id: group.id,
+            region_id: dto.regionId,
+          }),
         );
         createdGuests++;
       }
@@ -389,22 +494,31 @@ export class GuestsService {
       for (const row of dto.rows) {
         let group = groupCache.get(row.group_code);
         if (!group) {
-          const found = await this.groupsRepository.findOne({ where: { group_code: row.group_code } });
+          const found = await this.groupsRepository.findOne({
+            where: { group_code: row.group_code },
+          });
           if (!found) {
             groupsNotFound++;
             notFoundRows.push(row);
             continue;
           }
-          if (!await this.hasRegionAccess(found.region_id, currentUser)) continue;
+          if (!(await this.hasRegionAccess(found.region_id, currentUser)))
+            continue;
           group = found;
           groupCache.set(row.group_code, group);
         }
 
-        const exists = await this.guestsRepository.findOne({ where: { guest_code: row.guest_code } });
+        const exists = await this.guestsRepository.findOne({
+          where: { guest_code: row.guest_code },
+        });
         if (exists) continue;
 
         await this.guestsRepository.save(
-          this.guestsRepository.create({ ...this.rowToGuestFields(row), group_id: group.id, region_id: group.region_id }),
+          this.guestsRepository.create({
+            ...this.rowToGuestFields(row),
+            group_id: group.id,
+            region_id: group.region_id,
+          }),
         );
         createdGuests++;
       }
@@ -412,16 +526,20 @@ export class GuestsService {
 
     // ── Updates (updateRows) ──────────────────────────────────────────────
     for (const row of dto.updateRows ?? []) {
-      const guest = await this.guestsRepository.findOne({ where: { guest_code: row.guest_code } });
+      const guest = await this.guestsRepository.findOne({
+        where: { guest_code: row.guest_code },
+      });
       if (!guest) continue;
-      if (!await this.hasRegionAccess(guest.region_id, currentUser)) continue;
+      if (!(await this.hasRegionAccess(guest.region_id, currentUser))) continue;
 
       // Resolve new group if group_code changed, within the same region
       let newGroupId = guest.group_id;
       if (row.group_code) {
         let group = groupCache.get(row.group_code);
         if (!group) {
-          const found = await this.groupsRepository.findOne({ where: { group_code: row.group_code } });
+          const found = await this.groupsRepository.findOne({
+            where: { group_code: row.group_code },
+          });
           if (found && found.region_id === guest.region_id) {
             group = found;
             groupCache.set(row.group_code, group);
@@ -430,7 +548,9 @@ export class GuestsService {
         if (group) newGroupId = group.id;
       }
 
-      Object.assign(guest, this.rowToGuestFields(row), { group_id: newGroupId });
+      Object.assign(guest, this.rowToGuestFields(row), {
+        group_id: newGroupId,
+      });
       await this.guestsRepository.save(guest);
       updatedGuests++;
     }
@@ -440,7 +560,12 @@ export class GuestsService {
       updated_guests: updatedGuests,
       created_groups: createdGroups,
       total: dto.rows.length + (dto.updateRows?.length ?? 0),
-      ...(dto.regionId ? {} : { groups_not_found: groupsNotFound, groups_not_found_rows: notFoundRows }),
+      ...(dto.regionId
+        ? {}
+        : {
+            groups_not_found: groupsNotFound,
+            groups_not_found_rows: notFoundRows,
+          }),
     };
   }
 
@@ -460,7 +585,8 @@ export class GuestsService {
       email: row.email ?? null,
       available_from: row.available_from ?? null,
       available_to: row.available_to ?? null,
-      arrival_transport: (row.arrival_transport as Guest['arrival_transport']) ?? null,
+      arrival_transport:
+        (row.arrival_transport as Guest['arrival_transport']) ?? null,
       arrival_other_transport: row.arrival_other_transport ?? null,
       arrival_date: row.arrival_date ?? null,
       arrival_time: row.arrival_time ?? null,
@@ -471,7 +597,8 @@ export class GuestsService {
       real_arrival: row.real_arrival ?? null,
       real_arrival_time: row.real_arrival_time ?? null,
       needs_airport_transfer: row.needs_airport_transfer ?? false,
-      departure_transport: (row.departure_transport as Guest['departure_transport']) ?? null,
+      departure_transport:
+        (row.departure_transport as Guest['departure_transport']) ?? null,
       departure_other_transport: row.departure_other_transport ?? null,
       departure_date: row.departure_date ?? null,
       departure_time: row.departure_time ?? null,
@@ -494,8 +621,13 @@ export class GuestsService {
     };
   }
 
-  async generateAccessToken(guestId: string, currentUser: JwtPayload): Promise<GuestTokenResponseDto> {
-    const guest = await this.guestsRepository.findOne({ where: { id: guestId } });
+  async generateAccessToken(
+    guestId: string,
+    currentUser: JwtPayload,
+  ): Promise<GuestTokenResponseDto> {
+    const guest = await this.guestsRepository.findOne({
+      where: { id: guestId },
+    });
     if (!guest) throw new NotFoundException('Invitado no encontrado');
     await this.assertRegionAccess(guest.region_id, currentUser);
 
@@ -503,24 +635,33 @@ export class GuestsService {
       { sub: guest.guest_code, type: GUEST_TOKEN_TYPE },
       { expiresIn: '365d' },
     );
-    const clientUrl = this.config.get<string>('CLIENT_URL', 'http://localhost:4300');
+    const clientUrl = this.config.get<string>(
+      'CLIENT_URL',
+      'http://localhost:4300',
+    );
     return { token, access_url: `${clientUrl}/access?token=${token}` };
   }
 
   async getByToken(token: string): Promise<GuestMeResponseDto> {
     let guestCode: string;
     try {
-      const payload = this.jwtService.verify<{ sub: string; type: string }>(token);
+      const payload = this.jwtService.verify<{ sub: string; type: string }>(
+        token,
+      );
       if (payload.type !== GUEST_TOKEN_TYPE) throw new Error('wrong type');
       guestCode = payload.sub;
     } catch {
       throw new UnauthorizedException('Token inválido o expirado');
     }
 
-    const guest = await this.guestsRepository.findOne({ where: { guest_code: guestCode } });
+    const guest = await this.guestsRepository.findOne({
+      where: { guest_code: guestCode },
+    });
     if (!guest) throw new NotFoundException('Invitado no encontrado');
 
-    const region = await this.regionsRepository.findOne({ where: { id: guest.region_id } });
+    const region = await this.regionsRepository.findOne({
+      where: { id: guest.region_id },
+    });
 
     const dto = new GuestMeResponseDto();
     Object.assign(dto, this.toDto(guest));
@@ -556,7 +697,10 @@ export class GuestsService {
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
-  private async assertRegionAccess(regionId: string, currentUser: JwtPayload): Promise<void> {
+  private async assertRegionAccess(
+    regionId: string,
+    currentUser: JwtPayload,
+  ): Promise<void> {
     if (currentUser.role === 'superadmin') return;
     if (currentUser.role === 'region_admin') {
       const user = await this.usersRepository.findOne({
@@ -570,7 +714,10 @@ export class GuestsService {
     throw new ForbiddenException();
   }
 
-  private async hasRegionAccess(regionId: string, currentUser: JwtPayload): Promise<boolean> {
+  private async hasRegionAccess(
+    regionId: string,
+    currentUser: JwtPayload,
+  ): Promise<boolean> {
     if (currentUser.role === 'superadmin') return true;
     if (currentUser.role === 'region_admin') {
       const user = await this.usersRepository.findOne({
@@ -584,7 +731,9 @@ export class GuestsService {
 
   async lookupByCode(code: string): Promise<GuestFormLookupResponseDto> {
     const upper = code.trim().toUpperCase();
-    const normalized = upper.includes('-') ? upper : (upper.match(/.{1,4}/g) ?? []).join('-');
+    const normalized = upper.includes('-')
+      ? upper
+      : (upper.match(/.{1,4}/g) ?? []).join('-');
     const candidates = Array.from(new Set([upper, normalized]));
 
     const guest = await this.guestsRepository.findOne({
@@ -592,7 +741,9 @@ export class GuestsService {
     });
     if (!guest) throw new NotFoundException('Código de invitado no encontrado');
 
-    const region = await this.regionsRepository.findOne({ where: { id: guest.region_id } });
+    const region = await this.regionsRepository.findOne({
+      where: { id: guest.region_id },
+    });
 
     return {
       guest_code: guest.guest_code,
@@ -619,7 +770,9 @@ export class GuestsService {
 
   async submitForm(code: string, dto: GuestFormSubmitDto): Promise<void> {
     const upper = code.trim().toUpperCase();
-    const normalized = upper.includes('-') ? upper : (upper.match(/.{1,4}/g) ?? []).join('-');
+    const normalized = upper.includes('-')
+      ? upper
+      : (upper.match(/.{1,4}/g) ?? []).join('-');
     const candidates = Array.from(new Set([upper, normalized]));
 
     const guest = await this.guestsRepository.findOne({

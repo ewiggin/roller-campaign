@@ -16,10 +16,10 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { GuestsService } from './guests.service';
-import { GuestMeResponseDto } from './dto/guest-me-response.dto';
 import { GuestFormLookupResponseDto } from './dto/guest-form-lookup.dto';
 import { GuestFormSubmitDto } from './dto/guest-form-submit.dto';
+import { GuestMeResponseDto } from './dto/guest-me-response.dto';
+import { GuestsService } from './guests.service';
 
 @ApiTags('guest-access')
 @Controller('guest-access')
@@ -37,7 +37,9 @@ export class GuestAccessController {
   @Get('lookup')
   @ApiOkResponse({ type: GuestFormLookupResponseDto })
   @ApiNotFoundResponse({ description: 'Código de invitado no encontrado' })
-  lookupByCode(@Query('code') code: string): Promise<GuestFormLookupResponseDto> {
+  lookupByCode(
+    @Query('code') code: string,
+  ): Promise<GuestFormLookupResponseDto> {
     if (!code) throw new NotFoundException('Código requerido');
     return this.guestsService.lookupByCode(code);
   }
