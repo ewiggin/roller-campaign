@@ -195,14 +195,10 @@ export class GuestGroupsListComponent implements OnInit {
   }
 
   private doImport(file: File) {
-    if (!this.importRegionId()) {
-      this.importError.set('Select a region first.');
-      return;
-    }
     this.importing.set(true);
     this.importError.set('');
     this.importResult.set(null);
-    this.svc.importFromExcel(file, this.importRegionId()).subscribe({
+    this.svc.importFromExcel(file, this.importRegionId() || undefined).subscribe({
       next: (result) => {
         this.importResult.set(result);
         this.importing.set(false);
@@ -212,6 +208,17 @@ export class GuestGroupsListComponent implements OnInit {
         this.importError.set('Error importing file. Check the format.');
         this.importing.set(false);
       },
+    });
+  }
+
+  downloadExcel() {
+    this.svc.exportExcel(this.selectedRegionId() || undefined).subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'grupos.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
     });
   }
 

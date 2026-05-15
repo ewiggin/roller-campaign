@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import type { Region, CreateRegionPayload, UpdateRegionPayload } from '../models/region.model';
+import type { Region, CreateRegionPayload, UpdateRegionPayload, ImportRegionRow, ImportRegionParseResponse, ImportRegionCommitResponse } from '../models/region.model';
 import type { User } from '../models/user.model';
 
 @Injectable({ providedIn: 'root' })
@@ -37,5 +37,26 @@ export class RegionsService {
 
   getUsers() {
     return this.http.get<User[]>('/api/users');
+  }
+
+  exportExcel() {
+    return this.http.get('/api/regions/export', { responseType: 'blob' });
+  }
+
+  downloadTemplate() {
+    return this.http.get('/api/regions/import/template', { responseType: 'blob' });
+  }
+
+  parseImport(file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<ImportRegionParseResponse>('/api/regions/import/parse', form);
+  }
+
+  commitImport(rows: ImportRegionRow[], updateRows?: ImportRegionRow[]) {
+    return this.http.post<ImportRegionCommitResponse>('/api/regions/import/commit', {
+      rows,
+      ...(updateRows?.length ? { updateRows } : {}),
+    });
   }
 }

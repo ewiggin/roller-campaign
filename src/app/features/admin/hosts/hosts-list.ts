@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
-import type { Host } from '../../../core/models/host.model';
+import type { Host, ImportHostRow, ImportHostParseResponse, ImportHostCommitResponse } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 
 type ModalMode = 'create' | 'edit' | null;
@@ -167,5 +167,113 @@ export class HostsListComponent implements OnInit {
 
   closeModal() {
     this.modal.set(null);
+  }
+
+  // ── Import ────────────────────────────────────────────────────────────────
+  readonly importModal = signal(false);
+  readonly importStep = signal<'upload' | 'preview' | 'done'>('upload');
+  readonly importing = signal(false);
+  readonly importError = signal('');
+  readonly parseResult = signal<ImportHostParseResponse | null>(null);
+  readonly commitResult = signal<ImportHostCommitResponse | null>(null);
+  readonly importUpdateExisting = signal(false);
+  isDragging = false;
+
+  openImport() {
+    this.importStep.set('upload');
+    this.importError.set('');
+    this.parseResult.set(null);
+    this.commitResult.set(null);
+    this.importUpdateExisting.set(false);
+    this.importModal.set(true);
+  }
+
+  closeImport() {
+    this.importModal.set(false);
+    if (this.importStep() === 'done') this.load();
+  }
+
+  downloadExcel() {
+    this.svc.exportExcel(this.selectedRegionId() || undefined).subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'congregaciones.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  downloadTemplate() {
+    this.svc.downloadTemplate().subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'plantilla-congregaciones.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  onDragOver(ev: DragEvent) { ev.preventDefault(); this.isDragging = true; }
+  onDragLeave() { this.isDragging = false; }
+  onDrop(ev: DragEvent) {
+    ev.preventDefault();
+    this.isDragging = false;
+    const file = ev.dataTransfer?.files[0];
+    if (file) this.parseFile(file);
+  }
+  onFileSelected(ev: Event) {
+    const file = (ev.target as HTMLInputElement).files?.[0];
+    if (file) this.parseFile(file);
+  }
+
+  private parseFile(file: File) {
+    this.importing.set(true);
+    this.importError.set('');
+    this.svc.parseImport(file).subscribe({
+      next: (result) => {
+        this.parseResult.set(result);
+        this.importStep.set('preview');
+        this.importing.set(false);
+      },
+      error: () => {
+        this.importError.set('Error parsing file. Check the format.');
+        this.importing.set(false);
+      },
+    });
+  }
+
+  get canCommit(): boolean {
+    const r = this.parseResult();
+    return !!(r && (r.valid.length > 0 || (this.importUpdateExisting() && r.duplicateRows.length > 0)));
+  }
+
+  get commitLabel(): string {
+    const r = this.parseResult();
+    if (!r) return 'Import';
+    const parts: string[] = [];
+    if (r.valid.length > 0) parts.push(`Import ${r.valid.length} new`);
+    if (this.importUpdateExisting() && r.duplicateRows.length > 0) parts.push(`update ${r.duplicateRows.length} existing`);
+    return parts.join(' + ') || 'Import';
+  }
+
+  commitImport() {
+    const r = this.parseResult();
+    if (!r || !this.canCommit) return;
+    this.importing.set(true);
+    this.importError.set('');
+    const updateRows = this.importUpdateExisting() ? r.duplicateRows : undefined;
+    this.svc.commitImport(r.valid, updateRows).subscribe({
+      next: (res) => {
+        this.commitResult.set(res);
+        this.importStep.set('done');
+        this.importing.set(false);
+      },
+      error: () => {
+        this.importError.set('Error committing import.');
+        this.importing.set(false);
+      },
+    });
   }
 }

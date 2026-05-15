@@ -59,6 +59,15 @@ export class GuestsService {
     });
   }
 
+  exportExcel(query: GuestListQuery = {}) {
+    let params = new HttpParams();
+    if (query.regionId) params = params.set('regionId', query.regionId);
+    if (query.groupId) params = params.set('groupId', query.groupId);
+    if (query.status) params = params.set('status', query.status);
+    if (query.search) params = params.set('search', query.search);
+    return this.http.get('/api/guests/export', { params, responseType: 'blob' });
+  }
+
   downloadTemplate() {
     return this.http.get('/api/guests/import/template', { responseType: 'blob' });
   }

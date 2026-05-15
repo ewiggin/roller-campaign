@@ -8,6 +8,7 @@ export interface ImportGroupResult {
   created: number;
   skipped: number;
   total: number;
+  regions_not_found?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -38,10 +39,16 @@ export class GuestGroupsService {
     return this.http.patch<GuestGroup>(`/api/guest-groups/${groupId}/host`, { hostId });
   }
 
-  importFromExcel(file: File, regionId: string) {
+  importFromExcel(file: File, regionId?: string) {
     const form = new FormData();
     form.append('file', file);
-    return this.http.post<ImportGroupResult>(`/api/guest-groups/import?regionId=${regionId}`, form);
+    const qs = regionId ? `?regionId=${regionId}` : '';
+    return this.http.post<ImportGroupResult>(`/api/guest-groups/import${qs}`, form);
+  }
+
+  exportExcel(regionId?: string) {
+    const qs = regionId ? `?regionId=${regionId}` : '';
+    return this.http.get(`/api/guest-groups/export${qs}`, { responseType: 'blob' });
   }
 
   downloadTemplate() {
