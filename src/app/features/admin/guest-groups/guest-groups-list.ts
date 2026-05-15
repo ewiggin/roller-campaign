@@ -195,14 +195,10 @@ export class GuestGroupsListComponent implements OnInit {
   }
 
   private doImport(file: File) {
-    if (!this.importRegionId()) {
-      this.importError.set('Select a region first.');
-      return;
-    }
     this.importing.set(true);
     this.importError.set('');
     this.importResult.set(null);
-    this.svc.importFromExcel(file, this.importRegionId()).subscribe({
+    this.svc.importFromExcel(file, this.importRegionId() || undefined).subscribe({
       next: (result) => {
         this.importResult.set(result);
         this.importing.set(false);
