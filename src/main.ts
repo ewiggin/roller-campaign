@@ -29,14 +29,16 @@ async function bootstrap() {
     }
   }
 
-  const config = new DocumentBuilder()
-    .setTitle('Roller Campaign API')
-    .setDescription('API para la gestión de la campaña de predicación')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Roller Campaign API')
+      .setDescription('API para la gestión de la campaña de predicación')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('docs', app, document);
+  }
 
   await app.listen(process.env.PORT ?? 3000);
   logger.log(`Application running on port ${process.env.PORT ?? 3000}`);
