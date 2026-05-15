@@ -682,7 +682,10 @@ export class GuestsService {
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
-  async exportAll(query: GuestListQueryDto, currentUser: JwtPayload): Promise<Buffer> {
+  async exportAll(
+    query: GuestListQueryDto,
+    currentUser: JwtPayload,
+  ): Promise<Buffer> {
     const { regionId, groupId, status, search } = query;
 
     const qb = this.guestsRepository.createQueryBuilder('g');
@@ -716,8 +719,12 @@ export class GuestsService {
 
     const guests = await qb.orderBy('g.full_name', 'ASC').getMany();
 
-    const regions = await this.regionsRepository.find({ select: ['id', 'name'] });
-    const groups = await this.groupsRepository.find({ select: ['id', 'group_code'] });
+    const regions = await this.regionsRepository.find({
+      select: ['id', 'name'],
+    });
+    const groups = await this.groupsRepository.find({
+      select: ['id', 'group_code'],
+    });
     const regionMap = new Map(regions.map((r) => [r.id, r.name]));
     const groupMap = new Map(groups.map((g) => [g.id, g.group_code]));
 
@@ -730,13 +737,28 @@ export class GuestsService {
     groupMap = new Map<string, string>(),
   ): Buffer {
     const headers = [
-      'guest_code', 'full_name', 'email', 'origin_city',
-      'group_code', 'region_name', 'status',
-      'speaks_english', 'other_languages',
-      'transport_mode', 'arrival_flight', 'needs_airport_transfer',
-      'real_arrival', 'real_arrival_time', 'real_departure', 'real_departure_time',
-      'hosting_address', 'lat', 'lng',
-      'is_minor', 'branch', 'native_language',
+      'guest_code',
+      'full_name',
+      'email',
+      'origin_city',
+      'group_code',
+      'region_name',
+      'status',
+      'speaks_english',
+      'other_languages',
+      'transport_mode',
+      'arrival_flight',
+      'needs_airport_transfer',
+      'real_arrival',
+      'real_arrival_time',
+      'real_departure',
+      'real_departure_time',
+      'hosting_address',
+      'lat',
+      'lng',
+      'is_minor',
+      'branch',
+      'native_language',
     ];
     const rows = guests.map((g) => [
       g.guest_code,
@@ -765,13 +787,28 @@ export class GuestsService {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     ws['!cols'] = [
-      { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 18 },
-      { wch: 12 }, { wch: 20 }, { wch: 11 },
-      { wch: 14 }, { wch: 28 },
-      { wch: 16 }, { wch: 12 }, { wch: 20 },
-      { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 13 },
-      { wch: 36 }, { wch: 10 }, { wch: 10 },
-      { wch: 9 }, { wch: 12 }, { wch: 16 },
+      { wch: 14 },
+      { wch: 28 },
+      { wch: 28 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 20 },
+      { wch: 11 },
+      { wch: 14 },
+      { wch: 28 },
+      { wch: 16 },
+      { wch: 12 },
+      { wch: 20 },
+      { wch: 13 },
+      { wch: 13 },
+      { wch: 13 },
+      { wch: 13 },
+      { wch: 36 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 9 },
+      { wch: 12 },
+      { wch: 16 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Invitados');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
@@ -832,8 +869,10 @@ export class GuestsService {
     const candidates = Array.from(new Set([upper, normalized]));
 
     const guest = await this.guestsRepository.findOne({
+      select: ['guest_code'],
       where: candidates.map((c) => ({ guest_code: c })),
     });
+
     if (!guest) throw new NotFoundException('Código de invitado no encontrado');
 
     const region = await this.regionsRepository.findOne({
@@ -842,23 +881,6 @@ export class GuestsService {
 
     return {
       guest_code: guest.guest_code,
-      full_name: guest.full_name,
-      email: guest.email,
-      origin_city: guest.origin_city,
-      car_seats: guest.car_seats,
-      speaks_english: guest.speaks_english,
-      other_languages: guest.other_languages,
-      real_arrival: guest.real_arrival,
-      real_arrival_time: guest.real_arrival_time,
-      real_departure: guest.real_departure,
-      real_departure_time: guest.real_departure_time,
-      hosting_address: guest.hosting_address,
-      lat: guest.lat,
-      lng: guest.lng,
-      transport_mode: guest.transport_mode,
-      arrival_other_transport: guest.arrival_other_transport,
-      arrival_flight: guest.arrival_flight,
-      needs_airport_transfer: guest.needs_airport_transfer,
       region_name: region?.name ?? '',
     };
   }
