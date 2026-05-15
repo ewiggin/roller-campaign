@@ -81,10 +81,17 @@
         } @else {
           <!-- Código confirmado -->
           <div
-            class="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2"
+            class="flex flex-wrap items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2"
           >
             <span class="text-indigo-500">🎟️</span>
             <span class="text-sm text-indigo-800 font-medium">Código: {{ codeControl.value }}</span>
+            @if (regionName()) {
+              <span
+                class="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2.5 py-0.5 font-medium"
+              >
+                {{ regionName() }}
+              </span>
+            }
             <button
               type="button"
               (click)="step.set('code')"
@@ -113,7 +120,7 @@
           <!-- Email -->
           <div class="space-y-1">
             <label class="block text-sm font-semibold text-gray-700">
-              Email <span class="text-red-500">*</span>
+              Email personal (no introduzcas el correo @jwpub)<span class="text-red-500">*</span>
             </label>
             <input
               type="email"
@@ -124,31 +131,6 @@
             />
             @if (isInvalid('email')) {
               <p class="text-xs text-red-500">Introduce un email válido</p>
-            }
-          </div>
-
-          <!-- Región de participación -->
-          <div class="space-y-2">
-            <label class="block text-sm font-semibold text-gray-700">
-              Región en la que participas <span class="text-red-500">*</span>
-            </label>
-            <div class="grid grid-cols-2 gap-2">
-              @for (region of ['Costa Brava', 'Málaga', 'Mallorca', 'Tenerife']; track region) {
-                <label
-                  class="flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2.5 cursor-pointer text-sm font-medium transition-colors"
-                  [class.border-indigo-500]="form.get('region')?.value === region"
-                  [class.bg-indigo-50]="form.get('region')?.value === region"
-                  [class.text-indigo-700]="form.get('region')?.value === region"
-                  [class.border-gray-300]="form.get('region')?.value !== region"
-                  [class.text-gray-600]="form.get('region')?.value !== region"
-                >
-                  <input type="radio" class="hidden" formControlName="region" [value]="region" />
-                  {{ region }}
-                </label>
-              }
-            </div>
-            @if (isInvalid('region')) {
-              <p class="text-xs text-red-500">Selecciona una región</p>
             }
           </div>
 
@@ -171,29 +153,39 @@
 
           <!-- Plazas de coche -->
           <div class="space-y-1">
-            <div>
+            <div class="space-y-2">
               <label class="block text-sm font-semibold text-gray-700"
                 >En la predicación, ¿puedes ofrecer tu coche para llevar a otros invitados que no
                 sean de tu grupo?</label
               >
-              <label class="inline-flex items-center gap-3 cursor-pointer select-none">
-                <div
-                  class="relative w-12 h-6 rounded-full transition-colors duration-200"
-                  [class.bg-indigo-500]="carAvailable() || form.get('plazasCoche')?.value"
-                  [class.bg-gray-300]="!carAvailable() && !form.get('plazasCoche')?.value"
-                  (click)="toggleCar()"
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  (click)="setCarAvailable(true)"
+                  class="flex-1 border rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="carAvailable()"
+                  [class.bg-indigo-50]="carAvailable()"
+                  [class.text-indigo-700]="carAvailable()"
+                  [class.border-gray-300]="!carAvailable()"
+                  [class.text-gray-600]="!carAvailable()"
                 >
-                  <div
-                    class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                    [class.translate-x-6]="carAvailable() || form.get('plazasCoche')?.value"
-                  ></div>
-                </div>
-                <span class="text-sm text-gray-700">
-                  {{ carAvailable() || form.get('plazasCoche')?.value ? 'Sí' : 'No' }}
-                </span>
-              </label>
+                  Sí
+                </button>
+                <button
+                  type="button"
+                  (click)="setCarAvailable(false)"
+                  class="flex-1 border rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="!carAvailable()"
+                  [class.bg-indigo-50]="!carAvailable()"
+                  [class.text-indigo-700]="!carAvailable()"
+                  [class.border-gray-300]="carAvailable()"
+                  [class.text-gray-600]="carAvailable()"
+                >
+                  No
+                </button>
+              </div>
             </div>
-            @if (carAvailable() || form.get('plazasCoche')?.value > 0) {
+            @if (carAvailable()) {
               <label class="block text-sm font-semibold text-gray-700">
                 Plazas de coche disponibles
               </label>
@@ -220,25 +212,37 @@
             }
           </div>
 
-          <!-- Habla inglés -->
-          <div class="space-y-1">
-            <label class="block text-sm font-semibold text-gray-700">¿Hablas inglés?</label>
-            <label class="inline-flex items-center gap-3 cursor-pointer select-none">
-              <div
-                class="relative w-12 h-6 rounded-full transition-colors duration-200"
-                [class.bg-indigo-500]="form.get('hablaIngles')?.value"
-                [class.bg-gray-300]="!form.get('hablaIngles')?.value"
-                (click)="toggleIngles()"
-              >
-                <div
-                  class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                  [class.translate-x-6]="form.get('hablaIngles')?.value"
-                ></div>
-              </div>
-              <span class="text-sm text-gray-700">
-                {{ form.get('hablaIngles')?.value ? 'Sí, hablo inglés' : 'No' }}
-              </span>
+          <!-- Idiomas -->
+          <div class="space-y-2">
+            <label class="block text-sm font-semibold text-gray-700">
+              ¿Hablas alguno de estos idiomas?
+              <span class="text-xs font-normal text-gray-400 ml-1">(Puedes marcar varios)</span>
             </label>
+            <div class="grid grid-cols-2 gap-2">
+              @for (lang of languages; track lang) {
+                <button
+                  type="button"
+                  (click)="toggleLanguage(lang)"
+                  class="flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="selectedLanguages().includes(lang)"
+                  [class.bg-indigo-50]="selectedLanguages().includes(lang)"
+                  [class.text-indigo-700]="selectedLanguages().includes(lang)"
+                  [class.border-gray-300]="!selectedLanguages().includes(lang)"
+                  [class.text-gray-600]="!selectedLanguages().includes(lang)"
+                >
+                  @if (selectedLanguages().includes(lang)) {
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fill-rule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  }
+                  {{ lang }}
+                </button>
+              }
+            </div>
           </div>
 
           <!-- Medio de transporte -->
@@ -289,29 +293,46 @@
                 class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
               />
               <label class="block text-sm font-semibold text-gray-700 pt-1">
-                ¿Necesitas transporte del aeropuerto hasta el hotel?
-                <span class="text-xs">(No podemos garantizar que pueda haber transporte)</span>
+                ¿Necesitas que el departamento de transporte te lleve del aeropuerto hasta el hotel?
               </label>
-              <label class="inline-flex items-center gap-3 cursor-pointer select-none">
-                <div
-                  class="relative w-12 h-6 rounded-full transition-colors duration-200"
-                  [class.bg-indigo-500]="form.get('necesitaTransporteAeropuerto')?.value"
-                  [class.bg-gray-300]="!form.get('necesitaTransporteAeropuerto')?.value"
-                  (click)="
-                    form
-                      .get('necesitaTransporteAeropuerto')
-                      ?.setValue(!form.get('necesitaTransporteAeropuerto')?.value)
-                  "
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  (click)="form.get('necesitaTransporteAeropuerto')?.setValue(true)"
+                  class="flex-1 border rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.bg-indigo-50]="form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.text-indigo-700]="form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.border-gray-300]="!form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.text-gray-600]="!form.get('necesitaTransporteAeropuerto')?.value"
                 >
-                  <div
-                    class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-                    [class.translate-x-6]="form.get('necesitaTransporteAeropuerto')?.value"
-                  ></div>
+                  Sí
+                </button>
+                <button
+                  type="button"
+                  (click)="form.get('necesitaTransporteAeropuerto')?.setValue(false)"
+                  class="flex-1 border rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="!form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.bg-indigo-50]="!form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.text-indigo-700]="!form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.border-gray-300]="form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.text-gray-600]="form.get('necesitaTransporteAeropuerto')?.value"
+                >
+                  No
+                </button>
+              </div>
+              @if (form.get('necesitaTransporteAeropuerto')?.value) {
+                <div class="space-y-2 bg-orange-100 p-2 rounded-sm text-xs flex flex-col gap-2">
+                  <div>
+                    <strong>⚠️ No podemos garantizar que pueda haber transporte.</strong> <br />
+                  </div>
+                  <div>
+                    Debido a la logística y organización de la campaña,
+                    <strong>alquilar un vehículo puede ser una opción muy útil</strong> para
+                    desplazarte con mayor facilidad durante la semana.
+                  </div>
                 </div>
-                <span class="text-sm text-gray-700">
-                  {{ form.get('necesitaTransporteAeropuerto')?.value ? 'Sí' : 'No' }}
-                </span>
-              </label>
+              }
             }
           </div>
 
@@ -389,10 +410,10 @@
 
           <button
             type="submit"
-            [disabled]="sheetsService.isLoading()"
+            [disabled]="apiService.isLoading()"
             class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
           >
-            @if (sheetsService.isLoading()) {
+            @if (apiService.isLoading()) {
               <span class="inline-flex items-center gap-2 justify-center">
                 <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                   <circle

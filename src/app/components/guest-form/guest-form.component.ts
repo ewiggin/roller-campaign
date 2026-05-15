@@ -6,7 +6,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { GoogleSheetsService, GuestFormData } from '../../services/google-sheets.service';
+import { GuestApiService, GuestFormSubmitData } from '../../services/guest-api.service';
 import { LocationPickerComponent, PlaceResult } from '../location-picker/location-picker.component';
 
 type Step = 'code' | 'form';
@@ -24,23 +24,33 @@ export class GuestFormComponent {
   readonly submitError = signal<string | null>(null);
   readonly submitSuccess = signal(false);
   readonly carAvailable = signal(false);
-  private guestRow = 0;
+  readonly regionName = signal('');
+  readonly selectedLanguages = signal<string[]>([]);
+  private guestCode = '';
+
+  readonly languages = [
+    'Inglés',
+    'Ruso',
+    'Catalán',
+    'Ucraniano',
+    'Lengua de Signos Española',
+    'Rumano',
+    'Portugués',
+  ];
 
   codeControl!: FormControl<string | null>;
   form!: FormGroup;
 
   constructor(
     private fb: FormBuilder,
-    public sheetsService: GoogleSheetsService,
+    public apiService: GuestApiService,
   ) {
     this.codeControl = fb.control('', Validators.required);
     this.form = fb.group({
       nombreCompleto: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
-      region: ['', Validators.required],
       ciudadOrigen: ['', Validators.required],
       plazasCoche: [0],
-      hablaIngles: [false],
       fechaLlegada: ['', Validators.required],
       horaLlegada: ['', Validators.required],
       fechaSalida: ['', Validators.required],
@@ -63,18 +73,46 @@ export class GuestFormComponent {
     this.codeError.set(null);
 
     try {
-      const fila = await this.sheetsService.validateCode(codigo);
-      if (fila !== null) {
-        this.guestRow = fila;
-        this.step.set('form');
-      } else {
-        this.codeError.set('Código no encontrado. Revisa que sea correcto.');
-      }
-    } catch {
-      this.codeError.set('No se pudo verificar el código. Inténtalo de nuevo.');
+      const data = await this.apiService.lookup(codigo);
+      this.guestCode = data.guest_code;
+      this.regionName.set(data.region_name);
+      this.prefillForm(data);
+      this.step.set('form');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      this.codeError.set(
+        message === 'not_found'
+          ? 'Código no encontrado. Revisa que sea correcto.'
+          : 'No se pudo verificar el código. Inténtalo de nuevo.',
+      );
     } finally {
       this.isValidating.set(false);
     }
+  }
+
+  private prefillForm(data: import('../../services/guest-api.service').GuestLookupData): void {
+    this.form.patchValue({
+      nombreCompleto: '',
+      email: '',
+      ciudadOrigen: '',
+      plazasCoche: 0,
+      fechaLlegada: '',
+      horaLlegada: '',
+      fechaSalida: '',
+      horaSalida: '',
+      direccionHospedaje: '',
+      latitud: undefined,
+      longitud: undefined,
+      medioTransporte: '',
+      medioTransporteOtro: '',
+      numeroVuelo: '',
+      necesitaTransporteAeropuerto: false,
+    });
+    if ((data.car_seats ?? 0) > 0) {
+      this.carAvailable.set(true);
+    }
+    const known = new Set(this.languages);
+    this.selectedLanguages.set([]);
   }
 
   isInvalid(field: string): boolean {
@@ -92,9 +130,11 @@ export class GuestFormComponent {
     if (v > 0) this.form.get('plazasCoche')?.setValue(v - 1);
   }
 
-  toggleIngles(): void {
-    const v = this.form.get('hablaIngles')?.value;
-    this.form.get('hablaIngles')?.setValue(!v);
+  toggleLanguage(lang: string): void {
+    const current = this.selectedLanguages();
+    this.selectedLanguages.set(
+      current.includes(lang) ? current.filter((l) => l !== lang) : [...current, lang],
+    );
   }
 
   onLocationSelected(place: PlaceResult | null): void {
@@ -123,9 +163,9 @@ export class GuestFormComponent {
     }
   }
 
-  toggleCar() {
-    this.carAvailable.set(!this.carAvailable());
-    if (!this.carAvailable()) {
+  setCarAvailable(value: boolean): void {
+    this.carAvailable.set(value);
+    if (!value) {
       this.form.get('plazasCoche')?.patchValue(0);
     }
   }
@@ -137,17 +177,33 @@ export class GuestFormComponent {
     this.submitError.set(null);
     this.submitSuccess.set(false);
 
+    const raw = this.form.getRawValue();
+    const langs = this.selectedLanguages();
+    const data: GuestFormSubmitData = {
+      full_name: raw.nombreCompleto,
+      email: raw.email,
+      origin_city: raw.ciudadOrigen,
+      car_seats: raw.plazasCoche ?? 0,
+      speaks_english: langs.includes('Inglés'),
+      other_languages: langs.length > 0 ? langs : null,
+      real_arrival: raw.fechaLlegada,
+      real_arrival_time: raw.horaLlegada,
+      real_departure: raw.fechaSalida,
+      real_departure_time: raw.horaSalida,
+      hosting_address: raw.direccionHospedaje,
+      lat: raw.latitud,
+      lng: raw.longitud,
+      transport_mode: raw.medioTransporte,
+      arrival_other_transport: this.isOtroTransporte ? raw.medioTransporteOtro || null : null,
+      arrival_flight: this.isAvion ? raw.numeroVuelo || null : null,
+      needs_airport_transfer: this.isAvion ? raw.necesitaTransporteAeropuerto : false,
+    };
+
     try {
-      const data: GuestFormData = {
-        codigoInvitado: this.codeControl.value!,
-        fila: this.guestRow,
-        ...(this.form.getRawValue() as Omit<GuestFormData, 'codigoInvitado' | 'fila'>),
-      };
-      await this.sheetsService.saveRow(data);
+      await this.apiService.submit(this.guestCode, data);
       this.submitSuccess.set(true);
-      this.form.reset({ plazasCoche: 0, hablaIngles: false, horaLlegada: '', horaSalida: '', medioTransporte: '', medioTransporteOtro: '', numeroVuelo: '', necesitaTransporteAeropuerto: false, region: '' });
-    } catch (err: any) {
-      this.submitError.set(err.message ?? 'Error desconocido al enviar');
+    } catch (err: unknown) {
+      this.submitError.set(err instanceof Error ? err.message : 'Error desconocido al enviar');
     }
   }
 }
