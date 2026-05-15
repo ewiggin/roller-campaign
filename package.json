@@ -1,10 +1,12 @@
 {
   "name": "form-guests",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "build:staging": "ng build --configuration=staging",
+    "build:production": "ng build --configuration=production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
