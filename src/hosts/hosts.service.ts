@@ -1,4 +1,6 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
@@ -32,6 +34,7 @@ export class HostsService {
     private readonly usersRepo: Repository<User>,
     @InjectRepository(Region)
     private readonly regionsRepo: Repository<Region>,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
   async create(dto: CreateHostDto, currentUser: JwtPayload): Promise<HostResponseDto> {
@@ -51,10 +54,15 @@ export class HostsService {
       weekend_meeting_time: dto.weekend_meeting_time ?? null,
     });
     const saved = await this.hostsRepo.save(host);
+    await this.cache.clear();
     return this.toDto(saved, 0);
   }
 
   async findAll(regionId: string | undefined, currentUser: JwtPayload): Promise<HostResponseDto[]> {
+    const key = `hosts:${regionId ?? 'all'}:${currentUser.sub}`;
+    const cached = await this.cache.get<HostResponseDto[]>(key);
+    if (cached) return cached;
+
     const qb = this.hostsRepo
       .createQueryBuilder('h')
       .loadRelationCountAndMap('h.group_count', 'h.groups');
@@ -76,9 +84,12 @@ export class HostsService {
 
     const hosts = await qb.orderBy('h.name', 'ASC').getMany();
     const guestCounts = await this.guestCountsForHosts(hosts.map((h) => h.id));
-    return hosts.map((h) =>
+    const result = hosts.map((h) =>
       this.toDto(h, (h as Host & { group_count?: number }).group_count ?? 0, guestCounts.get(h.id) ?? 0),
     );
+
+    await this.cache.set(key, result, 300_000);
+    return result;
   }
 
   async update(id: string, dto: UpdateHostDto, currentUser: JwtPayload): Promise<HostResponseDto> {
@@ -90,6 +101,7 @@ export class HostsService {
     const saved = await this.hostsRepo.save(host);
     const groupCount = await this.groupsRepo.count({ where: { host_id: id } });
     const guestCount = await this.guestCountForHost(id);
+    await this.cache.clear();
     return this.toDto(saved, groupCount, guestCount);
   }
 
@@ -100,6 +112,7 @@ export class HostsService {
     // Unassign groups before removing
     await this.groupsRepo.update({ host_id: id }, { host_id: null });
     await this.hostsRepo.remove(host);
+    await this.cache.clear();
   }
 
   async getGroupSuggestions(hostId: string, currentUser: JwtPayload): Promise<GroupSuggestionsResponseDto> {
@@ -453,6 +466,7 @@ export class HostsService {
       updated++;
     }
 
+    await this.cache.clear();
     return { created, updated, total: dto.rows.length + (dto.updateRows?.length ?? 0) };
   }
 

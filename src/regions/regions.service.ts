@@ -2,9 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
@@ -30,6 +33,7 @@ export class RegionsService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly dataSource: DataSource,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
   async create(dto: CreateRegionDto): Promise<RegionResponseDto> {
@@ -47,14 +51,18 @@ export class RegionsService {
   }
 
   async findAll(currentUser: JwtPayload): Promise<RegionResponseDto[]> {
+    const key = `regions:${currentUser.sub}`;
+    const cached = await this.cache.get<RegionResponseDto[]>(key);
+    if (cached) return cached;
+
+    let result: RegionResponseDto[];
+
     if (currentUser.role === 'superadmin') {
       const regions = await this.regionsRepository.find({
         relations: { coordinators: true },
       });
-      return regions.map(this.toDto);
-    }
-
-    if (currentUser.role === 'region_admin') {
+      result = regions.map(this.toDto);
+    } else if (currentUser.role === 'region_admin') {
       const user = await this.usersRepository.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
@@ -65,10 +73,13 @@ export class RegionsService {
         where: { id: In(ids) },
         relations: { coordinators: true },
       });
-      return regions.map(this.toDto);
+      result = regions.map(this.toDto);
+    } else {
+      throw new ForbiddenException();
     }
 
-    throw new ForbiddenException();
+    await this.cache.set(key, result, 300_000);
+    return result;
   }
 
   async findOne(
@@ -97,6 +108,7 @@ export class RegionsService {
     this.assertAccess(region, currentUser);
     Object.assign(region, dto);
     const saved = await this.regionsRepository.save(region);
+    await this.cache.clear();
     return this.toDto(saved);
   }
 
@@ -104,6 +116,7 @@ export class RegionsService {
     const region = await this.regionsRepository.findOne({ where: { id } });
     if (!region) throw new NotFoundException('Región no encontrada');
     await this.regionsRepository.remove(region);
+    await this.cache.clear();
   }
 
   async addCoordinator(id: string, userId: string): Promise<RegionResponseDto> {
@@ -125,6 +138,7 @@ export class RegionsService {
     if (!alreadyCoordinator) {
       region.coordinators.push(user);
       await this.regionsRepository.save(region);
+      await this.cache.clear();
     }
 
     return this.toDto(region);
@@ -142,6 +156,7 @@ export class RegionsService {
 
     region.coordinators = region.coordinators.filter((c) => c.id !== userId);
     await this.regionsRepository.save(region);
+    await this.cache.clear();
     return this.toDto(region);
   }
 
@@ -158,6 +173,10 @@ export class RegionsService {
   }
 
   async getStats(currentUser: JwtPayload): Promise<RegionStatsDto[]> {
+    const key = `stats:${currentUser.sub}`;
+    const cached = await this.cache.get<RegionStatsDto[]>(key);
+    if (cached) return cached;
+
     // Resolve which regions the user can see
     let regionIds: string[] | null = null;
     if (currentUser.role === 'region_admin') {
@@ -207,7 +226,7 @@ export class RegionsService {
 
     const statsMap = new Map(rows.map((row) => [row.region_id, row]));
 
-    return regions.map((r) => {
+    const result = regions.map((r) => {
       const s = statsMap.get(r.id);
       const dto = new RegionStatsDto();
       dto.region_id = r.id;
@@ -220,6 +239,9 @@ export class RegionsService {
       dto.covered_activities = parseInt(s?.covered_activities ?? '0', 10);
       return dto;
     }).sort((a, b) => a.region_name.localeCompare(b.region_name));
+
+    await this.cache.set(key, result, 60_000);
+    return result;
   }
 
   async exportExcel(currentUser: JwtPayload): Promise<Buffer> {
@@ -326,6 +348,7 @@ export class RegionsService {
       updated++;
     }
 
+    await this.cache.clear();
     return { created, updated, total: dto.rows.length + (dto.updateRows?.length ?? 0) };
   }
 
