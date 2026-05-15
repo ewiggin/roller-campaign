@@ -1,11 +1,13 @@
 import {
   Body, Controller, Delete, Get, HttpCode, HttpStatus,
-  Param, ParseUUIDPipe, Patch, Post, Query, Res, UseGuards,
+  Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import { ApiBearerAuth, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { HostsService } from './hosts.service';
 import { CreateHostDto, UpdateHostDto, HostResponseDto, GroupSuggestionsResponseDto } from './dto/host.dto';
+import { ImportHostCommitDto, ImportHostCommitResponseDto, ImportHostParseResponseDto } from './dto/import-host.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -18,6 +20,50 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 @Controller('hosts')
 export class HostsController {
   constructor(private readonly service: HostsService) {}
+
+  @Get('export')
+  @Roles('region_admin')
+  @ApiOkResponse({ description: 'Excel con todas las congregaciones' })
+  async exportExcel(
+    @Query('regionId') regionId: string | undefined,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.service.exportExcel(regionId, user);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="congregaciones.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Get('import/template')
+  @Roles('superadmin')
+  @ApiOkResponse({ description: 'Plantilla Excel para importación de congregaciones' })
+  downloadTemplate(@Res() res: Response): void {
+    const buffer = this.service.downloadTemplate();
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="plantilla-congregaciones.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Post('import/parse')
+  @Roles('superadmin')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ type: ImportHostParseResponseDto })
+  parseImport(@UploadedFile() file: Express.Multer.File): Promise<ImportHostParseResponseDto> {
+    return this.service.parseImport(file.buffer);
+  }
+
+  @Post('import/commit')
+  @Roles('superadmin')
+  @ApiOkResponse({ type: ImportHostCommitResponseDto })
+  commitImport(@Body() dto: ImportHostCommitDto): Promise<ImportHostCommitResponseDto> {
+    return this.service.commitImport(dto);
+  }
 
   @Post()
   @Roles('region_admin')

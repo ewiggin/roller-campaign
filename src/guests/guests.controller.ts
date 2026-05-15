@@ -26,20 +26,26 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { GuestsService } from './guests.service';
-import { CreateGuestDto } from './dto/create-guest.dto';
-import { UpdateGuestDto } from './dto/update-guest.dto';
-import { GuestResponseDto } from './dto/guest-response.dto';
-import { GuestListQueryDto } from './dto/guest-list-query.dto';
-import { MigrateGuestDto } from './dto/migrate-guest.dto';
-import { ImportParseResponseDto, ImportGuestRowDto } from './dto/import-parse-response.dto';
-import { ImportCommitDto, ImportCommitResponseDto } from './dto/import-commit.dto';
-import { GuestTokenResponseDto } from './dto/guest-me-response.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { CreateGuestDto } from './dto/create-guest.dto';
+import { GuestListQueryDto } from './dto/guest-list-query.dto';
+import { GuestTokenResponseDto } from './dto/guest-me-response.dto';
+import { GuestResponseDto } from './dto/guest-response.dto';
+import {
+  ImportCommitDto,
+  ImportCommitResponseDto,
+} from './dto/import-commit.dto';
+import {
+  ImportGuestRowDto,
+  ImportParseResponseDto,
+} from './dto/import-parse-response.dto';
+import { MigrateGuestDto } from './dto/migrate-guest.dto';
+import { UpdateGuestDto } from './dto/update-guest.dto';
+import { GuestsService } from './guests.service';
 
 @ApiTags('guests')
 @ApiBearerAuth()
@@ -48,13 +54,37 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 export class GuestsController {
   constructor(private readonly service: GuestsService) {}
 
+  @Get('export')
+  @Roles('region_admin')
+  @ApiOkResponse({ description: 'Excel con listado de invitados' })
+  async exportAll(
+    @Query() query: GuestListQueryDto,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.service.exportAll(query, user);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="invitados.xlsx"',
+    });
+    res.send(buffer);
+  }
+
   @Get('import/template')
   @Roles('region_admin')
-  @ApiOkResponse({ description: 'Plantilla Excel para importación de invitados' })
+  @ApiOkResponse({
+    description: 'Plantilla Excel para importación de invitados',
+  })
   getTemplate(@Res() res: Response): void {
     const buffer = this.service.generateTemplate();
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="plantilla-invitados.xlsx"');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="plantilla-invitados.xlsx"',
+    );
     res.send(buffer);
   }
 
@@ -63,7 +93,15 @@ export class GuestsController {
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' }, regionId: { type: 'string' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        regionId: { type: 'string' },
+      },
+    },
+  })
   @ApiOkResponse({ type: ImportParseResponseDto })
   async parseImport(
     @UploadedFile() file: Express.Multer.File,
@@ -78,25 +116,42 @@ export class GuestsController {
   @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportCommitResponseDto })
-  commitImport(@Body() dto: ImportCommitDto, @CurrentUser() user: JwtPayload): Promise<ImportCommitResponseDto> {
+  commitImport(
+    @Body() dto: ImportCommitDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ImportCommitResponseDto> {
     return this.service.commitImport(dto, user);
   }
 
   @Post('import/export-not-found')
   @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ description: 'Excel con filas cuyo grupo no fue encontrado' })
-  exportNotFound(@Body() dto: { rows: ImportGuestRowDto[] }, @Res() res: Response): void {
+  @ApiOkResponse({
+    description: 'Excel con filas cuyo grupo no fue encontrado',
+  })
+  exportNotFound(
+    @Body() dto: { rows: ImportGuestRowDto[] },
+    @Res() res: Response,
+  ): void {
     const buffer = this.service.exportRowsToExcel(dto.rows);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="invitados-sin-grupo.xlsx"');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="invitados-sin-grupo.xlsx"',
+    );
     res.send(buffer);
   }
 
   @Post()
   @Roles('region_admin')
   @ApiCreatedResponse({ type: GuestResponseDto })
-  create(@Body() dto: CreateGuestDto, @CurrentUser() user: JwtPayload): Promise<GuestResponseDto> {
+  create(
+    @Body() dto: CreateGuestDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<GuestResponseDto> {
     return this.service.create(dto, user);
   }
 
@@ -120,7 +175,10 @@ export class GuestsController {
   @Get(':id')
   @Roles('region_admin')
   @ApiOkResponse({ type: GuestResponseDto })
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<GuestResponseDto> {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<GuestResponseDto> {
     return this.service.findOne(id, user);
   }
 

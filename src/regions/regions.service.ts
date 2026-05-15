@@ -2,17 +2,27 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
+import * as XLSX from 'xlsx';
 import { Region } from './entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateRegionDto } from './dto/create-region.dto';
 import { UpdateRegionDto } from './dto/update-region.dto';
 import { RegionResponseDto } from './dto/region-response.dto';
 import { RegionStatsDto } from './dto/region-stats.dto';
+import {
+  ImportRegionCommitDto,
+  ImportRegionCommitResponseDto,
+  ImportRegionParseResponseDto,
+  ImportRegionRowDto,
+} from './dto/import-region.dto';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Injectable()
@@ -23,6 +33,7 @@ export class RegionsService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly dataSource: DataSource,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
   async create(dto: CreateRegionDto): Promise<RegionResponseDto> {
@@ -40,14 +51,18 @@ export class RegionsService {
   }
 
   async findAll(currentUser: JwtPayload): Promise<RegionResponseDto[]> {
+    const key = `regions:${currentUser.sub}`;
+    const cached = await this.cache.get<RegionResponseDto[]>(key);
+    if (cached) return cached;
+
+    let result: RegionResponseDto[];
+
     if (currentUser.role === 'superadmin') {
       const regions = await this.regionsRepository.find({
         relations: { coordinators: true },
       });
-      return regions.map(this.toDto);
-    }
-
-    if (currentUser.role === 'region_admin') {
+      result = regions.map(this.toDto);
+    } else if (currentUser.role === 'region_admin') {
       const user = await this.usersRepository.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
@@ -58,10 +73,13 @@ export class RegionsService {
         where: { id: In(ids) },
         relations: { coordinators: true },
       });
-      return regions.map(this.toDto);
+      result = regions.map(this.toDto);
+    } else {
+      throw new ForbiddenException();
     }
 
-    throw new ForbiddenException();
+    await this.cache.set(key, result, 300_000);
+    return result;
   }
 
   async findOne(
@@ -90,6 +108,7 @@ export class RegionsService {
     this.assertAccess(region, currentUser);
     Object.assign(region, dto);
     const saved = await this.regionsRepository.save(region);
+    await this.cache.clear();
     return this.toDto(saved);
   }
 
@@ -97,6 +116,7 @@ export class RegionsService {
     const region = await this.regionsRepository.findOne({ where: { id } });
     if (!region) throw new NotFoundException('Región no encontrada');
     await this.regionsRepository.remove(region);
+    await this.cache.clear();
   }
 
   async addCoordinator(id: string, userId: string): Promise<RegionResponseDto> {
@@ -118,6 +138,7 @@ export class RegionsService {
     if (!alreadyCoordinator) {
       region.coordinators.push(user);
       await this.regionsRepository.save(region);
+      await this.cache.clear();
     }
 
     return this.toDto(region);
@@ -135,6 +156,7 @@ export class RegionsService {
 
     region.coordinators = region.coordinators.filter((c) => c.id !== userId);
     await this.regionsRepository.save(region);
+    await this.cache.clear();
     return this.toDto(region);
   }
 
@@ -151,6 +173,10 @@ export class RegionsService {
   }
 
   async getStats(currentUser: JwtPayload): Promise<RegionStatsDto[]> {
+    const key = `stats:${currentUser.sub}`;
+    const cached = await this.cache.get<RegionStatsDto[]>(key);
+    if (cached) return cached;
+
     // Resolve which regions the user can see
     let regionIds: string[] | null = null;
     if (currentUser.role === 'region_admin') {
@@ -200,7 +226,7 @@ export class RegionsService {
 
     const statsMap = new Map(rows.map((row) => [row.region_id, row]));
 
-    return regions.map((r) => {
+    const result = regions.map((r) => {
       const s = statsMap.get(r.id);
       const dto = new RegionStatsDto();
       dto.region_id = r.id;
@@ -213,6 +239,117 @@ export class RegionsService {
       dto.covered_activities = parseInt(s?.covered_activities ?? '0', 10);
       return dto;
     }).sort((a, b) => a.region_name.localeCompare(b.region_name));
+
+    await this.cache.set(key, result, 60_000);
+    return result;
+  }
+
+  async exportExcel(currentUser: JwtPayload): Promise<Buffer> {
+    const regions = await this.findAll(currentUser);
+
+    const headers = ['name', 'event_start_date', 'event_end_date', 'coordinators'];
+    const rows = regions.map((r) => [
+      r.name,
+      r.event_start_date ?? '',
+      r.event_end_date ?? '',
+      (r.coordinators ?? []).map((c) => c.email).join(', '),
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Regions');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  downloadTemplate(): Buffer {
+    const ws = XLSX.utils.aoa_to_sheet([['name', 'event_start_date', 'event_end_date']]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Regions');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  async parseImport(buffer: Buffer): Promise<ImportRegionParseResponseDto> {
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+    const existing = await this.regionsRepository.find({ select: ['name'] });
+    const existingNames = new Set(existing.map((r) => r.name.toLowerCase()));
+
+    const valid: ImportRegionRowDto[] = [];
+    const duplicateRows: ImportRegionRowDto[] = [];
+    const errors: { row: number; name: string; reason: string }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i];
+      const name = String(raw['name'] ?? '').trim();
+      const rowNum = i + 2;
+
+      if (!name) {
+        errors.push({ row: rowNum, name: '', reason: 'Name is required' });
+        continue;
+      }
+
+      const rowDto: ImportRegionRowDto = {
+        name,
+        event_start_date: String(raw['event_start_date'] ?? '').trim() || null,
+        event_end_date: String(raw['event_end_date'] ?? '').trim() || null,
+      };
+
+      if (existingNames.has(name.toLowerCase())) {
+        duplicateRows.push(rowDto);
+      } else {
+        valid.push(rowDto);
+      }
+    }
+
+    return {
+      valid,
+      duplicateRows,
+      errors,
+      summary: {
+        total: rows.length,
+        valid: valid.length,
+        duplicates: duplicateRows.length,
+        errors: errors.length,
+      },
+    };
+  }
+
+  async commitImport(dto: ImportRegionCommitDto): Promise<ImportRegionCommitResponseDto> {
+    let created = 0;
+    let updated = 0;
+
+    for (const row of dto.rows) {
+      const exists = await this.regionsRepository.findOne({
+        where: { name: row.name },
+      });
+      if (exists) continue;
+      await this.regionsRepository.save(
+        this.regionsRepository.create({
+          name: row.name,
+          event_start_date: row.event_start_date ?? null,
+          event_end_date: row.event_end_date ?? null,
+        }),
+      );
+      created++;
+    }
+
+    for (const row of dto.updateRows ?? []) {
+      const existing = await this.regionsRepository
+        .createQueryBuilder('r')
+        .where('LOWER(r.name) = LOWER(:name)', { name: row.name })
+        .getOne();
+      if (!existing) continue;
+      existing.event_start_date = row.event_start_date ?? null;
+      existing.event_end_date = row.event_end_date ?? null;
+      await this.regionsRepository.save(existing);
+      updated++;
+    }
+
+    await this.cache.clear();
+    return { created, updated, total: dto.rows.length + (dto.updateRows?.length ?? 0) };
   }
 
   private toDto(region: Region): RegionResponseDto {
