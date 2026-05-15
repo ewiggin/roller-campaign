@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import type { Host, CreateHostPayload, UpdateHostPayload, GroupSuggestionsResponse } from '../models/host.model';
+import type { Host, CreateHostPayload, UpdateHostPayload, GroupSuggestionsResponse, ImportHostRow, ImportHostParseResponse, ImportHostCommitResponse } from '../models/host.model';
 
 @Injectable({ providedIn: 'root' })
 export class HostsService {
@@ -33,5 +33,27 @@ export class HostsService {
 
   remove(id: string) {
     return this.http.delete<void>(`/api/hosts/${id}`);
+  }
+
+  exportExcel(regionId?: string) {
+    const qs = regionId ? `?regionId=${regionId}` : '';
+    return this.http.get(`/api/hosts/export${qs}`, { responseType: 'blob' });
+  }
+
+  downloadTemplate() {
+    return this.http.get('/api/hosts/import/template', { responseType: 'blob' });
+  }
+
+  parseImport(file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<ImportHostParseResponse>('/api/hosts/import/parse', form);
+  }
+
+  commitImport(rows: ImportHostRow[], updateRows?: ImportHostRow[]) {
+    return this.http.post<ImportHostCommitResponse>('/api/hosts/import/commit', {
+      rows,
+      ...(updateRows?.length ? { updateRows } : {}),
+    });
   }
 }

@@ -215,6 +215,17 @@ export class GuestGroupsListComponent implements OnInit {
     });
   }
 
+  downloadExcel() {
+    this.svc.exportExcel(this.selectedRegionId() || undefined).subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'grupos.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
   downloadTemplate() {
     this.svc.downloadTemplate().subscribe((blob) => {
       const url = URL.createObjectURL(blob);

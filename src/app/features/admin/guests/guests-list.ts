@@ -153,6 +153,22 @@ export class GuestsListComponent implements OnInit {
     navigator.clipboard.writeText(text);
   }
 
+  downloadExcel() {
+    this.svc.exportExcel({
+      regionId: this.filterRegion() || undefined,
+      groupId: this.filterGroup() || undefined,
+      status: (this.filterStatus() as import('../../../core/models/guest.model').GuestStatus) || undefined,
+      search: this.filterSearch() || undefined,
+    }).subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'invitados.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
   downloadTemplate() {
     this.svc.downloadTemplate().subscribe((blob) => {
       const url = URL.createObjectURL(blob);

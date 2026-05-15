@@ -44,6 +44,11 @@ export class GuestGroupsService {
     return this.http.post<ImportGroupResult>(`/api/guest-groups/import?regionId=${regionId}`, form);
   }
 
+  exportExcel(regionId?: string) {
+    const qs = regionId ? `?regionId=${regionId}` : '';
+    return this.http.get(`/api/guest-groups/export${qs}`, { responseType: 'blob' });
+  }
+
   downloadTemplate() {
     return this.http.get('/api/guest-groups/import/template', { responseType: 'blob' });
   }

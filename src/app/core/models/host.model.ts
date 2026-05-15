@@ -49,3 +49,28 @@ export interface GroupSuggestionsResponse {
   assigned: GroupSuggestion[];
   available: GroupSuggestion[];
 }
+
+export interface ImportHostRow {
+  name: string;
+  region_name: string;
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  weekday_meeting_day?: number | null;
+  weekday_meeting_time?: string | null;
+  weekend_meeting_day?: number | null;
+  weekend_meeting_time?: string | null;
+}
+
+export interface ImportHostParseResponse {
+  valid: ImportHostRow[];
+  duplicateRows: ImportHostRow[];
+  errors: { row: number; name: string; reason: string }[];
+  summary: { total: number; valid: number; duplicates: number; errors: number };
+}
+
+export interface ImportHostCommitResponse {
+  created: number;
+  updated: number;
+  total: number;
+}
