@@ -140,43 +140,94 @@ export class GuestGroupsService {
 
   async importFromExcel(
     buffer: Buffer,
-    regionId: string,
+    regionId: string | undefined,
     currentUser: JwtPayload,
   ): Promise<ImportGroupResponseDto> {
-    await this.assertRegionAccess(regionId, currentUser);
-
-    const region = await this.regionsRepository.findOne({ where: { id: regionId } });
-    if (!region) throw new NotFoundException('Región no encontrada');
-
     const wb = XLSX.read(buffer, { type: 'buffer' });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
 
-    const codes = rows
-      .map((r) => {
-        const raw = r['group_code'] ?? r['Group Code'] ?? r['Código de Grupo'] ?? Object.values(r)[0];
-        if (typeof raw !== 'string') return null;
-        const code = raw.trim();
-        return code.includes('-') ? code : (code.match(/.{1,4}/g)!.join('-'));
-      })
-      .filter((c): c is string => !!c);
+    const hasRegionCol = rows.length > 0 && 'region_name' in rows[0];
+
+    if (!hasRegionCol && !regionId) {
+      throw new BadRequestException(
+        'regionId is required when the file has no region_name column',
+      );
+    }
 
     let created = 0;
     let skipped = 0;
+    let regions_not_found = 0;
 
-    for (const code of codes) {
-      const exists = await this.groupsRepository.findOne({ where: { group_code: code } });
-      if (exists) {
-        skipped++;
-        continue;
+    if (!hasRegionCol) {
+      // ── Single-region mode (original behaviour) ───────────────────────────
+      await this.assertRegionAccess(regionId!, currentUser);
+      const region = await this.regionsRepository.findOne({ where: { id: regionId } });
+      if (!region) throw new NotFoundException('Región no encontrada');
+
+      for (const row of rows) {
+        const code = this.parseGroupCode(row);
+        if (!code) continue;
+        const exists = await this.groupsRepository.findOne({ where: { group_code: code } });
+        if (exists) { skipped++; continue; }
+        await this.groupsRepository.save(
+          this.groupsRepository.create({ group_code: code, region_id: regionId! }),
+        );
+        created++;
       }
-      await this.groupsRepository.save(
-        this.groupsRepository.create({ group_code: code, region_id: regionId }),
-      );
-      created++;
+    } else {
+      // ── Multi-region mode: resolve region per row from region_name ─────────
+      const allRegions = await this.regionsRepository.find({ select: ['id', 'name'] });
+      const regionMap = new Map(allRegions.map((r) => [r.name.toLowerCase(), r.id]));
+
+      // Build set of accessible region IDs for this user
+      let accessibleIds: Set<string> | 'all';
+      if (currentUser.role === 'superadmin') {
+        accessibleIds = 'all';
+      } else {
+        const user = await this.usersRepository.findOne({
+          where: { id: currentUser.sub },
+          relations: { regions: true },
+        });
+        accessibleIds = new Set((user?.regions ?? []).map((r) => r.id));
+      }
+
+      for (const row of rows) {
+        const code = this.parseGroupCode(row);
+        if (!code) continue;
+
+        const rawRegion = String(row['region_name'] ?? '').trim();
+        const resolvedRegionId = regionMap.get(rawRegion.toLowerCase());
+
+        if (!resolvedRegionId) { regions_not_found++; continue; }
+        if (accessibleIds !== 'all' && !accessibleIds.has(resolvedRegionId)) {
+          regions_not_found++;
+          continue;
+        }
+
+        const exists = await this.groupsRepository.findOne({ where: { group_code: code } });
+        if (exists) { skipped++; continue; }
+        await this.groupsRepository.save(
+          this.groupsRepository.create({ group_code: code, region_id: resolvedRegionId }),
+        );
+        created++;
+      }
     }
 
-    return { created, skipped, total: codes.length };
+    return {
+      created,
+      skipped,
+      total: rows.length,
+      ...(hasRegionCol && regions_not_found > 0 ? { regions_not_found } : {}),
+    };
+  }
+
+  private parseGroupCode(row: Record<string, unknown>): string | null {
+    const raw = row['group_code'] ?? row['Group Code'] ?? row['Código de Grupo'] ?? Object.values(row)[0];
+    if (typeof raw !== 'string') return null;
+    const code = raw.trim();
+    if (!code) return null;
+    return code.includes('-') ? code : (code.match(/.{1,4}/g)!.join('-'));
   }
 
   async exportAll(regionId: string | undefined, currentUser: JwtPayload): Promise<Buffer> {

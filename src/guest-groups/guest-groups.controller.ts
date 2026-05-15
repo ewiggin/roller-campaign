@@ -88,7 +88,7 @@ export class GuestGroupsController {
   @ApiOkResponse({ type: ImportGroupResponseDto })
   async importGroups(
     @UploadedFile() file: Express.Multer.File,
-    @Query('regionId') regionId: string,
+    @Query('regionId') regionId: string | undefined,
     @CurrentUser() user: JwtPayload,
   ): Promise<ImportGroupResponseDto> {
     if (!file) throw new Error('No file received');

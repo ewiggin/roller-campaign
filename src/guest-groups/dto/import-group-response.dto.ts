@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ImportGroupResponseDto {
   @ApiProperty({ example: 12 })
@@ -9,4 +9,7 @@ export class ImportGroupResponseDto {
 
   @ApiProperty({ example: 15 })
   total: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  regions_not_found?: number;
 }
