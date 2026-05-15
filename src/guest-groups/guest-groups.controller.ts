@@ -46,6 +46,22 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 export class GuestGroupsController {
   constructor(private readonly service: GuestGroupsService) {}
 
+  @Get('export')
+  @Roles('region_admin')
+  @ApiOkResponse({ description: 'Excel con listado de grupos' })
+  async exportAll(
+    @Query('regionId') regionId: string | undefined,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.service.exportAll(regionId, user);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="grupos.xlsx"',
+    });
+    res.send(buffer);
+  }
+
   @Get('import/template')
   @Roles('region_admin')
   @ApiOkResponse({ description: 'Plantilla Excel para importación de grupos' })

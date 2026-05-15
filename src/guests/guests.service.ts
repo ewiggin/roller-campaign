@@ -682,6 +682,101 @@ export class GuestsService {
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
+  async exportAll(query: GuestListQueryDto, currentUser: JwtPayload): Promise<Buffer> {
+    const { regionId, groupId, status, search } = query;
+
+    const qb = this.guestsRepository.createQueryBuilder('g');
+
+    if (currentUser.role === 'region_admin') {
+      const user = await this.usersRepository.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      const adminRegionIds = (user?.regions ?? []).map((r) => r.id);
+      if (adminRegionIds.length === 0) return this.buildGuestsExcel([]);
+      if (regionId) {
+        if (!adminRegionIds.includes(regionId)) throw new ForbiddenException();
+        qb.where('g.region_id = :regionId', { regionId });
+      } else {
+        qb.where('g.region_id IN (:...adminRegionIds)', { adminRegionIds });
+      }
+    } else if (currentUser.role === 'superadmin') {
+      if (regionId) qb.where('g.region_id = :regionId', { regionId });
+    } else {
+      throw new ForbiddenException();
+    }
+
+    if (groupId) qb.andWhere('g.group_id = :groupId', { groupId });
+    if (status) qb.andWhere('g.status = :status', { status });
+    if (search) {
+      qb.andWhere('(g.full_name LIKE :search OR g.guest_code LIKE :search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    const guests = await qb.orderBy('g.full_name', 'ASC').getMany();
+
+    const regions = await this.regionsRepository.find({ select: ['id', 'name'] });
+    const groups = await this.groupsRepository.find({ select: ['id', 'group_code'] });
+    const regionMap = new Map(regions.map((r) => [r.id, r.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.group_code]));
+
+    return this.buildGuestsExcel(guests, regionMap, groupMap);
+  }
+
+  private buildGuestsExcel(
+    guests: import('./entities/guest.entity').Guest[],
+    regionMap = new Map<string, string>(),
+    groupMap = new Map<string, string>(),
+  ): Buffer {
+    const headers = [
+      'guest_code', 'full_name', 'email', 'origin_city',
+      'group_code', 'region_name', 'status',
+      'speaks_english', 'other_languages',
+      'transport_mode', 'arrival_flight', 'needs_airport_transfer',
+      'real_arrival', 'real_arrival_time', 'real_departure', 'real_departure_time',
+      'hosting_address', 'lat', 'lng',
+      'is_minor', 'branch', 'native_language',
+    ];
+    const rows = guests.map((g) => [
+      g.guest_code,
+      g.full_name,
+      g.email ?? '',
+      g.origin_city ?? '',
+      groupMap.get(g.group_id) ?? '',
+      regionMap.get(g.region_id) ?? '',
+      g.status,
+      g.speaks_english ? 'Sí' : 'No',
+      (g.other_languages ?? []).join(', '),
+      g.transport_mode ?? '',
+      g.arrival_flight ?? '',
+      g.needs_airport_transfer ? 'Sí' : 'No',
+      g.real_arrival ?? '',
+      g.real_arrival_time ?? '',
+      g.real_departure ?? '',
+      g.real_departure_time ?? '',
+      g.hosting_address ?? '',
+      g.lat ?? '',
+      g.lng ?? '',
+      g.is_minor ? 'Sí' : 'No',
+      g.branch ?? '',
+      g.native_language ?? '',
+    ]);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [
+      { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 18 },
+      { wch: 12 }, { wch: 20 }, { wch: 11 },
+      { wch: 14 }, { wch: 28 },
+      { wch: 16 }, { wch: 12 }, { wch: 20 },
+      { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 13 },
+      { wch: 36 }, { wch: 10 }, { wch: 10 },
+      { wch: 9 }, { wch: 12 }, { wch: 16 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'Invitados');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
   exportRowsToExcel(rows: ImportGuestRowDto[]): Buffer {
     const headers = Object.keys(EXCEL_COLUMNS);
     const data = rows.map((row) =>

@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { GuestGroup } from './entities/guest-group.entity';
 import { Host } from '../hosts/entities/host.entity';
@@ -177,6 +177,60 @@ export class GuestGroupsService {
     }
 
     return { created, skipped, total: codes.length };
+  }
+
+  async exportAll(regionId: string | undefined, currentUser: JwtPayload): Promise<Buffer> {
+    const query = this.groupsRepository
+      .createQueryBuilder('gg')
+      .loadRelationCountAndMap('gg.guest_count', 'gg.guests')
+      .orderBy('gg.group_code', 'ASC');
+
+    if (regionId) {
+      await this.assertRegionAccess(regionId, currentUser);
+      query.where('gg.region_id = :regionId', { regionId });
+    } else if (currentUser.role === 'region_admin') {
+      const user = await this.usersRepository.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      const ids = (user?.regions ?? []).map((r) => r.id);
+      if (ids.length === 0) return this.buildGroupsExcel([]);
+      query.where('gg.region_id IN (:...ids)', { ids });
+    } else if (currentUser.role !== 'superadmin') {
+      throw new ForbiddenException();
+    }
+
+    const groups = await query.getMany();
+
+    const regions = await this.regionsRepository.find({ select: ['id', 'name'] });
+    const regionMap = new Map(regions.map((r) => [r.id, r.name]));
+
+    const hostIds = [...new Set(groups.map((g) => g.host_id).filter(Boolean))] as string[];
+    const hosts = hostIds.length
+      ? await this.hostsRepository.find({ where: { id: In(hostIds) }, select: ['id', 'name'] })
+      : [];
+    const hostMap = new Map(hosts.map((h) => [h.id, h.name]));
+
+    return this.buildGroupsExcel(groups, regionMap, hostMap);
+  }
+
+  private buildGroupsExcel(
+    groups: (GuestGroup & { guest_count?: number })[],
+    regionMap = new Map<string, string>(),
+    hostMap = new Map<string, string>(),
+  ): Buffer {
+    const headers = ['group_code', 'region_name', 'host_name', 'guest_count'];
+    const rows = groups.map((g) => [
+      g.group_code,
+      regionMap.get(g.region_id) ?? '',
+      g.host_id ? (hostMap.get(g.host_id) ?? '') : '',
+      g.guest_count ?? 0,
+    ]);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [{ wch: 16 }, { wch: 24 }, { wch: 28 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Grupos');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
   generateTemplate(): Buffer {

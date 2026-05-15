@@ -11,6 +11,12 @@ import {
   CreateHostDto, UpdateHostDto, HostResponseDto,
   GroupSuggestionDto, GroupSuggestionsResponseDto,
 } from './dto/host.dto';
+import {
+  ImportHostCommitDto,
+  ImportHostCommitResponseDto,
+  ImportHostParseResponseDto,
+  ImportHostRowDto,
+} from './dto/import-host.dto';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Injectable()
@@ -273,6 +279,181 @@ export class HostsService {
     const buffer = Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
     const safeName = host.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     return { buffer, filename: `invitados-${safeName}.xlsx` };
+  }
+
+  async exportExcel(regionId: string | undefined, currentUser: JwtPayload): Promise<Buffer> {
+    const hosts = await this.findAll(regionId, currentUser);
+    const allRegions = await this.regionsRepo.find({ select: ['id', 'name'] });
+    const regionNameMap = new Map(allRegions.map((r) => [r.id, r.name]));
+
+    const dayLabel = (d: number | null) =>
+      d ? ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][d] ?? '' : '';
+
+    const headers = [
+      'name', 'region_name', 'address', 'lat', 'lng',
+      'weekday_meeting_day', 'weekday_meeting_time',
+      'weekend_meeting_day', 'weekend_meeting_time',
+      'group_count', 'guest_count',
+    ];
+    const rows = hosts.map((h) => [
+      h.name,
+      regionNameMap.get(h.region_id) ?? '',
+      h.address ?? '',
+      h.lat ?? '',
+      h.lng ?? '',
+      h.weekday_meeting_day ? dayLabel(h.weekday_meeting_day) : '',
+      h.weekday_meeting_time ?? '',
+      h.weekend_meeting_day ? dayLabel(h.weekend_meeting_day) : '',
+      h.weekend_meeting_time ?? '',
+      h.group_count,
+      h.guest_count,
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [
+      { wch: 28 }, { wch: 20 }, { wch: 36 }, { wch: 10 }, { wch: 10 },
+      { wch: 20 }, { wch: 18 }, { wch: 20 }, { wch: 18 },
+      { wch: 12 }, { wch: 12 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'Hosts');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  downloadTemplate(): Buffer {
+    const headers = [
+      'name', 'region_name', 'address', 'lat', 'lng',
+      'weekday_meeting_day', 'weekday_meeting_time',
+      'weekend_meeting_day', 'weekend_meeting_time',
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Hosts');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  async parseImport(buffer: Buffer): Promise<ImportHostParseResponseDto> {
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+    const allRegions = await this.regionsRepo.find({ select: ['id', 'name'] });
+    const regionMap = new Map(allRegions.map((r) => [r.name.toLowerCase(), r.id]));
+
+    const allHosts = await this.hostsRepo.find({ select: ['name', 'region_id'] });
+    const existingKeys = new Set(allHosts.map((h) => `${h.name.toLowerCase()}::${h.region_id}`));
+
+    const valid: ImportHostRowDto[] = [];
+    const duplicateRows: ImportHostRowDto[] = [];
+    const errors: { row: number; name: string; reason: string }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i];
+      const name = String(raw['name'] ?? '').trim();
+      const regionName = String(raw['region_name'] ?? '').trim();
+      const rowNum = i + 2;
+
+      if (!name) {
+        errors.push({ row: rowNum, name: '', reason: 'Name is required' });
+        continue;
+      }
+      if (!regionName) {
+        errors.push({ row: rowNum, name, reason: 'region_name is required' });
+        continue;
+      }
+
+      const regionId = regionMap.get(regionName.toLowerCase());
+      if (!regionId) {
+        errors.push({ row: rowNum, name, reason: `Region "${regionName}" not found` });
+        continue;
+      }
+
+      const rowDto: ImportHostRowDto = {
+        name,
+        region_name: regionName,
+        address: String(raw['address'] ?? '').trim() || null,
+        lat: raw['lat'] !== '' ? Number(raw['lat']) || null : null,
+        lng: raw['lng'] !== '' ? Number(raw['lng']) || null : null,
+        weekday_meeting_day: raw['weekday_meeting_day'] !== '' ? Number(raw['weekday_meeting_day']) || null : null,
+        weekday_meeting_time: String(raw['weekday_meeting_time'] ?? '').trim() || null,
+        weekend_meeting_day: raw['weekend_meeting_day'] !== '' ? Number(raw['weekend_meeting_day']) || null : null,
+        weekend_meeting_time: String(raw['weekend_meeting_time'] ?? '').trim() || null,
+      };
+
+      if (existingKeys.has(`${name.toLowerCase()}::${regionId}`)) {
+        duplicateRows.push(rowDto);
+      } else {
+        valid.push(rowDto);
+      }
+    }
+
+    return {
+      valid,
+      duplicateRows,
+      errors,
+      summary: {
+        total: rows.length,
+        valid: valid.length,
+        duplicates: duplicateRows.length,
+        errors: errors.length,
+      },
+    };
+  }
+
+  async commitImport(dto: ImportHostCommitDto): Promise<ImportHostCommitResponseDto> {
+    const allRegions = await this.regionsRepo.find({ select: ['id', 'name'] });
+    const regionMap = new Map(allRegions.map((r) => [r.name.toLowerCase(), r.id]));
+    let created = 0;
+    let updated = 0;
+
+    for (const row of dto.rows) {
+      const regionId = regionMap.get(row.region_name.toLowerCase());
+      if (!regionId) continue;
+      const exists = await this.hostsRepo
+        .createQueryBuilder('h')
+        .where('LOWER(h.name) = LOWER(:name)', { name: row.name })
+        .andWhere('h.region_id = :regionId', { regionId })
+        .getOne();
+      if (exists) continue;
+      await this.hostsRepo.save(
+        this.hostsRepo.create({
+          name: row.name,
+          region_id: regionId,
+          address: row.address ?? null,
+          lat: row.lat ?? null,
+          lng: row.lng ?? null,
+          weekday_meeting_day: row.weekday_meeting_day ?? null,
+          weekday_meeting_time: row.weekday_meeting_time ?? null,
+          weekend_meeting_day: row.weekend_meeting_day ?? null,
+          weekend_meeting_time: row.weekend_meeting_time ?? null,
+        }),
+      );
+      created++;
+    }
+
+    for (const row of dto.updateRows ?? []) {
+      const regionId = regionMap.get(row.region_name.toLowerCase());
+      if (!regionId) continue;
+      const existing = await this.hostsRepo
+        .createQueryBuilder('h')
+        .where('LOWER(h.name) = LOWER(:name)', { name: row.name })
+        .andWhere('h.region_id = :regionId', { regionId })
+        .getOne();
+      if (!existing) continue;
+      Object.assign(existing, {
+        address: row.address ?? null,
+        lat: row.lat ?? null,
+        lng: row.lng ?? null,
+        weekday_meeting_day: row.weekday_meeting_day ?? null,
+        weekday_meeting_time: row.weekday_meeting_time ?? null,
+        weekend_meeting_day: row.weekend_meeting_day ?? null,
+        weekend_meeting_time: row.weekend_meeting_time ?? null,
+      });
+      await this.hostsRepo.save(existing);
+      updated++;
+    }
+
+    return { created, updated, total: dto.rows.length + (dto.updateRows?.length ?? 0) };
   }
 
   toDto(host: Host, groupCount: number, guestCount = 0): HostResponseDto {

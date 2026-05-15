@@ -54,6 +54,22 @@ import { GuestsService } from './guests.service';
 export class GuestsController {
   constructor(private readonly service: GuestsService) {}
 
+  @Get('export')
+  @Roles('region_admin')
+  @ApiOkResponse({ description: 'Excel con listado de invitados' })
+  async exportAll(
+    @Query() query: GuestListQueryDto,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.service.exportAll(query, user);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="invitados.xlsx"',
+    });
+    res.send(buffer);
+  }
+
   @Get('import/template')
   @Roles('region_admin')
   @ApiOkResponse({

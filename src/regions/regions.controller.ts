@@ -9,21 +9,32 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { RegionsService } from './regions.service';
 import { CreateRegionDto } from './dto/create-region.dto';
 import { UpdateRegionDto } from './dto/update-region.dto';
 import { AddCoordinatorDto } from './dto/add-coordinator.dto';
 import { RegionResponseDto } from './dto/region-response.dto';
 import { RegionStatsDto } from './dto/region-stats.dto';
+import {
+  ImportRegionCommitDto,
+  ImportRegionCommitResponseDto,
+  ImportRegionParseResponseDto,
+} from './dto/import-region.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -36,6 +47,46 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 @Controller('regions')
 export class RegionsController {
   constructor(private readonly regionsService: RegionsService) {}
+
+  @Get('export')
+  @Roles('region_admin')
+  @ApiOkResponse({ description: 'Excel con todas las regiones' })
+  async exportExcel(@CurrentUser() user: JwtPayload, @Res() res: Response): Promise<void> {
+    const buffer = await this.regionsService.exportExcel(user);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="regiones.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Get('import/template')
+  @Roles('superadmin')
+  @ApiOkResponse({ description: 'Plantilla Excel para importación de regiones' })
+  downloadTemplate(@Res() res: Response): void {
+    const buffer = this.regionsService.downloadTemplate();
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="plantilla-regiones.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Post('import/parse')
+  @Roles('superadmin')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ type: ImportRegionParseResponseDto })
+  parseImport(@UploadedFile() file: Express.Multer.File): Promise<ImportRegionParseResponseDto> {
+    return this.regionsService.parseImport(file.buffer);
+  }
+
+  @Post('import/commit')
+  @Roles('superadmin')
+  @ApiOkResponse({ type: ImportRegionCommitResponseDto })
+  commitImport(@Body() dto: ImportRegionCommitDto): Promise<ImportRegionCommitResponseDto> {
+    return this.regionsService.commitImport(dto);
+  }
 
   @Post()
   @Roles('superadmin')
