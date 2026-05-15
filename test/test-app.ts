@@ -54,3 +54,26 @@ export function buildExcelBuffer(rows: Record<string, unknown>[]): Buffer {
   XLSX.utils.book_append_sheet(wb, ws, 'Invitados');
   return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
 }
+
+/** Binary response parser for supertest — use with .parse(binaryParser) to get a Buffer back. */
+export const binaryParser = (
+  res: import('http').IncomingMessage,
+  callback: (err: Error | null, body: Buffer) => void,
+) => {
+  const chunks: Buffer[] = [];
+  res.on('data', (chunk: Buffer) => chunks.push(chunk));
+  res.on('end', () => callback(null, Buffer.concat(chunks)));
+};
+
+/** Parse an xlsx Buffer returned by the API into worksheet rows. */
+export function parseExcelResponse(body: Buffer): Record<string, unknown>[] {
+  const wb = XLSX.read(body, { type: 'buffer' });
+  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+}
+
+/** Parse an xlsx Buffer and return the header row. */
+export function parseExcelHeaders(body: Buffer): string[] {
+  const wb = XLSX.read(body, { type: 'buffer' });
+  const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+  return rows[0] ?? [];
+}

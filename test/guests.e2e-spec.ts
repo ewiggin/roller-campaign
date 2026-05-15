@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { buildExcelBuffer, createTestApp, loginAdmin } from './test-app';
+import { binaryParser, buildExcelBuffer, createTestApp, loginAdmin, parseExcelResponse } from './test-app';
 
 describe('Guests (e2e)', () => {
   let app: INestApplication;
@@ -8,6 +8,7 @@ describe('Guests (e2e)', () => {
   let adminToken: string;
   let regionId: string;
   let groupId: string;
+  let guestCode: string;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -29,6 +30,13 @@ describe('Guests (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ group_code: 'GRP-001', region_id: regionId });
     groupId = group.body.id;
+
+    // Shared guest used in export and public form endpoint tests
+    guestCode = 'FORM-0001';
+    await request(server)
+      .post('/api/guests')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ guest_code: guestCode, group_id: groupId, region_id: regionId, full_name: 'Form Guest' });
   });
 
   afterAll(() => app.close());
@@ -453,5 +461,282 @@ describe('Guests (e2e)', () => {
         .set('Authorization', auth())
         .expect(404);
     });
+  });
+
+  describe('GET /api/guests/export', () => {
+    it('returns xlsx with guest data matching current filters', async () => {
+      const res = await request(server)
+        .get(`/api/guests/export?regionId=${regionId}`)
+        .set('Authorization', auth())
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      expect(res.headers['content-type']).toMatch(/spreadsheetml/);
+      const rows = parseExcelResponse(res.body as Buffer);
+      expect(rows.length).toBeGreaterThan(0);
+      const row = rows[0] as Record<string, unknown>;
+      expect(row['guest_code']).toBeDefined();
+      expect(row['full_name']).toBeDefined();
+      expect(row['region_name']).toBeDefined();
+    });
+  });
+
+  describe('Public form endpoints (guest-access)', () => {
+    it('GET /api/guest-access/lookup returns guest_code and region_name', async () => {
+      const res = await request(server)
+        .get(`/api/guest-access/lookup?code=${guestCode}`)
+        .expect(200);
+      expect(res.body.guest_code).toBe(guestCode);
+      expect(res.body.region_name).toBeDefined();
+    });
+
+    it('GET /api/guest-access/lookup accepts code without dashes', async () => {
+      const noDashes = guestCode.replace(/-/g, '');
+      const res = await request(server)
+        .get(`/api/guest-access/lookup?code=${noDashes}`)
+        .expect(200);
+      expect(res.body.guest_code).toBe(guestCode);
+    });
+
+    it('GET /api/guest-access/lookup returns 404 for unknown code', () =>
+      request(server)
+        .get('/api/guest-access/lookup?code=ZZZZ-9999')
+        .expect(404));
+
+    it('PATCH /api/guest-access/submit updates guest form data', async () => {
+      await request(server)
+        .patch(`/api/guest-access/submit?code=${guestCode}`)
+        .send({
+          full_name: 'Updated Name',
+          email: 'updated@test.com',
+          origin_city: 'Barcelona',
+          car_seats: 3,
+          speaks_english: true,
+          other_languages: null,
+          real_arrival: '2026-07-01',
+          real_arrival_time: '10:00',
+          real_departure: '2026-07-07',
+          real_departure_time: '18:00',
+          hosting_address: 'Calle Test 1',
+          lat: null,
+          lng: null,
+          transport_mode: 'Coche',
+          arrival_other_transport: null,
+          arrival_flight: null,
+          needs_airport_transfer: false,
+        })
+        .expect(204);
+    });
+
+    it('PATCH /api/guest-access/submit returns 404 for unknown code', () =>
+      request(server)
+        .patch('/api/guest-access/submit?code=ZZZZ-9999')
+        .send({
+          full_name: 'X', email: 'x@x.com', origin_city: 'X',
+          car_seats: 0, speaks_english: false, other_languages: null,
+          real_arrival: '2026-07-01', real_arrival_time: '10:00',
+          real_departure: '2026-07-07', real_departure_time: '18:00',
+          hosting_address: 'X', lat: null, lng: null,
+          transport_mode: 'Coche', arrival_other_transport: null,
+          arrival_flight: null, needs_airport_transfer: false,
+        })
+        .expect(404));
+  });
+
+  describe('POST /api/guests/import/export-not-found', () => {
+    it('returns xlsx with the provided rows', async () => {
+      const rows = [{ guest_code: 'G-NF-01', group_code: 'GRP-NF', full_name: 'Not Found Guest' }];
+      const res = await request(server)
+        .post('/api/guests/import/export-not-found')
+        .set('Authorization', auth())
+        .buffer(true)
+        .parse(binaryParser)
+        .send({ rows })
+        .expect(200);
+      expect(res.headers['content-type']).toMatch(/spreadsheetml/);
+      const parsed = parseExcelResponse(res.body as Buffer);
+      expect(parsed.length).toBe(1);
+    });
+  });
+
+  describe('Import commit mode B (group-based region, no regionId)', () => {
+    it('derives region from group_code when no regionId provided', async () => {
+      const grp = (await request(server).post('/api/guest-groups').set('Authorization', auth())
+        .send({ group_code: 'GRP-MODEB', region_id: regionId })).body;
+
+      const rows = [{ guest_code: 'G-MODEB-01', group_code: grp.group_code, full_name: 'Mode B Guest' }];
+      const res = await request(server)
+        .post('/api/guests/import/commit')
+        .set('Authorization', auth())
+        .send({ rows })
+        .expect(200);
+      expect(res.body.created_guests).toBe(1);
+    });
+
+    it('skips rows whose group is not found', async () => {
+      const rows = [{ guest_code: 'G-NFGRP-01', group_code: 'GRP-NONEXISTENT', full_name: 'Skip Me' }];
+      const res = await request(server)
+        .post('/api/guests/import/commit')
+        .set('Authorization', auth())
+        .send({ rows })
+        .expect(200);
+      expect(res.body.created_guests).toBe(0);
+      expect(res.body.groups_not_found).toBe(1);
+    });
+  });
+
+  describe('Import commit with updateRows', () => {
+    it('updates existing guests via updateRows', async () => {
+      const grp = (await request(server).post('/api/guest-groups').set('Authorization', auth())
+        .send({ group_code: 'GRP-UPDATE-ROWS', region_id: regionId })).body;
+
+      const code = `G-UPD-${Date.now()}`;
+      await request(server).post('/api/guests').set('Authorization', auth())
+        .send({ guest_code: code, group_id: grp.id, region_id: regionId, full_name: 'Original Name' });
+
+      const updateRows = [{ guest_code: code, group_code: grp.group_code, full_name: 'Updated Name' }];
+      const res = await request(server)
+        .post('/api/guests/import/commit')
+        .set('Authorization', auth())
+        .send({ rows: [], updateRows, regionId })
+        .expect(200);
+      expect(res.body.updated_guests).toBe(1);
+    });
+  });
+
+  describe('POST /api/guests/:id/migrate - edge cases', () => {
+    it('returns 404 when target group does not exist', async () => {
+      const guest = (await request(server).post('/api/guests').set('Authorization', auth())
+        .send({ guest_code: `MIG-NF-${Date.now()}`, group_id: groupId, region_id: regionId, full_name: 'Migrate NF' })).body;
+
+      await request(server)
+        .post(`/api/guests/${guest.id}/migrate`)
+        .set('Authorization', auth())
+        .send({ targetGroupId: '00000000-0000-0000-0000-000000000000' })
+        .expect(404);
+    });
+
+    it('unsets is_group_contact when migrating group contact', async () => {
+      const destGroup = (await request(server).post('/api/guest-groups').set('Authorization', auth())
+        .send({ group_code: `GRP-MGD-${Date.now()}`, region_id: regionId })).body;
+
+      const guest = (await request(server).post('/api/guests').set('Authorization', auth()).send({
+        guest_code: `G-CONTACT-${Date.now()}`, group_id: groupId, region_id: regionId,
+        full_name: 'Contact Guest', is_group_contact: true,
+      })).body;
+
+      await request(server)
+        .post(`/api/guests/${guest.id}/migrate`)
+        .set('Authorization', auth())
+        .send({ targetGroupId: destGroup.id })
+        .expect(200);
+
+      const updated = (await request(server).get(`/api/guests/${guest.id}`).set('Authorization', auth())).body;
+      expect(updated.is_group_contact).toBe(false);
+    });
+  });
+
+  describe('Import parse - validation branches', () => {
+    it('flags rows with invalid status value', async () => {
+      const file = buildExcelBuffer([
+        { guest_code: 'G-BADSTATUS', group_code: 'GRP-001', full_name: 'Bad Status', status: 'invalid_status' },
+      ]);
+      const res = await request(server)
+        .post('/api/guests/import/parse')
+        .set('Authorization', auth())
+        .attach('file', file, 'guests.xlsx')
+        .expect(200);
+      const hasError = res.body.errors.some((e: { guest_code: string }) => e.guest_code === 'G-BADSTATUS');
+      expect(hasError).toBe(true);
+    });
+
+    it('flags rows with duplicate guest_code within the file', async () => {
+      const file = buildExcelBuffer([
+        { guest_code: 'G-DUP-FILE', group_code: 'GRP-001', full_name: 'First' },
+        { guest_code: 'G-DUP-FILE', group_code: 'GRP-001', full_name: 'Duplicate' },
+      ]);
+      const res = await request(server)
+        .post('/api/guests/import/parse')
+        .set('Authorization', auth())
+        .attach('file', file, 'guests.xlsx')
+        .expect(200);
+      expect(res.body.errors.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('region_admin access paths', () => {
+    let coordToken: string;
+
+    beforeAll(async () => {
+      const userRes = (await request(server).post('/api/users').set('Authorization', auth())
+        .send({ email: `coord-guests-${Date.now()}@test.local`, password: 'pass1234', role: 'region_admin' })).body;
+
+      await request(server).post(`/api/regions/${regionId}/coordinators`)
+        .set('Authorization', auth()).send({ userId: userRes.id });
+
+      coordToken = (await request(server).post('/api/auth/login')
+        .send({ email: userRes.email, password: 'pass1234' })).body.access_token;
+    });
+
+    it('region_admin can list guests in their region', async () => {
+      const res = await request(server)
+        .get(`/api/guests?regionId=${regionId}`)
+        .set('Authorization', `Bearer ${coordToken}`)
+        .expect(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+    });
+
+    it('region_admin gets 403 accessing a region they do not coordinate', async () => {
+      const other = (await request(server).post('/api/regions').set('Authorization', auth())
+        .send({ name: `Other Coord Region ${Date.now()}` })).body;
+      await request(server)
+        .get(`/api/guests?regionId=${other.id}`)
+        .set('Authorization', `Bearer ${coordToken}`)
+        .expect(403);
+    });
+
+    it('region_admin can export guests in their region', async () => {
+      const res = await request(server)
+        .get(`/api/guests/export?regionId=${regionId}`)
+        .set('Authorization', `Bearer ${coordToken}`)
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      expect(res.headers['content-type']).toMatch(/spreadsheetml/);
+    });
+  });
+
+  describe('PATCH /api/guests/:id - duplicate guest_code', () => {
+    it('returns 409 when updating to an already-used guest_code', async () => {
+      const g1 = (await request(server).post('/api/guests').set('Authorization', auth())
+        .send({ guest_code: `DUP-A-${Date.now()}`, group_id: groupId, region_id: regionId, full_name: 'A' })).body;
+      const g2 = (await request(server).post('/api/guests').set('Authorization', auth())
+        .send({ guest_code: `DUP-B-${Date.now()}`, group_id: groupId, region_id: regionId, full_name: 'B' })).body;
+
+      await request(server)
+        .patch(`/api/guests/${g2.id}`)
+        .set('Authorization', auth())
+        .send({ guest_code: g1.guest_code })
+        .expect(409);
+    });
+  });
+
+  describe('guest-access missing param edge cases', () => {
+    it('GET /api/guest-access/lookup with no code param returns 404', () =>
+      request(server).get('/api/guest-access/lookup').expect(404));
+
+    it('PATCH /api/guest-access/submit with no code param returns 404', () =>
+      request(server).patch('/api/guest-access/submit').send({
+        full_name: 'X', email: 'x@x.com', origin_city: 'X',
+        car_seats: 0, speaks_english: false, other_languages: null,
+        real_arrival: '2026-07-01', real_arrival_time: '10:00',
+        real_departure: '2026-07-07', real_departure_time: '18:00',
+        hosting_address: 'X', lat: null, lng: null,
+        transport_mode: 'Coche', arrival_other_transport: null,
+        arrival_flight: null, needs_airport_transfer: false,
+      }).expect(404));
+
+    it('GET /api/guest-access/me with no token param returns 401', () =>
+      request(server).get('/api/guest-access/me').expect(401));
   });
 });

@@ -1,6 +1,13 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp, loginAdmin } from './test-app';
+import {
+  binaryParser,
+  buildExcelBuffer,
+  createTestApp,
+  loginAdmin,
+  parseExcelHeaders,
+  parseExcelResponse,
+} from './test-app';
 
 describe('Regions (e2e)', () => {
   let app: INestApplication;
@@ -206,6 +213,132 @@ describe('Regions (e2e)', () => {
         .set('Authorization', auth())
         .send({ userId: volRes.body.id })
         .expect(400);
+    });
+  });
+
+  describe('Import / Export Excel', () => {
+    it('GET /api/regions/import/template returns xlsx', async () => {
+      const res = await request(server)
+        .get('/api/regions/import/template')
+        .set('Authorization', auth())
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      expect(res.headers['content-type']).toMatch(/spreadsheetml/);
+      const headers = parseExcelHeaders(res.body as Buffer);
+      expect(headers).toContain('name');
+      expect(headers).toContain('event_start_date');
+    });
+
+    it('POST /api/regions/import/parse returns preview', async () => {
+      const file = buildExcelBuffer([
+        {
+          name: 'Import Region A',
+          event_start_date: '2026-07-01',
+          event_end_date: '2026-07-07',
+        },
+        { name: 'Import Region B', event_start_date: '2026-07-01' },
+        { name: '' },
+      ]);
+      const res = await request(server)
+        .post('/api/regions/import/parse')
+        .set('Authorization', auth())
+        .attach('file', file, 'regions.xlsx')
+        .expect(200);
+      expect(res.body.summary.total).toBe(3);
+      expect(res.body.summary.valid).toBe(2);
+      expect(res.body.summary.errors).toBe(1);
+      expect(res.body.valid[0].name).toBe('Import Region A');
+    });
+
+    it('POST /api/regions/import/commit creates regions', async () => {
+      const rows = [
+        {
+          name: 'Committed Region X',
+          event_start_date: '2026-07-01',
+          event_end_date: null,
+        },
+      ];
+      const res = await request(server)
+        .post('/api/regions/import/commit')
+        .set('Authorization', auth())
+        .send({ rows })
+        .expect(200);
+      expect(res.body.created).toBe(1);
+    });
+
+    it('POST /api/regions/import/commit marks duplicates as skipped', async () => {
+      const existing = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: 'Dup Import Region' })
+      ).body;
+      const res = await request(server)
+        .post('/api/regions/import/commit')
+        .set('Authorization', auth())
+        .send({ rows: [{ name: existing.name }] })
+        .expect(200);
+      expect(res.body.created).toBe(0);
+    });
+
+    it('GET /api/regions/export returns xlsx with region data', async () => {
+      const res = await request(server)
+        .get('/api/regions/export')
+        .set('Authorization', auth())
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      expect(res.headers['content-type']).toMatch(/spreadsheetml/);
+      const rows = parseExcelResponse(res.body as Buffer);
+      expect(rows.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('GET /api/regions/stats', () => {
+    it('returns stats for all regions (superadmin)', async () => {
+      const res = await request(server)
+        .get('/api/regions/stats')
+        .set('Authorization', auth())
+        .expect(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      if (res.body.length > 0) {
+        expect(res.body[0]).toHaveProperty('guest_count');
+        expect(res.body[0]).toHaveProperty('volunteer_count');
+        expect(res.body[0]).toHaveProperty('region_name');
+      }
+    });
+
+    it('returns only own stats for region_admin', async () => {
+      const region = (await request(server).post('/api/regions').set('Authorization', auth())
+        .send({ name: `Stats Region ${Date.now()}` })).body;
+
+      const user = (await request(server).post('/api/users').set('Authorization', auth())
+        .send({ email: `stats-coord-${Date.now()}@test.local`, password: 'pass1234', role: 'region_admin' })).body;
+
+      await request(server).post(`/api/regions/${region.id}/coordinators`)
+        .set('Authorization', auth()).send({ userId: user.id });
+
+      const token = (await request(server).post('/api/auth/login')
+        .send({ email: user.email, password: 'pass1234' })).body.access_token;
+
+      const res = await request(server)
+        .get('/api/regions/stats')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(res.body.every((s: { region_id: string }) => s.region_id === region.id)).toBe(true);
+    });
+  });
+
+  describe('Region admin access paths', () => {
+    it('region_admin with no regions gets empty list', async () => {
+      const user = (await request(server).post('/api/users').set('Authorization', auth())
+        .send({ email: `noreg-${Date.now()}@test.local`, password: 'pass1234', role: 'region_admin' })).body;
+      const token = (await request(server).post('/api/auth/login')
+        .send({ email: user.email, password: 'pass1234' })).body.access_token;
+
+      const res = await request(server).get('/api/regions').set('Authorization', `Bearer ${token}`).expect(200);
+      expect(res.body).toHaveLength(0);
     });
   });
 });
