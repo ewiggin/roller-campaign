@@ -50,6 +50,9 @@ export interface Guest {
   lng: number | null;
   transport_mode: string | null;
   car_seats: number | null;
+  terms_accepted: boolean;
+  terms_accepted_at: string | null;
+  terms_version: string | null;
   created_at: string;
   updated_at: string;
 }

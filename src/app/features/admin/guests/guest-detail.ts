@@ -24,7 +24,7 @@ const TRANSPORTS: TransportMode[] = ['car', 'bus', 'train', 'plane', 'ferry', 'm
 
 @Component({
   selector: 'app-guest-detail',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [RouterLink, ReactiveFormsModule, DatePipe],
   providers: [DatePipe],
   templateUrl: './guest-detail.html',
 })
