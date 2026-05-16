@@ -6,15 +6,17 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { GuestApiService, GuestFormSubmitData } from '../../services/guest-api.service';
 import { LocationPickerComponent, PlaceResult } from '../location-picker/location-picker.component';
+import { TERMS_VERSION } from '../../pages/legal/legal';
 
 type Step = 'code' | 'form';
 
 @Component({
   selector: 'app-guest-form',
   standalone: true,
-  imports: [ReactiveFormsModule, LocationPickerComponent],
+  imports: [ReactiveFormsModule, LocationPickerComponent, RouterLink],
   templateUrl: './guest-form.component.html',
 })
 export class GuestFormComponent {
@@ -62,6 +64,7 @@ export class GuestFormComponent {
       medioTransporteOtro: [''],
       numeroVuelo: [''],
       necesitaTransporteAeropuerto: [false],
+      aceptaCondiciones: [false, Validators.requiredTrue],
     });
   }
 
@@ -197,6 +200,8 @@ export class GuestFormComponent {
       arrival_other_transport: this.isOtroTransporte ? raw.medioTransporteOtro || null : null,
       arrival_flight: this.isAvion ? raw.numeroVuelo || null : null,
       needs_airport_transfer: this.isAvion ? raw.necesitaTransporteAeropuerto : false,
+      terms_accepted: raw.aceptaCondiciones,
+      terms_version: TERMS_VERSION,
     };
 
     try {

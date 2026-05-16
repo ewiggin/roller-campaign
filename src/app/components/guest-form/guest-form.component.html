@@ -401,6 +401,31 @@
             />
           </div>
 
+          <!-- Aceptación de condiciones -->
+          <div class="space-y-1">
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                formControlName="aceptaCondiciones"
+                class="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-400"
+              />
+              <span class="text-sm text-gray-700">
+                He leído y acepto la
+                <a
+                  routerLink="/legal"
+                  target="_blank"
+                  class="text-indigo-600 underline hover:text-indigo-800"
+                >
+                  política de privacidad y condiciones del servicio
+                </a>
+                <span class="text-red-500"> *</span>
+              </span>
+            </label>
+            @if (isInvalid('aceptaCondiciones')) {
+              <p class="text-xs text-red-500 pl-7">Debes aceptar las condiciones para continuar</p>
+            }
+          </div>
+
           @if (submitError()) {
             <div class="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
               ❌ No se ha podido procesar tu formulario. Por favor, prueba otra vez más tarde.
