@@ -85,4 +85,12 @@ export class GuestFormSubmitDto {
   @ApiProperty({ example: false })
   @IsBoolean()
   needs_airport_transfer: boolean;
+
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  terms_accepted: boolean;
+
+  @ApiProperty({ example: '1.0' })
+  @IsString()
+  terms_version: string;
 }
