@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, HostListener, signal } from '@angular/core';
 import {
   FormBuilder,
   FormControl,
@@ -63,6 +63,13 @@ export class GuestFormComponent {
       numeroVuelo: [''],
       necesitaTransporteAeropuerto: [false],
     });
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.step() === 'form' && !this.submitSuccess()) {
+      event.preventDefault();
+    }
   }
 
   async validateCode(): Promise<void> {
