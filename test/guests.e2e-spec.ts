@@ -444,6 +444,113 @@ describe('Guests (e2e)', () => {
   });
 
   // ---------------------------------------------------------------------------
+  describe('GET /api/guest-access/lookup', () => {
+    let lookupCode: string;
+
+    beforeAll(async () => {
+      lookupCode = `LOOKUP-${Date.now()}`;
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          ...baseGuest(),
+          guest_code: lookupCode,
+          full_name: 'Lookup Guest',
+        })
+        .expect(201);
+    });
+
+    it('returns guest data for a valid code', async () => {
+      const res = await request(server)
+        .get(`/api/guest-access/lookup?code=${lookupCode}`)
+        .expect(200);
+
+      expect(res.body.guest_code).toBe(lookupCode);
+      expect(res.body.region_name).toBeDefined();
+    });
+
+    it('returns 404 for an unknown code', () =>
+      request(server)
+        .get('/api/guest-access/lookup?code=DOES-NOT-EXIST')
+        .expect(404));
+  });
+
+  // ---------------------------------------------------------------------------
+  describe('PATCH /api/guest-access/submit', () => {
+    let submitCode: string;
+
+    beforeAll(async () => {
+      submitCode = `SUBMIT-${Date.now()}`;
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          ...baseGuest(),
+          guest_code: submitCode,
+          full_name: 'Submit Guest',
+        })
+        .expect(201);
+    });
+
+    const validPayload = () => ({
+      full_name: 'Submit Guest',
+      email: 'submit@example.com',
+      origin_city: 'Madrid',
+      car_seats: 0,
+      speaks_english: false,
+      other_languages: null,
+      real_arrival: '2024-06-14',
+      real_arrival_time: '10:00',
+      real_departure: '2024-06-21',
+      real_departure_time: '16:00',
+      hosting_address: 'Calle Mayor 1',
+      lat: null,
+      lng: null,
+      transport_mode: 'Coche',
+      arrival_other_transport: null,
+      arrival_flight: null,
+      needs_airport_transfer: false,
+      terms_accepted: true,
+      terms_version: '1.0',
+    });
+
+    it('submits form and saves terms consent', async () => {
+      await request(server)
+        .patch(`/api/guest-access/submit?code=${submitCode}`)
+        .send(validPayload())
+        .expect(204);
+
+      const detail = await request(server)
+        .get(`/api/guests`)
+        .set('Authorization', auth())
+        .query({ search: submitCode });
+
+      const guest = detail.body.data.find(
+        (g: { guest_code: string }) => g.guest_code === submitCode,
+      );
+      expect(guest.terms_accepted).toBe(true);
+      expect(guest.terms_version).toBe('1.0');
+      expect(guest.terms_accepted_at).toBeTruthy();
+    });
+
+    it('returns 404 for unknown code', () =>
+      request(server)
+        .patch('/api/guest-access/submit?code=NO-EXIST')
+        .send(validPayload())
+        .expect(404));
+
+    it('returns 400 when terms_accepted is missing', () =>
+      request(server)
+        .patch(`/api/guest-access/submit?code=${submitCode}`)
+        .send({
+          ...validPayload(),
+          terms_accepted: undefined,
+          terms_version: undefined,
+        })
+        .expect(400));
+  });
+
+  // ---------------------------------------------------------------------------
   describe('DELETE /api/guests/:id', () => {
     it('deletes a guest (superadmin only)', async () => {
       const guest = await request(server)
