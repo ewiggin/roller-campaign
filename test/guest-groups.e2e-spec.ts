@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp, loginAdmin } from './test-app';
+import { binaryParser, buildExcelBuffer, createTestApp, loginAdmin, parseExcelResponse } from './test-app';
 
 describe('GuestGroups (e2e)', () => {
   let app: INestApplication;
@@ -59,15 +59,15 @@ describe('GuestGroups (e2e)', () => {
   });
 
   describe('GET /api/guest-groups', () => {
-    it('returns groups for a region', async () => {
+    it('returns paginated groups for a region', async () => {
       const res = await request(server)
         .get(`/api/guest-groups?regionId=${regionId}`)
         .set('Authorization', auth())
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThanOrEqual(1);
-      expect(res.body[0]).toHaveProperty('guest_count');
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.total).toBeGreaterThanOrEqual(1);
+      expect(res.body.data[0]).toHaveProperty('guest_count');
     });
   });
 
@@ -169,6 +169,190 @@ describe('GuestGroups (e2e)', () => {
         .patch(`/api/guest-groups/${grpA.body.id}/contact`)
         .set('Authorization', auth())
         .send({ guestId: guestB.body.id })
+        .expect(400);
+    });
+  });
+
+  describe('Import Excel', () => {
+    it('GET /api/guest-groups/import/template returns xlsx', async () => {
+      const res = await request(server)
+        .get('/api/guest-groups/import/template')
+        .set('Authorization', auth())
+        .expect(200);
+      expect(res.headers['content-type']).toMatch(/spreadsheetml/);
+    });
+
+    it('POST /api/guest-groups/import with regionId creates groups', async () => {
+      const file = buildExcelBuffer([
+        { group_code: 'IMP-001' },
+        { group_code: 'IMP-002' },
+      ]);
+      const res = await request(server)
+        .post(`/api/guest-groups/import?regionId=${regionId}`)
+        .set('Authorization', auth())
+        .attach('file', file, 'groups.xlsx')
+        .expect(200);
+      expect(res.body.created).toBe(2);
+      expect(res.body.skipped).toBe(0);
+    });
+
+    it('POST /api/guest-groups/import skips duplicates', async () => {
+      const file = buildExcelBuffer([{ group_code: 'IMP-001' }]);
+      const res = await request(server)
+        .post(`/api/guest-groups/import?regionId=${regionId}`)
+        .set('Authorization', auth())
+        .attach('file', file, 'groups.xlsx')
+        .expect(200);
+      expect(res.body.created).toBe(0);
+      expect(res.body.skipped).toBe(1);
+    });
+
+    it('POST /api/guest-groups/import auto-detects region from region_name column', async () => {
+      const file = buildExcelBuffer([
+        { group_code: 'AUTO-001', region_name: 'Test Region' },
+        { group_code: 'AUTO-002', region_name: 'Test Region' },
+        { group_code: 'AUTO-BAD', region_name: 'Nonexistent Region' },
+      ]);
+      const res = await request(server)
+        .post('/api/guest-groups/import')
+        .set('Authorization', auth())
+        .attach('file', file, 'groups.xlsx')
+        .expect(200);
+      expect(res.body.created).toBe(2);
+      expect(res.body.regions_not_found).toBe(1);
+    });
+
+    it('POST /api/guest-groups/import returns 400 with no regionId and no region_name column', async () => {
+      const file = buildExcelBuffer([{ group_code: 'FAIL-001' }]);
+      await request(server)
+        .post('/api/guest-groups/import')
+        .set('Authorization', auth())
+        .attach('file', file, 'groups.xlsx')
+        .expect(400);
+    });
+  });
+
+  describe('Export Excel', () => {
+    it('GET /api/guest-groups/export returns xlsx', async () => {
+      const res = await request(server)
+        .get(`/api/guest-groups/export?regionId=${regionId}`)
+        .set('Authorization', auth())
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      expect(res.headers['content-type']).toMatch(/spreadsheetml/);
+      const rows = parseExcelResponse(res.body as Buffer);
+      expect(rows.length).toBeGreaterThan(0);
+      expect((rows[0] as Record<string, unknown>)['group_code']).toBeDefined();
+    });
+  });
+
+  describe('PATCH /api/guest-groups/:id - duplicate group_code', () => {
+    it('returns 409 when renaming to an existing group_code', async () => {
+      const g1 = (await request(server).post('/api/guest-groups').set('Authorization', auth())
+        .send({ group_code: 'DUP-GG-A', region_id: regionId })).body;
+      const g2 = (await request(server).post('/api/guest-groups').set('Authorization', auth())
+        .send({ group_code: 'DUP-GG-B', region_id: regionId })).body;
+
+      await request(server)
+        .patch(`/api/guest-groups/${g2.id}`)
+        .set('Authorization', auth())
+        .send({ group_code: g1.group_code })
+        .expect(409);
+    });
+  });
+
+  describe('region_admin access paths', () => {
+    let coordToken: string;
+
+    beforeAll(async () => {
+      const userRes = (await request(server).post('/api/users').set('Authorization', auth())
+        .send({ email: `coord-gg-${Date.now()}@test.local`, password: 'pass1234', role: 'region_admin' })).body;
+
+      await request(server).post(`/api/regions/${regionId}/coordinators`)
+        .set('Authorization', auth()).send({ userId: userRes.id });
+
+      coordToken = (await request(server).post('/api/auth/login')
+        .send({ email: userRes.email, password: 'pass1234' })).body.access_token;
+    });
+
+    it('region_admin sees only groups in their region', async () => {
+      const res = await request(server)
+        .get(`/api/guest-groups?regionId=${regionId}`)
+        .set('Authorization', `Bearer ${coordToken}`)
+        .expect(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+    });
+
+    it('region_admin can export groups in their region', async () => {
+      const res = await request(server)
+        .get(`/api/guest-groups/export?regionId=${regionId}`)
+        .set('Authorization', `Bearer ${coordToken}`)
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      expect(res.headers['content-type']).toMatch(/spreadsheetml/);
+    });
+  });
+
+  describe('GET /api/guest-groups/:id', () => {
+    it('returns a specific group', async () => {
+      const grp = (await request(server).post('/api/guest-groups').set('Authorization', auth())
+        .send({ group_code: 'GRP-GETONE', region_id: regionId })).body;
+      const res = await request(server)
+        .get(`/api/guest-groups/${grp.id}`)
+        .set('Authorization', auth())
+        .expect(200);
+      expect(res.body.id).toBe(grp.id);
+      expect(res.body.guest_count).toBe(0);
+    });
+
+    it('returns 404 for unknown id', () =>
+      request(server).get('/api/guest-groups/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', auth()).expect(404));
+  });
+
+  describe('PATCH /api/guest-groups/:id/host (assignHost)', () => {
+    let grpId: string;
+    let hostId: string;
+
+    beforeAll(async () => {
+      const grp = (await request(server).post('/api/guest-groups').set('Authorization', auth())
+        .send({ group_code: 'GRP-HOST', region_id: regionId })).body;
+      grpId = grp.id;
+
+      const host = (await request(server).post('/api/hosts').set('Authorization', auth())
+        .send({ name: 'Host For Group', region_id: regionId })).body;
+      hostId = host.id;
+    });
+
+    it('assigns a host to a group', async () => {
+      const res = await request(server)
+        .patch(`/api/guest-groups/${grpId}/host`)
+        .set('Authorization', auth())
+        .send({ hostId })
+        .expect(200);
+      expect(res.body.host_id).toBe(hostId);
+    });
+
+    it('unassigns host by passing null', async () => {
+      const res = await request(server)
+        .patch(`/api/guest-groups/${grpId}/host`)
+        .set('Authorization', auth())
+        .send({ hostId: null })
+        .expect(200);
+      expect(res.body.host_id).toBeNull();
+    });
+
+    it('returns 400 assigning host from different region', async () => {
+      const otherRegion = (await request(server).post('/api/regions').set('Authorization', auth()).send({ name: 'Other Host Region' })).body;
+      const otherHost = (await request(server).post('/api/hosts').set('Authorization', auth())
+        .send({ name: 'Other Host', region_id: otherRegion.id })).body;
+
+      await request(server)
+        .patch(`/api/guest-groups/${grpId}/host`)
+        .set('Authorization', auth())
+        .send({ hostId: otherHost.id })
         .expect(400);
     });
   });
