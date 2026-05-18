@@ -190,6 +190,16 @@ export class Guest {
   @Column({ type: 'int', nullable: true, default: null })
   car_seats: number | null;
 
+  // --- Consent ---
+  @Column({ default: false })
+  terms_accepted: boolean;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  terms_accepted_at: string | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  terms_version: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 
