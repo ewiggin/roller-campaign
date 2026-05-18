@@ -59,6 +59,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/admin/activities/activities-list').then((m) => m.ActivitiesListComponent),
       },
+      {
+        path: 'audit-logs',
+        loadComponent: () =>
+          import('./features/admin/audit-logs/audit-logs-list').then((m) => m.AuditLogsListComponent),
+      },
     ],
   },
   { path: '**', redirectTo: 'admin' },
