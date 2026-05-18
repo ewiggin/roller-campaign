@@ -631,6 +631,8 @@ describe('Guests (e2e)', () => {
           arrival_other_transport: null,
           arrival_flight: null,
           needs_airport_transfer: false,
+          terms_accepted: true,
+          terms_version: '1.0',
         })
         .expect(204);
     });
@@ -646,6 +648,7 @@ describe('Guests (e2e)', () => {
           hosting_address: 'X', lat: null, lng: null,
           transport_mode: 'Coche', arrival_other_transport: null,
           arrival_flight: null, needs_airport_transfer: false,
+          terms_accepted: true, terms_version: '1.0',
         })
         .expect(404));
   });
@@ -841,6 +844,7 @@ describe('Guests (e2e)', () => {
         hosting_address: 'X', lat: null, lng: null,
         transport_mode: 'Coche', arrival_other_transport: null,
         arrival_flight: null, needs_airport_transfer: false,
+        terms_accepted: true, terms_version: '1.0',
       }).expect(404));
 
     it('GET /api/guest-access/me with no token param returns 401', () =>
