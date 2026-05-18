@@ -46,6 +46,7 @@ import {
 import { MigrateGuestDto } from './dto/migrate-guest.dto';
 import { UpdateGuestDto } from './dto/update-guest.dto';
 import { GuestsService } from './guests.service';
+import { Audit } from '../audit-logs/decorators/audit.decorator';
 
 @ApiTags('guests')
 @ApiBearerAuth()
@@ -56,6 +57,7 @@ export class GuestsController {
 
   @Get('export')
   @Roles('region_admin')
+  @Audit('export', 'guest')
   @ApiOkResponse({ description: 'Excel con listado de invitados' })
   async exportAll(
     @Query() query: GuestListQueryDto,
@@ -114,6 +116,7 @@ export class GuestsController {
 
   @Post('import/commit')
   @Roles('region_admin')
+  @Audit('import', 'guest')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportCommitResponseDto })
   commitImport(
@@ -147,6 +150,7 @@ export class GuestsController {
 
   @Post()
   @Roles('region_admin')
+  @Audit('create', 'guest')
   @ApiCreatedResponse({ type: GuestResponseDto })
   create(
     @Body() dto: CreateGuestDto,
@@ -157,6 +161,7 @@ export class GuestsController {
 
   @Get()
   @Roles('region_admin')
+  @Audit('list', 'guest')
   @ApiOkResponse({ description: 'Lista paginada de invitados' })
   findAll(@Query() query: GuestListQueryDto, @CurrentUser() user: JwtPayload) {
     return this.service.findAll(query, user);
@@ -164,6 +169,7 @@ export class GuestsController {
 
   @Get(':id/token')
   @Roles('region_admin')
+  @Audit('generate_token', 'guest')
   @ApiOkResponse({ type: GuestTokenResponseDto })
   generateToken(
     @Param('id', ParseUUIDPipe) id: string,
@@ -174,6 +180,7 @@ export class GuestsController {
 
   @Get(':id')
   @Roles('region_admin')
+  @Audit('read', 'guest')
   @ApiOkResponse({ type: GuestResponseDto })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
@@ -184,6 +191,7 @@ export class GuestsController {
 
   @Patch(':id')
   @Roles('region_admin')
+  @Audit('update', 'guest')
   @ApiOkResponse({ type: GuestResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -195,6 +203,7 @@ export class GuestsController {
 
   @Delete(':id')
   @Roles('superadmin')
+  @Audit('delete', 'guest')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
@@ -203,6 +212,7 @@ export class GuestsController {
 
   @Post(':id/migrate')
   @Roles('region_admin')
+  @Audit('migrate', 'guest')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: GuestResponseDto })
   migrate(
