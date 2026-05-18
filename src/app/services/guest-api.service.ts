@@ -41,6 +41,8 @@ export interface GuestFormSubmitData {
   arrival_other_transport: string | null;
   arrival_flight: string | null;
   needs_airport_transfer: boolean;
+  terms_accepted: boolean;
+  terms_version: string;
 }
 
 @Injectable({ providedIn: 'root' })
