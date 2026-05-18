@@ -1,4 +1,5 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { GuestsService } from '../../../core/services/guests.service';
@@ -13,7 +14,7 @@ const STATUSES: GuestStatus[] = ['pending', 'confirmed', 'cancelled', 'arrived',
 
 @Component({
   selector: 'app-guests-list',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, DatePipe],
   templateUrl: './guests-list.html',
 })
 export class GuestsListComponent implements OnInit {

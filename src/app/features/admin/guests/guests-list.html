@@ -159,6 +159,14 @@
               >
                 {{ guest.status }}
               </span>
+              @if (guest.terms_accepted) {
+                <span
+                  class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
+                  [title]="'v' + guest.terms_version + ' · ' + (guest.terms_accepted_at | date:'dd/MM/yyyy HH:mm')"
+                >
+                  ✓ terms
+                </span>
+              }
 
               <div class="flex items-center gap-1 shrink-0">
                 <button
