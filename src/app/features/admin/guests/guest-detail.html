@@ -81,7 +81,7 @@
           }
         </div>
         <p class="text-sm text-gray-400 dark:text-zinc-500 mt-1">
-          {{ guest()!.guest_code }} · {{ groupCode() }} · {{ regionName() }}
+          CODE: {{ guest()!.guest_code }} · GROUP: {{ groupCode() }} · {{ regionName() }}
         </p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
@@ -144,11 +144,13 @@
         </button>
       </div>
       <dl class="divide-y divide-gray-100 dark:divide-zinc-800">
-        <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Transport</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.arrival_transport) }}</dd></div>
-        <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Date / Time</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ fmtDate(guest()!.arrival_date) }} {{ fmtTime(guest()!.arrival_time) }}</dd></div>
-        <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Place</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.arrival_place) }}</dd></div>
-        <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Airport</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.arrival_airport) }}</dd></div>
-        <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Flight</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.arrival_airline) }} {{ guest()!.arrival_flight ?? '' }}</dd></div>
+      <!--
+      <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Transport</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.arrival_transport) }}</dd></div> 
+      <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Date / Time</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ fmtDate(guest()!.arrival_date) }} {{ fmtTime(guest()!.arrival_time) }}</dd></div>
+      <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Place</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.arrival_place) }}</dd></div>
+      <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Airport</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.arrival_airport) }}</dd></div>
+      <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Flight</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.arrival_airline) }} {{ guest()!.arrival_flight ?? '' }}</dd></div>
+      -->
         <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Real arrival</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ fmtDate(guest()!.real_arrival) }} {{ fmtTime(guest()!.real_arrival_time) }}</dd></div>
         <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Airport transfer</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ guest()!.needs_airport_transfer ? 'Yes' : 'No' }}</dd></div>
       </dl>
@@ -163,11 +165,13 @@
         </button>
       </div>
       <dl class="divide-y divide-gray-100 dark:divide-zinc-800">
-        <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Transport</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.departure_transport) }}</dd></div>
-        <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Date / Time</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ fmtDate(guest()!.departure_date) }} {{ fmtTime(guest()!.departure_time) }}</dd></div>
-        <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Place</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.departure_place) }}</dd></div>
-        <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Airport</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.departure_airport) }}</dd></div>
-        <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Flight</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.departure_airline) }} {{ guest()!.departure_flight ?? '' }}</dd></div>
+        <!-- 
+<div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Transport</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.departure_transport) }}</dd></div>
+<div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Date / Time</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ fmtDate(guest()!.departure_date) }} {{ fmtTime(guest()!.departure_time) }}</dd></div>
+<div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Place</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.departure_place) }}</dd></div>
+<div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Airport</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.departure_airport) }}</dd></div>
+<div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Flight</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.departure_airline) }} {{ guest()!.departure_flight ?? '' }}</dd></div>
+        -->
         <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Real departure</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ fmtDate(guest()!.real_departure) }} {{ fmtTime(guest()!.real_departure_time) }}</dd></div>
       </dl>
     </div>
@@ -182,9 +186,12 @@
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-zinc-800">
         <dl class="divide-y divide-gray-100 dark:divide-zinc-800">
+          <!--
           <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Accommodation</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ val(guest()!.accommodation) }}</dd></div>
           <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Check-in</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ fmtDate(guest()!.checkin_date) }}</dd></div>
           <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Check-out</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ fmtDate(guest()!.checkout_date) }}</dd></div>
+          -->
+          
           <div class="px-5 py-3 flex gap-4"><dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Special accommodation</dt><dd class="text-sm text-gray-900 dark:text-zinc-100">{{ guest()!.needs_special_accommodation ? 'Yes' : 'No' }}</dd></div>
         </dl>
         <dl class="divide-y divide-gray-100 dark:divide-zinc-800">
@@ -466,6 +473,7 @@
         </div>
         <form [formGroup]="accommodationForm" (ngSubmit)="save()" class="overflow-y-auto flex-1 p-5 space-y-3">
           <div class="grid grid-cols-2 gap-3">
+            <!--
             <div class="col-span-2">
               <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1">Accommodation name</label>
               <input formControlName="accommodation" type="text" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
@@ -478,6 +486,7 @@
               <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1">Check-out</label>
               <input formControlName="checkout_date" type="date" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
             </div>
+             -->
             <div class="col-span-2">
               <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1">Address</label>
               <input formControlName="hosting_address" type="text" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
