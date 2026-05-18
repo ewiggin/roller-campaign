@@ -51,6 +51,7 @@ export class HostsController {
 
   @Post('import/parse')
   @Roles('superadmin')
+  @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOkResponse({ type: ImportHostParseResponseDto })
@@ -60,6 +61,7 @@ export class HostsController {
 
   @Post('import/commit')
   @Roles('superadmin')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportHostCommitResponseDto })
   commitImport(@Body() dto: ImportHostCommitDto): Promise<ImportHostCommitResponseDto> {
     return this.service.commitImport(dto);

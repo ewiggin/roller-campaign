@@ -74,6 +74,7 @@ export class RegionsController {
 
   @Post('import/parse')
   @Roles('superadmin')
+  @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOkResponse({ type: ImportRegionParseResponseDto })
@@ -83,6 +84,7 @@ export class RegionsController {
 
   @Post('import/commit')
   @Roles('superadmin')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportRegionCommitResponseDto })
   commitImport(@Body() dto: ImportRegionCommitDto): Promise<ImportRegionCommitResponseDto> {
     return this.regionsService.commitImport(dto);
