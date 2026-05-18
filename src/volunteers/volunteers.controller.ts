@@ -43,6 +43,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Audit } from '../audit-logs/decorators/audit.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiTags('volunteers')
@@ -100,6 +101,7 @@ export class VolunteersController {
 
   @Post('import/commit')
   @Roles('region_admin')
+  @Audit('import', 'volunteer')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportVolunteerCommitResponseDto })
   commitImport(@Body() dto: ImportVolunteerCommitDto): Promise<ImportVolunteerCommitResponseDto> {
@@ -110,6 +112,7 @@ export class VolunteersController {
 
   @Post()
   @Roles('region_admin')
+  @Audit('create', 'volunteer')
   @ApiCreatedResponse({ type: VolunteerResponseDto })
   create(@Body() dto: CreateVolunteerDto, @CurrentUser() user: JwtPayload): Promise<VolunteerResponseDto> {
     return this.svc.create(dto, user);
@@ -144,6 +147,7 @@ export class VolunteersController {
 
   @Get()
   @Roles('region_admin')
+  @Audit('list', 'volunteer')
   @ApiOkResponse({ description: 'Lista paginada de voluntarios' })
   findAll(@Query() query: VolunteerListQueryDto, @CurrentUser() user: JwtPayload) {
     return this.svc.findAll(query, user);
@@ -151,6 +155,7 @@ export class VolunteersController {
 
   @Get(':id')
   @Roles('region_admin')
+  @Audit('read', 'volunteer')
   @ApiOkResponse({ type: VolunteerResponseDto })
   findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<VolunteerResponseDto> {
     return this.svc.findOne(id, user);
@@ -158,6 +163,7 @@ export class VolunteersController {
 
   @Patch(':id')
   @Roles('region_admin')
+  @Audit('update', 'volunteer')
   @ApiOkResponse({ type: VolunteerResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -169,6 +175,7 @@ export class VolunteersController {
 
   @Delete(':id')
   @Roles('superadmin')
+  @Audit('delete', 'volunteer')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {

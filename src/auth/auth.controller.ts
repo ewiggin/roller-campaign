@@ -9,6 +9,7 @@ import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { Audit } from '../audit-logs/decorators/audit.decorator';
 import type { JwtPayload } from './strategies/jwt.strategy';
 
 @ApiTags('auth')
@@ -18,6 +19,7 @@ export class AuthController {
 
   @Post('login')
   @UseGuards(LocalAuthGuard)
+  @Audit('login', 'auth')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: LoginResponseDto })
   @ApiUnauthorizedResponse({ description: 'Credenciales inválidas' })
