@@ -20,7 +20,10 @@ export class GuestResponseDto {
   @ApiProperty({ example: false })
   is_minor: boolean;
 
-  @ApiProperty({ example: 'pending', enum: ['pending', 'confirmed', 'cancelled', 'arrived', 'blocked'] })
+  @ApiProperty({
+    example: 'pending',
+    enum: ['pending', 'confirmed', 'cancelled', 'arrived', 'blocked'],
+  })
   status: GuestStatus;
 
   @ApiPropertyOptional({ example: 'Sucursal Madrid', nullable: true })
@@ -53,7 +56,11 @@ export class GuestResponseDto {
   @ApiPropertyOptional({ example: '2024-06-25', nullable: true })
   available_to: string | null;
 
-  @ApiPropertyOptional({ example: 'plane', enum: ['car', 'bus', 'train', 'plane', 'ferry', 'motorbike', 'other'], nullable: true })
+  @ApiPropertyOptional({
+    example: 'plane',
+    enum: ['car', 'bus', 'train', 'plane', 'ferry', 'motorbike', 'other'],
+    nullable: true,
+  })
   arrival_transport: TransportMode | null;
 
   @ApiPropertyOptional({ example: null, nullable: true })
@@ -86,7 +93,11 @@ export class GuestResponseDto {
   @ApiProperty({ example: false })
   needs_airport_transfer: boolean;
 
-  @ApiPropertyOptional({ example: 'car', enum: ['car', 'bus', 'train', 'plane', 'ferry', 'motorbike', 'other'], nullable: true })
+  @ApiPropertyOptional({
+    example: 'car',
+    enum: ['car', 'bus', 'train', 'plane', 'ferry', 'motorbike', 'other'],
+    nullable: true,
+  })
   departure_transport: TransportMode | null;
 
   @ApiPropertyOptional({ example: null, nullable: true })
@@ -131,7 +142,10 @@ export class GuestResponseDto {
   @ApiPropertyOptional({ example: 'Calle Mayor 1, Madrid', nullable: true })
   hosting_address: string | null;
 
-  @ApiPropertyOptional({ example: 'https://maps.google.com/?q=...', nullable: true })
+  @ApiPropertyOptional({
+    example: 'https://maps.google.com/?q=...',
+    nullable: true,
+  })
   maps_link: string | null;
 
   @ApiPropertyOptional({ example: 40.4168, nullable: true })
@@ -145,6 +159,15 @@ export class GuestResponseDto {
 
   @ApiPropertyOptional({ example: 3, nullable: true })
   car_seats: number | null;
+
+  @ApiProperty({ example: false })
+  terms_accepted: boolean;
+
+  @ApiPropertyOptional({ example: '2026-05-17T10:00:00.000Z', nullable: true })
+  terms_accepted_at: string | null;
+
+  @ApiPropertyOptional({ example: '1.0', nullable: true })
+  terms_version: string | null;
 
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })
   created_at: Date;

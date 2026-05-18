@@ -17,6 +17,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { GuestFormLookupResponseDto } from './dto/guest-form-lookup.dto';
+import { Audit } from '../audit-logs/decorators/audit.decorator';
 import { GuestFormSubmitDto } from './dto/guest-form-submit.dto';
 import { GuestMeResponseDto } from './dto/guest-me-response.dto';
 import { GuestsService } from './guests.service';
@@ -35,6 +36,7 @@ export class GuestAccessController {
   }
 
   @Get('lookup')
+  @Audit('form_lookup', 'guest')
   @ApiOkResponse({ type: GuestFormLookupResponseDto })
   @ApiNotFoundResponse({ description: 'Código de invitado no encontrado' })
   lookupByCode(
@@ -45,6 +47,7 @@ export class GuestAccessController {
   }
 
   @Patch('submit')
+  @Audit('form_submit', 'guest')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ description: 'Código de invitado no encontrado' })

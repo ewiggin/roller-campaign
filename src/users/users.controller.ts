@@ -25,6 +25,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Audit } from '../audit-logs/decorators/audit.decorator';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -35,6 +36,7 @@ export class UsersController {
 
   @Post()
   @Roles('superadmin')
+  @Audit('create', 'user')
   @ApiCreatedResponse({ type: UserResponseDto })
   create(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
     return this.usersService.create(dto);
@@ -42,6 +44,7 @@ export class UsersController {
 
   @Get()
   @Roles('superadmin')
+  @Audit('list', 'user')
   @ApiOkResponse({ type: [UserResponseDto] })
   findAll(): Promise<UserResponseDto[]> {
     return this.usersService.findAll();
@@ -49,6 +52,7 @@ export class UsersController {
 
   @Get(':id')
   @Roles('superadmin')
+  @Audit('read', 'user')
   @ApiOkResponse({ type: UserResponseDto })
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
     return this.usersService.findOne(id);
@@ -56,6 +60,7 @@ export class UsersController {
 
   @Patch(':id')
   @Roles('superadmin')
+  @Audit('update', 'user')
   @ApiOkResponse({ type: UserResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -66,6 +71,7 @@ export class UsersController {
 
   @Delete(':id')
   @Roles('superadmin')
+  @Audit('delete', 'user')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {

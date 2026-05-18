@@ -10,6 +10,7 @@ import { RegionsModule } from './regions/regions.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { UsersModule } from './users/users.module';
 import { VolunteersModule } from './volunteers/volunteers.module';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { VolunteersModule } from './volunteers/volunteers.module';
     VolunteersModule,
     ActivitiesModule,
     HostsModule,
+    AuditLogsModule,
   ],
 })
 export class AppModule {}

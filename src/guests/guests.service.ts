@@ -915,6 +915,9 @@ export class GuestsService {
       arrival_other_transport: dto.arrival_other_transport,
       arrival_flight: dto.arrival_flight,
       needs_airport_transfer: dto.needs_airport_transfer,
+      terms_accepted: dto.terms_accepted,
+      terms_accepted_at: dto.terms_accepted ? new Date().toISOString() : null,
+      terms_version: dto.terms_accepted ? dto.terms_version : null,
     });
 
     await this.guestsRepository.save(guest);
