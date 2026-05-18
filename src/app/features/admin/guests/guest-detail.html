@@ -203,6 +203,33 @@
       </div>
     </div>
 
+    <!-- Consent -->
+    <div class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden lg:col-span-2">
+      <div class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700">
+        <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">Consent</span>
+      </div>
+      <dl class="divide-y divide-gray-100 dark:divide-zinc-800 sm:grid sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
+        <div class="px-5 py-3 flex gap-4">
+          <dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Terms accepted</dt>
+          <dd class="text-sm">
+            @if (guest()!.terms_accepted) {
+              <span class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800">Yes</span>
+            } @else {
+              <span class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-gray-50 text-gray-500 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700">No</span>
+            }
+          </dd>
+        </div>
+        <div class="px-5 py-3 flex gap-4">
+          <dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Accepted at</dt>
+          <dd class="text-sm text-gray-900 dark:text-zinc-100">{{ guest()!.terms_accepted_at ? (guest()!.terms_accepted_at | date:'dd/MM/yyyy HH:mm') : '—' }}</dd>
+        </div>
+        <div class="px-5 py-3 flex gap-4">
+          <dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Document version</dt>
+          <dd class="text-sm text-gray-900 dark:text-zinc-100">{{ guest()!.terms_version ?? '—' }}</dd>
+        </div>
+      </dl>
+    </div>
+
   </div>
 }
 
