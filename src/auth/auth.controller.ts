@@ -1,15 +1,26 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
   ApiOkResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
-import { LoginResponseDto } from './dto/login-response.dto';
-import { LocalAuthGuard } from './guards/local-auth.guard';
-import { CurrentUser } from './decorators/current-user.decorator';
 import { Audit } from '../audit-logs/decorators/audit.decorator';
+import { AuthService } from './auth.service';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { LoginResponseDto } from './dto/login-response.dto';
+import { LoginDto } from './dto/login.dto';
+import { MeResponseDto } from './dto/me-response.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LocalAuthGuard } from './guards/local-auth.guard';
 import type { JwtPayload } from './strategies/jwt.strategy';
 
 @ApiTags('auth')
@@ -28,5 +39,14 @@ export class AuthController {
     @CurrentUser() user: JwtPayload,
   ): LoginResponseDto {
     return this.authService.login(user);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Token inválido o expirado' })
+  me(@CurrentUser() user: JwtPayload): MeResponseDto {
+    return user;
   }
 }
