@@ -386,4 +386,252 @@ describe('Activities (e2e)', () => {
       expect(res.body.status).toBe('draft');
     });
   });
+
+  // ── Published activity protection ─────────────────────────────────────────
+
+  describe('Published activity cannot be deleted', () => {
+    let actId: string;
+
+    beforeAll(async () => {
+      actId = (await request(server).post('/api/activities').set('Authorization', auth()).send(baseTurn())).body.id;
+      await request(server).post(`/api/activities/${actId}/publish`).set('Authorization', auth());
+    });
+
+    it('returns 400 when deleting a published activity', async () => {
+      await request(server).delete(`/api/activities/${actId}`).set('Authorization', auth()).expect(400);
+    });
+
+    it('can delete after unpublishing', async () => {
+      await request(server).post(`/api/activities/${actId}/unpublish`).set('Authorization', auth());
+      await request(server).delete(`/api/activities/${actId}`).set('Authorization', auth()).expect(204);
+    });
+  });
+
+  // ── Batch create ──────────────────────────────────────────────────────────
+
+  describe('POST /api/activities/batch', () => {
+    it('creates N activities with daily repetition and shared series_id', async () => {
+      const res = await request(server)
+        .post('/api/activities/batch')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-07-01', repetition: { type: 'daily', count: 3 } })
+        .expect(201);
+      expect(res.body).toHaveLength(3);
+      expect(res.body[0].date).toBe('2024-07-01');
+      expect(res.body[1].date).toBe('2024-07-02');
+      expect(res.body[2].date).toBe('2024-07-03');
+      const seriesId = res.body[0].series_id;
+      expect(seriesId).toBeTruthy();
+      expect(res.body.every((a: { series_id: string }) => a.series_id === seriesId)).toBe(true);
+    });
+
+    it('creates N activities with weekly repetition', async () => {
+      const res = await request(server)
+        .post('/api/activities/batch')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-07-08', repetition: { type: 'weekly', count: 3 } })
+        .expect(201);
+      expect(res.body[0].date).toBe('2024-07-08');
+      expect(res.body[1].date).toBe('2024-07-15');
+      expect(res.body[2].date).toBe('2024-07-22');
+    });
+
+    it('creates N copies on the same day', async () => {
+      const res = await request(server)
+        .post('/api/activities/batch')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-07-30', repetition: { type: 'same_day', count: 3 } })
+        .expect(201);
+      expect(res.body).toHaveLength(3);
+      expect(res.body.every((a: { date: string }) => a.date === '2024-07-30')).toBe(true);
+    });
+
+    it('returns 400 for count < 2', async () => {
+      await request(server)
+        .post('/api/activities/batch')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), repetition: { type: 'daily', count: 1 } })
+        .expect(400);
+    });
+  });
+
+  // ── Series delete ─────────────────────────────────────────────────────────
+
+  describe('DELETE /api/activities/:id/series-from-here', () => {
+    let ids: string[];
+
+    beforeAll(async () => {
+      const res = await request(server)
+        .post('/api/activities/batch')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-08-01', repetition: { type: 'daily', count: 5 } });
+      ids = res.body.map((a: { id: string }) => a.id);
+    });
+
+    it('deletes from the given activity onwards, keeps earlier ones', async () => {
+      await request(server)
+        .delete(`/api/activities/${ids[2]}/series-from-here`)
+        .set('Authorization', auth())
+        .expect(204);
+
+      await request(server).get(`/api/activities/${ids[0]}`).set('Authorization', auth()).expect(200);
+      await request(server).get(`/api/activities/${ids[1]}`).set('Authorization', auth()).expect(200);
+      await request(server).get(`/api/activities/${ids[2]}`).set('Authorization', auth()).expect(404);
+      await request(server).get(`/api/activities/${ids[4]}`).set('Authorization', auth()).expect(404);
+    });
+  });
+
+  // ── Series update ─────────────────────────────────────────────────────────
+
+  describe('PATCH /api/activities/:id/series-from-here', () => {
+    let ids: string[];
+
+    beforeAll(async () => {
+      const res = await request(server)
+        .post('/api/activities/batch')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-09-01', name: 'Original', repetition: { type: 'daily', count: 3 } });
+      ids = res.body.map((a: { id: string }) => a.id);
+    });
+
+    it('updates name on this and future activities, not past ones', async () => {
+      await request(server)
+        .patch(`/api/activities/${ids[1]}/series-from-here`)
+        .set('Authorization', auth())
+        .send({ name: 'Updated' })
+        .expect(200);
+
+      const first = await request(server).get(`/api/activities/${ids[0]}`).set('Authorization', auth());
+      expect(first.body.name).toBe('Original');
+
+      const second = await request(server).get(`/api/activities/${ids[1]}`).set('Authorization', auth());
+      expect(second.body.name).toBe('Updated');
+
+      const third = await request(server).get(`/api/activities/${ids[2]}`).set('Authorization', auth());
+      expect(third.body.name).toBe('Updated');
+    });
+
+    it('does not change the date of any activity', async () => {
+      const res = await request(server)
+        .patch(`/api/activities/${ids[0]}/series-from-here`)
+        .set('Authorization', auth())
+        .send({ start_time: '10:00', end_time: '14:00' })
+        .expect(200);
+      // date unchanged
+      expect(res.body.date).toBe('2024-09-01');
+      const second = await request(server).get(`/api/activities/${ids[1]}`).set('Authorization', auth());
+      expect(second.body.date).toBe('2024-09-02');
+    });
+  });
+
+  // ── Available volunteers ──────────────────────────────────────────────────
+
+  describe('GET /api/activities/:id/available-volunteers', () => {
+    let activityId: string;
+    let conflictingId: string;
+
+    beforeAll(async () => {
+      activityId = (await request(server).post('/api/activities').set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-10-01', start_time: '09:00', end_time: '13:00' })).body.id;
+
+      // Overlapping activity that also uses volunteerId
+      conflictingId = (await request(server).post('/api/activities').set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-10-01', start_time: '10:00', end_time: '14:00' })).body.id;
+      await request(server)
+        .post(`/api/activities/${conflictingId}/volunteers`)
+        .set('Authorization', auth())
+        .send({ volunteerId });
+    });
+
+    it('returns volunteers with already_in_activity flag', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}/available-volunteers`)
+        .set('Authorization', auth())
+        .expect(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.every((v: { already_in_activity: boolean }) => typeof v.already_in_activity === 'boolean')).toBe(true);
+    });
+
+    it('marks volunteer already assigned to overlapping activity', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}/available-volunteers`)
+        .set('Authorization', auth())
+        .expect(200);
+      const vol = res.body.find((v: { id: string }) => v.id === volunteerId);
+      expect(vol?.already_in_activity).toBe(true);
+    });
+
+    it('does not include volunteers already assigned to this activity', async () => {
+      await request(server).post(`/api/activities/${activityId}/volunteers`).set('Authorization', auth()).send({ volunteerId });
+      const res = await request(server)
+        .get(`/api/activities/${activityId}/available-volunteers`)
+        .set('Authorization', auth())
+        .expect(200);
+      expect(res.body.find((v: { id: string }) => v.id === volunteerId)).toBeUndefined();
+    });
+  });
+
+  // ── Date range and host filters ───────────────────────────────────────────
+
+  describe('GET /api/activities date range and host filters', () => {
+    let hostId: string;
+
+    beforeAll(async () => {
+      const host = await request(server)
+        .post('/api/hosts')
+        .set('Authorization', auth())
+        .send({ name: 'Test Host', region_id: regionId });
+      hostId = host.body.id;
+
+      await request(server).post('/api/activities').set('Authorization', auth()).send({ ...baseTurn(), date: '2024-11-01' });
+      await request(server).post('/api/activities').set('Authorization', auth()).send({ ...baseTurn(), date: '2024-11-15' });
+      await request(server).post('/api/activities').set('Authorization', auth()).send({ ...baseTurn(), date: '2024-11-30' });
+      await request(server).post('/api/activities').set('Authorization', auth()).send({ ...baseTurn(), date: '2024-11-10', host_id: hostId });
+    });
+
+    it('filters by dateFrom', async () => {
+      const res = await request(server)
+        .get('/api/activities')
+        .query({ regionId, dateFrom: '2024-11-10' })
+        .set('Authorization', auth())
+        .expect(200);
+      const dates: string[] = res.body.data.map((a: { date: string }) => a.date);
+      expect(dates.every((d) => d >= '2024-11-10')).toBe(true);
+      expect(dates).not.toContain('2024-11-01');
+    });
+
+    it('filters by dateTo', async () => {
+      const res = await request(server)
+        .get('/api/activities')
+        .query({ regionId, dateTo: '2024-11-15' })
+        .set('Authorization', auth())
+        .expect(200);
+      const dates: string[] = res.body.data.map((a: { date: string }) => a.date);
+      expect(dates.every((d) => d <= '2024-11-15')).toBe(true);
+      expect(dates).not.toContain('2024-11-30');
+    });
+
+    it('filters by dateFrom + dateTo range', async () => {
+      const res = await request(server)
+        .get('/api/activities')
+        .query({ regionId, dateFrom: '2024-11-05', dateTo: '2024-11-20' })
+        .set('Authorization', auth())
+        .expect(200);
+      const dates: string[] = res.body.data.map((a: { date: string }) => a.date);
+      expect(dates).toContain('2024-11-10');
+      expect(dates).toContain('2024-11-15');
+      expect(dates).not.toContain('2024-11-01');
+      expect(dates).not.toContain('2024-11-30');
+    });
+
+    it('filters by hostId', async () => {
+      const res = await request(server)
+        .get('/api/activities')
+        .query({ regionId, hostId })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(res.body.data.every((a: { host_id: string }) => a.host_id === hostId)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    });
+  });
 });
