@@ -1,0 +1,78 @@
+<div>
+  <button
+    #trigger
+    type="button"
+    (click)="toggle()"
+    [class]="triggerClass()"
+  >
+    <span
+      class="truncate"
+      [class.text-gray-400]="!selectedLabel()"
+      [class.dark:text-zinc-500]="!selectedLabel()"
+    >
+      {{ selectedLabel() || placeholder() }}
+    </span>
+    <svg class="w-4 h-4 text-gray-400 dark:text-zinc-500 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+      <path
+        fill-rule="evenodd"
+        d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+        clip-rule="evenodd"
+      />
+    </svg>
+  </button>
+
+  @if (open()) {
+  <div
+    [ngStyle]="dropdownStyle()"
+    class="z-[9999] min-w-56 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#18181b] shadow-lg overflow-hidden"
+  >
+    <div class="p-2 border-b border-gray-100 dark:border-zinc-800">
+      <input
+        #searchInput
+        type="text"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+        (keydown.escape)="close()"
+        placeholder="Search…"
+        autocomplete="off"
+        class="w-full rounded-md border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-3 py-1.5 text-sm text-gray-900 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+      />
+    </div>
+
+    <ul class="max-h-60 overflow-y-auto divide-y divide-gray-50 dark:divide-zinc-800">
+      @if (emptyLabel()) {
+      <li>
+        <button
+          type="button"
+          (click)="select('')"
+          class="w-full text-left px-3 py-2 text-sm text-gray-400 dark:text-zinc-500 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+        >
+          {{ emptyLabel() }}
+        </button>
+      </li>
+      }
+      @for (item of filtered(); track item.value) {
+      <li>
+        <button
+          type="button"
+          (click)="select(item.value)"
+          [class]="
+            'w-full text-left px-3 py-2.5 transition-colors ' +
+            (item.value === selected()
+              ? 'bg-blue-50 dark:bg-zinc-800'
+              : 'hover:bg-gray-50 dark:hover:bg-zinc-800/60')
+          "
+        >
+          <span class="block text-sm font-medium text-gray-900 dark:text-zinc-100">{{ item.label }}</span>
+          @if (item.meta) {
+          <span class="block text-xs text-gray-400 dark:text-zinc-500 mt-0.5">{{ item.meta }}</span>
+          }
+        </button>
+      </li>
+      } @empty {
+      <li class="px-3 py-4 text-sm text-center text-gray-400 dark:text-zinc-500">No results</li>
+      }
+    </ul>
+  </div>
+  }
+</div>

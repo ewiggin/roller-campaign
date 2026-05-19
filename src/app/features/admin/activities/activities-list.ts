@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 import type { Activity, ActivityStatus, AvailableGroupForActivity } from '../../../core/models/activity.model';
 import type { Region } from '../../../core/models/region.model';
 import type { VolunteerSummary } from '../../../core/models/volunteer.model';
@@ -13,7 +14,7 @@ type DetailTab = 'info' | 'volunteers' | 'groups';
 
 @Component({
   selector: 'app-activities-list',
-  imports: [ReactiveFormsModule, FormsModule, DatePipe],
+  imports: [ReactiveFormsModule, FormsModule, DatePipe, SearchableSelectComponent],
   templateUrl: './activities-list.html',
 })
 export class ActivitiesListComponent implements OnInit {
@@ -35,6 +36,10 @@ export class ActivitiesListComponent implements OnInit {
   readonly filterDate = signal('');
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
+
+  readonly regionItems = computed(() =>
+    this.regions().map((r) => ({ value: r.id, label: r.name })),
+  );
 
   readonly filteredActivities = computed(() => {
     const status = this.filterStatus();
@@ -83,6 +88,28 @@ export class ActivitiesListComponent implements OnInit {
   readonly availableGroups = signal<AvailableGroupForActivity[]>([]);
   readonly groupsLoading = signal(false);
   readonly selectedGroupId = signal('');
+
+  readonly availableVolunteerItems = computed(() =>
+    this.availableVolunteers().map((v) => ({
+      value: v.id,
+      label: v.full_name,
+      meta: v.volunteer_code,
+    })),
+  );
+
+  readonly availableGroupItems = computed(() =>
+    this.availableGroups().map((g) => ({
+      value: g.id,
+      label: g.group_code,
+      meta: [
+        g.distance_km !== null ? `${g.distance_km} km` : null,
+        g.host_name ?? null,
+        `${g.guest_count} guests`,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    })),
+  );
 
   ngOnInit() {
     this.regionsSvc.getAll().subscribe({

@@ -125,12 +125,11 @@
         @if (modal() === 'create') {
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Region *</label>
-            <select formControlName="region_id"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-              @for (r of regions(); track r.id) {
-                <option [value]="r.id">{{ r.name }}</option>
-              }
-            </select>
+            <app-searchable-select
+              formControlName="region_id"
+              [items]="regionItems()"
+              placeholder="Select region…"
+            />
           </div>
         }
         <div>
