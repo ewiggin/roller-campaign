@@ -13,7 +13,7 @@ import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import { Activity } from './entities/activity.entity';
-import { ActivityResponseDto, AvailableGroupForActivityDto } from './dto/activity-response.dto';
+import { ActivityResponseDto, AvailableGroupForActivityDto, AvailableVolunteerForActivityDto } from './dto/activity-response.dto';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import { CreateActivityBatchDto, RepetitionDto } from './dto/create-activity-batch.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
@@ -294,6 +294,52 @@ export class ActivitiesService {
     activity.status = 'draft';
     await this.activitiesRepo.save(activity);
     return this.toDtoWithCounts(activity);
+  }
+
+  async getAvailableVolunteers(id: string, currentUser: JwtPayload): Promise<AvailableVolunteerForActivityDto[]> {
+    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: { volunteers: true } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const assignedToThis = new Set(activity.volunteers.map((v) => v.id));
+
+    const conflictRows = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.volunteers', 'v')
+      .select('v.id', 'volunteerId')
+      .where('a.region_id = :regionId', { regionId: activity.region_id })
+      .andWhere('a.id != :actId', { actId: activity.id })
+      .andWhere('a.date = :date', { date: activity.date })
+      .andWhere('a.start_time < :endTime', { endTime: activity.end_time })
+      .andWhere('a.end_time > :startTime', { startTime: activity.start_time })
+      .getRawMany<{ volunteerId: string }>();
+    const conflictingIds = new Set(conflictRows.map((r) => r.volunteerId));
+
+    const volunteers = await this.volunteersRepo
+      .createQueryBuilder('v')
+      .innerJoin('v.regions', 'r', 'r.id = :regionId', { regionId: activity.region_id })
+      .where('v.is_active = true')
+      .andWhere(
+        `(NOT EXISTS (
+          SELECT 1 FROM volunteer_availability _va
+          WHERE _va.volunteer_id = v.id AND _va.region_id = :avRegion
+        ) OR EXISTS (
+          SELECT 1 FROM volunteer_availability _va2
+          WHERE _va2.volunteer_id = v.id AND _va2.region_id = :avRegion AND _va2.date = :avDate
+        ))`,
+        { avRegion: activity.region_id, avDate: activity.date },
+      )
+      .orderBy('v.full_name', 'ASC')
+      .getMany();
+
+    return volunteers
+      .filter((v) => !assignedToThis.has(v.id))
+      .map((v) => ({
+        id: v.id,
+        volunteer_code: v.volunteer_code,
+        full_name: v.full_name,
+        already_in_activity: conflictingIds.has(v.id),
+      }));
   }
 
   async getAvailableGroups(id: string, currentUser: JwtPayload): Promise<AvailableGroupForActivityDto[]> {

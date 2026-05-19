@@ -22,6 +22,20 @@ export class ActivityGuestGroupDto {
   guest_count: number;
 }
 
+export class AvailableVolunteerForActivityDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: 'V-001' })
+  volunteer_code: string;
+
+  @ApiProperty({ example: 'Carlos López' })
+  full_name: string;
+
+  @ApiProperty({ example: false, description: 'True if assigned to another overlapping activity' })
+  already_in_activity: boolean;
+}
+
 export class AvailableGroupForActivityDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;

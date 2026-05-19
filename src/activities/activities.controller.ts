@@ -28,7 +28,7 @@ import { ActivitiesService } from './activities.service';
 import { AssignGuestGroupDto } from './dto/assign-guest-group.dto';
 import { AssignVolunteerDto } from './dto/assign-volunteer.dto';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
-import { ActivityResponseDto, AvailableGroupForActivityDto } from './dto/activity-response.dto';
+import { ActivityResponseDto, AvailableGroupForActivityDto, AvailableVolunteerForActivityDto } from './dto/activity-response.dto';
 import { CreateActivityBatchDto } from './dto/create-activity-batch.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -122,6 +122,18 @@ export class ActivitiesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<ActivityResponseDto> {
     return this.svc.unassignVolunteer(id, volunteerId, user);
+  }
+
+  // ── Available volunteers ──────────────────────────────────────────────────
+
+  @Get(':id/available-volunteers')
+  @Roles('region_admin')
+  @ApiOkResponse({ type: [AvailableVolunteerForActivityDto] })
+  getAvailableVolunteers(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<AvailableVolunteerForActivityDto[]> {
+    return this.svc.getAvailableVolunteers(id, user);
   }
 
   // ── Available groups ──────────────────────────────────────────────────────
