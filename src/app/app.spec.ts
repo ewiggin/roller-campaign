@@ -17,10 +17,10 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('shows loading spinner before first navigation', () => {
+  it('renders the router outlet', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('svg')).not.toBeNull();
+    expect(el.querySelector('router-outlet')).not.toBeNull();
   });
 });
