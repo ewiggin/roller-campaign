@@ -1,14 +1,20 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { GuestsService } from '../../../core/services/guests.service';
-import { GuestGroupsService } from '../../../core/services/guest-groups.service';
-import { RegionsService } from '../../../core/services/regions.service';
-import { AuthService } from '../../../core/services/auth.service';
-import type { Guest, GuestStatus, ImportParseResponse, ImportGuestRow, ImportCommitResponse } from '../../../core/models/guest.model';
-import type { Region } from '../../../core/models/region.model';
 import type { GuestGroup } from '../../../core/models/guest-group.model';
+import type {
+  Guest,
+  GuestStatus,
+  ImportCommitResponse,
+  ImportGuestRow,
+  ImportParseResponse,
+} from '../../../core/models/guest.model';
+import type { Region } from '../../../core/models/region.model';
+import { AuthService } from '../../../core/services/auth.service';
+import { GuestGroupsService } from '../../../core/services/guest-groups.service';
+import { GuestsService } from '../../../core/services/guests.service';
+import { RegionsService } from '../../../core/services/regions.service';
 
 const STATUSES: GuestStatus[] = ['pending', 'confirmed', 'cancelled', 'arrived', 'blocked'];
 
@@ -69,7 +75,6 @@ export class GuestsListComponent implements OnInit {
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
         this.regions.set(r);
-        if (r.length > 0) this.filterRegion.set(r[0].id);
       },
     });
     this.groupsSvc.getAll({ limit: 500 }).subscribe({ next: (res) => this.groups.set(res.data) });
@@ -155,19 +160,23 @@ export class GuestsListComponent implements OnInit {
   }
 
   downloadExcel() {
-    this.svc.exportExcel({
-      regionId: this.filterRegion() || undefined,
-      groupId: this.filterGroup() || undefined,
-      status: (this.filterStatus() as import('../../../core/models/guest.model').GuestStatus) || undefined,
-      search: this.filterSearch() || undefined,
-    }).subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'invitados.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
-    });
+    this.svc
+      .exportExcel({
+        regionId: this.filterRegion() || undefined,
+        groupId: this.filterGroup() || undefined,
+        status:
+          (this.filterStatus() as import('../../../core/models/guest.model').GuestStatus) ||
+          undefined,
+        search: this.filterSearch() || undefined,
+      })
+      .subscribe((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'invitados.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
   }
 
   downloadTemplate() {
@@ -255,7 +264,10 @@ export class GuestsListComponent implements OnInit {
   get canCommit(): boolean {
     const result = this.parseResult();
     if (!result) return false;
-    return result.valid.length > 0 || (this.importUpdateExisting() && (result.duplicateRows?.length ?? 0) > 0);
+    return (
+      result.valid.length > 0 ||
+      (this.importUpdateExisting() && (result.duplicateRows?.length ?? 0) > 0)
+    );
   }
 
   get commitLabel(): string {
@@ -291,11 +303,16 @@ export class GuestsListComponent implements OnInit {
 
   statusBadgeClass(status: GuestStatus): string {
     const map: Record<GuestStatus, string> = {
-      pending: 'bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800',
-      confirmed: 'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800',
-      cancelled: 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800',
-      arrived: 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800',
-      blocked: 'bg-gray-50 text-gray-600 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700',
+      pending:
+        'bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800',
+      confirmed:
+        'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800',
+      cancelled:
+        'bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800',
+      arrived:
+        'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800',
+      blocked:
+        'bg-gray-50 text-gray-600 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700',
     };
     return map[status];
   }

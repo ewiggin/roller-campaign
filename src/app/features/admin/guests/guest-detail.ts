@@ -46,6 +46,7 @@ export class GuestDetailComponent implements OnInit {
   readonly error = signal('');
 
   readonly regions = signal<Region[]>([]);
+  readonly currentGroup = signal<GuestGroup | null>(null);
   readonly groups = signal<GuestGroup[]>([]);
 
   readonly editSection = signal<EditSection>(null);
@@ -62,14 +63,11 @@ export class GuestDetailComponent implements OnInit {
     return this.regions().find((r) => r.id === g?.region_id)?.name ?? '';
   });
 
-  readonly groupCode = computed(() => {
-    const g = this.guest();
-    return this.groups().find((gr) => gr.id === g?.group_id)?.group_code ?? '';
-  });
+  readonly groupCode = computed(() => this.currentGroup()?.group_code ?? '');
 
   readonly availableGroupsForMigrate = computed(() => {
     const g = this.guest();
-    return this.groups().filter((gr) => gr.region_id === g?.region_id && gr.id !== g?.group_id);
+    return this.groups().filter((gr) => gr.id !== g?.group_id);
   });
 
   // ─── Forms per section ───────────────────────────────────────────────────
@@ -80,8 +78,6 @@ export class GuestDetailComponent implements OnInit {
     branch: [''],
     origin_city: [''],
     email: [''],
-    available_from: [''],
-    available_to: [''],
     is_minor: [false],
     is_group_contact: [false],
     is_special_servant: [false],
@@ -140,7 +136,6 @@ export class GuestDetailComponent implements OnInit {
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.regionsSvc.getAll().subscribe({ next: (r) => this.regions.set(r) });
-    this.groupsSvc.getAll().subscribe({ next: (g) => this.groups.set(g.data) });
     this.loadGuest(id);
   }
 
@@ -150,6 +145,10 @@ export class GuestDetailComponent implements OnInit {
       next: (g) => {
         this.guest.set(g);
         this.loading.set(false);
+        this.groupsSvc.getOne(g.group_id).subscribe({ next: (gr) => this.currentGroup.set(gr) });
+        this.groupsSvc
+          .getAll({ regionId: g.region_id, limit: 500 })
+          .subscribe({ next: (res) => this.groups.set(res.data) });
       },
       error: () => {
         this.error.set('Guest not found.');
@@ -170,8 +169,6 @@ export class GuestDetailComponent implements OnInit {
         branch: g.branch ?? '',
         origin_city: g.origin_city ?? '',
         email: g.email ?? '',
-        available_from: g.available_from ?? '',
-        available_to: g.available_to ?? '',
         is_minor: g.is_minor,
         is_group_contact: g.is_group_contact,
         is_special_servant: g.is_special_servant,
@@ -246,8 +243,6 @@ export class GuestDetailComponent implements OnInit {
         branch: raw.branch || null,
         origin_city: raw.origin_city || null,
         email: raw.email || null,
-        available_from: raw.available_from || null,
-        available_to: raw.available_to || null,
         car_seats: raw.car_seats,
       };
     } else if (section === 'languages') {
