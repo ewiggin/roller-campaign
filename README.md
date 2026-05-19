@@ -1,59 +1,74 @@
-# FormGuests
+# form-guests
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.3.
+Public Angular form for event guests. Validates an invitation code against a Google Sheet and collects travel and accommodation details.
 
-## Development server
+## Stack
 
-To start a local development server, run:
+| Layer | Technology |
+|---|---|
+| Framework | Angular 21 (standalone components, signals) |
+| Styling | Tailwind CSS v4 |
+| Backend | Google Apps Script (no dedicated server) |
+| Maps | Google Maps JS API (`@googlemaps/js-api-loader`) |
 
-```bash
-ng serve
-```
+## Flow
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+1. Guest enters their invitation code.
+2. The form validates the code via `GET <appsScriptUrl>?codigo=XXX`. The Apps Script checks column B of the *Invitados* sheet and returns `{ valid, fila }`.
+3. On success, the guest fills in their travel and accommodation data.
+4. On submit, data is sent via `POST` (mode `no-cors`) and written to columns 31–43 of the guest's row.
 
-## Code scaffolding
+## Form fields
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+| Field | Sheet column |
+|---|---|
+| Full name | 31 |
+| City of origin | 32 |
+| Available car seats | 33 |
+| Speaks English | 34 |
+| Arrival date | 35 |
+| Arrival time | 36 |
+| Departure date | 37 |
+| Departure time | 38 |
+| Accommodation address | 39 |
+| Google Maps link | 40 |
+| Latitude | 41 |
+| Longitude | 42 |
+| Mode of transport | 43 |
 
-```bash
-ng generate component component-name
-```
+## Getting started
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
+### 1. Install dependencies
 
 ```bash
-ng e2e
+npm install
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+### 2. Configure environment
 
-## Additional Resources
+Edit `src/environments/environment.ts`:
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+```ts
+export const environment = {
+  appsScriptUrl: 'https://script.google.com/macros/s/...',
+  googleMapsApiKey: 'YOUR_API_KEY',
+};
+```
+
+### 3. Run
+
+```bash
+npm start
+```
+
+## Scripts
+
+| Script | Action |
+|---|---|
+| `npm start` | Development server (`localhost:4200`) |
+| `npm run build` | Production build → `dist/form-guests/` |
+| `npm test` | Unit tests (Vitest) |
+
+## Apps Script deployment
+
+The backend logic lives in `apps-script/Code.gs`. Changes must be deployed manually from the Apps Script editor as a new version. Use an existing deployment — the URL does not change between versions and must match `environment.appsScriptUrl`.
