@@ -19,6 +19,15 @@ export class GuestGroupResponseDto {
   @ApiProperty({ example: 3 })
   guest_count: number;
 
+  @ApiPropertyOptional({ example: '2024-06-14', nullable: true })
+  available_from: string | null;
+
+  @ApiPropertyOptional({ example: '2024-06-21', nullable: true })
+  available_to: string | null;
+
+  @ApiPropertyOptional({ example: 'mixed', enum: ['men_only', 'mixed', 'women_only'], nullable: true })
+  composition: 'men_only' | 'mixed' | 'women_only' | null;
+
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })
   created_at: Date;
 

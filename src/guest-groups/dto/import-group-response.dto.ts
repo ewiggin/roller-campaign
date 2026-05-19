@@ -5,7 +5,7 @@ export class ImportGroupResponseDto {
   created: number;
 
   @ApiProperty({ example: 3 })
-  skipped: number;
+  updated: number;
 
   @ApiProperty({ example: 15 })
   total: number;

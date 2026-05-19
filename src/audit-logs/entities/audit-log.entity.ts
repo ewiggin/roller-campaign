@@ -7,6 +7,7 @@ export type AuditAction =
   | 'create'
   | 'update'
   | 'delete'
+  | 'truncate'
   | 'export'
   | 'import'
   | 'migrate'

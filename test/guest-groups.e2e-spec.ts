@@ -1,6 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { binaryParser, buildExcelBuffer, createTestApp, loginAdmin, parseExcelResponse } from './test-app';
+import {
+  binaryParser,
+  buildExcelBuffer,
+  createTestApp,
+  loginAdmin,
+  parseExcelResponse,
+} from './test-app';
 
 describe('GuestGroups (e2e)', () => {
   let app: INestApplication;
@@ -33,7 +39,14 @@ describe('GuestGroups (e2e)', () => {
         .send({ group_code: 'GRP-001', region_id: regionId })
         .expect(201);
 
-      expect(res.body).toMatchObject({ group_code: 'GRP-001', region_id: regionId, guest_count: 0 });
+      expect(res.body).toMatchObject({
+        group_code: 'GRP-001',
+        region_id: regionId,
+        guest_count: 0,
+        available_from: null,
+        available_to: null,
+        composition: null,
+      });
     });
 
     it('returns 409 for duplicate group_code', () =>
@@ -47,7 +60,10 @@ describe('GuestGroups (e2e)', () => {
       request(server)
         .post('/api/guest-groups')
         .set('Authorization', auth())
-        .send({ group_code: 'GRP-999', region_id: '00000000-0000-0000-0000-000000000000' })
+        .send({
+          group_code: 'GRP-999',
+          region_id: '00000000-0000-0000-0000-000000000000',
+        })
         .expect(404));
 
     it('returns 400 for missing group_code', () =>
@@ -64,15 +80,18 @@ describe('GuestGroups (e2e)', () => {
         .get(`/api/guest-groups?regionId=${regionId}`)
         .set('Authorization', auth())
         .expect(200);
-
+      expect(res.body).toHaveProperty('data');
+      expect(res.body).toHaveProperty('total');
       expect(Array.isArray(res.body.data)).toBe(true);
-      expect(res.body.total).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
       expect(res.body.data[0]).toHaveProperty('guest_count');
+      expect(res.body.data[0]).toHaveProperty('available_from');
+      expect(res.body.data[0]).toHaveProperty('composition');
     });
   });
 
   describe('PATCH /api/guest-groups/:id', () => {
-    it('updates a group', async () => {
+    it('updates group_code', async () => {
       const grp = await request(server)
         .post('/api/guest-groups')
         .set('Authorization', auth())
@@ -85,6 +104,62 @@ describe('GuestGroups (e2e)', () => {
         .expect(200);
 
       expect(res.body.group_code).toBe('GRP-UPDATED');
+    });
+
+    it('updates availability dates and composition', async () => {
+      const grp = await request(server)
+        .post('/api/guest-groups')
+        .set('Authorization', auth())
+        .send({ group_code: 'GRP-AVAIL', region_id: regionId })
+        .expect(201);
+
+      const res = await request(server)
+        .patch(`/api/guest-groups/${grp.body.id}`)
+        .set('Authorization', auth())
+        .send({
+          available_from: '2024-06-14',
+          available_to: '2024-06-21',
+          composition: 'mixed',
+        })
+        .expect(200);
+
+      expect(res.body.available_from).toBe('2024-06-14');
+      expect(res.body.available_to).toBe('2024-06-21');
+      expect(res.body.composition).toBe('mixed');
+    });
+
+    it('returns 400 for invalid composition value', () =>
+      request(server)
+        .post('/api/guest-groups')
+        .set('Authorization', auth())
+        .send({ group_code: 'GRP-BAD-COMP', region_id: regionId })
+        .then((grp) =>
+          request(server)
+            .patch(`/api/guest-groups/${grp.body.id}`)
+            .set('Authorization', auth())
+            .send({ composition: 'invalid_value' })
+            .expect(400),
+        ));
+
+    it('clears availability and composition when set to null', async () => {
+      const grp = await request(server)
+        .post('/api/guest-groups')
+        .set('Authorization', auth())
+        .send({ group_code: 'GRP-CLEAR', region_id: regionId });
+
+      await request(server)
+        .patch(`/api/guest-groups/${grp.body.id}`)
+        .set('Authorization', auth())
+        .send({ available_from: '2024-06-14', composition: 'men_only' });
+
+      const res = await request(server)
+        .patch(`/api/guest-groups/${grp.body.id}`)
+        .set('Authorization', auth())
+        .send({ available_from: null, composition: null })
+        .expect(200);
+
+      expect(res.body.available_from).toBeNull();
+      expect(res.body.composition).toBeNull();
     });
   });
 
@@ -110,7 +185,12 @@ describe('GuestGroups (e2e)', () => {
       await request(server)
         .post('/api/guests')
         .set('Authorization', auth())
-        .send({ guest_code: 'G-IN-GROUP', group_id: grp.body.id, region_id: regionId, full_name: 'Test' });
+        .send({
+          guest_code: 'G-IN-GROUP',
+          group_id: grp.body.id,
+          region_id: regionId,
+          full_name: 'Test',
+        });
 
       await request(server)
         .delete(`/api/guest-groups/${grp.body.id}`)
@@ -129,14 +209,24 @@ describe('GuestGroups (e2e)', () => {
       const guest1 = await request(server)
         .post('/api/guests')
         .set('Authorization', auth())
-        .send({ guest_code: 'G-C1', group_id: grp.body.id, region_id: regionId, full_name: 'A' });
+        .send({
+          guest_code: 'G-C1',
+          group_id: grp.body.id,
+          region_id: regionId,
+          full_name: 'A',
+        });
 
       await request(server)
         .post('/api/guests')
         .set('Authorization', auth())
-        .send({ guest_code: 'G-C2', group_id: grp.body.id, region_id: regionId, full_name: 'B', is_group_contact: true });
+        .send({
+          guest_code: 'G-C2',
+          group_id: grp.body.id,
+          region_id: regionId,
+          full_name: 'B',
+          is_group_contact: true,
+        });
 
-      // Set G-C1 as contact
       await request(server)
         .patch(`/api/guest-groups/${grp.body.id}/contact`)
         .set('Authorization', auth())
@@ -163,7 +253,12 @@ describe('GuestGroups (e2e)', () => {
       const guestB = await request(server)
         .post('/api/guests')
         .set('Authorization', auth())
-        .send({ guest_code: 'G-B', group_id: grpB.body.id, region_id: regionId, full_name: 'B' });
+        .send({
+          guest_code: 'G-B',
+          group_id: grpB.body.id,
+          region_id: regionId,
+          full_name: 'B',
+        });
 
       await request(server)
         .patch(`/api/guest-groups/${grpA.body.id}/contact`)
@@ -193,7 +288,6 @@ describe('GuestGroups (e2e)', () => {
         .attach('file', file, 'groups.xlsx')
         .expect(200);
       expect(res.body.created).toBe(2);
-      expect(res.body.skipped).toBe(0);
     });
 
     it('POST /api/guest-groups/import skips duplicates', async () => {
@@ -204,7 +298,6 @@ describe('GuestGroups (e2e)', () => {
         .attach('file', file, 'groups.xlsx')
         .expect(200);
       expect(res.body.created).toBe(0);
-      expect(res.body.skipped).toBe(1);
     });
 
     it('POST /api/guest-groups/import auto-detects region from region_name column', async () => {
@@ -249,10 +342,18 @@ describe('GuestGroups (e2e)', () => {
 
   describe('PATCH /api/guest-groups/:id - duplicate group_code', () => {
     it('returns 409 when renaming to an existing group_code', async () => {
-      const g1 = (await request(server).post('/api/guest-groups').set('Authorization', auth())
-        .send({ group_code: 'DUP-GG-A', region_id: regionId })).body;
-      const g2 = (await request(server).post('/api/guest-groups').set('Authorization', auth())
-        .send({ group_code: 'DUP-GG-B', region_id: regionId })).body;
+      const g1 = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: 'DUP-GG-A', region_id: regionId })
+      ).body;
+      const g2 = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: 'DUP-GG-B', region_id: regionId })
+      ).body;
 
       await request(server)
         .patch(`/api/guest-groups/${g2.id}`)
@@ -266,14 +367,27 @@ describe('GuestGroups (e2e)', () => {
     let coordToken: string;
 
     beforeAll(async () => {
-      const userRes = (await request(server).post('/api/users').set('Authorization', auth())
-        .send({ email: `coord-gg-${Date.now()}@test.local`, password: 'pass1234', role: 'region_admin' })).body;
+      const userRes = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send({
+            email: `coord-gg-${Date.now()}@test.local`,
+            password: 'pass1234',
+            role: 'region_admin',
+          })
+      ).body;
 
-      await request(server).post(`/api/regions/${regionId}/coordinators`)
-        .set('Authorization', auth()).send({ userId: userRes.id });
+      await request(server)
+        .post(`/api/regions/${regionId}/coordinators`)
+        .set('Authorization', auth())
+        .send({ userId: userRes.id });
 
-      coordToken = (await request(server).post('/api/auth/login')
-        .send({ email: userRes.email, password: 'pass1234' })).body.access_token;
+      coordToken = (
+        await request(server)
+          .post('/api/auth/login')
+          .send({ email: userRes.email, password: 'pass1234' })
+      ).body.access_token;
     });
 
     it('region_admin sees only groups in their region', async () => {
@@ -297,8 +411,12 @@ describe('GuestGroups (e2e)', () => {
 
   describe('GET /api/guest-groups/:id', () => {
     it('returns a specific group', async () => {
-      const grp = (await request(server).post('/api/guest-groups').set('Authorization', auth())
-        .send({ group_code: 'GRP-GETONE', region_id: regionId })).body;
+      const grp = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: 'GRP-GETONE', region_id: regionId })
+      ).body;
       const res = await request(server)
         .get(`/api/guest-groups/${grp.id}`)
         .set('Authorization', auth())
@@ -308,8 +426,10 @@ describe('GuestGroups (e2e)', () => {
     });
 
     it('returns 404 for unknown id', () =>
-      request(server).get('/api/guest-groups/00000000-0000-0000-0000-000000000000')
-        .set('Authorization', auth()).expect(404));
+      request(server)
+        .get('/api/guest-groups/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', auth())
+        .expect(404));
   });
 
   describe('PATCH /api/guest-groups/:id/host (assignHost)', () => {
@@ -317,12 +437,20 @@ describe('GuestGroups (e2e)', () => {
     let hostId: string;
 
     beforeAll(async () => {
-      const grp = (await request(server).post('/api/guest-groups').set('Authorization', auth())
-        .send({ group_code: 'GRP-HOST', region_id: regionId })).body;
+      const grp = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: 'GRP-HOST', region_id: regionId })
+      ).body;
       grpId = grp.id;
 
-      const host = (await request(server).post('/api/hosts').set('Authorization', auth())
-        .send({ name: 'Host For Group', region_id: regionId })).body;
+      const host = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send({ name: 'Host For Group', region_id: regionId })
+      ).body;
       hostId = host.id;
     });
 
@@ -345,9 +473,18 @@ describe('GuestGroups (e2e)', () => {
     });
 
     it('returns 400 assigning host from different region', async () => {
-      const otherRegion = (await request(server).post('/api/regions').set('Authorization', auth()).send({ name: 'Other Host Region' })).body;
-      const otherHost = (await request(server).post('/api/hosts').set('Authorization', auth())
-        .send({ name: 'Other Host', region_id: otherRegion.id })).body;
+      const otherRegion = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: 'Other Host Region' })
+      ).body;
+      const otherHost = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send({ name: 'Other Host', region_id: otherRegion.id })
+      ).body;
 
       await request(server)
         .patch(`/api/guest-groups/${grpId}/host`)
