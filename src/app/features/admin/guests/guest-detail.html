@@ -1241,7 +1241,7 @@
         </svg>
       </button>
     </div>
-    <form [formGroup]="migrateForm" (ngSubmit)="migrate()" class="p-5 space-y-4">
+    <form (ngSubmit)="migrate()" class="p-5 space-y-4">
       @if (availableGroupsForMigrate().length === 0) {
       <p class="text-sm text-gray-500 dark:text-zinc-400">No other groups in this region.</p>
       } @else {
@@ -1249,14 +1249,11 @@
         <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
           >Target group</label
         >
-        <select
-          formControlName="targetGroupId"
-          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-        >
-          @for (g of availableGroupsForMigrate(); track g.id) {
-          <option [value]="g.id">{{ g.group_code }} ({{ g.guest_count }} guests)</option>
-          }
-        </select>
+        <app-searchable-select
+          [items]="availableGroupItems()"
+          placeholder="Select group…"
+          [(selected)]="migrateTargetGroupId"
+        />
       </div>
       @if (saveError()) {
       <p class="text-sm text-red-500">{{ saveError() }}</p>

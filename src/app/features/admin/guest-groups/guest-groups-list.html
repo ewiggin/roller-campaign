@@ -234,14 +234,11 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Region *</label>
-            <select
+            <app-searchable-select
               formControlName="region_id"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
-              @for (r of regions(); track r.id) {
-                <option [value]="r.id">{{ r.name }}</option>
-              }
-            </select>
+              [items]="regionItems()"
+              placeholder="Select region…"
+            />
           </div>
           @if (formError()) {
             <p class="text-sm text-red-500">{{ formError() }}</p>
@@ -274,16 +271,13 @@
           } @else {
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Host congregation</label>
-              <select
-                [value]="selectedHostId()"
-                (change)="selectedHostId.set($any($event.target).value)"
-                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              >
-                <option value="">— None —</option>
-                @for (h of hosts(); track h.id) {
-                  <option [value]="h.id">{{ h.name }}</option>
-                }
-              </select>
+              <app-searchable-select
+                [items]="hostItems()"
+                placeholder="— None —"
+                emptyLabel="— None —"
+                [selected]="selectedHostId()"
+                (selectedChange)="selectedHostId.set($event)"
+              />
             </div>
             <div class="flex justify-end gap-2">
               <button type="button" (click)="closeModal()" class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">Cancel</button>
@@ -317,16 +311,13 @@
               Region
               <span class="text-xs font-normal text-gray-400 dark:text-zinc-500 ml-1">(optional if file has <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code> column)</span>
             </label>
-            <select
-              [value]="importRegionId()"
-              (change)="importRegionId.set($any($event.target).value)"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
-              <option value="">— auto-detect from file —</option>
-              @for (r of regions(); track r.id) {
-                <option [value]="r.id">{{ r.name }}</option>
-              }
-            </select>
+            <app-searchable-select
+              [items]="regionItems()"
+              placeholder="— auto-detect from file —"
+              emptyLabel="— auto-detect from file —"
+              [selected]="importRegionId()"
+              (selectedChange)="importRegionId.set($event)"
+            />
           </div>
 
           <!-- Result after import -->

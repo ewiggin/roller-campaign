@@ -19,16 +19,14 @@
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
           >Region</label
         >
-        <select
-          [ngModel]="filterRegion()"
-          (ngModelChange)="filterRegion.set($event); applyFilters()"
-          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-        >
-          <option value="">All regions</option>
-          @for (r of regions(); track r.id) {
-          <option [value]="r.id">{{ r.name }}</option>
-          }
-        </select>
+        <app-searchable-select
+          [items]="regionItems()"
+          placeholder="All regions"
+          emptyLabel="All regions"
+          [compact]="true"
+          [selected]="filterRegion()"
+          (selectedChange)="filterRegion.set($event); applyFilters()"
+        />
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
@@ -246,16 +244,12 @@
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
           >Region *</label
         >
-        <select
+        <app-searchable-select
           formControlName="region_id"
-          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          [class.border-red-400]="isInvalid('create', 'region_id')"
-        >
-          <option value="">Select region</option>
-          @for (r of regions(); track r.id) {
-          <option [value]="r.id">{{ r.name }}</option>
-          }
-        </select>
+          [items]="regionItems()"
+          placeholder="Select region…"
+          [invalid]="isInvalid('create', 'region_id')"
+        />
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
@@ -499,16 +493,14 @@
           @if (volunteersLoading()) {
           <div class="flex-1 animate-pulse h-9 bg-gray-100 dark:bg-zinc-800 rounded-lg"></div>
           } @else {
-          <select
-            [ngModel]="selectedVolunteerId()"
-            (ngModelChange)="selectedVolunteerId.set($event)"
-            class="flex-1 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="">Add volunteer…</option>
-            @for (v of availableVolunteers(); track v.id) {
-            <option [value]="v.id">{{ v.full_name }} ({{ v.volunteer_code }})</option>
-            }
-          </select>
+          <app-searchable-select
+            class="flex-1"
+            [items]="availableVolunteerItems()"
+            placeholder="Add volunteer…"
+            emptyLabel="Add volunteer…"
+            [selected]="selectedVolunteerId()"
+            (selectedChange)="selectedVolunteerId.set($event)"
+          />
           }
           <button
             (click)="addVolunteer()"
@@ -564,21 +556,14 @@
           @if (groupsLoading()) {
           <div class="flex-1 animate-pulse h-9 bg-gray-100 dark:bg-zinc-800 rounded-lg"></div>
           } @else {
-          <select
-            [ngModel]="selectedGroupId()"
-            (ngModelChange)="selectedGroupId.set($event)"
-            class="flex-1 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="">Add group…</option>
-            @for (g of availableGroups(); track g.id) {
-            <option [value]="g.id">
-              {{ g.group_code }}
-              @if (g.distance_km !== null) { — {{ g.distance_km }} km}
-              @if (g.host_name) { ({{ g.host_name }})}
-              — {{ g.guest_count }} guests
-            </option>
-            }
-          </select>
+          <app-searchable-select
+            class="flex-1"
+            [items]="availableGroupItems()"
+            placeholder="Add group…"
+            emptyLabel="Add group…"
+            [selected]="selectedGroupId()"
+            (selectedChange)="selectedGroupId.set($event)"
+          />
           }
           <button
             (click)="addGroup()"

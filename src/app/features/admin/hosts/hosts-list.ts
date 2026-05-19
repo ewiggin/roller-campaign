@@ -1,6 +1,7 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -11,7 +12,7 @@ type ModalMode = 'create' | 'edit' | null;
 
 @Component({
   selector: 'app-hosts-list',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, SearchableSelectComponent],
   templateUrl: './hosts-list.html',
 })
 export class HostsListComponent implements OnInit {
@@ -44,6 +45,10 @@ export class HostsListComponent implements OnInit {
     weekend_meeting_day: [null as number | null],
     weekend_meeting_time: [''],
   });
+
+  readonly regionItems = computed(() =>
+    this.regions().map((r) => ({ value: r.id, label: r.name })),
+  );
 
   readonly hostsByRegion = computed(() => {
     const rid = this.selectedRegionId();
