@@ -1,12 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { HttpParams } from '@angular/common/http';
-import type { GuestGroup, GuestGroupListResponse, CreateGuestGroupPayload } from '../models/guest-group.model';
+import type { GuestGroup, GuestGroupListResponse, CreateGuestGroupPayload, UpdateGuestGroupPayload } from '../models/guest-group.model';
 export type { GuestGroup };
 
 export interface ImportGroupResult {
   created: number;
-  skipped: number;
+  updated: number;
   total: number;
   regions_not_found?: number;
 }
@@ -15,16 +15,25 @@ export interface ImportGroupResult {
 export class GuestGroupsService {
   private readonly http = inject(HttpClient);
 
-  getAll(query: { regionId?: string; page?: number; limit?: number } = {}) {
+  getOne(id: string) {
+    return this.http.get<GuestGroup>(`/api/guest-groups/${id}`);
+  }
+
+  getAll(query: { regionId?: string; page?: number; limit?: number; search?: string } = {}) {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
     if (query.page) params = params.set('page', String(query.page));
     if (query.limit) params = params.set('limit', String(query.limit));
+    if (query.search) params = params.set('search', query.search);
     return this.http.get<GuestGroupListResponse>('/api/guest-groups', { params });
   }
 
   create(payload: CreateGuestGroupPayload) {
     return this.http.post<GuestGroup>('/api/guest-groups', payload);
+  }
+
+  update(id: string, payload: UpdateGuestGroupPayload) {
+    return this.http.patch<GuestGroup>(`/api/guest-groups/${id}`, payload);
   }
 
   remove(id: string) {
@@ -53,5 +62,9 @@ export class GuestGroupsService {
 
   downloadTemplate() {
     return this.http.get('/api/guest-groups/import/template', { responseType: 'blob' });
+  }
+
+  truncate() {
+    return this.http.delete<{ deleted_guests: number; deleted_groups: number }>('/api/guest-groups/truncate');
   }
 }

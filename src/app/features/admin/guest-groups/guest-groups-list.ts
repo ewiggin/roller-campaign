@@ -1,21 +1,28 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import type { GroupComposition, GuestGroup } from '../../../core/models/guest-group.model';
+import type { Guest } from '../../../core/models/guest.model';
+import type { Host } from '../../../core/models/host.model';
+import type { Region } from '../../../core/models/region.model';
+import { AuthService } from '../../../core/services/auth.service';
 import { GuestGroupsService, ImportGroupResult } from '../../../core/services/guest-groups.service';
 import { GuestsService } from '../../../core/services/guests.service';
-import { RegionsService } from '../../../core/services/regions.service';
 import { HostsService } from '../../../core/services/hosts.service';
-import { AuthService } from '../../../core/services/auth.service';
-import type { GuestGroup } from '../../../core/models/guest-group.model';
-import type { Guest } from '../../../core/models/guest.model';
-import type { Region } from '../../../core/models/region.model';
-import type { Host } from '../../../core/models/host.model';
+import { RegionsService } from '../../../core/services/regions.service';
 
-type ActiveModal = 'create' | 'guests' | 'import' | 'assign-host' | null;
+type ActiveModal = 'create' | 'guests' | 'import' | 'assign-host' | 'edit' | 'truncate' | null;
+
+export const COMPOSITION_LABELS: Record<GroupComposition, string> = {
+  men_only: 'Men only',
+  mixed: 'Mixed',
+  women_only: 'Women only',
+};
 
 @Component({
   selector: 'app-guest-groups-list',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe],
   templateUrl: './guest-groups-list.html',
 })
 export class GuestGroupsListComponent implements OnInit {
@@ -25,8 +32,10 @@ export class GuestGroupsListComponent implements OnInit {
   private readonly hostsSvc = inject(HostsService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly route = inject(ActivatedRoute);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
+  readonly compositionOptions = Object.entries(COMPOSITION_LABELS) as [GroupComposition, string][];
 
   readonly regions = signal<Region[]>([]);
   readonly groups = signal<GuestGroup[]>([]);
@@ -41,6 +50,8 @@ export class GuestGroupsListComponent implements OnInit {
   readonly activeModal = signal<ActiveModal>(null);
   readonly saving = signal(false);
   readonly formError = signal('');
+  readonly truncating = signal(false);
+  readonly truncateConfirmText = signal('');
 
   // Host assignment modal
   readonly hostAssignGroup = signal<GuestGroup | null>(null);
@@ -62,17 +73,26 @@ export class GuestGroupsListComponent implements OnInit {
   readonly guestsLoading = signal(false);
   readonly guestsError = signal('');
 
-  readonly groupContact = computed(() =>
-    this.groupGuests().find((g) => g.is_group_contact) ?? null,
+  // Edit availability/composition modal
+  readonly editGroup = signal<GuestGroup | null>(null);
+  readonly editForm = this.fb.nonNullable.group({
+    available_from: ['' as string],
+    available_to: ['' as string],
+    composition: ['' as string],
+  });
+
+  readonly groupContact = computed(
+    () => this.groupGuests().find((g) => g.is_group_contact) ?? null,
   );
-  readonly otherGuests = computed(() =>
-    this.groupGuests().filter((g) => !g.is_group_contact),
-  );
+  readonly otherGuests = computed(() => this.groupGuests().filter((g) => !g.is_group_contact));
 
   readonly form = this.fb.nonNullable.group({
     group_code: ['', Validators.required],
     region_id: ['', Validators.required],
   });
+
+  readonly searchCode = signal('');
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly regionName = computed(() => {
     const rid = this.selectedRegionId();
@@ -80,14 +100,15 @@ export class GuestGroupsListComponent implements OnInit {
   });
 
   ngOnInit() {
+    const qp = this.route.snapshot.queryParamMap;
+    const search = qp.get('search');
+    const regionId = qp.get('regionId');
+    if (search) this.searchCode.set(search);
+    if (regionId) this.selectedRegionId.set(regionId);
+
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
         this.regions.set(r);
-        if (r.length > 0) {
-          const firstId = r[0].id;
-          this.selectedRegionId.set(firstId);
-          this.form.patchValue({ region_id: firstId });
-        }
         this.loadGroups();
       },
       error: () => {
@@ -97,37 +118,57 @@ export class GuestGroupsListComponent implements OnInit {
     });
   }
 
+  onSearchInput(value: string) {
+    this.searchCode.set(value);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      this.page.set(1);
+      this.loadGroups();
+    }, 300);
+  }
+
   private loadGroups() {
     this.loading.set(true);
-    this.svc.getAll({
-      regionId: this.selectedRegionId() || undefined,
-      page: this.page(),
-      limit: this.limit,
-    }).subscribe({
-      next: (res) => {
-        this.groups.set(res.data);
-        this.total.set(res.total);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Error loading groups.');
-        this.loading.set(false);
-      },
-    });
+    const search = this.searchCode().trim() || undefined;
+    this.svc
+      .getAll({
+        regionId: this.selectedRegionId() || undefined,
+        page: this.page(),
+        limit: this.limit,
+        search,
+      })
+      .subscribe({
+        next: (res) => {
+          this.groups.set(res.data);
+          this.total.set(res.total);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.error.set('Error loading groups.');
+          this.loading.set(false);
+        },
+      });
   }
 
   selectRegion(id: string) {
     this.selectedRegionId.set(id);
     this.page.set(1);
+    this.searchCode.set('');
     this.loadGroups();
   }
 
   prevPage() {
-    if (this.page() > 1) { this.page.update((p) => p - 1); this.loadGroups(); }
+    if (this.page() > 1) {
+      this.page.update((p) => p - 1);
+      this.loadGroups();
+    }
   }
 
   nextPage() {
-    if (this.page() < this.totalPages()) { this.page.update((p) => p + 1); this.loadGroups(); }
+    if (this.page() < this.totalPages()) {
+      this.page.update((p) => p + 1);
+      this.loadGroups();
+    }
   }
 
   openCreate() {
@@ -164,6 +205,42 @@ export class GuestGroupsListComponent implements OnInit {
       },
       error: () => this.assigningHost.set(false),
     });
+  }
+
+  openEdit(group: GuestGroup) {
+    this.editGroup.set(group);
+    this.formError.set('');
+    this.editForm.setValue({
+      available_from: group.available_from ?? '',
+      available_to: group.available_to ?? '',
+      composition: group.composition ?? '',
+    });
+    this.activeModal.set('edit');
+  }
+
+  saveEdit() {
+    const group = this.editGroup();
+    if (!group || this.saving()) return;
+    this.saving.set(true);
+    this.formError.set('');
+    const v = this.editForm.getRawValue();
+    this.svc
+      .update(group.id, {
+        available_from: v.available_from || null,
+        available_to: v.available_to || null,
+        composition: (v.composition as GroupComposition) || null,
+      })
+      .subscribe({
+        next: (updated) => {
+          this.groups.update((list) => list.map((g) => (g.id === updated.id ? updated : g)));
+          this.activeModal.set(null);
+          this.saving.set(false);
+        },
+        error: () => {
+          this.formError.set('Error saving changes.');
+          this.saving.set(false);
+        },
+      });
   }
 
   openImport() {
@@ -263,7 +340,9 @@ export class GuestGroupsListComponent implements OnInit {
         this.loadGroups();
       },
       error: (err: { status?: number }) => {
-        this.formError.set(err.status === 409 ? 'Group code already exists.' : 'Error saving group.');
+        this.formError.set(
+          err.status === 409 ? 'Group code already exists.' : 'Error saving group.',
+        );
         this.saving.set(false);
       },
     });
@@ -277,17 +356,44 @@ export class GuestGroupsListComponent implements OnInit {
     });
   }
 
+  openTruncate() {
+    this.truncateConfirmText.set('');
+    this.activeModal.set('truncate');
+  }
+
+  confirmTruncate() {
+    if (this.truncateConfirmText() !== 'DELETE' || this.truncating()) return;
+    this.truncating.set(true);
+    this.svc.truncate().subscribe({
+      next: () => {
+        this.truncating.set(false);
+        this.activeModal.set(null);
+        this.loadGroups();
+      },
+      error: () => this.truncating.set(false),
+    });
+  }
+
   closeModal() {
     this.activeModal.set(null);
   }
 
+  compositionLabel(c: GroupComposition | null): string {
+    return c ? COMPOSITION_LABELS[c] : '';
+  }
+
   statusClass(status: Guest['status']): string {
     const map: Record<string, string> = {
-      pending: 'bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800',
-      confirmed: 'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800',
-      cancelled: 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800',
-      arrived: 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800',
-      blocked: 'bg-gray-50 text-gray-600 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700',
+      pending:
+        'bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800',
+      confirmed:
+        'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800',
+      cancelled:
+        'bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800',
+      arrived:
+        'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800',
+      blocked:
+        'bg-gray-50 text-gray-600 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700',
     };
     return map[status] ?? '';
   }
