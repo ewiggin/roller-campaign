@@ -2,8 +2,6 @@
 
   <!-- Toolbar -->
   <div class="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 shrink-0 flex-wrap">
-
-    <!-- Navigation -->
     <div class="flex items-center gap-2">
       <button type="button" (click)="prev()"
         class="p-1.5 rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors">
@@ -23,22 +21,18 @@
         Today
       </button>
     </div>
-
-    <!-- View selector -->
     <div class="flex rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden text-xs font-medium">
       @for (v of [['month','Month'],['week','Week'],['day','Day']]; track v[0]) {
       <button type="button" (click)="setView($any(v[0]))"
         class="px-3 py-1.5 border-l border-gray-200 dark:border-zinc-700 first:border-l-0 transition-colors"
-        [class]="view() === v[0]
-          ? 'bg-blue-500 text-white'
-          : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800'">
+        [class]="view() === v[0] ? 'bg-blue-500 text-white' : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800'">
         {{ v[1] }}
       </button>
       }
     </div>
   </div>
 
-  <!-- Loading overlay -->
+  <!-- Loading -->
   @if (loading()) {
   <div class="flex-1 flex items-center justify-center min-h-64">
     <svg class="w-6 h-6 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
@@ -51,13 +45,11 @@
   <!-- ── MONTH VIEW ─────────────────────────────────────────────────────── -->
   @if (view() === 'month') {
   <div class="flex-1 overflow-auto">
-    <!-- Day-of-week header -->
     <div class="grid grid-cols-7 border-b border-gray-100 dark:border-zinc-800 sticky top-0 bg-white dark:bg-[#18181b] z-10">
       @for (d of DAYS; track d) {
       <div class="py-2 text-center text-xs font-medium text-gray-400 dark:text-zinc-500 uppercase tracking-wide">{{ d }}</div>
       }
     </div>
-    <!-- Weeks -->
     @for (week of monthGrid(); track $index) {
     <div class="grid grid-cols-7 border-b border-gray-100 dark:border-zinc-800 last:border-b-0">
       @for (cell of week; track $index) {
@@ -69,7 +61,8 @@
           [class]="cell.isToday ? 'bg-blue-500 text-white' : 'text-gray-400 dark:text-zinc-500'">
           {{ cell.day }}
         </p>
-        @for (a of cell.acts.slice(0, 3); track a.id) {
+        <!-- Show all if expanded, otherwise first 3 -->
+        @for (a of (expandedMonthCell() === cell.dateStr ? cell.acts : cell.acts.slice(0, 3)); track a.id) {
         <button type="button" (click)="activityClick.emit(a.id)"
           class="w-full text-left text-xs rounded px-1 py-1 mb-0.5 overflow-hidden transition-colors"
           [class]="activityChipClass(a.status)">
@@ -79,8 +72,20 @@
           <p class="text-[10px] opacity-70 leading-none mt-0.5">{{ a.start_time }}–{{ a.end_time }}</p>
         </button>
         }
-        @if (cell.acts.length > 3) {
-        <p class="text-xs text-gray-400 dark:text-zinc-500 pl-1">+{{ cell.acts.length - 3 }} more</p>
+        <!-- +N more / show less toggle -->
+        @if (cell.acts.length > 3 && expandedMonthCell() !== cell.dateStr) {
+        <button type="button"
+          (click)="toggleMonthCell(cell.dateStr!); $event.stopPropagation()"
+          class="w-full text-left text-xs text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 pl-1 py-0.5 transition-colors">
+          +{{ cell.acts.length - 3 }} more
+        </button>
+        }
+        @if (expandedMonthCell() === cell.dateStr && cell.acts.length > 3) {
+        <button type="button"
+          (click)="toggleMonthCell(cell.dateStr!); $event.stopPropagation()"
+          class="w-full text-left text-xs text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 pl-1 py-0.5 transition-colors">
+          Show less
+        </button>
         }
         }
       </div>
@@ -93,22 +98,16 @@
   <!-- ── WEEK VIEW ──────────────────────────────────────────────────────── -->
   @if (view() === 'week') {
   <div class="flex-1 flex flex-col overflow-hidden">
-    <!-- Day headers -->
     <div class="flex border-b border-gray-100 dark:border-zinc-800 shrink-0">
       <div class="w-14 shrink-0 border-r border-gray-100 dark:border-zinc-800"></div>
       @for (d of weekDays(); track d.dateStr) {
       <div class="flex-1 py-2 text-center border-r border-gray-100 dark:border-zinc-800 last:border-r-0"
-        [class.bg-blue-50]="d.isToday"
-        [class.dark:bg-blue-950]="d.isToday">
+        [class.bg-blue-50]="d.isToday" [class.dark:bg-blue-950]="d.isToday">
         <p class="text-xs font-medium text-gray-500 dark:text-zinc-400">{{ d.dayName }}</p>
-        <p class="text-sm font-semibold mt-0.5"
-          [class]="d.isToday ? 'text-blue-500' : 'text-gray-700 dark:text-zinc-200'">
-          {{ d.dayNum }}
-        </p>
+        <p class="text-sm font-semibold mt-0.5" [class]="d.isToday ? 'text-blue-500' : 'text-gray-700 dark:text-zinc-200'">{{ d.dayNum }}</p>
       </div>
       }
     </div>
-    <!-- Scrollable time grid -->
     <div class="overflow-y-auto flex-1">
       <div class="flex" [style.height.px]="TOTAL_HEIGHT">
         <!-- Hour labels -->
@@ -123,24 +122,21 @@
         <!-- Day columns -->
         @for (d of weekDays(); track d.dateStr) {
         <div class="flex-1 relative border-r border-gray-100 dark:border-zinc-800 last:border-r-0"
-          [class.bg-blue-50/30]="d.isToday"
-          [class.dark:bg-blue-950/20]="d.isToday">
+          [class.bg-blue-50/30]="d.isToday" [class.dark:bg-blue-950/20]="d.isToday">
           @for (h of HOURS; track h) {
-          <div class="absolute left-0 right-0 border-t border-gray-100 dark:border-zinc-800"
-            [style.top.px]="(h - 7) * 64"></div>
+          <div class="absolute left-0 right-0 border-t border-gray-100 dark:border-zinc-800" [style.top.px]="(h - 7) * 64"></div>
           }
           @if (d.isToday) {
-          <div class="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
-            [style.top.px]="nowY">
+          <div class="absolute left-0 right-0 z-20 pointer-events-none flex items-center" [style.top.px]="nowY">
             <div class="w-2 h-2 rounded-full bg-red-500 shrink-0 -ml-1"></div>
             <div class="flex-1 border-t border-red-500"></div>
           </div>
           }
           @for (a of d.acts; track a.id) {
           <button type="button" (click)="activityClick.emit(a.id)"
-            class="absolute left-1 right-1 rounded text-xs overflow-hidden text-left px-1.5 py-1 transition-colors z-10"
+            class="absolute rounded text-xs overflow-hidden text-left px-1.5 py-1 transition-colors z-10"
             [class]="activityChipClass(a.status)"
-            [ngStyle]="{ top: activityTop(a) + 'px', height: activityHeight(a) + 'px' }">
+            [ngStyle]="activityTimelineStyle(a, d.layout)">
             <p class="font-medium truncate leading-tight">
               @if (a.icon) {<span>{{ a.icon }}</span>} {{ a.name }}
             </p>
@@ -157,22 +153,14 @@
   <!-- ── DAY VIEW ───────────────────────────────────────────────────────── -->
   @if (view() === 'day') {
   <div class="flex-1 flex flex-col overflow-hidden">
-    <!-- Day header -->
     <div class="flex border-b border-gray-100 dark:border-zinc-800 shrink-0">
       <div class="w-14 shrink-0 border-r border-gray-100 dark:border-zinc-800"></div>
       <div class="flex-1 py-3 text-center"
-        [class.bg-blue-50]="dayInfo().isToday"
-        [class.dark:bg-blue-950]="dayInfo().isToday">
-        <p class="text-base font-semibold"
-          [class]="dayInfo().isToday ? 'text-blue-500' : 'text-gray-700 dark:text-zinc-200'">
-          {{ periodLabel() }}
-        </p>
-        <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
-          {{ dayInfo().acts.length }} activit{{ dayInfo().acts.length !== 1 ? 'ies' : 'y' }}
-        </p>
+        [class.bg-blue-50]="dayInfo().isToday" [class.dark:bg-blue-950]="dayInfo().isToday">
+        <p class="text-base font-semibold" [class]="dayInfo().isToday ? 'text-blue-500' : 'text-gray-700 dark:text-zinc-200'">{{ periodLabel() }}</p>
+        <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">{{ dayInfo().acts.length }} activit{{ dayInfo().acts.length !== 1 ? 'ies' : 'y' }}</p>
       </div>
     </div>
-    <!-- Scrollable time grid -->
     <div class="overflow-y-auto flex-1">
       <div class="flex" [style.height.px]="TOTAL_HEIGHT">
         <!-- Hour labels -->
@@ -185,25 +173,21 @@
           }
         </div>
         <!-- Single day column -->
-        <div class="flex-1 relative"
-          [class.bg-blue-50/30]="dayInfo().isToday"
-          [class.dark:bg-blue-950/20]="dayInfo().isToday">
+        <div class="flex-1 relative" [class.bg-blue-50/30]="dayInfo().isToday" [class.dark:bg-blue-950/20]="dayInfo().isToday">
           @for (h of HOURS; track h) {
-          <div class="absolute left-0 right-0 border-t border-gray-100 dark:border-zinc-800"
-            [style.top.px]="(h - 7) * 64"></div>
+          <div class="absolute left-0 right-0 border-t border-gray-100 dark:border-zinc-800" [style.top.px]="(h - 7) * 64"></div>
           }
           @if (dayInfo().isToday) {
-          <div class="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
-            [style.top.px]="nowY">
+          <div class="absolute left-0 right-0 z-20 pointer-events-none flex items-center" [style.top.px]="nowY">
             <div class="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0 -ml-1"></div>
             <div class="flex-1 border-t-2 border-red-500"></div>
           </div>
           }
           @for (a of dayInfo().acts; track a.id) {
           <button type="button" (click)="activityClick.emit(a.id)"
-            class="absolute left-2 right-2 rounded-lg text-sm overflow-hidden text-left px-3 py-2 transition-colors z-10 shadow-sm"
+            class="absolute rounded-lg text-sm overflow-hidden text-left px-3 py-2 transition-colors z-10 shadow-sm"
             [class]="activityChipClass(a.status)"
-            [ngStyle]="{ top: activityTop(a) + 'px', height: activityHeight(a) + 'px' }">
+            [ngStyle]="activityTimelineStyle(a, dayInfo().layout)">
             <p class="font-semibold truncate">
               @if (a.icon) {<span>{{ a.icon }}</span>} {{ a.name }}
             </p>
@@ -214,9 +198,7 @@
           </button>
           }
           @if (dayInfo().acts.length === 0) {
-          <p class="absolute inset-0 flex items-center justify-center text-sm text-gray-400 dark:text-zinc-500">
-            No activities
-          </p>
+          <p class="absolute inset-0 flex items-center justify-center text-sm text-gray-400 dark:text-zinc-500">No activities</p>
           }
         </div>
       </div>

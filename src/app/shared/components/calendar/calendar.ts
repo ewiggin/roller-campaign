@@ -16,6 +16,8 @@ const HOUR_END = 22;
 const PX_PER_HOUR = 64;
 const TOTAL_HEIGHT = (HOUR_END - HOUR_START) * PX_PER_HOUR;
 
+interface Layout { col: number; totalCols: number; }
+
 @Component({
   selector: 'app-calendar',
   imports: [NgStyle],
@@ -30,6 +32,9 @@ export class CalendarComponent implements OnInit {
 
   readonly view = signal<CalendarView>('month');
   readonly anchor = signal(new Date());
+
+  // Month: which cell is expanded to show all events
+  readonly expandedMonthCell = signal<string | null>(null);
 
   readonly HOURS = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i);
   readonly TOTAL_HEIGHT = TOTAL_HEIGHT;
@@ -51,7 +56,7 @@ export class CalendarComponent implements OnInit {
         return a.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
       case 'week': {
         const mon = this.getMonday(a);
-        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+        const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
         return `${mon.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${sun.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
       }
       case 'day':
@@ -85,32 +90,31 @@ export class CalendarComponent implements OnInit {
     return weeks;
   });
 
-  // ── Week columns ──────────────────────────────────────────────────────────
+  // ── Week columns (with overlap layout) ───────────────────────────────────
 
   readonly weekDays = computed(() => {
     const mon = this.getMonday(this.anchor());
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
       const dateStr = this.toISO(d);
+      const acts = this.activities().filter((a) => a.date === dateStr);
       return {
         dateStr,
         dayName: d.toLocaleDateString('en-GB', { weekday: 'short' }),
         dayNum: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
         isToday: dateStr === this.todayStr,
-        acts: this.activities().filter((a) => a.date === dateStr),
+        acts,
+        layout: this.computeLayout(acts),
       };
     });
   });
 
-  // ── Day ───────────────────────────────────────────────────────────────────
+  // ── Day (with overlap layout) ─────────────────────────────────────────────
 
   readonly dayInfo = computed(() => {
     const dateStr = this.toISO(this.anchor());
-    return {
-      dateStr,
-      isToday: dateStr === this.todayStr,
-      acts: this.activities().filter((a) => a.date === dateStr),
-    };
+    const acts = this.activities().filter((a) => a.date === dateStr);
+    return { dateStr, isToday: dateStr === this.todayStr, acts, layout: this.computeLayout(acts) };
   });
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -129,6 +133,7 @@ export class CalendarComponent implements OnInit {
       case 'day': a.setDate(a.getDate() - 1); break;
     }
     this.anchor.set(a);
+    this.expandedMonthCell.set(null);
     this.emitPeriod();
   }
 
@@ -140,31 +145,44 @@ export class CalendarComponent implements OnInit {
       case 'day': a.setDate(a.getDate() + 1); break;
     }
     this.anchor.set(a);
+    this.expandedMonthCell.set(null);
     this.emitPeriod();
   }
 
   today() {
     this.anchor.set(new Date());
+    this.expandedMonthCell.set(null);
     this.emitPeriod();
   }
 
   setView(v: CalendarView) {
     this.view.set(v);
+    this.expandedMonthCell.set(null);
     this.emitPeriod();
   }
 
-  // ── Activity positioning (week/day view) ──────────────────────────────────
+  // ── Month expand ──────────────────────────────────────────────────────────
 
-  activityTop(activity: Activity): number {
-    const [h, m] = activity.start_time.split(':').map(Number);
-    return Math.max(0, (h - HOUR_START) * PX_PER_HOUR + m * (PX_PER_HOUR / 60));
+  toggleMonthCell(dateStr: string) {
+    this.expandedMonthCell.set(this.expandedMonthCell() === dateStr ? null : dateStr);
   }
 
-  activityHeight(activity: Activity): number {
+  // ── Activity positioning ──────────────────────────────────────────────────
+
+  activityTimelineStyle(activity: Activity, layout: Map<string, Layout>): Record<string, string> {
+    const { col, totalCols } = layout.get(activity.id) ?? { col: 0, totalCols: 1 };
     const [sh, sm] = activity.start_time.split(':').map(Number);
     const [eh, em] = activity.end_time.split(':').map(Number);
-    const mins = (eh - sh) * 60 + (em - sm);
-    return Math.max(mins * (PX_PER_HOUR / 60), 28);
+    const top = Math.max(0, (sh - HOUR_START) * PX_PER_HOUR + sm * (PX_PER_HOUR / 60));
+    const height = Math.max(((eh - sh) * 60 + (em - sm)) * (PX_PER_HOUR / 60), 28);
+    const leftPct = (col / totalCols * 100).toFixed(2);
+    const widthPct = (100 / totalCols).toFixed(2);
+    return {
+      top: `${top}px`,
+      height: `${height}px`,
+      left: `calc(${leftPct}% + 2px)`,
+      width: `calc(${widthPct}% - 4px)`,
+    };
   }
 
   activityChipClass(status: string): string {
@@ -178,6 +196,34 @@ export class CalendarComponent implements OnInit {
   }
 
   // ── Private ───────────────────────────────────────────────────────────────
+
+  private computeLayout(acts: Activity[]): Map<string, Layout> {
+    const result = new Map<string, Layout>();
+    if (!acts.length) return result;
+
+    const sorted = [...acts].sort((a, b) => a.start_time.localeCompare(b.start_time));
+    const colEndTimes: string[] = [];
+    const colOf = new Map<string, number>();
+
+    for (const act of sorted) {
+      let col = colEndTimes.findIndex((end) => end <= act.start_time);
+      if (col === -1) col = colEndTimes.length;
+      colEndTimes[col] = act.end_time;
+      colOf.set(act.id, col);
+    }
+
+    for (const act of sorted) {
+      let maxCol = 0;
+      for (const other of sorted) {
+        if (act.start_time < other.end_time && act.end_time > other.start_time) {
+          maxCol = Math.max(maxCol, colOf.get(other.id)!);
+        }
+      }
+      result.set(act.id, { col: colOf.get(act.id)!, totalCols: maxCol + 1 });
+    }
+
+    return result;
+  }
 
   private emitPeriod() {
     const a = this.anchor();
