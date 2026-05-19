@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import type { Activity, ActivityStatus, AvailableGroupForActivity } from '../../../core/models/activity.model';
+import type { Activity, ActivityStatus, AvailableGroupForActivity, RepeatType } from '../../../core/models/activity.model';
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 import type { VolunteerSummary } from '../../../core/models/volunteer.model';
@@ -58,6 +58,30 @@ export class ActivitiesListComponent implements OnInit {
   readonly saving = signal(false);
   readonly formError = signal('');
   readonly createIconValue = signal('');
+
+  // Repeat
+  readonly repeatEnabled = signal(false);
+  readonly repeatType = signal<RepeatType>('daily');
+  readonly repeatCount = signal(3);
+  readonly createDate = signal('');
+
+  readonly repeatPreviewDates = computed(() => {
+    if (!this.repeatEnabled()) return [];
+    const base = this.createDate();
+    if (!base) return [];
+    const type = this.repeatType();
+    const count = Math.max(2, Math.min(30, this.repeatCount() || 2));
+    const [y, m, d] = base.split('-').map(Number);
+    const start = new Date(y, m - 1, d);
+    return Array.from({ length: count }, (_, i) => {
+      const cur = new Date(y, m - 1, d);
+      if (type === 'daily') cur.setDate(start.getDate() + i);
+      else if (type === 'weekly') cur.setDate(start.getDate() + i * 7);
+      const dd = String(cur.getDate()).padStart(2, '0');
+      const mm = String(cur.getMonth() + 1).padStart(2, '0');
+      return `${cur.getFullYear()}-${mm}-${dd}`;
+    });
+  });
 
   readonly createForm = this.fb.group({
     region_id: ['', Validators.required],
@@ -172,6 +196,8 @@ export class ActivitiesListComponent implements OnInit {
       },
     });
 
+    this.createForm.get('date')!.valueChanges.subscribe((d) => this.createDate.set(d ?? ''));
+
     this.createForm.get('region_id')!.valueChanges.subscribe((regionId) => {
       if (regionId) this.loadHostsForRegion(regionId);
       else this.modalHosts.set([]);
@@ -281,6 +307,10 @@ export class ActivitiesListComponent implements OnInit {
     this.createForm.reset({ region_id: regionId });
     this.createIconValue.set('');
     this.createDescLen.set(0);
+    this.repeatEnabled.set(false);
+    this.repeatType.set('daily');
+    this.repeatCount.set(3);
+    this.createDate.set('');
     this.createActivityLocation.set(null);
     this.createActivityFromHost.set(false);
     this.createDepartureLocation.set(null);
@@ -299,35 +329,46 @@ export class ActivitiesListComponent implements OnInit {
     const v = this.createForm.getRawValue();
     const al = this.createActivityLocation();
     const dl = this.createDepartureLocation();
-    this.svc
-      .create({
-        region_id: v.region_id!,
-        name: v.name!,
-        icon: this.createIconValue() || null,
-        description: v.description || null,
-        host_id: v.host_id || null,
-        date: v.date!,
-        start_time: v.start_time!,
-        end_time: v.end_time!,
-        activity_address: al?.address ?? null,
-        activity_lat: al?.lat ?? null,
-        activity_lng: al?.lng ?? null,
-        departure_address: dl?.address ?? null,
-        departure_lat: dl?.lat ?? null,
-        departure_lng: dl?.lng ?? null,
-      })
-      .subscribe({
+
+    const basePayload = {
+      region_id: v.region_id!,
+      name: v.name!,
+      icon: this.createIconValue() || null,
+      description: v.description || null,
+      host_id: v.host_id || null,
+      date: v.date!,
+      start_time: v.start_time!,
+      end_time: v.end_time!,
+      activity_address: al?.address ?? null,
+      activity_lat: al?.lat ?? null,
+      activity_lng: al?.lng ?? null,
+      departure_address: dl?.address ?? null,
+      departure_lat: dl?.lat ?? null,
+      departure_lng: dl?.lng ?? null,
+    };
+
+    if (this.repeatEnabled()) {
+      this.svc.createBatch({ ...basePayload, repetition: { type: this.repeatType(), count: this.repeatCount() } })
+        .subscribe({
+          next: (activities) => {
+            this.saving.set(false);
+            this.activeModal.set(null);
+            this.load();
+            if (activities[0]) this.openDetail(activities[0]);
+          },
+          error: () => { this.formError.set('Error creating activities.'); this.saving.set(false); },
+        });
+    } else {
+      this.svc.create(basePayload).subscribe({
         next: (activity) => {
           this.saving.set(false);
           this.activeModal.set(null);
           this.load();
           this.openDetail(activity);
         },
-        error: () => {
-          this.formError.set('Error creating activity.');
-          this.saving.set(false);
-        },
+        error: () => { this.formError.set('Error creating activity.'); this.saving.set(false); },
       });
+    }
   }
 
   // ── Detail ────────────────────────────────────────────────────────────────
@@ -548,6 +589,14 @@ export class ActivitiesListComponent implements OnInit {
     });
   }
 
+  deleteSeriesFromHere(activity: Activity) {
+    if (!confirm(`Delete "${activity.name || activity.date}" and all future activities in this series?`)) return;
+    this.svc.removeSeriesFromDate(activity.id).subscribe({
+      next: () => { this.activeModal.set(null); this.load(); },
+      error: () => alert('Error deleting series.'),
+    });
+  }
+
   closeModal() {
     this.activeModal.set(null);
   }
@@ -560,6 +609,12 @@ export class ActivitiesListComponent implements OnInit {
 
   setDetailTab(tab: string) {
     this.detailTab.set(tab as DetailTab);
+  }
+
+  formatRepeatDate(iso: string): string {
+    return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
+      weekday: 'short', day: 'numeric', month: 'short',
+    });
   }
 
   isInvalid(form: 'create' | 'edit', field: string): boolean {

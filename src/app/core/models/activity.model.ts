@@ -15,6 +15,7 @@ export interface ActivityGuestGroup {
 export interface Activity {
   id: string;
   region_id: string;
+  series_id: string | null;
   name: string;
   icon: string | null;
   description: string | null;
@@ -54,6 +55,17 @@ export interface ActivityListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export type RepeatType = 'daily' | 'weekly' | 'same_day';
+
+export interface RepetitionPayload {
+  type: RepeatType;
+  count: number;
+}
+
+export interface CreateActivityBatchPayload extends CreateActivityPayload {
+  repetition: RepetitionPayload;
 }
 
 export interface CreateActivityPayload {
