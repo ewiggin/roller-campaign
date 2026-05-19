@@ -58,6 +58,9 @@ export class ActivityResponseDto {
   @ApiProperty({ example: 'Airport pickup' })
   name: string;
 
+  @ApiPropertyOptional({ example: '✈️', nullable: true })
+  icon: string | null;
+
   @ApiPropertyOptional({ example: 'Actividad de bienvenida', nullable: true })
   description: string | null;
 

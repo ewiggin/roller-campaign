@@ -32,6 +32,9 @@ export class Activity {
   name: string;
 
   @Column({ type: 'varchar', nullable: true, default: null })
+  icon: string | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
   description: string | null;
 
   @Column({ type: 'varchar', default: 'draft' })

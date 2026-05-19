@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches } from 'class-validator';
+import { IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -13,10 +13,16 @@ export class CreateActivityDto {
   @IsNotEmpty()
   name: string;
 
+  @ApiPropertyOptional({ example: '✈️', nullable: true })
+  @IsOptional()
+  @IsString()
+  icon?: string | null;
+
   @ApiPropertyOptional({ example: 'Actividad de bienvenida en el aeropuerto', nullable: true })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(500)
   description?: string | null;
 
   @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000', nullable: true })

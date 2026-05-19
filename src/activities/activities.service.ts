@@ -39,6 +39,7 @@ export class ActivitiesService {
     const activity = this.activitiesRepo.create({
       region_id: dto.region_id,
       name: dto.name,
+      icon: dto.icon ?? null,
       description: dto.description ?? null,
       host_id: dto.host_id ?? null,
       date: dto.date,
@@ -340,6 +341,7 @@ export class ActivitiesService {
     id: activity.id,
     region_id: activity.region_id,
     name: activity.name,
+    icon: activity.icon,
     description: activity.description,
     status: activity.status,
     host_id: activity.host_id,
