@@ -13,6 +13,16 @@ export class ActivityListQueryDto {
   @IsISO8601({ strict: true })
   date?: string;
 
+  @ApiPropertyOptional({ example: '2024-06-01' })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ example: '2024-06-30' })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  dateTo?: string;
+
   @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000' })
   @IsOptional()
   @IsUUID()
@@ -30,6 +40,6 @@ export class ActivityListQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(200)
+  @Max(500)
   limit?: number = 50;
 }
