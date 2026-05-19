@@ -46,6 +46,9 @@ export class AvailableGroupForActivityDto {
 
   @ApiProperty({ example: 12 })
   guest_count: number;
+
+  @ApiProperty({ example: false, description: 'True if assigned to another activity overlapping in date+time' })
+  already_in_activity: boolean;
 }
 
 export class ActivityResponseDto {

@@ -306,6 +306,19 @@ export class ActivitiesService {
 
     const assignedIds = new Set(activity.guestGroups.map((g) => g.id));
 
+    // Groups already assigned to other activities overlapping in date+time
+    const conflictRows = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'g')
+      .select('g.id', 'groupId')
+      .where('a.region_id = :regionId', { regionId: activity.region_id })
+      .andWhere('a.id != :actId', { actId: activity.id })
+      .andWhere('a.date = :date', { date: activity.date })
+      .andWhere('a.start_time < :endTime', { endTime: activity.end_time })
+      .andWhere('a.end_time > :startTime', { startTime: activity.start_time })
+      .getRawMany<{ groupId: string }>();
+    const conflictingGroupIds = new Set(conflictRows.map((r) => r.groupId));
+
     const [groups, guests] = await Promise.all([
       this.groupsRepo.find({
         where: { region_id: activity.region_id },
@@ -357,6 +370,7 @@ export class ActivitiesService {
         host_lng: host?.lng ?? null,
         distance_km: distance_km !== null ? Math.round(distance_km * 10) / 10 : null,
         guest_count: groupGuests.length,
+        already_in_activity: conflictingGroupIds.has(group.id),
       });
     }
 
