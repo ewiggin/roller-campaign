@@ -15,13 +15,20 @@ export interface ActivityGuestGroup {
 export interface Activity {
   id: string;
   region_id: string;
+  name: string;
+  description: string | null;
+  status: ActivityStatus;
+  host_id: string | null;
+  host_name: string | null;
   date: string;
   start_time: string;
   end_time: string;
-  description: string | null;
-  status: ActivityStatus;
-  lat: number | null;
-  lng: number | null;
+  activity_address: string | null;
+  activity_lat: number | null;
+  activity_lng: number | null;
+  departure_address: string | null;
+  departure_lat: number | null;
+  departure_lng: number | null;
   volunteers: ActivityVolunteer[];
   volunteer_count: number;
   guest_groups: ActivityGuestGroup[];
@@ -50,10 +57,16 @@ export interface ActivityListResponse {
 
 export interface CreateActivityPayload {
   region_id: string;
+  name: string;
+  description?: string | null;
+  host_id?: string | null;
   date: string;
   start_time: string;
   end_time: string;
-  description?: string | null;
-  lat?: number | null;
-  lng?: number | null;
+  activity_address?: string | null;
+  activity_lat?: number | null;
+  activity_lng?: number | null;
+  departure_address?: string | null;
+  departure_lat?: number | null;
+  departure_lng?: number | null;
 }

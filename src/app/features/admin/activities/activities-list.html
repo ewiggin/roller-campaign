@@ -134,12 +134,12 @@
           </p>
         </div>
 
-        <!-- Description -->
+        <!-- Name + meta -->
         <div class="flex-1 min-w-0">
-          <p class="text-sm text-gray-700 dark:text-zinc-300 truncate">
-            {{ activity.description || '—' }}
+          <p class="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate">
+            {{ activity.name || '—' }}
           </p>
-          <div class="flex items-center gap-2 mt-1">
+          <div class="flex items-center gap-2 mt-0.5">
             <span class="text-xs text-gray-400 dark:text-zinc-500">
               {{ activity.volunteer_count }} volunteer{{ activity.volunteer_count !== 1 ? 's' : ''
               }}
@@ -239,87 +239,102 @@
         </svg>
       </button>
     </div>
-    <form [formGroup]="createForm" (ngSubmit)="submitCreate()" class="p-5 space-y-4">
-      <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Region *</label
-        >
-        <app-searchable-select
-          formControlName="region_id"
-          [items]="regionItems()"
-          placeholder="Select region…"
-          [invalid]="isInvalid('create', 'region_id')"
-        />
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Date *</label
-        >
-        <input
-          type="date"
-          formControlName="date"
-          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          [class.border-red-400]="isInvalid('create', 'date')"
-        />
-      </div>
+    <form [formGroup]="createForm" (ngSubmit)="submitCreate()" class="p-5 space-y-4 overflow-y-auto max-h-[75vh]">
       <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-            >Start *</label
-          >
-          <input
-            type="time"
-            formControlName="start_time"
-            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            [class.border-red-400]="isInvalid('create', 'start_time')"
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Region *</label>
+          <app-searchable-select
+            formControlName="region_id"
+            [items]="regionItems()"
+            placeholder="Select region…"
+            [invalid]="isInvalid('create', 'region_id')"
           />
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-            >End *</label
-          >
-          <input
-            type="time"
-            formControlName="end_time"
-            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            [class.border-red-400]="isInvalid('create', 'end_time')"
-          />
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Name *</label>
+          <input type="text" formControlName="name" placeholder="e.g. Airport pickup"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+            [class.border-red-400]="isInvalid('create', 'name')" />
         </div>
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Description</label
-        >
-        <input
-          type="text"
-          formControlName="description"
-          placeholder="Optional description"
-          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Location <span class="text-gray-400 dark:text-zinc-600 font-normal">(optional — used to sort groups by distance)</span></label>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Date *</label>
+          <input type="date" formControlName="date"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            [class.border-red-400]="isInvalid('create', 'date')" />
+        </div>
         <div class="grid grid-cols-2 gap-2">
-          <input type="number" step="any" formControlName="lat" placeholder="Latitude" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
-          <input type="number" step="any" formControlName="lng" placeholder="Longitude" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Start *</label>
+            <input type="time" formControlName="start_time"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              [class.border-red-400]="isInvalid('create', 'start_time')" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">End *</label>
+            <input type="time" formControlName="end_time"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              [class.border-red-400]="isInvalid('create', 'end_time')" />
+          </div>
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Description</label>
+          <input type="text" formControlName="description" placeholder="Optional description"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500" />
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Host congregation <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label>
+          <app-searchable-select
+            formControlName="host_id"
+            [items]="modalHostItems()"
+            placeholder="— None —"
+            emptyLabel="— None —"
+          />
         </div>
       </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Departure location <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label>
+        @if (selectedCreateHost()?.address) {
+        <label class="flex items-center gap-2 mb-2 cursor-pointer">
+          <input type="checkbox"
+            [checked]="createDepartureFromHost()"
+            (change)="toggleLocationFromHost('create', 'departure', $any($event.target).checked)"
+            class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+          />
+          <span class="text-sm text-gray-600 dark:text-zinc-300">Same as host congregation</span>
+        </label>
+        }
+        @if (!createDepartureFromHost()) {
+        <app-location-picker (locationSelected)="createDepartureLocation.set($event)" />
+        }
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Activity location <span class="font-normal text-gray-400 dark:text-zinc-600">(optional — used to sort groups by distance)</span></label>
+        @if (selectedCreateHost()?.address) {
+        <label class="flex items-center gap-2 mb-2 cursor-pointer">
+          <input type="checkbox"
+            [checked]="createActivityFromHost()"
+            (change)="toggleLocationFromHost('create', 'activity', $any($event.target).checked)"
+            class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+          />
+          <span class="text-sm text-gray-600 dark:text-zinc-300">Same as host congregation</span>
+        </label>
+        }
+        @if (!createActivityFromHost()) {
+        <app-location-picker (locationSelected)="createActivityLocation.set($event)" />
+        }
+      </div>
+
       @if (formError()) {
       <p class="text-sm text-red-500">{{ formError() }}</p>
       }
       <div class="flex justify-end gap-2 pt-1">
-        <button
-          type="button"
-          (click)="closeModal()"
-          class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
-        >
+        <button type="button" (click)="closeModal()"
+          class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
           Cancel
         </button>
-        <button
-          type="submit"
-          [disabled]="saving()"
-          class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
-        >
+        <button type="submit" [disabled]="saving()"
+          class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors">
           {{ saving() ? 'Creating…' : 'Create' }}
         </button>
       </div>
@@ -344,9 +359,11 @@
     >
       <div class="flex items-center gap-3">
         <h3 class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
-          {{ selectedActivity()!.date | date }} · {{ selectedActivity()!.start_time }}–{{
-          selectedActivity()!.end_time }}
+          {{ selectedActivity()!.name || (selectedActivity()!.date | date) }}
         </h3>
+        <span class="text-xs text-gray-400 dark:text-zinc-500">
+          {{ selectedActivity()!.date | date }} · {{ selectedActivity()!.start_time }}–{{ selectedActivity()!.end_time }}
+        </span>
         <span
           class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1"
           [class]="statusBadgeClass(selectedActivity()!.status)"
@@ -402,56 +419,88 @@
       @if (detailTab() === 'info') {
       <form [formGroup]="editForm" (ngSubmit)="saveInfo()" class="space-y-4">
         <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-            >Date *</label
-          >
-          <input
-            type="date"
-            formControlName="date"
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Name *</label>
+          <input type="text" formControlName="name"
             class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            [class.border-red-400]="isInvalid('edit', 'date')"
+            [class.border-red-400]="isInvalid('edit', 'name')" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Description</label>
+          <input type="text" formControlName="description"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Host congregation <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label>
+          <app-searchable-select
+            formControlName="host_id"
+            [items]="modalHostItems()"
+            placeholder="— None —"
+            emptyLabel="— None —"
           />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-              >Start *</label
-            >
-            <input
-              type="time"
-              formControlName="start_time"
+            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Date *</label>
+            <input type="date" formControlName="date"
               class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              [class.border-red-400]="isInvalid('edit', 'start_time')"
-            />
+              [class.border-red-400]="isInvalid('edit', 'date')" />
           </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-              >End *</label
-            >
-            <input
-              type="time"
-              formControlName="end_time"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              [class.border-red-400]="isInvalid('edit', 'end_time')"
-            />
-          </div>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-            >Description</label
-          >
-          <input
-            type="text"
-            formControlName="description"
-            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Location <span class="text-gray-400 dark:text-zinc-600 font-normal">(used to sort groups by distance)</span></label>
           <div class="grid grid-cols-2 gap-2">
-            <input type="number" step="any" formControlName="lat" placeholder="Latitude" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
-            <input type="number" step="any" formControlName="lng" placeholder="Longitude" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Start *</label>
+              <input type="time" formControlName="start_time"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                [class.border-red-400]="isInvalid('edit', 'start_time')" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">End *</label>
+              <input type="time" formControlName="end_time"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                [class.border-red-400]="isInvalid('edit', 'end_time')" />
+            </div>
           </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Departure location <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label>
+          @if (selectedEditHost()?.address) {
+          <label class="flex items-center gap-2 mb-2 cursor-pointer">
+            <input type="checkbox"
+              [checked]="editDepartureFromHost()"
+              (change)="toggleLocationFromHost('edit', 'departure', $any($event.target).checked)"
+              class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+            />
+            <span class="text-sm text-gray-600 dark:text-zinc-300">Same as host congregation</span>
+          </label>
+          }
+          @if (!editDepartureFromHost()) {
+          <app-location-picker
+            [initialAddress]="selectedActivity()!.departure_address"
+            [initialLat]="selectedActivity()!.departure_lat"
+            [initialLng]="selectedActivity()!.departure_lng"
+            (locationSelected)="editDepartureLocation.set($event)"
+          />
+          }
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Activity location <span class="font-normal text-gray-400 dark:text-zinc-600">(optional — used to sort groups by distance)</span></label>
+          @if (selectedEditHost()?.address) {
+          <label class="flex items-center gap-2 mb-2 cursor-pointer">
+            <input type="checkbox"
+              [checked]="editActivityFromHost()"
+              (change)="toggleLocationFromHost('edit', 'activity', $any($event.target).checked)"
+              class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+            />
+            <span class="text-sm text-gray-600 dark:text-zinc-300">Same as host congregation</span>
+          </label>
+          }
+          @if (!editActivityFromHost()) {
+          <app-location-picker
+            [initialAddress]="selectedActivity()!.activity_address"
+            [initialLat]="selectedActivity()!.activity_lat"
+            [initialLng]="selectedActivity()!.activity_lng"
+            (locationSelected)="editActivityLocation.set($event)"
+          />
+          }
         </div>
         <div class="flex items-center justify-between pt-2">
           <button

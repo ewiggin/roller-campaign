@@ -36,7 +36,7 @@ describe('ActivitiesService', () => {
   });
 
   it('create makes POST /api/activities', () => {
-    service.create({ region_id: 'r1', date: '2026-07-01', start_time: '09:00', end_time: '13:00' }).subscribe();
+    service.create({ region_id: 'r1', name: 'Test activity', date: '2026-07-01', start_time: '09:00', end_time: '13:00' }).subscribe();
     const req = http.expectOne('/api/activities');
     expect(req.request.method).toBe('POST');
     req.flush({});

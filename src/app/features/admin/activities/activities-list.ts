@@ -1,26 +1,30 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 import type { Activity, ActivityStatus, AvailableGroupForActivity } from '../../../core/models/activity.model';
+import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 import type { VolunteerSummary } from '../../../core/models/volunteer.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
+import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
+import { LocationPickerComponent, type PlaceResult } from '../../../shared/components/location-picker/location-picker';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 type ActiveModal = 'create' | 'detail' | null;
 type DetailTab = 'info' | 'volunteers' | 'groups';
 
 @Component({
   selector: 'app-activities-list',
-  imports: [ReactiveFormsModule, FormsModule, DatePipe, SearchableSelectComponent],
+  imports: [ReactiveFormsModule, FormsModule, DatePipe, SearchableSelectComponent, LocationPickerComponent],
   templateUrl: './activities-list.html',
 })
 export class ActivitiesListComponent implements OnInit {
   private readonly svc = inject(ActivitiesService);
   private readonly volunteersSvc = inject(VolunteersService);
   private readonly regionsSvc = inject(RegionsService);
+  private readonly hostsSvc = inject(HostsService);
   private readonly fb = inject(FormBuilder);
 
   readonly regions = signal<Region[]>([]);
@@ -47,35 +51,73 @@ export class ActivitiesListComponent implements OnInit {
     return this.activities().filter((a) => a.status === status);
   });
 
-  // Create modal
+  // ── Create modal ──────────────────────────────────────────────────────────
+
   readonly activeModal = signal<ActiveModal>(null);
   readonly saving = signal(false);
   readonly formError = signal('');
   readonly createForm = this.fb.group({
     region_id: ['', Validators.required],
+    name: ['', Validators.required],
     date: ['', Validators.required],
     start_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     end_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     description: [''],
-    lat: [null as number | null],
-    lng: [null as number | null],
+    host_id: [null as string | null],
   });
 
-  // Detail modal
+  readonly createActivityLocation = signal<PlaceResult | null>(null);
+  readonly createActivityFromHost = signal(false);
+  readonly createDepartureLocation = signal<PlaceResult | null>(null);
+  readonly createDepartureFromHost = signal(false);
+  readonly createHostId = signal<string | null>(null);
+
+  // ── Detail modal ──────────────────────────────────────────────────────────
+
   readonly selectedActivity = signal<Activity | null>(null);
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
   readonly detailError = signal('');
   readonly editForm = this.fb.group({
+    name: ['', Validators.required],
     date: ['', Validators.required],
     start_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     end_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     description: [''],
-    lat: [null as number | null],
-    lng: [null as number | null],
+    host_id: [null as string | null],
   });
 
-  // Volunteers tab
+  readonly editActivityLocation = signal<PlaceResult | null>(null);
+  readonly editActivityFromHost = signal(false);
+  readonly editDepartureLocation = signal<PlaceResult | null>(null);
+  readonly editDepartureFromHost = signal(false);
+  readonly editHostId = signal<string | null>(null);
+
+  // ── Hosts (shared for both modals) ────────────────────────────────────────
+
+  readonly modalHosts = signal<Host[]>([]);
+  readonly hostsLoading = signal(false);
+
+  readonly modalHostItems = computed(() =>
+    this.modalHosts().map((h) => ({
+      value: h.id,
+      label: h.name,
+      meta: h.address ?? undefined,
+    })),
+  );
+
+  readonly selectedCreateHost = computed(() => {
+    const id = this.createHostId();
+    return id ? (this.modalHosts().find((h) => h.id === id) ?? null) : null;
+  });
+
+  readonly selectedEditHost = computed(() => {
+    const id = this.editHostId();
+    return id ? (this.modalHosts().find((h) => h.id === id) ?? null) : null;
+  });
+
+  // ── Volunteers tab ────────────────────────────────────────────────────────
+
   readonly regionVolunteers = signal<VolunteerSummary[]>([]);
   readonly volunteersLoading = signal(false);
   readonly selectedVolunteerId = signal('');
@@ -84,7 +126,8 @@ export class ActivitiesListComponent implements OnInit {
     return this.regionVolunteers().filter((v) => !assigned.has(v.id) && v.is_active);
   });
 
-  // Groups tab
+  // ── Groups tab ────────────────────────────────────────────────────────────
+
   readonly availableGroups = signal<AvailableGroupForActivity[]>([]);
   readonly groupsLoading = signal(false);
   readonly selectedGroupId = signal('');
@@ -118,6 +161,26 @@ export class ActivitiesListComponent implements OnInit {
         if (r.length > 0) this.filterRegion.set(r[0].id);
         this.load();
       },
+    });
+
+    this.createForm.get('region_id')!.valueChanges.subscribe((regionId) => {
+      if (regionId) this.loadHostsForRegion(regionId);
+      else this.modalHosts.set([]);
+      this.createForm.patchValue({ host_id: null }, { emitEvent: false });
+      this.createHostId.set(null);
+      this.createDepartureFromHost.set(false);
+    });
+
+    this.createForm.get('host_id')!.valueChanges.subscribe((hostId) => {
+      this.createHostId.set(hostId ?? null);
+      if (this.createDepartureFromHost()) this.applyHostToLocation('create', 'departure');
+      if (this.createActivityFromHost()) this.applyHostToLocation('create', 'activity');
+    });
+
+    this.editForm.get('host_id')!.valueChanges.subscribe((hostId) => {
+      this.editHostId.set(hostId ?? null);
+      if (this.editDepartureFromHost()) this.applyHostToLocation('edit', 'departure');
+      if (this.editActivityFromHost()) this.applyHostToLocation('edit', 'activity');
     });
   }
 
@@ -162,11 +225,58 @@ export class ActivitiesListComponent implements OnInit {
     }
   }
 
+  toggleLocationFromHost(form: 'create' | 'edit', field: 'departure' | 'activity', checked: boolean) {
+    if (field === 'departure') {
+      if (form === 'create') this.createDepartureFromHost.set(checked);
+      else this.editDepartureFromHost.set(checked);
+      if (!checked) {
+        if (form === 'create') this.createDepartureLocation.set(null);
+        else this.editDepartureLocation.set(null);
+      }
+    } else {
+      if (form === 'create') this.createActivityFromHost.set(checked);
+      else this.editActivityFromHost.set(checked);
+      if (!checked) {
+        if (form === 'create') this.createActivityLocation.set(null);
+        else this.editActivityLocation.set(null);
+      }
+    }
+    if (checked) this.applyHostToLocation(form, field);
+  }
+
+  private applyHostToLocation(form: 'create' | 'edit', field: 'departure' | 'activity') {
+    const host = form === 'create' ? this.selectedCreateHost() : this.selectedEditHost();
+    if (!host?.address || host.lat === null || host.lng === null) return;
+    const loc: PlaceResult = { address: host.address, lat: host.lat, lng: host.lng };
+    if (field === 'departure') {
+      if (form === 'create') this.createDepartureLocation.set(loc);
+      else this.editDepartureLocation.set(loc);
+    } else {
+      if (form === 'create') this.createActivityLocation.set(loc);
+      else this.editActivityLocation.set(loc);
+    }
+  }
+
+  private loadHostsForRegion(regionId: string) {
+    this.hostsLoading.set(true);
+    this.hostsSvc.getAll(regionId).subscribe({
+      next: (hosts) => { this.modalHosts.set(hosts); this.hostsLoading.set(false); },
+      error: () => this.hostsLoading.set(false),
+    });
+  }
+
   // ── Create ────────────────────────────────────────────────────────────────
 
   openCreate() {
-    this.createForm.reset({ region_id: this.filterRegion() || this.regions()[0]?.id });
+    const regionId = this.filterRegion() || this.regions()[0]?.id || '';
+    this.createForm.reset({ region_id: regionId });
+    this.createActivityLocation.set(null);
+    this.createActivityFromHost.set(false);
+    this.createDepartureLocation.set(null);
+    this.createDepartureFromHost.set(false);
+    this.createHostId.set(null);
     this.formError.set('');
+    if (regionId) this.loadHostsForRegion(regionId);
     this.activeModal.set('create');
   }
 
@@ -176,15 +286,23 @@ export class ActivitiesListComponent implements OnInit {
     this.saving.set(true);
     this.formError.set('');
     const v = this.createForm.getRawValue();
+    const al = this.createActivityLocation();
+    const dl = this.createDepartureLocation();
     this.svc
       .create({
         region_id: v.region_id!,
+        name: v.name!,
+        description: v.description || null,
+        host_id: v.host_id || null,
         date: v.date!,
         start_time: v.start_time!,
         end_time: v.end_time!,
-        description: v.description || null,
-        lat: v.lat ?? null,
-        lng: v.lng ?? null,
+        activity_address: al?.address ?? null,
+        activity_lat: al?.lat ?? null,
+        activity_lng: al?.lng ?? null,
+        departure_address: dl?.address ?? null,
+        departure_lat: dl?.lat ?? null,
+        departure_lng: dl?.lng ?? null,
       })
       .subscribe({
         next: (activity) => {
@@ -214,23 +332,37 @@ export class ActivitiesListComponent implements OnInit {
     this.detailTab.set('info');
     this.detailError.set('');
     this.editForm.patchValue({
+      name: activity.name,
       date: activity.date,
       start_time: activity.start_time,
       end_time: activity.end_time,
       description: activity.description ?? '',
-      lat: activity.lat,
-      lng: activity.lng,
+      host_id: activity.host_id,
     });
+    this.editActivityLocation.set(
+      activity.activity_address && activity.activity_lat !== null && activity.activity_lng !== null
+        ? { address: activity.activity_address, lat: activity.activity_lat, lng: activity.activity_lng }
+        : null,
+    );
+    this.editDepartureLocation.set(
+      activity.departure_address && activity.departure_lat !== null && activity.departure_lng !== null
+        ? { address: activity.departure_address, lat: activity.departure_lat, lng: activity.departure_lng }
+        : null,
+    );
+    this.editActivityFromHost.set(false);
+    this.editDepartureFromHost.set(false);
+    this.editHostId.set(activity.host_id);
     this.selectedVolunteerId.set('');
     this.selectedGroupId.set('');
     this.activeModal.set('detail');
+    this.loadHostsForRegion(activity.region_id);
     this.loadRegionData(activity);
   }
 
   private loadRegionData(activity: Activity) {
     this.volunteersLoading.set(true);
     this.groupsLoading.set(true);
-    this.volunteersSvc.getAll({ regionId: activity.region_id }).subscribe({
+    this.volunteersSvc.getAll({ regionId: activity.region_id, date: activity.date }).subscribe({
       next: (res) => { this.regionVolunteers.set(res.data); this.volunteersLoading.set(false); },
       error: () => this.volunteersLoading.set(false),
     });
@@ -258,14 +390,22 @@ export class ActivitiesListComponent implements OnInit {
     this.detailSaving.set(true);
     this.detailError.set('');
     const v = this.editForm.getRawValue();
+    const al = this.editActivityLocation();
+    const dl = this.editDepartureLocation();
     this.svc
       .update(activity.id, {
+        name: v.name!,
         date: v.date!,
         start_time: v.start_time!,
         end_time: v.end_time!,
         description: v.description || null,
-        lat: v.lat ?? null,
-        lng: v.lng ?? null,
+        host_id: v.host_id || null,
+        activity_address: al?.address ?? null,
+        activity_lat: al?.lat ?? null,
+        activity_lng: al?.lng ?? null,
+        departure_address: dl?.address ?? null,
+        departure_lat: dl?.lat ?? null,
+        departure_lng: dl?.lng ?? null,
       })
       .subscribe({
         next: (updated) => {
@@ -383,10 +523,7 @@ export class ActivitiesListComponent implements OnInit {
   // ── Delete ────────────────────────────────────────────────────────────────
 
   deleteActivity(activity: Activity) {
-    if (
-      !confirm(`Delete activity on ${activity.date} (${activity.start_time}–${activity.end_time})?`)
-    )
-      return;
+    if (!confirm(`Delete "${activity.name || activity.date}"?`)) return;
     this.svc.remove(activity.id).subscribe({
       next: () => {
         if (this.selectedActivity()?.id === activity.id) this.activeModal.set(null);
