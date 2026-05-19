@@ -115,7 +115,7 @@ export class ActivitiesService {
     if (!['superadmin', 'region_admin', 'volunteer'].includes(currentUser.role)) {
       throw new ForbiddenException();
     }
-    const { regionId, date, dateFrom, dateTo, volunteerId, page = 1, limit = 50 } = query;
+    const { regionId, date, dateFrom, dateTo, hostId, volunteerId, page = 1, limit = 50 } = query;
 
     const qb = this.activitiesRepo
       .createQueryBuilder('a')
@@ -153,6 +153,7 @@ export class ActivitiesService {
     if (date) qb.andWhere('a.date = :date', { date });
     if (dateFrom) qb.andWhere('a.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('a.date <= :dateTo', { dateTo });
+    if (hostId) qb.andWhere('a.host_id = :hostId', { hostId });
     if (volunteerId) qb.andWhere('volunteers.id = :volunteerId', { volunteerId });
 
     const total = await qb.getCount();
