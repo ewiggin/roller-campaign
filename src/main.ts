@@ -55,6 +55,25 @@ morgan.token('url-trimmed', (req) => {
   const url = req.url ?? '';
   return url.length > 60 ? url.slice(0, 57) + '…' : url;
 });
+morgan.token('origin-colored', (req) => {
+  const origin = req.headers.origin;
+  return origin ? c.magenta(origin) : c.dim('-');
+});
+morgan.token('ip', (req) => {
+  const fwd = req.headers['x-forwarded-for'];
+  const ip = (Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0]) ?? req.socket.remoteAddress ?? '-';
+  return c.cyan(ip.trim());
+});
+morgan.token('user-colored', (req) => {
+  const raw = req.headers.authorization?.split(' ')[1];
+  if (!raw) return c.dim('anon');
+  try {
+    const payload = JSON.parse(Buffer.from(raw.split('.')[1], 'base64url').toString()) as { role?: string; email?: string };
+    return c.bold(`${payload.role ?? '?'}`) + c.dim(`:${payload.email ?? '?'}`);
+  } catch {
+    return c.dim('anon');
+  }
+});
 
 const logger = new Logger('Bootstrap');
 
@@ -64,7 +83,7 @@ async function bootstrap() {
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
 
-  const fmt = `${c.dim(':date[iso]')}  :method-colored :url-trimmed ${c.dim('→')} :status-colored :response-time-colored ${c.dim(':res[content-length] bytes')}`;
+  const fmt = `${c.dim(':date[iso]')}  :method-colored :url-trimmed ${c.dim('→')} :status-colored :response-time-colored ${c.dim(':res[content-length] bytes')}  :ip  :user-colored  :origin-colored`;
   app.use(morgan(fmt));
 
   app.setGlobalPrefix('api');
