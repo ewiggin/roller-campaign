@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import type { Activity, ActivityListResponse, AvailableGroupForActivity, AvailableVolunteerForActivity, CreateActivityBatchPayload, CreateActivityPayload } from '../models/activity.model';
+import type { Activity, ActivityListResponse, AvailableGroupForActivity, AvailableVolunteerForActivity, CreateActivityBatchPayload, CreateActivityPayload, UpdateActivityPayload } from '../models/activity.model';
 
 @Injectable({ providedIn: 'root' })
 export class ActivitiesService {
@@ -29,8 +29,12 @@ export class ActivitiesService {
     return this.http.post<Activity[]>('/api/activities/batch', payload);
   }
 
-  update(id: string, payload: Partial<CreateActivityPayload>) {
+  update(id: string, payload: UpdateActivityPayload) {
     return this.http.patch<Activity>(`/api/activities/${id}`, payload);
+  }
+
+  updateSeriesFromDate(id: string, payload: UpdateActivityPayload) {
+    return this.http.patch<Activity>(`/api/activities/${id}/series-from-here`, payload);
   }
 
   remove(id: string) {

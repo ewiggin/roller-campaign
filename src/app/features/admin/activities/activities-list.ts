@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { concatMap, from, last } from 'rxjs';
-import type { Activity, ActivityStatus, AvailableGroupForActivity, AvailableVolunteerForActivity, RepeatType } from '../../../core/models/activity.model';
+import type { Activity, ActivityStatus, AvailableGroupForActivity, AvailableVolunteerForActivity, RepeatType, UpdateActivityPayload } from '../../../core/models/activity.model';
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
@@ -113,6 +113,8 @@ export class ActivitiesListComponent implements OnInit {
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
   readonly detailError = signal('');
+  readonly seriesChoiceVisible = signal(false);
+  private pendingSavePayload: UpdateActivityPayload | null = null;
   readonly editIconValue = signal('');
 
   readonly editForm = this.fb.group({
@@ -485,39 +487,95 @@ export class ActivitiesListComponent implements OnInit {
     if (this.editForm.invalid) return;
     const activity = this.selectedActivity();
     if (!activity) return;
-    this.detailSaving.set(true);
-    this.detailError.set('');
+
+    const payload = this.buildSavePayload();
+
+    if (activity.series_id) {
+      this.pendingSavePayload = payload;
+      this.seriesChoiceVisible.set(true);
+    } else {
+      this.executeSave(payload);
+    }
+  }
+
+  confirmSaveOnlyThis() {
+    if (!this.pendingSavePayload) return;
+    this.seriesChoiceVisible.set(false);
+    this.executeSave({ ...this.pendingSavePayload, detach_from_series: true });
+    this.pendingSavePayload = null;
+  }
+
+  confirmSaveFuture() {
+    if (!this.pendingSavePayload) return;
+    this.seriesChoiceVisible.set(false);
+    this.executeSeriesUpdate(this.pendingSavePayload);
+    this.pendingSavePayload = null;
+  }
+
+  cancelSeriesChoice() {
+    this.seriesChoiceVisible.set(false);
+    this.pendingSavePayload = null;
+  }
+
+  private buildSavePayload(): UpdateActivityPayload {
     const v = this.editForm.getRawValue();
     const al = this.editActivityLocation();
     const dl = this.editDepartureLocation();
-    this.svc
-      .update(activity.id, {
-        name: v.name!,
-        icon: this.editIconValue() || null,
-        date: v.date!,
-        start_time: v.start_time!,
-        end_time: v.end_time!,
-        description: v.description || null,
-        host_id: v.host_id || null,
-        activity_address: al?.address ?? null,
-        activity_lat: al?.lat ?? null,
-        activity_lng: al?.lng ?? null,
-        departure_address: dl?.address ?? null,
-        departure_lat: dl?.lat ?? null,
-        departure_lng: dl?.lng ?? null,
-      })
-      .subscribe({
-        next: (updated) => {
-          this.selectedActivity.set(updated);
-          this.detailSaving.set(false);
-          this.activeModal.set(null);
-          this.load();
-        },
-        error: () => {
-          this.detailError.set('Error saving changes.');
-          this.detailSaving.set(false);
-        },
-      });
+    return {
+      name: v.name!,
+      icon: this.editIconValue() || null,
+      date: v.date!,
+      start_time: v.start_time!,
+      end_time: v.end_time!,
+      description: v.description || null,
+      host_id: v.host_id || null,
+      activity_address: al?.address ?? null,
+      activity_lat: al?.lat ?? null,
+      activity_lng: al?.lng ?? null,
+      departure_address: dl?.address ?? null,
+      departure_lat: dl?.lat ?? null,
+      departure_lng: dl?.lng ?? null,
+    };
+  }
+
+  private executeSave(payload: UpdateActivityPayload) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.detailError.set('');
+    this.svc.update(activity.id, payload).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.activeModal.set(null);
+        this.load();
+        if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+      },
+      error: () => {
+        this.detailError.set('Error saving changes.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  private executeSeriesUpdate(payload: UpdateActivityPayload) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.detailError.set('');
+    this.svc.updateSeriesFromDate(activity.id, payload).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.activeModal.set(null);
+        this.load();
+        if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+      },
+      error: () => {
+        this.detailError.set('Error updating series.');
+        this.detailSaving.set(false);
+      },
+    });
   }
 
   togglePublish() {
@@ -654,6 +712,8 @@ export class ActivitiesListComponent implements OnInit {
 
   closeModal() {
     this.activeModal.set(null);
+    this.seriesChoiceVisible.set(false);
+    this.pendingSavePayload = null;
   }
 
   statusBadgeClass(status: ActivityStatus): string {

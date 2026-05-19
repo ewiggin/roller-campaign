@@ -76,6 +76,10 @@ export interface CreateActivityBatchPayload extends CreateActivityPayload {
   repetition: RepetitionPayload;
 }
 
+export interface UpdateActivityPayload extends Partial<CreateActivityPayload> {
+  detach_from_series?: boolean;
+}
+
 export interface CreateActivityPayload {
   region_id: string;
   name: string;

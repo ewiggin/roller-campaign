@@ -232,6 +232,7 @@
               />
             </svg>
           </button>
+          @if (activity.status !== 'published') {
           <button
             (click)="deleteActivity(activity)"
             class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
@@ -251,6 +252,7 @@
               />
             </svg>
           </button>
+          }
         </div>
       </li>
       }
@@ -618,6 +620,28 @@
           />
           }
         </div>
+        @if (seriesChoiceVisible()) {
+        <!-- Series update choice -->
+        <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-4 space-y-3">
+          <p class="text-sm font-semibold text-blue-800 dark:text-blue-200">Apply changes to:</p>
+          <div class="space-y-2">
+            <button type="button" (click)="confirmSaveOnlyThis()" [disabled]="detailSaving()"
+              class="w-full text-left px-3 py-2.5 rounded-lg bg-white dark:bg-[#18181b] border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+              <p class="text-sm font-semibold text-gray-800 dark:text-zinc-100">Only this activity</p>
+              <p class="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Detaches this activity from the series</p>
+            </button>
+            <button type="button" (click)="confirmSaveFuture()" [disabled]="detailSaving()"
+              class="w-full text-left px-3 py-2.5 rounded-lg bg-white dark:bg-[#18181b] border border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors disabled:opacity-50">
+              <p class="text-sm font-semibold text-blue-700 dark:text-blue-300">This and future activities</p>
+              <p class="text-xs text-blue-500 dark:text-blue-400 mt-0.5">Updates all upcoming activities in the series</p>
+            </button>
+          </div>
+          <button type="button" (click)="cancelSeriesChoice()"
+            class="text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-colors">
+            Cancel
+          </button>
+        </div>
+        } @else {
         <div class="flex items-center justify-between pt-2">
           <button
             type="button"
@@ -631,39 +655,30 @@
             {{ selectedActivity()!.status === 'published' ? 'Unpublish' : 'Publish' }}
           </button>
           <div class="flex gap-2">
-            @if (selectedActivity()!.series_id) {
-            <button
-              type="button"
-              (click)="deleteActivity(selectedActivity()!)"
-              class="rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
-            >
-              Delete this
-            </button>
-            <button
-              type="button"
-              (click)="deleteSeriesFromHere(selectedActivity()!)"
-              class="rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
-            >
-              Delete this + future
-            </button>
-            } @else {
-            <button
-              type="button"
-              (click)="deleteActivity(selectedActivity()!)"
-              class="rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
-            >
-              Delete
-            </button>
+            @if (selectedActivity()!.status !== 'published') {
+              @if (selectedActivity()!.series_id) {
+              <button type="button" (click)="deleteActivity(selectedActivity()!)"
+                class="rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
+                Delete this
+              </button>
+              <button type="button" (click)="deleteSeriesFromHere(selectedActivity()!)"
+                class="rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
+                Delete this + future
+              </button>
+              } @else {
+              <button type="button" (click)="deleteActivity(selectedActivity()!)"
+                class="rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
+                Delete
+              </button>
+              }
             }
-            <button
-              type="submit"
-              [disabled]="detailSaving()"
-              class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
-            >
+            <button type="submit" [disabled]="detailSaving()"
+              class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors">
               {{ detailSaving() ? 'Saving…' : 'Save' }}
             </button>
           </div>
         </div>
+        }
       </form>
       }
 
