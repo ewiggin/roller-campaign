@@ -25,6 +25,10 @@ export class ActivitiesListComponent implements OnInit {
   private readonly svc = inject(ActivitiesService);
   private readonly regionsSvc = inject(RegionsService);
   private readonly hostsSvc = inject(HostsService);
+
+  // filter hosts (separate from modal hosts)
+  readonly filterHosts = signal<Host[]>([]);
+  readonly filterHost = signal('');
   private readonly fb = inject(FormBuilder);
 
   readonly regions = signal<Region[]>([]);
@@ -50,6 +54,10 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly regionItems = computed(() =>
     this.regions().map((r) => ({ value: r.id, label: r.name })),
+  );
+
+  readonly filterHostItems = computed(() =>
+    this.filterHosts().map((h) => ({ value: h.id, label: h.name, meta: h.address ?? undefined })),
   );
 
   readonly filteredActivities = computed(() => {
@@ -206,6 +214,9 @@ export class ActivitiesListComponent implements OnInit {
 
     this.createForm.get('date')!.valueChanges.subscribe((d) => this.createDate.set(d ?? ''));
 
+    // Load hosts for filter whenever region filter changes
+    this.hostsSvc.getAll(this.filterRegion() || undefined).subscribe({ next: (h) => this.filterHosts.set(h) });
+
     this.createForm.get('region_id')!.valueChanges.subscribe((regionId) => {
       if (regionId) this.loadHostsForRegion(regionId);
       else this.modalHosts.set([]);
@@ -233,6 +244,7 @@ export class ActivitiesListComponent implements OnInit {
       .getAll({
         regionId: this.filterRegion() || undefined,
         date: this.filterDate() || undefined,
+        hostId: this.filterHost() || undefined,
         page: this.page(),
         limit: this.limit,
       })
@@ -252,7 +264,14 @@ export class ActivitiesListComponent implements OnInit {
   applyFilters() {
     this.page.set(1);
     this.load();
-    if (this.viewMode() === 'calendar') if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+    if (this.viewMode() === 'calendar' && this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+  }
+
+  onRegionFilterChange(regionId: string) {
+    this.filterRegion.set(regionId);
+    this.filterHost.set('');
+    this.hostsSvc.getAll(regionId || undefined).subscribe({ next: (h) => this.filterHosts.set(h) });
+    this.applyFilters();
   }
 
   prevPage() {
@@ -316,6 +335,7 @@ export class ActivitiesListComponent implements OnInit {
     this.calendarLoading.set(true);
     this.svc.getAll({
       regionId: this.filterRegion() || undefined,
+      hostId: this.filterHost() || undefined,
       dateFrom: period.dateFrom,
       dateTo: period.dateTo,
       limit: 500,

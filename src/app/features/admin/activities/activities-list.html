@@ -45,24 +45,31 @@
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4"
   >
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
       <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Region</label
-        >
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Region</label>
         <app-searchable-select
           [items]="regionItems()"
           placeholder="All regions"
           emptyLabel="All regions"
           [compact]="true"
           [selected]="filterRegion()"
-          (selectedChange)="filterRegion.set($event); applyFilters()"
+          (selectedChange)="onRegionFilterChange($event)"
         />
       </div>
       <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Status</label
-        >
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Host</label>
+        <app-searchable-select
+          [items]="filterHostItems()"
+          placeholder="All hosts"
+          emptyLabel="All hosts"
+          [compact]="true"
+          [selected]="filterHost()"
+          (selectedChange)="filterHost.set($event); applyFilters()"
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Status</label>
         <select
           [ngModel]="filterStatus()"
           (ngModelChange)="filterStatus.set($event)"
@@ -84,7 +91,7 @@
       </div>
       <div class="flex items-end">
         <button
-          (click)="filterDate.set(''); filterStatus.set(''); applyFilters()"
+          (click)="filterDate.set(''); filterStatus.set(''); filterHost.set(''); applyFilters()"
           class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-zinc-400 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
         >
           Clear
