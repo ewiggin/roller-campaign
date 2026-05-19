@@ -18,7 +18,7 @@ import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 
-const ACTIVITY_RELATIONS = { volunteers: true, guestGroups: true };
+const ACTIVITY_RELATIONS = { volunteers: true, guestGroups: true, host: true };
 
 @Injectable()
 export class ActivitiesService {
@@ -38,12 +38,18 @@ export class ActivitiesService {
 
     const activity = this.activitiesRepo.create({
       region_id: dto.region_id,
+      name: dto.name,
+      description: dto.description ?? null,
+      host_id: dto.host_id ?? null,
       date: dto.date,
       start_time: dto.start_time,
       end_time: dto.end_time,
-      description: dto.description ?? null,
-      lat: dto.lat ?? null,
-      lng: dto.lng ?? null,
+      activity_address: dto.activity_address ?? null,
+      activity_lat: dto.activity_lat ?? null,
+      activity_lng: dto.activity_lng ?? null,
+      departure_address: dto.departure_address ?? null,
+      departure_lat: dto.departure_lat ?? null,
+      departure_lng: dto.departure_lng ?? null,
       status: 'draft',
       volunteers: [],
       guestGroups: [],
@@ -265,8 +271,8 @@ export class ActivitiesService {
 
       const host = (group as any).host as { lat: number | null; lng: number | null; name: string } | null;
       const distance_km =
-        activity.lat && activity.lng && host?.lat && host?.lng
-          ? this.haversineKm(activity.lat, activity.lng, host.lat, host.lng)
+        activity.activity_lat && activity.activity_lng && host?.lat && host?.lng
+          ? this.haversineKm(activity.activity_lat, activity.activity_lng, host.lat, host.lng)
           : null;
 
       result.push({
@@ -333,13 +339,20 @@ export class ActivitiesService {
   private toDto = (activity: Activity, groupCounts: Map<string, number> = new Map()): ActivityResponseDto => ({
     id: activity.id,
     region_id: activity.region_id,
+    name: activity.name,
+    description: activity.description,
+    status: activity.status,
+    host_id: activity.host_id,
+    host_name: activity.host?.name ?? null,
     date: activity.date,
     start_time: activity.start_time,
     end_time: activity.end_time,
-    description: activity.description,
-    status: activity.status,
-    lat: activity.lat,
-    lng: activity.lng,
+    activity_address: activity.activity_address,
+    activity_lat: activity.activity_lat,
+    activity_lng: activity.activity_lng,
+    departure_address: activity.departure_address,
+    departure_lat: activity.departure_lat,
+    departure_lng: activity.departure_lng,
     volunteers: (activity.volunteers ?? []).map((v) => ({
       id: v.id,
       volunteer_code: v.volunteer_code,

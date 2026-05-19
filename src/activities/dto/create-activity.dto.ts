@@ -8,6 +8,22 @@ export class CreateActivityDto {
   @IsUUID()
   region_id: string;
 
+  @ApiProperty({ example: 'Airport pickup' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiPropertyOptional({ example: 'Actividad de bienvenida en el aeropuerto', nullable: true })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  description?: string | null;
+
+  @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  host_id?: string | null;
+
   @ApiProperty({ example: '2024-06-15' })
   @IsISO8601({ strict: true })
   date: string;
@@ -20,19 +36,33 @@ export class CreateActivityDto {
   @Matches(TIME_REGEX, { message: 'end_time debe tener formato HH:MM' })
   end_time: string;
 
-  @ApiPropertyOptional({ example: 'Actividad de bienvenida en el aeropuerto' })
+  @ApiPropertyOptional({ example: 'Aeropuerto Adolfo Suárez, Madrid', nullable: true })
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  description?: string | null;
+  activity_address?: string | null;
+
+  @ApiPropertyOptional({ example: 40.4936, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  activity_lat?: number | null;
+
+  @ApiPropertyOptional({ example: -3.5668, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  activity_lng?: number | null;
+
+  @ApiPropertyOptional({ example: 'Calle Gran Vía 1, Madrid', nullable: true })
+  @IsOptional()
+  @IsString()
+  departure_address?: string | null;
 
   @ApiPropertyOptional({ example: 40.4168, nullable: true })
   @IsOptional()
   @IsNumber()
-  lat?: number | null;
+  departure_lat?: number | null;
 
   @ApiPropertyOptional({ example: -3.7038, nullable: true })
   @IsOptional()
   @IsNumber()
-  lng?: number | null;
+  departure_lng?: number | null;
 }
