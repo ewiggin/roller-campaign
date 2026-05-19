@@ -29,6 +29,7 @@ import { AssignGuestGroupDto } from './dto/assign-guest-group.dto';
 import { AssignVolunteerDto } from './dto/assign-volunteer.dto';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import { ActivityResponseDto, AvailableGroupForActivityDto } from './dto/activity-response.dto';
+import { CreateActivityBatchDto } from './dto/create-activity-batch.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 
@@ -44,6 +45,13 @@ export class ActivitiesController {
   @ApiCreatedResponse({ type: ActivityResponseDto })
   create(@Body() dto: CreateActivityDto, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto> {
     return this.svc.create(dto, user);
+  }
+
+  @Post('batch')
+  @Roles('region_admin')
+  @ApiCreatedResponse({ type: [ActivityResponseDto] })
+  createBatch(@Body() dto: CreateActivityBatchDto, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto[]> {
+    return this.svc.createBatch(dto, user);
   }
 
   @Get()
@@ -77,6 +85,17 @@ export class ActivitiesController {
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<void> {
     return this.svc.remove(id, user);
+  }
+
+  @Delete(':id/series-from-here')
+  @Roles('region_admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({ description: 'Deletes this activity and all future ones in the same series' })
+  removeSeriesFromDate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.svc.removeSeriesFromDate(id, user);
   }
 
   // ── Volunteers ────────────────────────────────────────────────────────────

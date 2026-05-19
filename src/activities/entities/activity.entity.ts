@@ -28,6 +28,9 @@ export class Activity {
   @Column()
   region_id: string;
 
+  @Column({ type: 'varchar', nullable: true, default: null })
+  series_id: string | null;
+
   @Column({ type: 'varchar', default: '' })
   name: string;
 

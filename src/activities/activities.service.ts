@@ -15,6 +15,7 @@ import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import { Activity } from './entities/activity.entity';
 import { ActivityResponseDto, AvailableGroupForActivityDto } from './dto/activity-response.dto';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
+import { CreateActivityBatchDto, RepetitionDto } from './dto/create-activity-batch.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 
@@ -57,6 +58,54 @@ export class ActivitiesService {
     });
     const saved = await this.activitiesRepo.save(activity);
     return this.toDto(saved);
+  }
+
+  async createBatch(dto: CreateActivityBatchDto, currentUser: JwtPayload): Promise<ActivityResponseDto[]> {
+    await this.assertRegionAccess(dto.region_id, currentUser);
+    const region = await this.regionsRepo.findOne({ where: { id: dto.region_id } });
+    if (!region) throw new NotFoundException('Región no encontrada');
+
+    const dates = this.generateDates(dto.date, dto.repetition);
+    const seriesId = crypto.randomUUID();
+    const saved = await Promise.all(
+      dates.map((date) =>
+        this.activitiesRepo.save(
+          this.activitiesRepo.create({
+            series_id: seriesId,
+            region_id: dto.region_id,
+            name: dto.name,
+            icon: dto.icon ?? null,
+            description: dto.description ?? null,
+            host_id: dto.host_id ?? null,
+            date,
+            start_time: dto.start_time,
+            end_time: dto.end_time,
+            activity_address: dto.activity_address ?? null,
+            activity_lat: dto.activity_lat ?? null,
+            activity_lng: dto.activity_lng ?? null,
+            departure_address: dto.departure_address ?? null,
+            departure_lat: dto.departure_lat ?? null,
+            departure_lng: dto.departure_lng ?? null,
+            status: 'draft',
+            volunteers: [],
+            guestGroups: [],
+          }),
+        ),
+      ),
+    );
+    return saved.map((a) => this.toDto(a));
+  }
+
+  private generateDates(base: string, rep: RepetitionDto): string[] {
+    const [y, m, d] = base.split('-').map(Number);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return Array.from({ length: rep.count }, (_, i) => {
+      const cur = new Date(y, m - 1, d);
+      if (rep.type === 'daily') cur.setDate(d + i);
+      else if (rep.type === 'weekly') cur.setDate(d + i * 7);
+      // same_day: date unchanged
+      return `${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`;
+    });
   }
 
   async findAll(
@@ -144,6 +193,27 @@ export class ActivitiesService {
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
     await this.activitiesRepo.remove(activity);
+  }
+
+  async removeSeriesFromDate(id: string, currentUser: JwtPayload): Promise<void> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    if (!activity.series_id) {
+      await this.activitiesRepo.remove(activity);
+      return;
+    }
+
+    await this.activitiesRepo
+      .createQueryBuilder()
+      .delete()
+      .from(Activity)
+      .where('series_id = :seriesId AND date >= :date', {
+        seriesId: activity.series_id,
+        date: activity.date,
+      })
+      .execute();
   }
 
   async assignVolunteer(id: string, volunteerId: string, currentUser: JwtPayload): Promise<ActivityResponseDto> {
@@ -340,6 +410,7 @@ export class ActivitiesService {
   private toDto = (activity: Activity, groupCounts: Map<string, number> = new Map()): ActivityResponseDto => ({
     id: activity.id,
     region_id: activity.region_id,
+    series_id: activity.series_id,
     name: activity.name,
     icon: activity.icon,
     description: activity.description,

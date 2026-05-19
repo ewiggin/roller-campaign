@@ -33,6 +33,7 @@ describe('Activities (e2e)', () => {
 
   const baseTurn = () => ({
     region_id: regionId,
+    name: 'Test activity',
     date: '2024-06-15',
     start_time: '09:00',
     end_time: '13:00',
