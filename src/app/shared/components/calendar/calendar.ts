@@ -16,7 +16,35 @@ const HOUR_END = 22;
 const PX_PER_HOUR = 64;
 const TOTAL_HEIGHT = (HOUR_END - HOUR_START) * PX_PER_HOUR;
 
-interface Layout { col: number; totalCols: number; }
+export interface Layout { col: number; totalCols: number; }
+
+export function computeLayout(acts: { id: string; start_time: string; end_time: string }[]): Map<string, Layout> {
+  const result = new Map<string, Layout>();
+  if (!acts.length) return result;
+
+  const sorted = [...acts].sort((a, b) => a.start_time.localeCompare(b.start_time));
+  const colEndTimes: string[] = [];
+  const colOf = new Map<string, number>();
+
+  for (const act of sorted) {
+    let col = colEndTimes.findIndex((end) => end <= act.start_time);
+    if (col === -1) col = colEndTimes.length;
+    colEndTimes[col] = act.end_time;
+    colOf.set(act.id, col);
+  }
+
+  for (const act of sorted) {
+    let maxCol = 0;
+    for (const other of sorted) {
+      if (act.start_time < other.end_time && act.end_time > other.start_time) {
+        maxCol = Math.max(maxCol, colOf.get(other.id)!);
+      }
+    }
+    result.set(act.id, { col: colOf.get(act.id)!, totalCols: maxCol + 1 });
+  }
+
+  return result;
+}
 
 @Component({
   selector: 'app-calendar',
@@ -104,7 +132,7 @@ export class CalendarComponent implements OnInit {
         dayNum: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
         isToday: dateStr === this.todayStr,
         acts,
-        layout: this.computeLayout(acts),
+        layout: computeLayout(acts),
       };
     });
   });
@@ -114,7 +142,7 @@ export class CalendarComponent implements OnInit {
   readonly dayInfo = computed(() => {
     const dateStr = this.toISO(this.anchor());
     const acts = this.activities().filter((a) => a.date === dateStr);
-    return { dateStr, isToday: dateStr === this.todayStr, acts, layout: this.computeLayout(acts) };
+    return { dateStr, isToday: dateStr === this.todayStr, acts, layout: computeLayout(acts) };
   });
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -195,35 +223,6 @@ export class CalendarComponent implements OnInit {
     return `${String(h).padStart(2, '0')}:00`;
   }
 
-  // ── Private ───────────────────────────────────────────────────────────────
-
-  private computeLayout(acts: Activity[]): Map<string, Layout> {
-    const result = new Map<string, Layout>();
-    if (!acts.length) return result;
-
-    const sorted = [...acts].sort((a, b) => a.start_time.localeCompare(b.start_time));
-    const colEndTimes: string[] = [];
-    const colOf = new Map<string, number>();
-
-    for (const act of sorted) {
-      let col = colEndTimes.findIndex((end) => end <= act.start_time);
-      if (col === -1) col = colEndTimes.length;
-      colEndTimes[col] = act.end_time;
-      colOf.set(act.id, col);
-    }
-
-    for (const act of sorted) {
-      let maxCol = 0;
-      for (const other of sorted) {
-        if (act.start_time < other.end_time && act.end_time > other.start_time) {
-          maxCol = Math.max(maxCol, colOf.get(other.id)!);
-        }
-      }
-      result.set(act.id, { col: colOf.get(act.id)!, totalCols: maxCol + 1 });
-    }
-
-    return result;
-  }
 
   private emitPeriod() {
     const a = this.anchor();
