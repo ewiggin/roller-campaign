@@ -9,6 +9,7 @@ import { ActivitiesService } from '../../../core/services/activities.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
+import { EmojiPickerComponent } from '../../../shared/components/emoji-picker/emoji-picker';
 import { LocationPickerComponent, type PlaceResult } from '../../../shared/components/location-picker/location-picker';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
@@ -17,7 +18,7 @@ type DetailTab = 'info' | 'volunteers' | 'groups';
 
 @Component({
   selector: 'app-activities-list',
-  imports: [ReactiveFormsModule, FormsModule, DatePipe, SearchableSelectComponent, LocationPickerComponent],
+  imports: [ReactiveFormsModule, FormsModule, DatePipe, SearchableSelectComponent, LocationPickerComponent, EmojiPickerComponent],
   templateUrl: './activities-list.html',
 })
 export class ActivitiesListComponent implements OnInit {
@@ -56,15 +57,19 @@ export class ActivitiesListComponent implements OnInit {
   readonly activeModal = signal<ActiveModal>(null);
   readonly saving = signal(false);
   readonly formError = signal('');
+  readonly createIconValue = signal('');
+
   readonly createForm = this.fb.group({
     region_id: ['', Validators.required],
     name: ['', Validators.required],
     date: ['', Validators.required],
     start_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     end_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
-    description: [''],
+    description: ['', Validators.maxLength(500)],
     host_id: [null as string | null],
   });
+
+  readonly createDescLen = signal(0);
 
   readonly createActivityLocation = signal<PlaceResult | null>(null);
   readonly createActivityFromHost = signal(false);
@@ -78,14 +83,18 @@ export class ActivitiesListComponent implements OnInit {
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
   readonly detailError = signal('');
+  readonly editIconValue = signal('');
+
   readonly editForm = this.fb.group({
     name: ['', Validators.required],
     date: ['', Validators.required],
     start_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     end_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
-    description: [''],
+    description: ['', Validators.maxLength(500)],
     host_id: [null as string | null],
   });
+
+  readonly editDescLen = signal(0);
 
   readonly editActivityLocation = signal<PlaceResult | null>(null);
   readonly editActivityFromHost = signal(false);
@@ -270,6 +279,8 @@ export class ActivitiesListComponent implements OnInit {
   openCreate() {
     const regionId = this.filterRegion() || this.regions()[0]?.id || '';
     this.createForm.reset({ region_id: regionId });
+    this.createIconValue.set('');
+    this.createDescLen.set(0);
     this.createActivityLocation.set(null);
     this.createActivityFromHost.set(false);
     this.createDepartureLocation.set(null);
@@ -292,6 +303,7 @@ export class ActivitiesListComponent implements OnInit {
       .create({
         region_id: v.region_id!,
         name: v.name!,
+        icon: this.createIconValue() || null,
         description: v.description || null,
         host_id: v.host_id || null,
         date: v.date!,
@@ -331,6 +343,7 @@ export class ActivitiesListComponent implements OnInit {
     this.selectedActivity.set(activity);
     this.detailTab.set('info');
     this.detailError.set('');
+    this.editIconValue.set(activity.icon ?? '');
     this.editForm.patchValue({
       name: activity.name,
       date: activity.date,
@@ -339,6 +352,7 @@ export class ActivitiesListComponent implements OnInit {
       description: activity.description ?? '',
       host_id: activity.host_id,
     });
+    this.editDescLen.set(activity.description?.length ?? 0);
     this.editActivityLocation.set(
       activity.activity_address && activity.activity_lat !== null && activity.activity_lng !== null
         ? { address: activity.activity_address, lat: activity.activity_lat, lng: activity.activity_lng }
@@ -395,6 +409,7 @@ export class ActivitiesListComponent implements OnInit {
     this.svc
       .update(activity.id, {
         name: v.name!,
+        icon: this.editIconValue() || null,
         date: v.date!,
         start_time: v.start_time!,
         end_time: v.end_time!,

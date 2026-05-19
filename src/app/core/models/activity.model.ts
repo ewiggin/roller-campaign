@@ -16,6 +16,7 @@ export interface Activity {
   id: string;
   region_id: string;
   name: string;
+  icon: string | null;
   description: string | null;
   status: ActivityStatus;
   host_id: string | null;
@@ -58,6 +59,7 @@ export interface ActivityListResponse {
 export interface CreateActivityPayload {
   region_id: string;
   name: string;
+  icon?: string | null;
   description?: string | null;
   host_id?: string | null;
   date: string;
