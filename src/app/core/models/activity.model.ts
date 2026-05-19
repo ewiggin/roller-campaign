@@ -48,6 +48,7 @@ export interface AvailableGroupForActivity {
   host_lng: number | null;
   distance_km: number | null;
   guest_count: number;
+  already_in_activity: boolean;
 }
 
 export interface ActivityListResponse {

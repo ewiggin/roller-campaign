@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { concatMap, from, last } from 'rxjs';
 import type { Activity, ActivityStatus, AvailableGroupForActivity, RepeatType } from '../../../core/models/activity.model';
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
@@ -161,7 +162,7 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly regionVolunteers = signal<VolunteerSummary[]>([]);
   readonly volunteersLoading = signal(false);
-  readonly selectedVolunteerId = signal('');
+  readonly selectedVolunteerIds = signal<string[]>([]);
   readonly availableVolunteers = computed(() => {
     const assigned = new Set(this.selectedActivity()?.volunteers.map((v) => v.id) ?? []);
     return this.regionVolunteers().filter((v) => !assigned.has(v.id) && v.is_active);
@@ -171,7 +172,7 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly availableGroups = signal<AvailableGroupForActivity[]>([]);
   readonly groupsLoading = signal(false);
-  readonly selectedGroupId = signal('');
+  readonly selectedGroupIds = signal<string[]>([]);
 
   readonly availableVolunteerItems = computed(() =>
     this.availableVolunteers().map((v) => ({
@@ -185,13 +186,16 @@ export class ActivitiesListComponent implements OnInit {
     this.availableGroups().map((g) => ({
       value: g.id,
       label: g.group_code,
-      meta: [
-        g.distance_km !== null ? `${g.distance_km} km` : null,
-        g.host_name ?? null,
-        `${g.guest_count} guests`,
-      ]
-        .filter(Boolean)
-        .join(' · '),
+      disabled: g.already_in_activity,
+      meta: g.already_in_activity
+        ? 'Already in another activity'
+        : [
+            g.distance_km !== null ? `${g.distance_km} km` : null,
+            g.host_name ?? null,
+            `${g.guest_count} guests`,
+          ]
+            .filter(Boolean)
+            .join(' · '),
     })),
   );
 
@@ -442,8 +446,8 @@ export class ActivitiesListComponent implements OnInit {
     this.editActivityFromHost.set(false);
     this.editDepartureFromHost.set(false);
     this.editHostId.set(activity.host_id);
-    this.selectedVolunteerId.set('');
-    this.selectedGroupId.set('');
+    this.selectedVolunteerIds.set([]);
+    this.selectedGroupIds.set([]);
     this.activeModal.set('detail');
     this.loadHostsForRegion(activity.region_id);
     this.loadRegionData(activity);
@@ -535,20 +539,23 @@ export class ActivitiesListComponent implements OnInit {
 
   // ── Volunteers ────────────────────────────────────────────────────────────
 
-  addVolunteer() {
-    const vid = this.selectedVolunteerId();
+  addVolunteers() {
+    const ids = this.selectedVolunteerIds();
     const activity = this.selectedActivity();
-    if (!vid || !activity) return;
+    if (!ids.length || !activity) return;
     this.detailSaving.set(true);
-    this.svc.assignVolunteer(activity.id, vid).subscribe({
+    from(ids).pipe(
+      concatMap((id) => this.svc.assignVolunteer(activity.id, id)),
+      last(),
+    ).subscribe({
       next: (updated) => {
         this.selectedActivity.set(updated);
-        this.selectedVolunteerId.set('');
+        this.selectedVolunteerIds.set([]);
         this.detailSaving.set(false);
         this.load();
       },
       error: () => {
-        this.detailError.set('Error assigning volunteer.');
+        this.detailError.set('Error assigning volunteers.');
         this.detailSaving.set(false);
       },
     });
@@ -573,21 +580,24 @@ export class ActivitiesListComponent implements OnInit {
 
   // ── Groups ────────────────────────────────────────────────────────────────
 
-  addGroup() {
-    const gid = this.selectedGroupId();
+  addGroups() {
+    const ids = this.selectedGroupIds();
     const activity = this.selectedActivity();
-    if (!gid || !activity) return;
+    if (!ids.length || !activity) return;
     this.detailSaving.set(true);
-    this.svc.assignGuestGroup(activity.id, gid).subscribe({
+    from(ids).pipe(
+      concatMap((id) => this.svc.assignGuestGroup(activity.id, id)),
+      last(),
+    ).subscribe({
       next: (updated) => {
         this.selectedActivity.set(updated);
-        this.selectedGroupId.set('');
+        this.selectedGroupIds.set([]);
         this.detailSaving.set(false);
         this.reloadAvailableGroups();
         this.load();
       },
       error: () => {
-        this.detailError.set('Error assigning group.');
+        this.detailError.set('Error assigning groups.');
         this.detailSaving.set(false);
       },
     });

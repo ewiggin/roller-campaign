@@ -678,18 +678,17 @@
           <app-searchable-select
             class="flex-1"
             [items]="availableVolunteerItems()"
-            placeholder="Add volunteer…"
-            emptyLabel="Add volunteer…"
-            [selected]="selectedVolunteerId()"
-            (selectedChange)="selectedVolunteerId.set($event)"
+            placeholder="Select volunteers…"
+            [multi]="true"
+            [(selectedItems)]="selectedVolunteerIds"
           />
           }
           <button
-            (click)="addVolunteer()"
-            [disabled]="!selectedVolunteerId() || detailSaving()"
-            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            (click)="addVolunteers()"
+            [disabled]="!selectedVolunteerIds().length || detailSaving()"
+            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
           >
-            Add
+            Add {{ selectedVolunteerIds().length > 1 ? selectedVolunteerIds().length : '' }}
           </button>
         </div>
 
@@ -741,18 +740,17 @@
           <app-searchable-select
             class="flex-1"
             [items]="availableGroupItems()"
-            placeholder="Add group…"
-            emptyLabel="Add group…"
-            [selected]="selectedGroupId()"
-            (selectedChange)="selectedGroupId.set($event)"
+            placeholder="Select groups…"
+            [multi]="true"
+            [(selectedItems)]="selectedGroupIds"
           />
           }
           <button
-            (click)="addGroup()"
-            [disabled]="!selectedGroupId() || detailSaving()"
-            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            (click)="addGroups()"
+            [disabled]="!selectedGroupIds().length || detailSaving()"
+            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
           >
-            Add
+            Add {{ selectedGroupIds().length > 1 ? selectedGroupIds().length : '' }}
           </button>
         </div>
 
