@@ -1,8 +1,8 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { tap } from 'rxjs/operators';
-import type { LoginRequest, LoginResponse, JwtPayload } from '../models/auth.model';
+import { catchError, firstValueFrom, of, tap } from 'rxjs';
+import type { JwtPayload, LoginRequest, LoginResponse } from '../models/auth.model';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -43,5 +43,18 @@ export class AuthService {
 
   getToken(): string | null {
     return this._token();
+  }
+
+  checkSession(): Promise<void> {
+    if (!this._token()) return Promise.resolve();
+    return firstValueFrom(
+      this.http.get('/api/auth/me').pipe(
+        catchError(() => {
+          localStorage.removeItem('admin_token');
+          this._token.set(null);
+          return of(null);
+        }),
+      ),
+    ).then(() => undefined);
   }
 }
