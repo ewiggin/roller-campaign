@@ -53,6 +53,7 @@ export class GuestGroupsService {
     currentUser: JwtPayload,
     page = 1,
     limit = 50,
+    search?: string,
   ): Promise<{ data: GuestGroupResponseDto[]; total: number; page: number; limit: number }> {
     if (currentUser.role !== 'superadmin' && currentUser.role !== 'region_admin') {
       throw new ForbiddenException();
@@ -74,6 +75,10 @@ export class GuestGroupsService {
       const ids = (user?.regions ?? []).map((r) => r.id);
       if (ids.length === 0) return { data: [], total: 0, page, limit };
       query.where('gg.region_id IN (:...ids)', { ids });
+    }
+
+    if (search) {
+      query.andWhere('gg.group_code LIKE :search', { search: `%${search}%` });
     }
 
     const total = await query.getCount();
@@ -156,11 +161,11 @@ export class GuestGroupsService {
     }
 
     let created = 0;
-    let skipped = 0;
+    let updated = 0;
     let regions_not_found = 0;
 
     if (!hasRegionCol) {
-      // ── Single-region mode (original behaviour) ───────────────────────────
+      // ── Single-region mode ────────────────────────────────────────────────
       await this.assertRegionAccess(regionId!, currentUser);
       const region = await this.regionsRepository.findOne({ where: { id: regionId } });
       if (!region) throw new NotFoundException('Región no encontrada');
@@ -169,18 +174,22 @@ export class GuestGroupsService {
         const code = this.parseGroupCode(row);
         if (!code) continue;
         const exists = await this.groupsRepository.findOne({ where: { group_code: code } });
-        if (exists) { skipped++; continue; }
+        if (exists) {
+          Object.assign(exists, this.parseAvailability(row));
+          await this.groupsRepository.save(exists);
+          updated++;
+          continue;
+        }
         await this.groupsRepository.save(
-          this.groupsRepository.create({ group_code: code, region_id: regionId! }),
+          this.groupsRepository.create({ group_code: code, region_id: regionId!, ...this.parseAvailability(row) }),
         );
         created++;
       }
     } else {
-      // ── Multi-region mode: resolve region per row from region_name ─────────
+      // ── Multi-region mode ─────────────────────────────────────────────────
       const allRegions = await this.regionsRepository.find({ select: ['id', 'name'] });
       const regionMap = new Map(allRegions.map((r) => [r.name.toLowerCase(), r.id]));
 
-      // Build set of accessible region IDs for this user
       let accessibleIds: Set<string> | 'all';
       if (currentUser.role === 'superadmin') {
         accessibleIds = 'all';
@@ -206,9 +215,14 @@ export class GuestGroupsService {
         }
 
         const exists = await this.groupsRepository.findOne({ where: { group_code: code } });
-        if (exists) { skipped++; continue; }
+        if (exists) {
+          Object.assign(exists, this.parseAvailability(row));
+          await this.groupsRepository.save(exists);
+          updated++;
+          continue;
+        }
         await this.groupsRepository.save(
-          this.groupsRepository.create({ group_code: code, region_id: resolvedRegionId }),
+          this.groupsRepository.create({ group_code: code, region_id: resolvedRegionId, ...this.parseAvailability(row) }),
         );
         created++;
       }
@@ -216,10 +230,45 @@ export class GuestGroupsService {
 
     return {
       created,
-      skipped,
+      updated,
       total: rows.length,
       ...(hasRegionCol && regions_not_found > 0 ? { regions_not_found } : {}),
     };
+  }
+
+  private parseDate(v: unknown): string | null {
+    if (!v) return null;
+    let d: Date;
+    if (v instanceof Date) {
+      d = v;
+    } else if (typeof v === 'string' && v.trim()) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) return v.trim();
+      d = new Date(v);
+      if (isNaN(d.getTime())) return null;
+    } else {
+      return null;
+    }
+    // Add 12 h to absorb timezone offsets (handles UTC±12)
+    return new Date(d.getTime() + 12 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  }
+
+  private parseAvailability(row: Record<string, unknown>): Partial<Pick<GuestGroup, 'available_from' | 'available_to' | 'composition'>> {
+    const validCompositions = ['men_only', 'mixed', 'women_only'];
+    const result: Partial<Pick<GuestGroup, 'available_from' | 'available_to' | 'composition'>> = {};
+
+    const fromKey = 'available_from' in row ? 'available_from' : 'start_date' in row ? 'start_date' : null;
+    if (fromKey) result.available_from = this.parseDate(row[fromKey]);
+
+    const toKey = 'available_to' in row ? 'available_to' : 'end_date' in row ? 'end_date' : null;
+    if (toKey) result.available_to = this.parseDate(row[toKey]);
+
+    const compKey = 'composition' in row ? 'composition' : 'group_type' in row ? 'group_type' : null;
+    if (compKey) {
+      const comp = typeof row[compKey] === 'string' ? (row[compKey] as string).trim() : '';
+      result.composition = validCompositions.includes(comp) ? (comp as 'men_only' | 'mixed' | 'women_only') : null;
+    }
+
+    return result;
   }
 
   private parseGroupCode(row: Record<string, unknown>): string | null {
@@ -270,23 +319,32 @@ export class GuestGroupsService {
     regionMap = new Map<string, string>(),
     hostMap = new Map<string, string>(),
   ): Buffer {
-    const headers = ['group_code', 'region_name', 'host_name', 'guest_count'];
+    const headers = ['group_code', 'region_name', 'host_name', 'guest_count', 'available_from', 'available_to', 'composition'];
     const rows = groups.map((g) => [
       g.group_code,
       regionMap.get(g.region_id) ?? '',
       g.host_id ? (hostMap.get(g.host_id) ?? '') : '',
       g.guest_count ?? 0,
+      g.available_from ?? '',
+      g.available_to ?? '',
+      g.composition ?? '',
     ]);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    ws['!cols'] = [{ wch: 16 }, { wch: 24 }, { wch: 28 }, { wch: 12 }];
+    ws['!cols'] = [{ wch: 16 }, { wch: 24 }, { wch: 28 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Grupos');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
   generateTemplate(): Buffer {
+    const headers = ['group_code', 'region_name', 'available_from', 'available_to', 'composition'];
+    const examples = [
+      ['GRP-001', 'Madrid', '2024-06-14', '2024-06-21', 'mixed'],
+      ['GRP-002', 'Barcelona', '', '', 'men_only'],
+    ];
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([['group_code'], ['GRP-001'], ['GRP-002']]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...examples]);
+    ws['!cols'] = [{ wch: 16 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Groups');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
@@ -303,6 +361,15 @@ export class GuestGroupsService {
       return;
     }
     throw new ForbiddenException();
+  }
+
+  async truncate(): Promise<{ deleted_guests: number; deleted_groups: number }> {
+    const guestResult = await this.guestsRepository.createQueryBuilder().delete().execute();
+    const groupResult = await this.groupsRepository.createQueryBuilder().delete().execute();
+    return {
+      deleted_guests: guestResult.affected ?? 0,
+      deleted_groups: groupResult.affected ?? 0,
+    };
   }
 
   async assignHost(id: string, hostId: string | null, currentUser: JwtPayload): Promise<GuestGroupResponseDto> {
@@ -335,6 +402,9 @@ export class GuestGroupsService {
     dto.host_id = group.host_id ?? null;
     dto.host_name = hostName ?? null;
     dto.guest_count = guestCount;
+    dto.available_from = group.available_from ?? null;
+    dto.available_to = group.available_to ?? null;
+    dto.composition = group.composition ?? null;
     dto.created_at = group.created_at;
     dto.updated_at = group.updated_at;
     return dto;

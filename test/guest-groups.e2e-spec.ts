@@ -33,7 +33,14 @@ describe('GuestGroups (e2e)', () => {
         .send({ group_code: 'GRP-001', region_id: regionId })
         .expect(201);
 
-      expect(res.body).toMatchObject({ group_code: 'GRP-001', region_id: regionId, guest_count: 0 });
+      expect(res.body).toMatchObject({
+        group_code: 'GRP-001',
+        region_id: regionId,
+        guest_count: 0,
+        available_from: null,
+        available_to: null,
+        composition: null,
+      });
     });
 
     it('returns 409 for duplicate group_code', () =>
@@ -64,15 +71,18 @@ describe('GuestGroups (e2e)', () => {
         .get(`/api/guest-groups?regionId=${regionId}`)
         .set('Authorization', auth())
         .expect(200);
-
+      expect(res.body).toHaveProperty('data');
+      expect(res.body).toHaveProperty('total');
       expect(Array.isArray(res.body.data)).toBe(true);
-      expect(res.body.total).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
       expect(res.body.data[0]).toHaveProperty('guest_count');
+      expect(res.body.data[0]).toHaveProperty('available_from');
+      expect(res.body.data[0]).toHaveProperty('composition');
     });
   });
 
   describe('PATCH /api/guest-groups/:id', () => {
-    it('updates a group', async () => {
+    it('updates group_code', async () => {
       const grp = await request(server)
         .post('/api/guest-groups')
         .set('Authorization', auth())
@@ -85,6 +95,58 @@ describe('GuestGroups (e2e)', () => {
         .expect(200);
 
       expect(res.body.group_code).toBe('GRP-UPDATED');
+    });
+
+    it('updates availability dates and composition', async () => {
+      const grp = await request(server)
+        .post('/api/guest-groups')
+        .set('Authorization', auth())
+        .send({ group_code: 'GRP-AVAIL', region_id: regionId })
+        .expect(201);
+
+      const res = await request(server)
+        .patch(`/api/guest-groups/${grp.body.id}`)
+        .set('Authorization', auth())
+        .send({ available_from: '2024-06-14', available_to: '2024-06-21', composition: 'mixed' })
+        .expect(200);
+
+      expect(res.body.available_from).toBe('2024-06-14');
+      expect(res.body.available_to).toBe('2024-06-21');
+      expect(res.body.composition).toBe('mixed');
+    });
+
+    it('returns 400 for invalid composition value', () =>
+      request(server)
+        .post('/api/guest-groups')
+        .set('Authorization', auth())
+        .send({ group_code: 'GRP-BAD-COMP', region_id: regionId })
+        .then((grp) =>
+          request(server)
+            .patch(`/api/guest-groups/${grp.body.id}`)
+            .set('Authorization', auth())
+            .send({ composition: 'invalid_value' })
+            .expect(400),
+        ));
+
+    it('clears availability and composition when set to null', async () => {
+      const grp = await request(server)
+        .post('/api/guest-groups')
+        .set('Authorization', auth())
+        .send({ group_code: 'GRP-CLEAR', region_id: regionId });
+
+      await request(server)
+        .patch(`/api/guest-groups/${grp.body.id}`)
+        .set('Authorization', auth())
+        .send({ available_from: '2024-06-14', composition: 'men_only' });
+
+      const res = await request(server)
+        .patch(`/api/guest-groups/${grp.body.id}`)
+        .set('Authorization', auth())
+        .send({ available_from: null, composition: null })
+        .expect(200);
+
+      expect(res.body.available_from).toBeNull();
+      expect(res.body.composition).toBeNull();
     });
   });
 
@@ -136,7 +198,6 @@ describe('GuestGroups (e2e)', () => {
         .set('Authorization', auth())
         .send({ guest_code: 'G-C2', group_id: grp.body.id, region_id: regionId, full_name: 'B', is_group_contact: true });
 
-      // Set G-C1 as contact
       await request(server)
         .patch(`/api/guest-groups/${grp.body.id}/contact`)
         .set('Authorization', auth())

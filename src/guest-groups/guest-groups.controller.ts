@@ -38,6 +38,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { Audit } from '../audit-logs/decorators/audit.decorator';
 
 @ApiTags('guest-groups')
 @ApiBearerAuth()
@@ -109,9 +110,10 @@ export class GuestGroupsController {
     @Query('regionId') regionId: string | undefined,
     @Query('page', new ParseIntPipe({ optional: true })) page = 1,
     @Query('limit', new ParseIntPipe({ optional: true })) limit = 50,
+    @Query('search') search: string | undefined,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.service.findAll(regionId, user, page, limit);
+    return this.service.findAll(regionId, user, page, limit, search);
   }
 
   @Get(':id')
@@ -133,6 +135,15 @@ export class GuestGroupsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<GuestGroupResponseDto> {
     return this.service.update(id, dto, user);
+  }
+
+  @Delete('truncate')
+  @Roles('superadmin')
+  @Audit('truncate', 'guest_group')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Deleted guests and guest-groups counts' })
+  truncate(): Promise<{ deleted_guests: number; deleted_groups: number }> {
+    return this.service.truncate();
   }
 
   @Delete(':id')

@@ -34,6 +34,15 @@ export class GuestGroup {
   @Column({ nullable: true, default: null })
   host_id: string | null;
 
+  @Column({ type: 'varchar', nullable: true, default: null })
+  available_from: string | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  available_to: string | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  composition: 'men_only' | 'mixed' | 'women_only' | null;
+
   @OneToMany('Guest', (guest: Guest) => guest.group)
   guests: Guest[];
 
