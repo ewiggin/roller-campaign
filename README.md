@@ -1,59 +1,82 @@
-# RollerAdmin
+# roller-admin
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.3.
+Backoffice SPA for superadmins and region coordinators of the Roller Campaign platform.
 
-## Development server
+## Stack
 
-To start a local development server, run:
+| Layer | Technology |
+|---|---|
+| Framework | Angular 21 (standalone components, signals) |
+| Styling | Tailwind CSS v4 (CSS-native config) |
+| Auth | JWT stored in `localStorage`, auto-logout on 401 |
+| Build | Angular CLI + esbuild |
 
-```bash
-ng serve
-```
+## Features
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- Region management (dates, coordinators, Excel import/export)
+- Guest group and guest tracking (pagination, filters, group migration)
+- Host management with group suggestions
+- Volunteer management with calendar availability
+- Activity shifts and volunteer assignment
+- Dark mode (persisted in `localStorage`, respects `prefers-color-scheme`)
 
-## Code scaffolding
+## Getting started
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
+### 1. Install dependencies
 
 ```bash
-ng build
+npm install
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+### 2. Run
 
 ```bash
-ng test
+npm start
 ```
 
-## Running end-to-end tests
+Open `http://localhost:4200`. API calls are proxied to `http://localhost:3000` — the backend must be running.
 
-For end-to-end (e2e) testing, run:
+## Scripts
 
-```bash
-ng e2e
+| Script | Action |
+|---|---|
+| `npm start` | Development server (`localhost:4200`) |
+| `npm run build` | Production build → `dist/` |
+| `npm run build:staging` | Staging build |
+| `npm run build:production` | Production build with production environment |
+| `npm test` | Unit tests (Vitest) |
+| `npm run lint` | ESLint |
+
+## Environments
+
+| Environment | API URL |
+|---|---|
+| Development | `http://localhost:3000/api` (proxy) |
+| Staging | `https://roller-api-staging.up.railway.app/api` |
+| Production | `https://roller-api-production.up.railway.app/api` |
+
+Environment files are located in `src/environments/`.
+
+## Project structure
+
 ```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+src/app/
+├── core/
+│   ├── guards/        # Auth guard
+│   ├── interceptors/  # API URL rewrite, Bearer token injection, 401 handling
+│   ├── models/        # TypeScript interfaces per entity
+│   └── services/      # Business logic and API access
+├── shared/
+│   └── components/    # Reusable UI components (skeleton loader, etc.)
+└── features/
+    ├── login/
+    └── admin/
+        ├── layout/    # Header with dark mode toggle and logout
+        ├── dashboard/
+        ├── regions/
+        ├── users/
+        ├── hosts/
+        ├── guest-groups/
+        ├── guests/
+        └── activities/
+```
