@@ -2,12 +2,43 @@
   <!-- Header -->
   <div class="flex items-center justify-between mb-5">
     <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">Activities</h2>
-    <button
-      (click)="openCreate()"
-      class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
-    >
-      New activity
-    </button>
+    <div class="flex items-center gap-2">
+      <!-- View toggle -->
+      <div class="flex rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
+        <button
+          type="button"
+          (click)="switchView('list')"
+          title="List view"
+          class="px-2.5 py-1.5 transition-colors"
+          [class]="viewMode() === 'list'
+            ? 'bg-blue-500 text-white'
+            : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800'"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+          </svg>
+        </button>
+        <button
+          type="button"
+          (click)="switchView('calendar')"
+          title="Calendar view"
+          class="px-2.5 py-1.5 border-l border-gray-200 dark:border-zinc-700 transition-colors"
+          [class]="viewMode() === 'calendar'
+            ? 'bg-blue-500 text-white'
+            : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800'"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+        </button>
+      </div>
+      <button
+        (click)="openCreate()"
+        class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+      >
+        New activity
+      </button>
+    </div>
   </div>
 
   <!-- Filters -->
@@ -62,7 +93,79 @@
     </div>
   </div>
 
+  <!-- Calendar view -->
+  @if (viewMode() === 'calendar') {
+  <div class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden">
+    <!-- Month nav -->
+    <div class="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700">
+      <button type="button" (click)="prevMonth()"
+        class="p-1.5 rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200">{{ calendarMonthLabel() }}</span>
+      <button type="button" (click)="nextMonth()"
+        class="p-1.5 rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+    </div>
+    <!-- Day headers -->
+    <div class="grid grid-cols-7 border-b border-gray-100 dark:border-zinc-800">
+      @for (d of ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; track d) {
+      <div class="py-2 text-center text-xs font-medium text-gray-400 dark:text-zinc-500 uppercase tracking-wide">{{ d }}</div>
+      }
+    </div>
+    <!-- Grid -->
+    @if (calendarLoading()) {
+    <div class="h-96 flex items-center justify-center">
+      <svg class="w-6 h-6 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+      </svg>
+    </div>
+    } @else {
+    @for (week of calendarGrid(); track $index) {
+    <div class="grid grid-cols-7 border-b border-gray-100 dark:border-zinc-800 last:border-b-0">
+      @for (cell of week; track $index) {
+      <div
+        class="min-h-24 border-r border-gray-100 dark:border-zinc-800 last:border-r-0 p-1.5 transition-colors"
+        [class.bg-gray-50]="!cell.dateStr"
+        [class.dark:bg-zinc-900]="!cell.dateStr"
+      >
+        @if (cell.day !== null) {
+        <p class="text-xs font-semibold mb-1 w-6 h-6 flex items-center justify-center rounded-full"
+          [class]="cell.isToday
+            ? 'bg-blue-500 text-white'
+            : 'text-gray-400 dark:text-zinc-500'">
+          {{ cell.day }}
+        </p>
+        @for (a of cell.acts.slice(0, 3); track a.id) {
+        <button type="button" (click)="loadAndOpenDetail(a.id)"
+          class="w-full text-left text-xs rounded px-1 py-0.5 mb-0.5 truncate transition-colors"
+          [class]="a.status === 'published'
+            ? 'bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900'
+            : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hover:bg-gray-200 dark:hover:bg-zinc-700'"
+        >
+          @if (a.icon) {<span class="mr-0.5">{{ a.icon }}</span>}{{ a.name || a.start_time }}
+        </button>
+        }
+        @if (cell.acts.length > 3) {
+        <p class="text-xs text-gray-400 dark:text-zinc-500 pl-1">+{{ cell.acts.length - 3 }} more</p>
+        }
+        }
+      </div>
+      }
+    </div>
+    }
+    }
+  </div>
+  }
+
   <!-- List -->
+  @if (viewMode() === 'list') {
   @if (loading()) {
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
@@ -216,6 +319,7 @@
     }
   </div>
   }
+  } <!-- /viewMode list -->
 </div>
 
 <!-- Create modal -->

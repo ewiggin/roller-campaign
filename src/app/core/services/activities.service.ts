@@ -6,10 +6,12 @@ import type { Activity, ActivityListResponse, AvailableGroupForActivity, CreateA
 export class ActivitiesService {
   private readonly http = inject(HttpClient);
 
-  getAll(query: { regionId?: string; date?: string; page?: number; limit?: number } = {}) {
+  getAll(query: { regionId?: string; date?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number } = {}) {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
     if (query.date) params = params.set('date', query.date);
+    if (query.dateFrom) params = params.set('dateFrom', query.dateFrom);
+    if (query.dateTo) params = params.set('dateTo', query.dateTo);
     if (query.page) params = params.set('page', String(query.page));
     if (query.limit) params = params.set('limit', String(query.limit));
     return this.http.get<ActivityListResponse>('/api/activities', { params });

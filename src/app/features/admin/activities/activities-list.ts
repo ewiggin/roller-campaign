@@ -36,6 +36,57 @@ export class ActivitiesListComponent implements OnInit {
   readonly page = signal(1);
   readonly limit = 50;
 
+  // ── View mode ─────────────────────────────────────────────────────────────
+
+  readonly viewMode = signal<'list' | 'calendar'>('list');
+
+  readonly calendarYear = signal(new Date().getFullYear());
+  readonly calendarMonth = signal(new Date().getMonth()); // 0-indexed
+  readonly calendarActivities = signal<Activity[]>([]);
+  readonly calendarLoading = signal(false);
+
+  private readonly todayStr = (() => {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  })();
+
+  readonly calendarMonthLabel = computed(() =>
+    new Date(this.calendarYear(), this.calendarMonth(), 1)
+      .toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+  );
+
+  readonly calendarGrid = computed(() => {
+    const year = this.calendarYear();
+    const month = this.calendarMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const pad = (n: number) => String(n).padStart(2, '0');
+
+    // Week starts on Monday: Sun(0)->6, Mon(1)->0, ..., Sat(6)->5
+    const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+
+    const cells: { dateStr: string | null; day: number | null; isToday: boolean; acts: Activity[] }[] = [];
+
+    for (let i = 0; i < firstWeekday; i++) cells.push({ dateStr: null, day: null, isToday: false, acts: [] });
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
+      cells.push({
+        dateStr,
+        day,
+        isToday: dateStr === this.todayStr,
+        acts: this.calendarActivities().filter((a) => a.date === dateStr),
+      });
+    }
+
+    while (cells.length % 7 !== 0) cells.push({ dateStr: null, day: null, isToday: false, acts: [] });
+
+    const weeks: (typeof cells)[] = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    return weeks;
+  });
+
   readonly filterRegion = signal('');
   readonly filterStatus = signal<ActivityStatus | ''>('');
   readonly filterDate = signal('');
@@ -244,6 +295,7 @@ export class ActivitiesListComponent implements OnInit {
   applyFilters() {
     this.page.set(1);
     this.load();
+    if (this.viewMode() === 'calendar') this.loadCalendar();
   }
 
   prevPage() {
@@ -290,6 +342,42 @@ export class ActivitiesListComponent implements OnInit {
       if (form === 'create') this.createActivityLocation.set(loc);
       else this.editActivityLocation.set(loc);
     }
+  }
+
+  // ── Calendar ──────────────────────────────────────────────────────────────
+
+  switchView(mode: 'list' | 'calendar') {
+    this.viewMode.set(mode);
+    if (mode === 'calendar') this.loadCalendar();
+  }
+
+  loadCalendar() {
+    const year = this.calendarYear();
+    const month = this.calendarMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    this.calendarLoading.set(true);
+    this.svc.getAll({
+      regionId: this.filterRegion() || undefined,
+      dateFrom: `${year}-${pad(month + 1)}-01`,
+      dateTo: `${year}-${pad(month + 1)}-${pad(daysInMonth)}`,
+      limit: 500,
+    }).subscribe({
+      next: (res) => { this.calendarActivities.set(res.data); this.calendarLoading.set(false); },
+      error: () => this.calendarLoading.set(false),
+    });
+  }
+
+  prevMonth() {
+    if (this.calendarMonth() === 0) { this.calendarMonth.set(11); this.calendarYear.update((y) => y - 1); }
+    else this.calendarMonth.update((m) => m - 1);
+    this.loadCalendar();
+  }
+
+  nextMonth() {
+    if (this.calendarMonth() === 11) { this.calendarMonth.set(0); this.calendarYear.update((y) => y + 1); }
+    else this.calendarMonth.update((m) => m + 1);
+    this.loadCalendar();
   }
 
   private loadHostsForRegion(regionId: string) {
@@ -354,6 +442,7 @@ export class ActivitiesListComponent implements OnInit {
             this.saving.set(false);
             this.activeModal.set(null);
             this.load();
+            if (this.viewMode() === 'calendar') this.loadCalendar();
             if (activities[0]) this.openDetail(activities[0]);
           },
           error: () => { this.formError.set('Error creating activities.'); this.saving.set(false); },
@@ -364,6 +453,7 @@ export class ActivitiesListComponent implements OnInit {
           this.saving.set(false);
           this.activeModal.set(null);
           this.load();
+          if (this.viewMode() === 'calendar') this.loadCalendar();
           this.openDetail(activity);
         },
         error: () => { this.formError.set('Error creating activity.'); this.saving.set(false); },
@@ -584,6 +674,7 @@ export class ActivitiesListComponent implements OnInit {
       next: () => {
         if (this.selectedActivity()?.id === activity.id) this.activeModal.set(null);
         this.load();
+        if (this.viewMode() === 'calendar') this.loadCalendar();
       },
       error: () => alert('Error deleting activity.'),
     });
@@ -592,7 +683,11 @@ export class ActivitiesListComponent implements OnInit {
   deleteSeriesFromHere(activity: Activity) {
     if (!confirm(`Delete "${activity.name || activity.date}" and all future activities in this series?`)) return;
     this.svc.removeSeriesFromDate(activity.id).subscribe({
-      next: () => { this.activeModal.set(null); this.load(); },
+      next: () => {
+        this.activeModal.set(null);
+        this.load();
+        if (this.viewMode() === 'calendar') this.loadCalendar();
+      },
       error: () => alert('Error deleting series.'),
     });
   }
