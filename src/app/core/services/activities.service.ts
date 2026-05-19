@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import type { Activity, ActivityListResponse, AvailableGroupForActivity, CreateActivityBatchPayload, CreateActivityPayload } from '../models/activity.model';
+import type { Activity, ActivityListResponse, AvailableGroupForActivity, AvailableVolunteerForActivity, CreateActivityBatchPayload, CreateActivityPayload } from '../models/activity.model';
 
 @Injectable({ providedIn: 'root' })
 export class ActivitiesService {
@@ -47,6 +47,10 @@ export class ActivitiesService {
 
   unassignVolunteer(id: string, volunteerId: string) {
     return this.http.delete<Activity>(`/api/activities/${id}/volunteers/${volunteerId}`);
+  }
+
+  getAvailableVolunteers(id: string) {
+    return this.http.get<AvailableVolunteerForActivity[]>(`/api/activities/${id}/available-volunteers`);
   }
 
   getAvailableGroups(id: string) {

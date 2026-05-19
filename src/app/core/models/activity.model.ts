@@ -39,6 +39,13 @@ export interface Activity {
   updated_at: string;
 }
 
+export interface AvailableVolunteerForActivity {
+  id: string;
+  volunteer_code: string;
+  full_name: string;
+  already_in_activity: boolean;
+}
+
 export interface AvailableGroupForActivity {
   id: string;
   group_code: string;

@@ -2,14 +2,12 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { concatMap, from, last } from 'rxjs';
-import type { Activity, ActivityStatus, AvailableGroupForActivity, RepeatType } from '../../../core/models/activity.model';
+import type { Activity, ActivityStatus, AvailableGroupForActivity, AvailableVolunteerForActivity, RepeatType } from '../../../core/models/activity.model';
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
-import type { VolunteerSummary } from '../../../core/models/volunteer.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
-import { VolunteersService } from '../../../core/services/volunteers.service';
 import { CalendarComponent } from '../../../shared/components/calendar/calendar';
 import { EmojiPickerComponent } from '../../../shared/components/emoji-picker/emoji-picker';
 import { LocationPickerComponent, type PlaceResult } from '../../../shared/components/location-picker/location-picker';
@@ -25,7 +23,6 @@ type DetailTab = 'info' | 'volunteers' | 'groups';
 })
 export class ActivitiesListComponent implements OnInit {
   private readonly svc = inject(ActivitiesService);
-  private readonly volunteersSvc = inject(VolunteersService);
   private readonly regionsSvc = inject(RegionsService);
   private readonly hostsSvc = inject(HostsService);
   private readonly fb = inject(FormBuilder);
@@ -160,13 +157,9 @@ export class ActivitiesListComponent implements OnInit {
 
   // ── Volunteers tab ────────────────────────────────────────────────────────
 
-  readonly regionVolunteers = signal<VolunteerSummary[]>([]);
+  readonly availableVolunteersList = signal<AvailableVolunteerForActivity[]>([]);
   readonly volunteersLoading = signal(false);
   readonly selectedVolunteerIds = signal<string[]>([]);
-  readonly availableVolunteers = computed(() => {
-    const assigned = new Set(this.selectedActivity()?.volunteers.map((v) => v.id) ?? []);
-    return this.regionVolunteers().filter((v) => !assigned.has(v.id) && v.is_active);
-  });
 
   // ── Groups tab ────────────────────────────────────────────────────────────
 
@@ -175,10 +168,11 @@ export class ActivitiesListComponent implements OnInit {
   readonly selectedGroupIds = signal<string[]>([]);
 
   readonly availableVolunteerItems = computed(() =>
-    this.availableVolunteers().map((v) => ({
+    this.availableVolunteersList().map((v) => ({
       value: v.id,
       label: v.full_name,
-      meta: v.volunteer_code,
+      disabled: v.already_in_activity,
+      meta: v.already_in_activity ? 'Already in another activity' : v.volunteer_code,
     })),
   );
 
@@ -456,13 +450,23 @@ export class ActivitiesListComponent implements OnInit {
   private loadRegionData(activity: Activity) {
     this.volunteersLoading.set(true);
     this.groupsLoading.set(true);
-    this.volunteersSvc.getAll({ regionId: activity.region_id, date: activity.date }).subscribe({
-      next: (res) => { this.regionVolunteers.set(res.data); this.volunteersLoading.set(false); },
+    this.svc.getAvailableVolunteers(activity.id).subscribe({
+      next: (vs) => { this.availableVolunteersList.set(vs); this.volunteersLoading.set(false); },
       error: () => this.volunteersLoading.set(false),
     });
     this.svc.getAvailableGroups(activity.id).subscribe({
       next: (groups) => { this.availableGroups.set(groups); this.groupsLoading.set(false); },
       error: () => this.groupsLoading.set(false),
+    });
+  }
+
+  reloadAvailableVolunteers() {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.volunteersLoading.set(true);
+    this.svc.getAvailableVolunteers(activity.id).subscribe({
+      next: (vs) => { this.availableVolunteersList.set(vs); this.volunteersLoading.set(false); },
+      error: () => this.volunteersLoading.set(false),
     });
   }
 
@@ -552,6 +556,7 @@ export class ActivitiesListComponent implements OnInit {
         this.selectedActivity.set(updated);
         this.selectedVolunteerIds.set([]);
         this.detailSaving.set(false);
+        this.reloadAvailableVolunteers();
         this.load();
       },
       error: () => {
