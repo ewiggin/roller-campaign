@@ -79,6 +79,17 @@ export class ActivitiesController {
     return this.svc.update(id, dto, user);
   }
 
+  @Patch(':id/series-from-here')
+  @Roles('region_admin')
+  @ApiOkResponse({ type: ActivityResponseDto })
+  updateSeriesFromDate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateActivityDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.updateSeriesFromDate(id, dto, user);
+  }
+
   @Delete(':id')
   @Roles('region_admin')
   @HttpCode(HttpStatus.NO_CONTENT)

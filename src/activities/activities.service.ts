@@ -185,15 +185,52 @@ export class ActivitiesService {
       await this.assertRegionAccess(dto.region_id, currentUser);
     }
 
-    Object.assign(activity, dto);
+    const { detach_from_series, ...fields } = dto;
+    if (detach_from_series) activity.series_id = null;
+    Object.assign(activity, fields);
     const saved = await this.activitiesRepo.save(activity);
     return this.toDtoWithCounts(saved);
+  }
+
+  async updateSeriesFromDate(id: string, dto: UpdateActivityDto, currentUser: JwtPayload): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id }, relations: ACTIVITY_RELATIONS });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    // Fields that propagate to all future activities (date and region stay per-activity)
+    const { date: _d, region_id: _r, detach_from_series: _s, ...sharedFields } = dto;
+
+    if (!activity.series_id) {
+      Object.assign(activity, sharedFields);
+      const saved = await this.activitiesRepo.save(activity);
+      return this.toDtoWithCounts(saved);
+    }
+
+    const futureActivities = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .leftJoinAndSelect('a.volunteers', 'volunteers')
+      .leftJoinAndSelect('a.guestGroups', 'guestGroups')
+      .leftJoinAndSelect('a.host', 'host')
+      .where('a.series_id = :seriesId', { seriesId: activity.series_id })
+      .andWhere('a.date >= :date', { date: activity.date })
+      .getMany();
+
+    await Promise.all(
+      futureActivities.map((a) => {
+        Object.assign(a, sharedFields);
+        return this.activitiesRepo.save(a);
+      }),
+    );
+
+    const refreshed = await this.activitiesRepo.findOne({ where: { id }, relations: ACTIVITY_RELATIONS });
+    return this.toDtoWithCounts(refreshed!);
   }
 
   async remove(id: string, currentUser: JwtPayload): Promise<void> {
     const activity = await this.activitiesRepo.findOne({ where: { id } });
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
+    if (activity.status === 'published') throw new BadRequestException('Published activities cannot be deleted');
     await this.activitiesRepo.remove(activity);
   }
 
@@ -201,6 +238,7 @@ export class ActivitiesService {
     const activity = await this.activitiesRepo.findOne({ where: { id } });
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
+    if (activity.status === 'published') throw new BadRequestException('Published activities cannot be deleted');
 
     if (!activity.series_id) {
       await this.activitiesRepo.remove(activity);
