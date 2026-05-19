@@ -1,0 +1,126 @@
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  ViewChild,
+  computed,
+  forwardRef,
+  input,
+  model,
+  signal,
+} from '@angular/core';
+import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { NgStyle } from '@angular/common';
+
+export interface SearchableSelectItem {
+  value: string;
+  label: string;
+  meta?: string;
+}
+
+@Component({
+  selector: 'app-searchable-select',
+  imports: [FormsModule, NgStyle],
+  templateUrl: './searchable-select.html',
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => SearchableSelectComponent),
+      multi: true,
+    },
+  ],
+})
+export class SearchableSelectComponent implements ControlValueAccessor {
+  readonly items = input<SearchableSelectItem[]>([]);
+  readonly placeholder = input('Select…');
+  readonly emptyLabel = input('');
+  readonly compact = input(false);
+  readonly invalid = input(false);
+  readonly selected = model('');
+
+  protected readonly open = signal(false);
+  protected readonly query = signal('');
+  protected readonly dropdownStyle = signal<Record<string, string>>({});
+
+  @ViewChild('trigger') private readonly triggerEl?: ElementRef<HTMLButtonElement>;
+  @ViewChild('searchInput') private readonly searchInput?: ElementRef<HTMLInputElement>;
+
+  private onChange: (value: string) => void = () => {};
+  private onTouched: () => void = () => {};
+
+  protected readonly selectedLabel = computed(() => {
+    const val = this.selected();
+    if (!val) return '';
+    return this.items().find((i) => i.value === val)?.label ?? '';
+  });
+
+  protected readonly filtered = computed(() => {
+    const q = this.query().toLowerCase().trim();
+    if (!q) return this.items();
+    return this.items().filter(
+      (i) =>
+        i.label.toLowerCase().includes(q) ||
+        (i.meta?.toLowerCase().includes(q) ?? false),
+    );
+  });
+
+  constructor(private readonly el: ElementRef) {}
+
+  writeValue(value: string): void {
+    this.selected.set(value ?? '');
+  }
+
+  registerOnChange(fn: (value: string) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(e: MouseEvent) {
+    if (!this.el.nativeElement.contains(e.target as Node)) {
+      this.close();
+    }
+  }
+
+  protected toggle() {
+    this.open() ? this.close() : this.openDropdown();
+  }
+
+  protected openDropdown() {
+    if (this.triggerEl) {
+      const rect = this.triggerEl.nativeElement.getBoundingClientRect();
+      this.dropdownStyle.set({
+        position: 'fixed',
+        top: `${rect.bottom + 4}px`,
+        left: `${rect.left}px`,
+        width: `${rect.width}px`,
+      });
+    }
+    this.query.set('');
+    this.open.set(true);
+    setTimeout(() => this.searchInput?.nativeElement.focus(), 0);
+  }
+
+  protected close() {
+    this.open.set(false);
+    this.query.set('');
+  }
+
+  protected select(value: string) {
+    this.selected.set(value);
+    this.onChange(value);
+    this.onTouched();
+    this.close();
+  }
+
+  protected triggerClass() {
+    const py = this.compact() ? 'py-1.5' : 'py-2';
+    const border = this.invalid()
+      ? 'border-red-400'
+      : 'border-gray-300 dark:border-zinc-700';
+    return `w-full flex items-center justify-between gap-2 rounded-lg border ${border} bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 ${py} text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors`;
+  }
+}

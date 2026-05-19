@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { GroupComposition, GuestGroup } from '../../../core/models/guest-group.model';
 import type { Guest } from '../../../core/models/guest.model';
@@ -22,7 +23,7 @@ export const COMPOSITION_LABELS: Record<GroupComposition, string> = {
 
 @Component({
   selector: 'app-guest-groups-list',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, SearchableSelectComponent],
   templateUrl: './guest-groups-list.html',
 })
 export class GuestGroupsListComponent implements OnInit {
@@ -47,6 +48,10 @@ export class GuestGroupsListComponent implements OnInit {
   readonly limit = 50;
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 
+  readonly regionItems = computed(() =>
+    this.regions().map((r) => ({ value: r.id, label: r.name })),
+  );
+
   readonly activeModal = signal<ActiveModal>(null);
   readonly saving = signal(false);
   readonly formError = signal('');
@@ -58,6 +63,14 @@ export class GuestGroupsListComponent implements OnInit {
   readonly hosts = signal<Host[]>([]);
   readonly hostsLoading = signal(false);
   readonly selectedHostId = signal<string>('');
+
+  readonly hostItems = computed(() =>
+    this.hosts().map((h) => ({
+      value: h.id,
+      label: h.name,
+      meta: [h.address, h.guest_count ? `${h.guest_count} guests` : null].filter(Boolean).join(' · '),
+    })),
+  );
   readonly assigningHost = signal(false);
 
   // Import modal

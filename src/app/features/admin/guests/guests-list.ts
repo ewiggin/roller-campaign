@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 import type { GuestGroup } from '../../../core/models/guest-group.model';
 import type {
   Guest,
@@ -20,7 +21,7 @@ const STATUSES: GuestStatus[] = ['pending', 'confirmed', 'cancelled', 'arrived',
 
 @Component({
   selector: 'app-guests-list',
-  imports: [FormsModule, RouterLink, DatePipe],
+  imports: [FormsModule, RouterLink, DatePipe, SearchableSelectComponent],
   templateUrl: './guests-list.html',
 })
 export class GuestsListComponent implements OnInit {
@@ -47,10 +48,22 @@ export class GuestsListComponent implements OnInit {
   readonly page = signal(1);
   readonly limit = 50;
 
+  readonly regionItems = computed(() =>
+    this.regions().map((r) => ({ value: r.id, label: r.name })),
+  );
+
   readonly filteredGroups = computed(() => {
     const rid = this.filterRegion();
     return rid ? this.groups().filter((g) => g.region_id === rid) : this.groups();
   });
+
+  readonly filterGroupItems = computed(() =>
+    this.filteredGroups().map((g) => ({
+      value: g.id,
+      label: g.group_code,
+      meta: [g.host_name, `${g.guest_count} guests`].filter(Boolean).join(' · '),
+    })),
+  );
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 

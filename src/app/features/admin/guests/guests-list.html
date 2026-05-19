@@ -54,29 +54,25 @@
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
           >Region</label
         >
-        <select
-          [ngModel]="filterRegion()"
-          (ngModelChange)="onRegionChange($event)"
-          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-        >
-          <option value="" selected>All regions</option>
-          @for (r of regions(); track r.id) {
-          <option [value]="r.id">{{ r.name }}</option>
-          }
-        </select>
+        <app-searchable-select
+          [items]="regionItems()"
+          placeholder="All regions"
+          emptyLabel="All regions"
+          [compact]="true"
+          [selected]="filterRegion()"
+          (selectedChange)="onRegionChange($event)"
+        />
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Group</label>
-        <select
-          [ngModel]="filterGroup()"
-          (ngModelChange)="filterGroup.set($event); applyFilters()"
-          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-        >
-          <option value="">All groups</option>
-          @for (g of filteredGroups(); track g.id) {
-          <option [value]="g.id">{{ g.group_code }}</option>
-          }
-        </select>
+        <app-searchable-select
+          [items]="filterGroupItems()"
+          placeholder="All groups"
+          emptyLabel="All groups"
+          [compact]="true"
+          [selected]="filterGroup()"
+          (selectedChange)="filterGroup.set($event); applyFilters()"
+        />
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
@@ -394,15 +390,12 @@
           <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
             >Region *</label
           >
-          <select
-            [ngModel]="importRegionId()"
-            (ngModelChange)="importRegionId.set($event)"
-            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          >
-            @for (r of regions(); track r.id) {
-            <option [value]="r.id">{{ r.name }}</option>
-            }
-          </select>
+          <app-searchable-select
+            [items]="regionItems()"
+            placeholder="Select region…"
+            [selected]="importRegionId()"
+            (selectedChange)="importRegionId.set($event)"
+          />
         </div>
         } @else {
         <div

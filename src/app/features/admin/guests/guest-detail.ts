@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 import type { GuestGroup } from '../../../core/models/guest-group.model';
 import type { Guest, GuestStatus, TransportMode } from '../../../core/models/guest.model';
 import type { Region } from '../../../core/models/region.model';
@@ -24,7 +25,7 @@ const TRANSPORTS: TransportMode[] = ['car', 'bus', 'train', 'plane', 'ferry', 'm
 
 @Component({
   selector: 'app-guest-detail',
-  imports: [RouterLink, ReactiveFormsModule, DatePipe],
+  imports: [RouterLink, ReactiveFormsModule, DatePipe, SearchableSelectComponent],
   providers: [DatePipe],
   templateUrl: './guest-detail.html',
 })
@@ -69,6 +70,16 @@ export class GuestDetailComponent implements OnInit {
     const g = this.guest();
     return this.groups().filter((gr) => gr.id !== g?.group_id);
   });
+
+  readonly availableGroupItems = computed(() =>
+    this.availableGroupsForMigrate().map((g) => ({
+      value: g.id,
+      label: g.group_code,
+      meta: [g.host_name, `${g.guest_count} guests`].filter(Boolean).join(' · '),
+    })),
+  );
+
+  readonly migrateTargetGroupId = signal('');
 
   // ─── Forms per section ───────────────────────────────────────────────────
 
@@ -129,9 +140,6 @@ export class GuestDetailComponent implements OnInit {
     transport_mode: [''],
   });
 
-  readonly migrateForm = this.fb.nonNullable.group({
-    targetGroupId: [''],
-  });
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -221,7 +229,7 @@ export class GuestDetailComponent implements OnInit {
       });
     } else if (section === 'migrate') {
       const first = this.availableGroupsForMigrate()[0];
-      this.migrateForm.setValue({ targetGroupId: first?.id ?? '' });
+      this.migrateTargetGroupId.set(first?.id ?? '');
     }
 
     this.editSection.set(section);
@@ -317,7 +325,7 @@ export class GuestDetailComponent implements OnInit {
   migrate() {
     const g = this.guest();
     if (!g || this.saving()) return;
-    const targetGroupId = this.migrateForm.getRawValue().targetGroupId;
+    const targetGroupId = this.migrateTargetGroupId();
     if (!targetGroupId) return;
     this.saving.set(true);
     this.saveError.set('');
