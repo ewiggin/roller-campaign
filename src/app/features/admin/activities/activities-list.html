@@ -112,6 +112,44 @@
 
   <!-- List -->
   @if (viewMode() === 'list') {
+
+  <!-- Bulk action bar -->
+  @if (selectedCount() > 0) {
+  <div class="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-2.5 mb-4 flex items-center justify-between gap-3 flex-wrap">
+    <span class="text-sm font-medium text-blue-700 dark:text-blue-300">
+      {{ selectedCount() }} selected
+    </span>
+    <div class="flex items-center gap-2">
+      @if (selectedDraftCount() > 0) {
+      <button
+        (click)="bulkPublish()"
+        [disabled]="bulkSaving()"
+        class="rounded-lg bg-green-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50 transition-colors"
+      >
+        @if (bulkSaving()) { Publishing… }
+        @else { Publish {{ selectedDraftCount() > 1 ? selectedDraftCount() + ' drafts' : 'draft' }} }
+      </button>
+      }
+      @if (selectedPublishedCount() > 0) {
+      <button
+        (click)="bulkUnpublish()"
+        [disabled]="bulkSaving()"
+        class="rounded-lg bg-gray-200 dark:bg-zinc-700 px-3 py-1.5 text-sm font-semibold text-gray-700 dark:text-zinc-200 hover:bg-gray-300 dark:hover:bg-zinc-600 disabled:opacity-50 transition-colors"
+      >
+        @if (bulkSaving()) { Unpublishing… }
+        @else { Unpublish {{ selectedPublishedCount() > 1 ? selectedPublishedCount() : '' }} }
+      </button>
+      }
+      <button
+        (click)="clearSelection()"
+        class="text-sm text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
+      >
+        Clear
+      </button>
+    </div>
+  </div>
+  }
+
   @if (loading()) {
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
@@ -141,9 +179,18 @@
     <div
       class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
     >
-      <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
-        {{ total() }} activit{{ total() !== 1 ? 'ies' : 'y' }}
-      </span>
+      <div class="flex items-center gap-3">
+        <input
+          type="checkbox"
+          [checked]="isAllSelected()"
+          (change)="toggleSelectAll()"
+          class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400 cursor-pointer"
+          title="Select all on this page"
+        />
+        <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+          {{ total() }} activit{{ total() !== 1 ? 'ies' : 'y' }}
+        </span>
+      </div>
       @if (totalPages() > 1) {
       <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
         <button
@@ -172,7 +219,16 @@
     } @else {
     <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
       @for (activity of filteredActivities(); track activity.id) {
-      <li class="px-5 py-3 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+      <li class="px-5 py-3 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+        [class.bg-blue-50]="selectedIds().has(activity.id)"
+        [class.dark:bg-blue-950]="selectedIds().has(activity.id)">
+        <input
+          type="checkbox"
+          [checked]="selectedIds().has(activity.id)"
+          (change)="toggleSelection(activity.id)"
+          (click)="$event.stopPropagation()"
+          class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400 cursor-pointer shrink-0"
+        />
         <!-- Date + time -->
         <div class="w-28 shrink-0">
           <p class="text-sm font-semibold text-gray-900 dark:text-zinc-100">

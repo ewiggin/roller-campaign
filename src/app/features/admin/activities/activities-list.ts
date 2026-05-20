@@ -46,6 +46,72 @@ export class ActivitiesListComponent implements OnInit {
   readonly calendarLoading = signal(false);
   private calendarPeriod: { dateFrom: string; dateTo: string } | null = null;
 
+  // ── Bulk selection ────────────────────────────────────────────────────────
+
+  readonly selectedIds = signal(new Set<string>());
+  readonly bulkSaving = signal(false);
+
+  readonly selectedCount = computed(() => this.selectedIds().size);
+
+  readonly isAllSelected = computed(() => {
+    const acts = this.filteredActivities();
+    if (!acts.length) return false;
+    const sel = this.selectedIds();
+    return acts.every((a) => sel.has(a.id));
+  });
+
+  readonly selectedDraftCount = computed(() => {
+    const sel = this.selectedIds();
+    return this.activities().filter((a) => sel.has(a.id) && a.status === 'draft').length;
+  });
+
+  readonly selectedPublishedCount = computed(() => {
+    const sel = this.selectedIds();
+    return this.activities().filter((a) => sel.has(a.id) && a.status === 'published').length;
+  });
+
+  toggleSelection(id: string) {
+    const next = new Set(this.selectedIds());
+    next.has(id) ? next.delete(id) : next.add(id);
+    this.selectedIds.set(next);
+  }
+
+  toggleSelectAll() {
+    const acts = this.filteredActivities();
+    const next = new Set(this.selectedIds());
+    if (this.isAllSelected()) acts.forEach((a) => next.delete(a.id));
+    else acts.forEach((a) => next.add(a.id));
+    this.selectedIds.set(next);
+  }
+
+  clearSelection() {
+    this.selectedIds.set(new Set());
+  }
+
+  bulkPublish() {
+    const ids = [...this.selectedIds()].filter(
+      (id) => this.activities().find((a) => a.id === id)?.status === 'draft',
+    );
+    if (!ids.length) return;
+    this.bulkSaving.set(true);
+    from(ids).pipe(concatMap((id) => this.svc.publish(id)), last()).subscribe({
+      next: () => { this.bulkSaving.set(false); this.clearSelection(); this.load(); },
+      error: () => this.bulkSaving.set(false),
+    });
+  }
+
+  bulkUnpublish() {
+    const ids = [...this.selectedIds()].filter(
+      (id) => this.activities().find((a) => a.id === id)?.status === 'published',
+    );
+    if (!ids.length) return;
+    this.bulkSaving.set(true);
+    from(ids).pipe(concatMap((id) => this.svc.unpublish(id)), last()).subscribe({
+      next: () => { this.bulkSaving.set(false); this.clearSelection(); this.load(); },
+      error: () => this.bulkSaving.set(false),
+    });
+  }
+
   readonly filterRegion = signal('');
   readonly filterStatus = signal<ActivityStatus | ''>('');
   readonly filterDate = signal('');
@@ -263,6 +329,7 @@ export class ActivitiesListComponent implements OnInit {
 
   applyFilters() {
     this.page.set(1);
+    this.clearSelection();
     this.load();
     if (this.viewMode() === 'calendar' && this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
   }
@@ -277,6 +344,7 @@ export class ActivitiesListComponent implements OnInit {
   prevPage() {
     if (this.page() > 1) {
       this.page.update((p) => p - 1);
+      this.clearSelection();
       this.load();
     }
   }
@@ -284,6 +352,7 @@ export class ActivitiesListComponent implements OnInit {
   nextPage() {
     if (this.page() < this.totalPages()) {
       this.page.update((p) => p + 1);
+      this.clearSelection();
       this.load();
     }
   }
