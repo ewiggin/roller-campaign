@@ -76,7 +76,8 @@ export class GuestFormComponent {
   }
 
   async validateCode(): Promise<void> {
-    const codigo = this.codeControl.value?.trim();
+    const raw = this.codeControl.value?.trim() ?? '';
+    const codigo = raw.replace(/^G-/i, '');
     if (!codigo) return;
 
     this.isValidating.set(true);
