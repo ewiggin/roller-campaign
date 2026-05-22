@@ -869,14 +869,19 @@ export class GuestsService {
     const candidates = Array.from(new Set([upper, normalized]));
 
     const guest = await this.guestsRepository.findOne({
-      select: ['guest_code'],
+      select: ['guest_code', 'group_id', 'region_id'],
       where: candidates.map((c) => ({ guest_code: c })),
     });
 
     if (!guest) throw new NotFoundException('Código de invitado no encontrado');
 
+    const group = await this.groupsRepository.findOne({
+      where: { id: guest.group_id },
+      select: ['region_id'],
+    });
+
     const region = await this.regionsRepository.findOne({
-      where: { id: guest.region_id },
+      where: { id: group?.region_id ?? guest.region_id },
     });
 
     return {
