@@ -7,9 +7,9 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { TERMS_VERSION } from '../../pages/legal/legal';
 import { GuestApiService, GuestFormSubmitData } from '../../services/guest-api.service';
 import { LocationPickerComponent, PlaceResult } from '../location-picker/location-picker.component';
-import { TERMS_VERSION } from '../../pages/legal/legal';
 
 type Step = 'code' | 'form';
 
@@ -93,7 +93,7 @@ export class GuestFormComponent {
       const message = err instanceof Error ? err.message : '';
       this.codeError.set(
         message === 'not_found'
-          ? 'Código no encontrado. Revisa que sea correcto.'
+          ? 'Código no encontrado. Revisa que sea correcto, NO debes usar el código de grupo.'
           : 'No se pudo verificar el código. Inténtalo de nuevo.',
       );
     } finally {
