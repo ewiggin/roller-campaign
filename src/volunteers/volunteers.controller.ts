@@ -77,6 +77,25 @@ export class VolunteersController {
     return this.svc.deleteRole(id);
   }
 
+  // ── Export ─────────────────────────────────────────────────────────────────
+
+  @Get('export')
+  @Roles('region_admin')
+  @Audit('export', 'volunteer')
+  @ApiOkResponse({ description: 'Excel con listado de voluntarios' })
+  async exportAll(
+    @Query() query: VolunteerListQueryDto,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.svc.exportAll(query, user);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="voluntarios.xlsx"',
+    });
+    res.send(buffer);
+  }
+
   // ── Import ─────────────────────────────────────────────────────────────────
 
   @Get('import/template')
