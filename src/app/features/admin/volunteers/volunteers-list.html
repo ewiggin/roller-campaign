@@ -1,0 +1,566 @@
+<div>
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-5">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">Volunteers</h2>
+    <div class="flex items-center gap-2">
+      <button
+        (click)="downloadExcel()"
+        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+          />
+        </svg>
+        Export Excel
+      </button>
+      <button
+        (click)="downloadTemplate()"
+        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+          />
+        </svg>
+        Template
+      </button>
+      <button
+        (click)="openImport()"
+        class="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+          />
+        </svg>
+        Import Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4"
+  >
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Region</label
+        >
+        <select
+          [ngModel]="filterRegion()"
+          (ngModelChange)="filterRegion.set($event); applyFilters()"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        >
+          <option value="">All regions</option>
+          @for (r of regions(); track r.id) {
+          <option [value]="r.id">{{ r.name }}</option>
+          }
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Status</label
+        >
+        <select
+          [ngModel]="filterActive()"
+          (ngModelChange)="filterActive.set($event); applyFilters()"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        >
+          <option value="">All</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+      <div class="col-span-2 sm:col-span-2">
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Search</label
+        >
+        <input
+          type="text"
+          placeholder="Name or code…"
+          [ngModel]="filterSearch()"
+          (ngModelChange)="filterSearch.set($event)"
+          (keyup.enter)="applyFilters()"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+        />
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading skeleton -->
+  @if (loading()) {
+  <div
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+  >
+    <div
+      class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700"
+    >
+      <div class="animate-pulse h-3 bg-gray-200 dark:bg-zinc-700 rounded w-20"></div>
+    </div>
+    <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
+      @for (i of [1,2,3,4,5,6,7,8]; track i) {
+      <li class="px-5 py-4 flex items-center gap-4">
+        <div class="flex-1 space-y-2">
+          <div
+            class="animate-pulse h-3.5 bg-gray-200 dark:bg-zinc-700 rounded"
+            [style.width.%]="30 + (i * 7) % 40"
+          ></div>
+          <div class="animate-pulse h-2.5 bg-gray-100 dark:bg-zinc-800 rounded w-24"></div>
+        </div>
+        <div class="animate-pulse h-5 bg-gray-100 dark:bg-zinc-800 rounded-full w-16"></div>
+      </li>
+      }
+    </ul>
+  </div>
+  } @else if (error()) {
+  <div
+    class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900 px-5 py-4"
+  >
+    <p class="text-sm text-red-600 dark:text-red-400">{{ error() }}</p>
+  </div>
+  } @else {
+  <div
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+  >
+    <!-- List header -->
+    <div
+      class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
+    >
+      <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+        {{ total() }} volunteer{{ total() !== 1 ? 's' : '' }}
+      </span>
+      @if (totalPages() > 1) {
+      <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
+        <button
+          (click)="prevPage()"
+          [disabled]="page() === 1"
+          class="p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+        >
+          ‹
+        </button>
+        <span>{{ page() }} / {{ totalPages() }}</span>
+        <button
+          (click)="nextPage()"
+          [disabled]="page() === totalPages()"
+          class="p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+        >
+          ›
+        </button>
+      </div>
+      }
+    </div>
+
+    <!-- Volunteer rows -->
+    @if (volunteers().length === 0) {
+    <div class="px-5 py-10 text-center text-sm text-gray-400 dark:text-zinc-500">
+      No volunteers match the current filters.
+    </div>
+    } @else {
+    <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
+      @for (v of volunteers(); track v.id) {
+      <li class="px-5 py-4 hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors">
+        <div class="flex items-start gap-4">
+          <!-- Main info -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate"
+                >{{ v.full_name }}</span
+              >
+              <span class="text-xs text-gray-400 dark:text-zinc-500 font-mono"
+                >{{ v.volunteer_code }}</span
+              >
+              @if (!v.is_active) {
+              <span
+                class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-gray-300 dark:ring-zinc-700 text-gray-500 dark:text-zinc-400 bg-gray-100 dark:bg-zinc-800"
+                >inactive</span
+              >
+              }
+            </div>
+            <div class="mt-0.5 flex items-center gap-3 flex-wrap">
+              @if (v.email) {
+              <span class="text-xs text-gray-500 dark:text-zinc-400">{{ v.email }}</span>
+              } @for (r of v.regions; track r.id) {
+              <span
+                class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-blue-200 dark:ring-blue-900 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950"
+                >{{ r.name }}</span
+              >
+              }
+            </div>
+            @if (v.hosting_address || v.car_seats) {
+            <div
+              class="mt-1 flex items-center gap-3 flex-wrap text-xs text-gray-500 dark:text-zinc-400"
+            >
+              @if (v.hosting_address) {
+              <span class="flex items-center gap-1">
+                <svg
+                  class="w-3 h-3 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                  />
+                </svg>
+                @if (mapsUrl(v)) {
+                <a
+                  [href]="mapsUrl(v)"
+                  target="_blank"
+                  rel="noopener"
+                  class="hover:text-blue-500 transition-colors truncate max-w-[200px]"
+                  >{{ v.hosting_address }}</a
+                >
+                } @else {
+                <span class="truncate max-w-[200px]">{{ v.hosting_address }}</span>
+                }
+              </span>
+              } @if (v.car_seats) {
+              <span class="flex items-center gap-1">
+                <svg
+                  class="w-3 h-3 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
+                  />
+                </svg>
+                {{ v.car_seats }} seat{{ v.car_seats !== 1 ? 's' : '' }}
+              </span>
+              }
+            </div>
+            }
+          </div>
+
+          <!-- Weekly availability -->
+          <div class="shrink-0">
+            <div
+              class="text-[9px] font-medium text-gray-400 dark:text-zinc-500 uppercase tracking-wide mb-1 text-center"
+            >
+              Availability
+            </div>
+            <div class="grid grid-cols-7 gap-px">
+              @for (dia of dias; track dia.key) {
+              <div class="flex flex-col items-center gap-px">
+                <span class="text-[9px] font-semibold text-gray-400 dark:text-zinc-500"
+                  >{{ dia.label }}</span
+                >
+                <div
+                  class="w-3.5 h-3.5 rounded-sm transition-colors"
+                  [class]="manana(v, dia.key) ? 'bg-blue-400' : 'bg-gray-100 dark:bg-zinc-800'"
+                  title="{{ dia.label }} morning"
+                ></div>
+                <div
+                  class="w-3.5 h-3.5 rounded-sm transition-colors"
+                  [class]="tarde(v, dia.key) ? 'bg-indigo-400' : 'bg-gray-100 dark:bg-zinc-800'"
+                  title="{{ dia.label }} afternoon"
+                ></div>
+              </div>
+              }
+            </div>
+            <div
+              class="flex justify-between text-[8px] text-gray-300 dark:text-zinc-600 mt-0.5 px-0.5"
+            >
+              <span>M</span><span>A</span>
+            </div>
+          </div>
+        </div>
+      </li>
+      }
+    </ul>
+    }
+
+    <!-- Pagination footer -->
+    @if (totalPages() > 1) {
+    <div
+      class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-t border-gray-200 dark:border-zinc-700 flex items-center justify-between text-sm text-gray-500 dark:text-zinc-400"
+    >
+      <span
+        >{{ (page() - 1) * limit + 1 }}–{{ page() * limit < total() ? page() * limit : total() }} of
+        {{ total() }}</span
+      >
+      <div class="flex items-center gap-2">
+        <button
+          (click)="prevPage()"
+          [disabled]="page() === 1"
+          class="px-3 py-1 rounded-lg border border-gray-300 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+        >
+          Previous
+        </button>
+        <button
+          (click)="nextPage()"
+          [disabled]="page() === totalPages()"
+          class="px-3 py-1 rounded-lg border border-gray-300 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+    }
+  </div>
+  }
+</div>
+
+<!-- Import modal -->
+@if (importModal()) {
+<div
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4"
+  (click)="closeImport()"
+>
+  <div
+    class="w-full max-w-lg bg-white dark:bg-[#18181b] rounded-xl shadow-xl flex flex-col max-h-[90vh]"
+    (click)="$event.stopPropagation()"
+  >
+    <!-- Modal header -->
+    <div
+      class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between shrink-0 rounded-t-xl"
+    >
+      <h3 class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+        Import volunteers from Excel
+      </h3>
+      <button
+        (click)="closeImport()"
+        class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="overflow-y-auto flex-1 p-5">
+      <!-- Step 1: Upload -->
+      @if (importStep() === 'upload') {
+      <div class="space-y-4">
+        <div
+          class="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 px-4 py-3"
+        >
+          <p class="text-xs text-blue-700 dark:text-blue-300">
+            If the volunteer code already exists, the row is silently skipped (not overwritten).
+          </p>
+        </div>
+
+        <div
+          class="border-2 border-dashed rounded-xl p-10 text-center transition-colors cursor-pointer"
+          [class]="isDragging ? 'border-blue-400 bg-blue-50 dark:bg-blue-950' : 'border-gray-300 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-700'"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave()"
+          (drop)="onDrop($event)"
+          (click)="fileInput.click()"
+        >
+          @if (importing()) {
+          <p class="text-sm text-gray-500 dark:text-zinc-400">Processing file…</p>
+          } @else {
+          <svg
+            class="w-8 h-8 mx-auto text-gray-300 dark:text-zinc-600 mb-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+          <p class="text-sm text-gray-500 dark:text-zinc-400">
+            Drop the .xlsx here or <span class="text-blue-500">click to select</span>
+          </p>
+          }
+        </div>
+        <input
+          #fileInput
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          class="hidden"
+          (change)="onFileSelected($event)"
+        />
+
+        @if (importError()) {
+        <p class="text-sm text-red-500">{{ importError() }}</p>
+        }
+      </div>
+      }
+
+      <!-- Step 2: Preview -->
+      @if (importStep() === 'preview' && parseResult()) {
+      <div class="space-y-4">
+        <!-- Summary badges -->
+        <div class="flex flex-wrap gap-2">
+          <span
+            class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-gray-50 text-gray-700 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700"
+          >
+            Total: {{ parseResult()!.summary.total }}
+          </span>
+          <span
+            class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
+          >
+            To import: {{ parseResult()!.summary.to_create }}
+          </span>
+          @if (parseResult()!.summary.skipped > 0) {
+          <span
+            class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800"
+          >
+            Already exist (skipped): {{ parseResult()!.summary.skipped }}
+          </span>
+          }
+        </div>
+
+        <!-- Skipped codes -->
+        @if (parseResult()!.skipped.length > 0) {
+        <div>
+          <h4
+            class="text-xs font-semibold text-yellow-600 dark:text-yellow-400 uppercase tracking-wide mb-2"
+          >
+            Skipped codes (already exist)
+          </h4>
+          <div
+            class="rounded-lg border border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950 px-4 py-2 max-h-24 overflow-y-auto"
+          >
+            <p class="text-xs text-yellow-700 dark:text-yellow-300 font-mono">
+              {{ parseResult()!.skipped.join(', ') }}
+            </p>
+          </div>
+        </div>
+        }
+
+        <!-- Rows to create -->
+        @if (parseResult()!.to_create.length > 0) {
+        <div>
+          <h4
+            class="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide mb-2"
+          >
+            {{ parseResult()!.to_create.length }} volunteers ready to import
+          </h4>
+          <div
+            class="rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden max-h-48 overflow-y-auto"
+          >
+            <table class="w-full text-xs">
+              <thead class="bg-gray-50 dark:bg-[#27272a] sticky top-0">
+                <tr>
+                  <th class="px-3 py-2 text-left text-gray-600 dark:text-zinc-300 font-medium">
+                    Code
+                  </th>
+                  <th class="px-3 py-2 text-left text-gray-600 dark:text-zinc-300 font-medium">
+                    Name
+                  </th>
+                  <th class="px-3 py-2 text-left text-gray-600 dark:text-zinc-300 font-medium">
+                    Email
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
+                @for (row of parseResult()!.to_create; track row.volunteer_code) {
+                <tr class="hover:bg-gray-50 dark:hover:bg-zinc-900">
+                  <td class="px-3 py-2 text-gray-700 dark:text-zinc-300 font-mono">
+                    {{ row.volunteer_code }}
+                  </td>
+                  <td class="px-3 py-2 text-gray-700 dark:text-zinc-300">{{ row.full_name }}</td>
+                  <td class="px-3 py-2 text-gray-500 dark:text-zinc-400">{{ row.email ?? '—' }}</td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+        } @else {
+        <div
+          class="rounded-lg bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 px-4 py-3"
+        >
+          <p class="text-sm text-yellow-700 dark:text-yellow-300">
+            No new volunteers to import.
+          </p>
+        </div>
+        } @if (importError()) {
+        <p class="text-sm text-red-500">{{ importError() }}</p>
+        }
+      </div>
+      }
+
+      <!-- Step 3: Done -->
+      @if (importStep() === 'done' && commitResult()) {
+      <div class="space-y-4">
+        <div
+          class="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-5 py-4 text-center"
+        >
+          <p class="text-2xl mb-2">✅</p>
+          <p class="text-sm font-semibold text-green-700 dark:text-green-300">
+            Import completed
+          </p>
+        </div>
+        <div class="flex gap-4 justify-center text-center">
+          <div class="rounded-lg border border-gray-200 dark:border-zinc-700 px-5 py-3">
+            <p class="text-2xl font-bold text-gray-900 dark:text-zinc-100">
+              {{ commitResult()!.created }}
+            </p>
+            <p class="text-xs text-gray-500 dark:text-zinc-400">created</p>
+          </div>
+          <div class="rounded-lg border border-gray-200 dark:border-zinc-700 px-5 py-3">
+            <p class="text-2xl font-bold text-gray-900 dark:text-zinc-100">
+              {{ commitResult()!.skipped }}
+            </p>
+            <p class="text-xs text-gray-500 dark:text-zinc-400">skipped</p>
+          </div>
+        </div>
+      </div>
+      }
+    </div>
+
+    <!-- Modal footer -->
+    <div
+      class="px-5 py-3 border-t border-gray-200 dark:border-zinc-700 flex justify-end gap-2 shrink-0"
+    >
+      @if (importStep() === 'upload') {
+      <button
+        (click)="closeImport()"
+        class="px-4 py-2 text-sm text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 transition-colors"
+      >
+        Cancel
+      </button>
+      } @if (importStep() === 'preview') {
+      <button
+        (click)="importStep.set('upload')"
+        class="px-4 py-2 text-sm text-gray-600 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-zinc-100 transition-colors"
+      >
+        Back
+      </button>
+      <button
+        (click)="confirmImport()"
+        [disabled]="importing() || !(parseResult()?.to_create?.length ?? 0)"
+        class="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+      >
+        @if (importing()) { Importing… } @else { Confirm import }
+      </button>
+      } @if (importStep() === 'done') {
+      <button
+        (click)="closeImport()"
+        class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+      >
+        Close
+      </button>
+      }
+    </div>
+  </div>
+</div>
+}
