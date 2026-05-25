@@ -24,6 +24,11 @@ export class VolunteerListQueryDto {
   @IsBoolean()
   is_active?: boolean;
 
+  @ApiPropertyOptional({ example: '2024-06-15' })
+  @IsOptional()
+  @IsString()
+  date?: string;
+
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @Type(() => Number)
