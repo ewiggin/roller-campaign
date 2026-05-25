@@ -27,18 +27,18 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { GuestGroupsService } from './guest-groups.service';
+import { Audit } from '../audit-logs/decorators/audit.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateGuestGroupDto } from './dto/create-guest-group.dto';
-import { UpdateGuestGroupDto } from './dto/update-guest-group.dto';
 import { GuestGroupResponseDto } from './dto/guest-group-response.dto';
 import { ImportGroupResponseDto } from './dto/import-group-response.dto';
 import { SetContactDto } from './dto/set-contact.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { Audit } from '../audit-logs/decorators/audit.decorator';
+import { UpdateGuestGroupDto } from './dto/update-guest-group.dto';
+import { GuestGroupsService } from './guest-groups.service';
 
 @ApiTags('guest-groups')
 @ApiBearerAuth()
@@ -57,7 +57,8 @@ export class GuestGroupsController {
   ): Promise<void> {
     const buffer = await this.service.exportAll(regionId, user);
     res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': 'attachment; filename="grupos.xlsx"',
     });
     res.send(buffer);
@@ -68,8 +69,14 @@ export class GuestGroupsController {
   @ApiOkResponse({ description: 'Plantilla Excel para importación de grupos' })
   getTemplate(@Res() res: Response): void {
     const buffer = this.service.generateTemplate();
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="plantilla-grupos.xlsx"');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="plantilla-grupos.xlsx"',
+    );
     res.send(buffer);
   }
 
@@ -99,21 +106,45 @@ export class GuestGroupsController {
   @Post()
   @Roles('region_admin')
   @ApiCreatedResponse({ type: GuestGroupResponseDto })
-  create(@Body() dto: CreateGuestGroupDto, @CurrentUser() user: JwtPayload): Promise<GuestGroupResponseDto> {
+  create(
+    @Body() dto: CreateGuestGroupDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<GuestGroupResponseDto> {
     return this.service.create(dto, user);
   }
 
   @Get()
   @Roles('region_admin')
-  @ApiOkResponse({ type: [GuestGroupResponseDto] })
+  @ApiOkResponse({
+    description: 'Paginated list of guest groups with available filter options',
+  })
   findAll(
     @Query('regionId') regionId: string | undefined,
     @Query('page', new ParseIntPipe({ optional: true })) page = 1,
     @Query('limit', new ParseIntPipe({ optional: true })) limit = 50,
     @Query('search') search: string | undefined,
+    @Query('minCarSeats', new ParseIntPipe({ optional: true }))
+    minCarSeats: number | undefined,
+    @Query('languages') languagesRaw: string | undefined,
+    @Query('compositions') compositionsRaw: string | undefined,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.service.findAll(regionId, user, page, limit, search);
+    const languages = languagesRaw
+      ? languagesRaw.split(',').filter(Boolean)
+      : [];
+    const compositions = compositionsRaw
+      ? compositionsRaw.split(',').filter(Boolean)
+      : [];
+    return this.service.findAll(
+      regionId,
+      user,
+      page,
+      limit,
+      search,
+      minCarSeats,
+      languages,
+      compositions,
+    );
   }
 
   @Get(':id')
