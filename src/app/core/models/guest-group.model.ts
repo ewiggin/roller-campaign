@@ -7,6 +7,8 @@ export interface GuestGroup {
   host_id: string | null;
   host_name: string | null;
   guest_count: number;
+  languages: string[];
+  total_car_seats: number;
   available_from: string | null;
   available_to: string | null;
   composition: GroupComposition | null;
@@ -19,6 +21,7 @@ export interface GuestGroupListResponse {
   total: number;
   page: number;
   limit: number;
+  available_languages: string[];
 }
 
 export interface CreateGuestGroupPayload {
