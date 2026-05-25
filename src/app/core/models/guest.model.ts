@@ -69,6 +69,7 @@ export interface GuestListQuery {
   groupId?: string;
   status?: GuestStatus;
   search?: string;
+  termsAccepted?: boolean;
   page?: number;
   limit?: number;
 }
