@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import type { GuestStatus } from '../entities/guest.entity';
 
 export class GuestListQueryDto {
@@ -23,6 +23,12 @@ export class GuestListQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Filter by whether the guest has accepted terms' })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' ? true : value === 'false' ? false : value)
+  @IsBoolean()
+  termsAccepted?: boolean;
 
   @ApiPropertyOptional({ example: 1, default: 1 })
   @IsOptional()
