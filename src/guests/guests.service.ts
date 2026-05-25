@@ -161,7 +161,7 @@ export class GuestsService {
       throw new ForbiddenException();
     }
 
-    const { regionId, groupId, status, search, page = 1, limit = 50 } = query;
+    const { regionId, groupId, status, search, termsAccepted, page = 1, limit = 50 } = query;
 
     const qb = this.guestsRepository.createQueryBuilder('g');
 
@@ -190,6 +190,9 @@ export class GuestsService {
       qb.andWhere('(g.full_name LIKE :search OR g.guest_code LIKE :search)', {
         search: `%${search}%`,
       });
+    }
+    if (termsAccepted !== undefined) {
+      qb.andWhere('g.terms_accepted = :termsAccepted', { termsAccepted });
     }
 
     const total = await qb.getCount();
@@ -686,7 +689,7 @@ export class GuestsService {
     query: GuestListQueryDto,
     currentUser: JwtPayload,
   ): Promise<Buffer> {
-    const { regionId, groupId, status, search } = query;
+    const { regionId, groupId, status, search, termsAccepted } = query;
 
     const qb = this.guestsRepository.createQueryBuilder('g');
 
@@ -715,6 +718,9 @@ export class GuestsService {
       qb.andWhere('(g.full_name LIKE :search OR g.guest_code LIKE :search)', {
         search: `%${search}%`,
       });
+    }
+    if (termsAccepted !== undefined) {
+      qb.andWhere('g.terms_accepted = :termsAccepted', { termsAccepted });
     }
 
     const guests = await qb.orderBy('g.full_name', 'ASC').getMany();
@@ -869,14 +875,19 @@ export class GuestsService {
     const candidates = Array.from(new Set([upper, normalized]));
 
     const guest = await this.guestsRepository.findOne({
-      select: ['guest_code'],
+      select: ['guest_code', 'group_id', 'region_id'],
       where: candidates.map((c) => ({ guest_code: c })),
     });
 
     if (!guest) throw new NotFoundException('Código de invitado no encontrado');
 
+    const group = await this.groupsRepository.findOne({
+      where: { id: guest.group_id },
+      select: ['region_id'],
+    });
+
     const region = await this.regionsRepository.findOne({
-      where: { id: guest.region_id },
+      where: { id: group?.region_id ?? guest.region_id },
     });
 
     return {
