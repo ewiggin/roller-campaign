@@ -434,6 +434,22 @@ export class ActivitiesService {
       );
     }
 
+    // Check time conflict: group already assigned to another activity overlapping in date+time
+    const conflict = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'g')
+      .where('g.id = :groupId', { groupId })
+      .andWhere('a.id != :actId', { actId: activity.id })
+      .andWhere('a.date = :date', { date: activity.date })
+      .andWhere('a.start_time < :endTime', { endTime: activity.end_time })
+      .andWhere('a.end_time > :startTime', { startTime: activity.start_time })
+      .getCount();
+    if (conflict > 0) {
+      throw new BadRequestException(
+        'El grupo ya está asignado a otra actividad que se solapa en fecha y hora',
+      );
+    }
+
     if (!activity.guestGroups.some((g) => g.id === groupId)) {
       activity.guestGroups.push(group);
       await this.activitiesRepo.save(activity);
