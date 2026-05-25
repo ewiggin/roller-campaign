@@ -1,7 +1,15 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  ElementRef,
+  HostListener,
+  inject,
+  OnInit,
+  signal,
+  ViewChild,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { GroupComposition, GuestGroup } from '../../../core/models/guest-group.model';
 import type { Guest } from '../../../core/models/guest.model';
@@ -12,6 +20,7 @@ import { GuestGroupsService, ImportGroupResult } from '../../../core/services/gu
 import { GuestsService } from '../../../core/services/guests.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 type ActiveModal = 'create' | 'guests' | 'import' | 'assign-host' | 'edit' | 'truncate' | null;
 
@@ -68,7 +77,9 @@ export class GuestGroupsListComponent implements OnInit {
     this.hosts().map((h) => ({
       value: h.id,
       label: h.name,
-      meta: [h.address, h.guest_count ? `${h.guest_count} guests` : null].filter(Boolean).join(' · '),
+      meta: [h.address, h.guest_count ? `${h.guest_count} guests` : null]
+        .filter(Boolean)
+        .join(' · '),
     })),
   );
   readonly assigningHost = signal(false);
@@ -105,6 +116,32 @@ export class GuestGroupsListComponent implements OnInit {
   });
 
   readonly searchCode = signal('');
+  readonly minCarSeats = signal(0);
+  readonly selectedLanguages = signal<string[]>([]);
+  readonly selectedCompositions = signal<string[]>([]);
+  readonly availableLanguages = signal<string[]>([]);
+  readonly langDropdownOpen = signal(false);
+  readonly compDropdownOpen = signal(false);
+  readonly hasActiveFilters = computed(
+    () =>
+      this.minCarSeats() > 0 ||
+      this.selectedLanguages().length > 0 ||
+      this.selectedCompositions().length > 0,
+  );
+
+  @ViewChild('langDropdown') private readonly langDropdownRef?: ElementRef<HTMLElement>;
+  @ViewChild('compDropdown') private readonly compDropdownRef?: ElementRef<HTMLElement>;
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(e: MouseEvent) {
+    if (this.langDropdownRef && !this.langDropdownRef.nativeElement.contains(e.target as Node)) {
+      this.langDropdownOpen.set(false);
+    }
+    if (this.compDropdownRef && !this.compDropdownRef.nativeElement.contains(e.target as Node)) {
+      this.compDropdownOpen.set(false);
+    }
+  }
+
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly regionName = computed(() => {
@@ -149,11 +186,16 @@ export class GuestGroupsListComponent implements OnInit {
         page: this.page(),
         limit: this.limit,
         search,
+        minCarSeats: this.minCarSeats() > 0 ? this.minCarSeats() : undefined,
+        languages: this.selectedLanguages().length > 0 ? this.selectedLanguages() : undefined,
+        compositions:
+          this.selectedCompositions().length > 0 ? this.selectedCompositions() : undefined,
       })
       .subscribe({
         next: (res) => {
           this.groups.set(res.data);
           this.total.set(res.total);
+          this.availableLanguages.set(res.available_languages ?? []);
           this.loading.set(false);
         },
         error: () => {
@@ -167,6 +209,43 @@ export class GuestGroupsListComponent implements OnInit {
     this.selectedRegionId.set(id);
     this.page.set(1);
     this.searchCode.set('');
+    this.selectedLanguages.set([]);
+    this.selectedCompositions.set([]);
+    this.minCarSeats.set(0);
+    this.loadGroups();
+  }
+
+  toggleLanguage(lang: string) {
+    this.selectedLanguages.update((langs) =>
+      langs.includes(lang) ? langs.filter((l) => l !== lang) : [...langs, lang],
+    );
+    this.page.set(1);
+    this.loadGroups();
+  }
+
+  toggleComposition(comp: string) {
+    this.selectedCompositions.update((comps) =>
+      comps.includes(comp) ? comps.filter((c) => c !== comp) : [...comps, comp],
+    );
+    this.page.set(1);
+    this.loadGroups();
+  }
+
+  onMinCarSeatsInput(value: string) {
+    const n = parseInt(value, 10);
+    this.minCarSeats.set(isNaN(n) || n < 0 ? 0 : n);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      this.page.set(1);
+      this.loadGroups();
+    }, 300);
+  }
+
+  clearFilters() {
+    this.minCarSeats.set(0);
+    this.selectedLanguages.set([]);
+    this.selectedCompositions.set([]);
+    this.page.set(1);
     this.loadGroups();
   }
 
