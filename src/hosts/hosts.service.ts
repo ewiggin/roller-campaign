@@ -126,26 +126,24 @@ export class HostsService {
       .where('gg.region_id = :regionId', { regionId: host.region_id })
       .getMany();
 
-    // One query: first guest with accommodation coords per group
+    // Centroid (avg lat/lng) per group — all guests with accommodation coords
     const groupIds = groups.map((g) => g.id);
     const guestCoords = groupIds.length > 0
       ? await this.guestsRepo
           .createQueryBuilder('g')
           .select('g.group_id', 'group_id')
-          .addSelect('g.lat', 'lat')
-          .addSelect('g.lng', 'lng')
+          .addSelect('AVG(g.lat)', 'lat')
+          .addSelect('AVG(g.lng)', 'lng')
           .where('g.group_id IN (:...groupIds)', { groupIds })
           .andWhere('g.lat IS NOT NULL')
           .andWhere('g.lng IS NOT NULL')
+          .groupBy('g.group_id')
           .getRawMany<{ group_id: string; lat: string; lng: string }>()
       : [];
 
-    // Keep only the first row per group (first guest with coords)
     const coordByGroup = new Map<string, { lat: number; lng: number }>();
     for (const row of guestCoords) {
-      if (!coordByGroup.has(row.group_id)) {
-        coordByGroup.set(row.group_id, { lat: parseFloat(row.lat), lng: parseFloat(row.lng) });
-      }
+      coordByGroup.set(row.group_id, { lat: parseFloat(row.lat), lng: parseFloat(row.lng) });
     }
 
     const withDistance = groups.map((group) => {

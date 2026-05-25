@@ -1,6 +1,32 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { binaryParser, buildExcelBuffer, createTestApp, loginAdmin, parseExcelHeaders, parseExcelResponse } from './test-app';
+import {
+  binaryParser,
+  buildExcelBuffer,
+  createTestApp,
+  loginAdmin,
+  parseExcelHeaders,
+  parseExcelResponse,
+} from './test-app';
+
+function haversine(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return (
+    Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10
+  );
+}
 
 describe('Hosts (e2e)', () => {
   let app: INestApplication;
@@ -16,7 +42,11 @@ describe('Hosts (e2e)', () => {
     const region = await request(server)
       .post('/api/regions')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Hosts Region', event_start_date: '2026-07-01', event_end_date: '2026-07-07' })
+      .send({
+        name: 'Hosts Region',
+        event_start_date: '2026-07-01',
+        event_end_date: '2026-07-07',
+      })
       .expect(201);
     regionId = region.body.id;
   });
@@ -59,7 +89,10 @@ describe('Hosts (e2e)', () => {
       request(server)
         .post('/api/hosts')
         .set('Authorization', auth())
-        .send({ ...baseHost(), region_id: '00000000-0000-0000-0000-000000000000' })
+        .send({
+          ...baseHost(),
+          region_id: '00000000-0000-0000-0000-000000000000',
+        })
         .expect(404));
 
     it('returns 400 for missing name', () =>
@@ -95,8 +128,12 @@ describe('Hosts (e2e)', () => {
 
   describe('GET /api/hosts/:id', () => {
     it('returns a specific host', async () => {
-      const created = (await request(server)
-        .post('/api/hosts').set('Authorization', auth()).send(baseHost())).body;
+      const created = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send(baseHost())
+      ).body;
       const res = await request(server)
         .get(`/api/hosts/${created.id}`)
         .set('Authorization', auth())
@@ -114,8 +151,12 @@ describe('Hosts (e2e)', () => {
 
   describe('PATCH /api/hosts/:id', () => {
     it('updates host fields', async () => {
-      const created = (await request(server)
-        .post('/api/hosts').set('Authorization', auth()).send(baseHost())).body;
+      const created = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send(baseHost())
+      ).body;
       const res = await request(server)
         .patch(`/api/hosts/${created.id}`)
         .set('Authorization', auth())
@@ -135,8 +176,12 @@ describe('Hosts (e2e)', () => {
 
   describe('DELETE /api/hosts/:id', () => {
     it('deletes a host', async () => {
-      const created = (await request(server)
-        .post('/api/hosts').set('Authorization', auth()).send(baseHost())).body;
+      const created = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send(baseHost())
+      ).body;
       await request(server)
         .delete(`/api/hosts/${created.id}`)
         .set('Authorization', auth())
@@ -158,8 +203,12 @@ describe('Hosts (e2e)', () => {
 
   describe('GET /api/hosts/:id/group-suggestions', () => {
     it('returns assigned and available groups', async () => {
-      const host = (await request(server)
-        .post('/api/hosts').set('Authorization', auth()).send(baseHost())).body;
+      const host = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send(baseHost())
+      ).body;
 
       // Create a group without a host (available)
       await request(server)
@@ -175,6 +224,142 @@ describe('Hosts (e2e)', () => {
       expect(res.body).toHaveProperty('available');
       expect(Array.isArray(res.body.assigned)).toBe(true);
       expect(Array.isArray(res.body.available)).toBe(true);
+    });
+
+    it('calculates distance using the centroid of guest coordinates', async () => {
+      // Host at a known position
+      const hostLat = 40.0;
+      const hostLng = 0.0;
+      const host = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send({ ...baseHost(), lat: hostLat, lng: hostLng })
+      ).body;
+
+      // Group with two guests at very different positions
+      const group = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `CENT-${Date.now()}`, region_id: regionId })
+      ).body;
+
+      const guest1Lat = 41.0;
+      const guest1Lng = 1.0;
+      const guest2Lat = 43.0;
+      const guest2Lng = 3.0;
+
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `CG1-${Date.now()}`,
+          group_id: group.id,
+          region_id: regionId,
+          full_name: 'Guest 1',
+          lat: guest1Lat,
+          lng: guest1Lng,
+        });
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `CG2-${Date.now()}`,
+          group_id: group.id,
+          region_id: regionId,
+          full_name: 'Guest 2',
+          lat: guest2Lat,
+          lng: guest2Lng,
+        });
+
+      const res = await request(server)
+        .get(`/api/hosts/${host.id}/group-suggestions`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const suggestion = [...res.body.assigned, ...res.body.available].find(
+        (g: { id: string }) => g.id === group.id,
+      );
+      expect(suggestion).toBeDefined();
+      expect(suggestion.distance_km).not.toBeNull();
+
+      // Expected: haversine from host to centroid of the two guests
+      const centroidLat = (guest1Lat + guest2Lat) / 2; // 42.0
+      const centroidLng = (guest1Lng + guest2Lng) / 2; // 2.0
+      const expectedDistance = haversine(
+        hostLat,
+        hostLng,
+        centroidLat,
+        centroidLng,
+      );
+
+      expect(suggestion.distance_km).toBeCloseTo(expectedDistance, 1);
+    });
+
+    it('returns the same distance for two hosts with identical coordinates', async () => {
+      const sharedLat = 41.5;
+      const sharedLng = 2.5;
+      const host1 = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send({ ...baseHost(), lat: sharedLat, lng: sharedLng })
+      ).body;
+      const host2 = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send({ ...baseHost(), lat: sharedLat, lng: sharedLng })
+      ).body;
+
+      const group = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `DET-${Date.now()}`, region_id: regionId })
+      ).body;
+
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `DG1-${Date.now()}`,
+          group_id: group.id,
+          region_id: regionId,
+          full_name: 'Det Guest 1',
+          lat: 42.0,
+          lng: 3.0,
+        });
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `DG2-${Date.now()}`,
+          group_id: group.id,
+          region_id: regionId,
+          full_name: 'Det Guest 2',
+          lat: 43.0,
+          lng: 4.0,
+        });
+
+      const res1 = await request(server)
+        .get(`/api/hosts/${host1.id}/group-suggestions`)
+        .set('Authorization', auth())
+        .expect(200);
+      const res2 = await request(server)
+        .get(`/api/hosts/${host2.id}/group-suggestions`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const find = (body: {
+        available: { id: string; distance_km: number }[];
+      }) => body.available.find((g) => g.id === group.id);
+      const d1 = find(res1.body)?.distance_km;
+      const d2 = find(res2.body)?.distance_km;
+
+      expect(d1).not.toBeNull();
+      expect(d1).toBe(d2);
     });
   });
 
@@ -197,7 +382,11 @@ describe('Hosts (e2e)', () => {
 
     it('POST /api/hosts/import/parse returns preview', async () => {
       const file = buildExcelBuffer([
-        { name: 'Congregación Parse', region_name: 'Hosts Region', address: 'Calle Test 1' },
+        {
+          name: 'Congregación Parse',
+          region_name: 'Hosts Region',
+          address: 'Calle Test 1',
+        },
         { name: 'Congregación Sin Región', region_name: 'Región Inexistente' },
         { name: '', region_name: 'Hosts Region' },
       ]);
@@ -214,7 +403,11 @@ describe('Hosts (e2e)', () => {
 
     it('POST /api/hosts/import/commit creates hosts', async () => {
       const rows = [
-        { name: `Import Host ${Date.now()}`, region_name: 'Hosts Region', address: 'Calle Import 1' },
+        {
+          name: `Import Host ${Date.now()}`,
+          region_name: 'Hosts Region',
+          address: 'Calle Import 1',
+        },
       ];
       const res = await request(server)
         .post('/api/hosts/import/commit')
@@ -228,7 +421,8 @@ describe('Hosts (e2e)', () => {
     it('POST /api/hosts/import/commit skips duplicates', async () => {
       const name = `Dup Host ${Date.now()}`;
       await request(server)
-        .post('/api/hosts').set('Authorization', auth())
+        .post('/api/hosts')
+        .set('Authorization', auth())
         .send({ name, region_id: regionId });
 
       const res = await request(server)
@@ -240,16 +434,34 @@ describe('Hosts (e2e)', () => {
     });
 
     it('GET /api/hosts/:id/guests/export returns xlsx with guest data', async () => {
-      const host = (await request(server).post('/api/hosts').set('Authorization', auth()).send(baseHost())).body;
+      const host = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send(baseHost())
+      ).body;
 
-      const grp = (await request(server).post('/api/guest-groups').set('Authorization', auth())
-        .send({ group_code: `HEXP-${Date.now()}`, region_id: regionId })).body;
+      const grp = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `HEXP-${Date.now()}`, region_id: regionId })
+      ).body;
 
-      await request(server).patch(`/api/guest-groups/${grp.id}/host`).set('Authorization', auth()).send({ hostId: host.id });
+      await request(server)
+        .patch(`/api/guest-groups/${grp.id}/host`)
+        .set('Authorization', auth())
+        .send({ hostId: host.id });
 
-      await request(server).post('/api/guests').set('Authorization', auth()).send({
-        guest_code: `GEXP-${Date.now()}`, group_id: grp.id, region_id: regionId, full_name: 'Export Guest',
-      });
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `GEXP-${Date.now()}`,
+          group_id: grp.id,
+          region_id: regionId,
+          full_name: 'Export Guest',
+        });
 
       const res = await request(server)
         .get(`/api/hosts/${host.id}/guests/export`)
@@ -281,13 +493,20 @@ describe('Hosts (e2e)', () => {
   describe('Import commit with updateRows', () => {
     it('updates existing hosts via updateRows', async () => {
       const name = `Update Existing ${Date.now()}`;
-      await request(server).post('/api/hosts').set('Authorization', auth())
+      await request(server)
+        .post('/api/hosts')
+        .set('Authorization', auth())
         .send({ name, region_id: regionId, address: 'Original Address' });
 
       const res = await request(server)
         .post('/api/hosts/import/commit')
         .set('Authorization', auth())
-        .send({ rows: [], updateRows: [{ name, region_name: 'Hosts Region', address: 'Updated Address' }] })
+        .send({
+          rows: [],
+          updateRows: [
+            { name, region_name: 'Hosts Region', address: 'Updated Address' },
+          ],
+        })
         .expect(200);
       expect(res.body.updated).toBe(1);
     });
@@ -300,24 +519,38 @@ describe('Hosts (e2e)', () => {
       const userRes = await request(server)
         .post('/api/users')
         .set('Authorization', auth())
-        .send({ email: 'admin.hosts@test.local', password: 'pass1234', role: 'region_admin' });
+        .send({
+          email: 'admin.hosts@test.local',
+          password: 'pass1234',
+          role: 'region_admin',
+        });
 
       await request(server)
         .post(`/api/regions/${regionId}/coordinators`)
         .set('Authorization', auth())
         .send({ userId: userRes.body.id });
 
-      const coordToken = (await request(server)
-        .post('/api/auth/login')
-        .send({ email: 'admin.hosts@test.local', password: 'pass1234' })).body.access_token;
+      const coordToken = (
+        await request(server)
+          .post('/api/auth/login')
+          .send({ email: 'admin.hosts@test.local', password: 'pass1234' })
+      ).body.access_token;
 
-      const otherRegion = (await request(server)
-        .post('/api/regions').set('Authorization', auth())
-        .send({ name: 'Other Region Hosts' })).body;
+      const otherRegion = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: 'Other Region Hosts' })
+      ).body;
 
       await request(server)
-        .post('/api/hosts').set('Authorization', auth())
-        .send({ ...baseHost(), name: 'Hidden Host', region_id: otherRegion.id });
+        .post('/api/hosts')
+        .set('Authorization', auth())
+        .send({
+          ...baseHost(),
+          name: 'Hidden Host',
+          region_id: otherRegion.id,
+        });
 
       const res = await request(server)
         .get('/api/hosts')
