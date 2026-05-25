@@ -19,6 +19,12 @@ export class GuestGroupResponseDto {
   @ApiProperty({ example: 3 })
   guest_count: number;
 
+  @ApiProperty({ example: ['Spanish', 'English'], type: [String] })
+  languages: string[];
+
+  @ApiProperty({ example: 5 })
+  total_car_seats: number;
+
   @ApiPropertyOptional({ example: '2024-06-14', nullable: true })
   available_from: string | null;
 
