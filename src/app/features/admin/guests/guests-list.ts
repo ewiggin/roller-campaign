@@ -45,6 +45,7 @@ export class GuestsListComponent implements OnInit {
   readonly filterGroup = signal('');
   readonly filterStatus = signal('');
   readonly filterSearch = signal('');
+  readonly filterTermsAccepted = signal<'' | 'true' | 'false'>('');
   readonly page = signal(1);
   readonly limit = 50;
 
@@ -102,6 +103,7 @@ export class GuestsListComponent implements OnInit {
         groupId: this.filterGroup() || undefined,
         status: (this.filterStatus() as GuestStatus) || undefined,
         search: this.filterSearch() || undefined,
+        termsAccepted: this.filterTermsAccepted() === '' ? undefined : this.filterTermsAccepted() === 'true',
         page: this.page(),
         limit: this.limit,
       })
@@ -181,6 +183,7 @@ export class GuestsListComponent implements OnInit {
           (this.filterStatus() as import('../../../core/models/guest.model').GuestStatus) ||
           undefined,
         search: this.filterSearch() || undefined,
+        termsAccepted: this.filterTermsAccepted() === '' ? undefined : this.filterTermsAccepted() === 'true',
       })
       .subscribe((blob) => {
         const url = URL.createObjectURL(blob);

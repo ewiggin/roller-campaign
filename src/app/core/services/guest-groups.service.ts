@@ -1,7 +1,11 @@
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { HttpParams } from '@angular/common/http';
-import type { GuestGroup, GuestGroupListResponse, CreateGuestGroupPayload, UpdateGuestGroupPayload } from '../models/guest-group.model';
+import type {
+  CreateGuestGroupPayload,
+  GuestGroup,
+  GuestGroupListResponse,
+  UpdateGuestGroupPayload,
+} from '../models/guest-group.model';
 export type { GuestGroup };
 
 export interface ImportGroupResult {
@@ -19,12 +23,26 @@ export class GuestGroupsService {
     return this.http.get<GuestGroup>(`/api/guest-groups/${id}`);
   }
 
-  getAll(query: { regionId?: string; page?: number; limit?: number; search?: string } = {}) {
+  getAll(
+    query: {
+      regionId?: string;
+      page?: number;
+      limit?: number;
+      search?: string;
+      minCarSeats?: number;
+      languages?: string[];
+      compositions?: string[];
+    } = {},
+  ) {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
     if (query.page) params = params.set('page', String(query.page));
     if (query.limit) params = params.set('limit', String(query.limit));
     if (query.search) params = params.set('search', query.search);
+    if (query.minCarSeats) params = params.set('minCarSeats', String(query.minCarSeats));
+    if (query.languages?.length) params = params.set('languages', query.languages.join(','));
+    if (query.compositions?.length)
+      params = params.set('compositions', query.compositions.join(','));
     return this.http.get<GuestGroupListResponse>('/api/guest-groups', { params });
   }
 
@@ -65,6 +83,8 @@ export class GuestGroupsService {
   }
 
   truncate() {
-    return this.http.delete<{ deleted_guests: number; deleted_groups: number }>('/api/guest-groups/truncate');
+    return this.http.delete<{ deleted_guests: number; deleted_groups: number }>(
+      '/api/guest-groups/truncate',
+    );
   }
 }
