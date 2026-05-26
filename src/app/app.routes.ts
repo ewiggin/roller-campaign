@@ -42,7 +42,9 @@ export const routes: Routes = [
       {
         path: 'guest-groups',
         loadComponent: () =>
-          import('./features/admin/guest-groups/guest-groups-list').then((m) => m.GuestGroupsListComponent),
+          import('./features/admin/guest-groups/guest-groups-list').then(
+            (m) => m.GuestGroupsListComponent,
+          ),
       },
       {
         path: 'guests',
@@ -57,12 +59,21 @@ export const routes: Routes = [
       {
         path: 'activities',
         loadComponent: () =>
-          import('./features/admin/activities/activities-list').then((m) => m.ActivitiesListComponent),
+          import('./features/admin/activities/activities-list').then(
+            (m) => m.ActivitiesListComponent,
+          ),
       },
       {
         path: 'audit-logs',
         loadComponent: () =>
-          import('./features/admin/audit-logs/audit-logs-list').then((m) => m.AuditLogsListComponent),
+          import('./features/admin/audit-logs/audit-logs-list').then(
+            (m) => m.AuditLogsListComponent,
+          ),
+      },
+      {
+        path: 'settings',
+        loadComponent: () =>
+          import('./features/admin/settings/settings').then((m) => m.SettingsComponent),
       },
     ],
   },

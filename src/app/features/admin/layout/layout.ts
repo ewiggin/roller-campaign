@@ -33,6 +33,7 @@ export class AdminLayoutComponent {
   protected readonly adminNavItems: NavItem[] = [
     { label: 'Users', path: '/admin/users', icon: 'shield' },
     { label: 'Audit Log', path: '/admin/audit-logs', icon: 'clipboard' },
+    { label: 'Settings', path: '/admin/settings', icon: 'cog' },
   ];
 
   logout() {
