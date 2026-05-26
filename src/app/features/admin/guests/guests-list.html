@@ -31,7 +31,7 @@
       </button>
       <button
         (click)="openImport()"
-        class="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
       >
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path
@@ -41,6 +41,15 @@
           />
         </svg>
         Import Excel
+      </button>
+      <button
+        (click)="openCreate()"
+        class="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        New
       </button>
     </div>
   </div>
@@ -90,9 +99,7 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Terms</label
-        >
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Terms</label>
         <select
           [ngModel]="filterTermsAccepted()"
           (ngModelChange)="filterTermsAccepted.set($event); applyFilters()"
@@ -339,6 +346,198 @@
       </div>
       }
     </div>
+  </div>
+</div>
+}
+
+<!-- Create guest modal -->
+@if (createModal()) {
+<div
+  class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4"
+  (click)="createModal.set(false)"
+>
+  <div
+    class="w-full max-w-lg bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+    (click)="$event.stopPropagation()"
+  >
+    <div
+      class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
+    >
+      <h3 class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+        Nuevo invitado
+      </h3>
+      <button
+        (click)="createModal.set(false)"
+        class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <form [formGroup]="createForm" (ngSubmit)="saveCreate()" class="p-5 space-y-4">
+      <!-- Step 1: Region -->
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+          >Región *</label
+        >
+        <app-searchable-select
+          [items]="regionItems()"
+          placeholder="Seleccionar región…"
+          [selected]="createRegionId()"
+          (selectedChange)="onCreateRegionChange($event)"
+        />
+      </div>
+
+      @if (createRegionId()) {
+      <!-- Group -->
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+          >Grupo *</label
+        >
+        <app-searchable-select
+          [items]="createFormGroupItems()"
+          placeholder="Seleccionar grupo…"
+          [selected]="createForm.get('group_id')!.value"
+          (selectedChange)="onCreateGroupChange($event)"
+        />
+      </div>
+
+      <!-- Code + Name -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+            >Código *</label
+          >
+          <input
+            type="text"
+            formControlName="guest_code"
+            placeholder="G-001"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+            >Nombre completo *</label
+          >
+          <input
+            type="text"
+            formControlName="full_name"
+            placeholder="Juan García López"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+      </div>
+
+      <!-- Language + City -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+            >Idioma nativo</label
+          >
+          <input
+            type="text"
+            formControlName="native_language"
+            placeholder="Español"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+            >Ciudad de origen</label
+          >
+          <input
+            type="text"
+            formControlName="origin_city"
+            placeholder="Madrid"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+      </div>
+
+      <!-- Email + Branch -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+            >Email</label
+          >
+          <input
+            type="email"
+            formControlName="email"
+            placeholder="juan@ejemplo.com"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+            >Sucursal</label
+          >
+          <input
+            type="text"
+            formControlName="branch"
+            placeholder="Sucursal Madrid"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+      </div>
+
+      <!-- Checkboxes -->
+      <div class="flex flex-wrap gap-4">
+        <label
+          class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-zinc-300"
+        >
+          <input
+            type="checkbox"
+            formControlName="is_minor"
+            class="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+          />
+          Menor
+        </label>
+        <label
+          class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-zinc-300"
+        >
+          <input
+            type="checkbox"
+            formControlName="is_group_contact"
+            class="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+          />
+          Contacto del grupo
+        </label>
+        <label
+          class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-zinc-300"
+        >
+          <input
+            type="checkbox"
+            formControlName="is_special_servant"
+            class="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+          />
+          Siervo especial
+        </label>
+      </div>
+
+      @if (formError()) {
+      <p class="text-sm text-red-500">{{ formError() }}</p>
+      } }
+      <!-- end @if (createRegionId()) -->
+
+      <div class="flex justify-end gap-2 pt-1">
+        <button
+          type="button"
+          (click)="createModal.set(false)"
+          class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          [disabled]="createForm.invalid || saving()"
+          class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {{ saving() ? 'Guardando…' : 'Crear invitado' }}
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 }
