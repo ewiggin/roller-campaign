@@ -16,6 +16,7 @@ export interface SearchableSelectItem {
   value: string;
   label: string;
   meta?: string;
+  disabled?: boolean;
 }
 
 @Component({
@@ -36,7 +37,12 @@ export class SearchableSelectComponent implements ControlValueAccessor {
   readonly emptyLabel = input('');
   readonly compact = input(false);
   readonly invalid = input(false);
+  readonly multi = input(false);
+
+  // Single mode
   readonly selected = model('');
+  // Multi mode
+  readonly selectedItems = model<string[]>([]);
 
   protected readonly open = signal(false);
   protected readonly query = signal('');
@@ -49,6 +55,12 @@ export class SearchableSelectComponent implements ControlValueAccessor {
   private onTouched: () => void = () => {};
 
   protected readonly selectedLabel = computed(() => {
+    if (this.multi()) {
+      const sel = this.selectedItems();
+      if (!sel.length) return '';
+      if (sel.length === 1) return this.items().find((i) => i.value === sel[0])?.label ?? '';
+      return `${sel.length} selected`;
+    }
     const val = this.selected();
     if (!val) return '';
     return this.items().find((i) => i.value === val)?.label ?? '';
@@ -69,20 +81,12 @@ export class SearchableSelectComponent implements ControlValueAccessor {
   writeValue(value: string): void {
     this.selected.set(value ?? '');
   }
-
-  registerOnChange(fn: (value: string) => void): void {
-    this.onChange = fn;
-  }
-
-  registerOnTouched(fn: () => void): void {
-    this.onTouched = fn;
-  }
+  registerOnChange(fn: (value: string) => void): void { this.onChange = fn; }
+  registerOnTouched(fn: () => void): void { this.onTouched = fn; }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(e: MouseEvent) {
-    if (!this.el.nativeElement.contains(e.target as Node)) {
-      this.close();
-    }
+    if (!this.el.nativeElement.contains(e.target as Node)) this.close();
   }
 
   protected toggle() {
@@ -109,11 +113,24 @@ export class SearchableSelectComponent implements ControlValueAccessor {
     this.query.set('');
   }
 
+  // Single mode: select and close
   protected select(value: string) {
     this.selected.set(value);
     this.onChange(value);
     this.onTouched();
     this.close();
+  }
+
+  // Multi mode: toggle without closing
+  protected toggleItem(value: string) {
+    const current = this.selectedItems();
+    this.selectedItems.set(
+      current.includes(value) ? current.filter((v) => v !== value) : [...current, value],
+    );
+  }
+
+  protected isItemSelected(value: string): boolean {
+    return this.selectedItems().includes(value);
   }
 
   protected triggerClass() {

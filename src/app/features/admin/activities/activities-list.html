@@ -2,36 +2,74 @@
   <!-- Header -->
   <div class="flex items-center justify-between mb-5">
     <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">Activities</h2>
-    <button
-      (click)="openCreate()"
-      class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
-    >
-      New activity
-    </button>
+    <div class="flex items-center gap-2">
+      <!-- View toggle -->
+      <div class="flex rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
+        <button
+          type="button"
+          (click)="switchView('list')"
+          title="List view"
+          class="px-2.5 py-1.5 transition-colors"
+          [class]="viewMode() === 'list'
+            ? 'bg-blue-500 text-white'
+            : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800'"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+          </svg>
+        </button>
+        <button
+          type="button"
+          (click)="switchView('calendar')"
+          title="Calendar view"
+          class="px-2.5 py-1.5 border-l border-gray-200 dark:border-zinc-700 transition-colors"
+          [class]="viewMode() === 'calendar'
+            ? 'bg-blue-500 text-white'
+            : 'text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800'"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+        </button>
+      </div>
+      <button
+        (click)="openCreate()"
+        class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+      >
+        New activity
+      </button>
+    </div>
   </div>
 
   <!-- Filters -->
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4"
   >
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
       <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Region</label
-        >
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Region</label>
         <app-searchable-select
           [items]="regionItems()"
           placeholder="All regions"
           emptyLabel="All regions"
           [compact]="true"
           [selected]="filterRegion()"
-          (selectedChange)="filterRegion.set($event); applyFilters()"
+          (selectedChange)="onRegionFilterChange($event)"
         />
       </div>
       <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Status</label
-        >
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Host</label>
+        <app-searchable-select
+          [items]="filterHostItems()"
+          placeholder="All hosts"
+          emptyLabel="All hosts"
+          [compact]="true"
+          [selected]="filterHost()"
+          (selectedChange)="filterHost.set($event); applyFilters()"
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Status</label>
         <select
           [ngModel]="filterStatus()"
           (ngModelChange)="filterStatus.set($event)"
@@ -53,7 +91,7 @@
       </div>
       <div class="flex items-end">
         <button
-          (click)="filterDate.set(''); filterStatus.set(''); applyFilters()"
+          (click)="filterDate.set(''); filterStatus.set(''); filterHost.set(''); applyFilters()"
           class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-zinc-400 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
         >
           Clear
@@ -62,7 +100,56 @@
     </div>
   </div>
 
+  <!-- Calendar view -->
+  @if (viewMode() === 'calendar') {
+  <app-calendar
+    [activities]="calendarActivities()"
+    [loading]="calendarLoading()"
+    (periodChange)="onPeriodChange($event)"
+    (activityClick)="loadAndOpenDetail($event)"
+  />
+  }
+
   <!-- List -->
+  @if (viewMode() === 'list') {
+
+  <!-- Bulk action bar -->
+  @if (selectedCount() > 0) {
+  <div class="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-2.5 mb-4 flex items-center justify-between gap-3 flex-wrap">
+    <span class="text-sm font-medium text-blue-700 dark:text-blue-300">
+      {{ selectedCount() }} selected
+    </span>
+    <div class="flex items-center gap-2">
+      @if (selectedDraftCount() > 0) {
+      <button
+        (click)="bulkPublish()"
+        [disabled]="bulkSaving()"
+        class="rounded-lg bg-green-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50 transition-colors"
+      >
+        @if (bulkSaving()) { Publishing… }
+        @else { Publish {{ selectedDraftCount() > 1 ? selectedDraftCount() + ' drafts' : 'draft' }} }
+      </button>
+      }
+      @if (selectedPublishedCount() > 0) {
+      <button
+        (click)="bulkUnpublish()"
+        [disabled]="bulkSaving()"
+        class="rounded-lg bg-gray-200 dark:bg-zinc-700 px-3 py-1.5 text-sm font-semibold text-gray-700 dark:text-zinc-200 hover:bg-gray-300 dark:hover:bg-zinc-600 disabled:opacity-50 transition-colors"
+      >
+        @if (bulkSaving()) { Unpublishing… }
+        @else { Unpublish {{ selectedPublishedCount() > 1 ? selectedPublishedCount() : '' }} }
+      </button>
+      }
+      <button
+        (click)="clearSelection()"
+        class="text-sm text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
+      >
+        Clear
+      </button>
+    </div>
+  </div>
+  }
+
   @if (loading()) {
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
@@ -92,9 +179,18 @@
     <div
       class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
     >
-      <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
-        {{ total() }} activit{{ total() !== 1 ? 'ies' : 'y' }}
-      </span>
+      <div class="flex items-center gap-3">
+        <input
+          type="checkbox"
+          [checked]="isAllSelected()"
+          (change)="toggleSelectAll()"
+          class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400 cursor-pointer"
+          title="Select all on this page"
+        />
+        <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+          {{ total() }} activit{{ total() !== 1 ? 'ies' : 'y' }}
+        </span>
+      </div>
       @if (totalPages() > 1) {
       <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
         <button
@@ -123,7 +219,16 @@
     } @else {
     <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
       @for (activity of filteredActivities(); track activity.id) {
-      <li class="px-5 py-3 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+      <li class="px-5 py-3 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+        [class.bg-blue-50]="selectedIds().has(activity.id)"
+        [class.dark:bg-blue-950]="selectedIds().has(activity.id)">
+        <input
+          type="checkbox"
+          [checked]="selectedIds().has(activity.id)"
+          (change)="toggleSelection(activity.id)"
+          (click)="$event.stopPropagation()"
+          class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400 cursor-pointer shrink-0"
+        />
         <!-- Date + time -->
         <div class="w-28 shrink-0">
           <p class="text-sm font-semibold text-gray-900 dark:text-zinc-100">
@@ -134,12 +239,12 @@
           </p>
         </div>
 
-        <!-- Description -->
+        <!-- Name + meta -->
         <div class="flex-1 min-w-0">
-          <p class="text-sm text-gray-700 dark:text-zinc-300 truncate">
-            {{ activity.description || '—' }}
+          <p class="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate">
+            @if (activity.icon) {<span class="mr-1">{{ activity.icon }}</span>}{{ activity.name || '—' }}
           </p>
-          <div class="flex items-center gap-2 mt-1">
+          <div class="flex items-center gap-2 mt-0.5">
             <span class="text-xs text-gray-400 dark:text-zinc-500">
               {{ activity.volunteer_count }} volunteer{{ activity.volunteer_count !== 1 ? 's' : ''
               }}
@@ -153,6 +258,10 @@
               <span class="text-xs font-medium text-blue-600 dark:text-blue-400">
                 {{ activity.total_guests_assigned }} guests
               </span>
+            }
+            @if (activity.series_id) {
+              <span class="text-gray-300 dark:text-zinc-600">·</span>
+              <span class="text-xs text-gray-400 dark:text-zinc-500">series</span>
             }
           </div>
         </div>
@@ -186,6 +295,7 @@
               />
             </svg>
           </button>
+          @if (activity.status !== 'published') {
           <button
             (click)="deleteActivity(activity)"
             class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
@@ -205,6 +315,7 @@
               />
             </svg>
           </button>
+          }
         </div>
       </li>
       }
@@ -212,6 +323,7 @@
     }
   </div>
   }
+  } <!-- /viewMode list -->
 </div>
 
 <!-- Create modal -->
@@ -221,7 +333,7 @@
   (click)="closeModal()"
 >
   <div
-    class="w-full max-w-md bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+    class="w-full max-w-lg h-[85vh] flex flex-col bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
     (click)="$event.stopPropagation()"
   >
     <div
@@ -239,90 +351,167 @@
         </svg>
       </button>
     </div>
-    <form [formGroup]="createForm" (ngSubmit)="submitCreate()" class="p-5 space-y-4">
-      <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Region *</label
-        >
-        <app-searchable-select
-          formControlName="region_id"
-          [items]="regionItems()"
-          placeholder="Select region…"
-          [invalid]="isInvalid('create', 'region_id')"
-        />
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Date *</label
-        >
-        <input
-          type="date"
-          formControlName="date"
-          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          [class.border-red-400]="isInvalid('create', 'date')"
-        />
-      </div>
+    <form [formGroup]="createForm" (ngSubmit)="submitCreate()" class="flex flex-col flex-1 min-h-0">
+    <div class="flex-1 overflow-y-auto p-5 space-y-4">
       <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-            >Start *</label
-          >
-          <input
-            type="time"
-            formControlName="start_time"
-            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            [class.border-red-400]="isInvalid('create', 'start_time')"
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Region *</label>
+          <app-searchable-select
+            formControlName="region_id"
+            [items]="regionItems()"
+            placeholder="Select region…"
+            [invalid]="isInvalid('create', 'region_id')"
           />
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-            >End *</label
-          >
-          <input
-            type="time"
-            formControlName="end_time"
-            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            [class.border-red-400]="isInvalid('create', 'end_time')"
-          />
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Name *</label>
+          <div class="flex gap-2">
+            <app-emoji-picker [(value)]="createIconValue" class="shrink-0" />
+            <input type="text" formControlName="name" placeholder="e.g. Airport pickup"
+              class="flex-1 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+              [class.border-red-400]="isInvalid('create', 'name')" />
+          </div>
         </div>
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Description</label
-        >
-        <input
-          type="text"
-          formControlName="description"
-          placeholder="Optional description"
-          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Location <span class="text-gray-400 dark:text-zinc-600 font-normal">(optional — used to sort groups by distance)</span></label>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Date *</label>
+          <input type="date" formControlName="date"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            [class.border-red-400]="isInvalid('create', 'date')" />
+        </div>
         <div class="grid grid-cols-2 gap-2">
-          <input type="number" step="any" formControlName="lat" placeholder="Latitude" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
-          <input type="number" step="any" formControlName="lng" placeholder="Longitude" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Start *</label>
+            <input type="time" formControlName="start_time"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              [class.border-red-400]="isInvalid('create', 'start_time')" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">End *</label>
+            <input type="time" formControlName="end_time"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              [class.border-red-400]="isInvalid('create', 'end_time')" />
+          </div>
+        </div>
+        <div class="col-span-2">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400">Description</label>
+            <span class="text-xs text-gray-400 dark:text-zinc-500">{{ createDescLen() }}/500</span>
+          </div>
+          <textarea formControlName="description" rows="3" maxlength="500" placeholder="Optional description"
+            (input)="createDescLen.set($any($event.target).value.length)"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500 resize-none"></textarea>
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Host congregation <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label>
+          <app-searchable-select
+            formControlName="host_id"
+            [items]="modalHostItems()"
+            placeholder="— None —"
+            emptyLabel="— None —"
+          />
         </div>
       </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Departure location <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label>
+        @if (selectedCreateHost()?.address || createDepartureFromHost()) {
+        <label class="flex items-center gap-2 mb-2 cursor-pointer">
+          <input type="checkbox"
+            [checked]="createDepartureFromHost()"
+            (change)="toggleLocationFromHost('create', 'departure', $any($event.target).checked)"
+            class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+          />
+          <span class="text-sm text-gray-600 dark:text-zinc-300">Same as host congregation</span>
+        </label>
+        }
+        @if (!createDepartureFromHost()) {
+        <app-location-picker (locationSelected)="createDepartureLocation.set($event)" />
+        }
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Activity location <span class="font-normal text-gray-400 dark:text-zinc-600">(optional — used to sort groups by distance)</span></label>
+        @if (selectedCreateHost()?.address || createActivityFromHost()) {
+        <label class="flex items-center gap-2 mb-2 cursor-pointer">
+          <input type="checkbox"
+            [checked]="createActivityFromHost()"
+            (change)="toggleLocationFromHost('create', 'activity', $any($event.target).checked)"
+            class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+          />
+          <span class="text-sm text-gray-600 dark:text-zinc-300">Same as host congregation</span>
+        </label>
+        }
+        @if (!createActivityFromHost()) {
+        <app-location-picker (locationSelected)="createActivityLocation.set($event)" />
+        }
+      </div>
+
+      <!-- Repeat section -->
+      <div class="border-t border-gray-100 dark:border-zinc-800 pt-4 space-y-3">
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            [checked]="repeatEnabled()"
+            (change)="repeatEnabled.set($any($event.target).checked)"
+            class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+          />
+          <span class="text-sm font-medium text-gray-700 dark:text-zinc-300">Repeat this activity</span>
+        </label>
+
+        @if (repeatEnabled()) {
+        <div class="space-y-3 pl-6">
+          <div class="flex items-center gap-3 flex-wrap">
+            <select
+              [value]="repeatType()"
+              (change)="repeatType.set($any($event.target).value)"
+              class="rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="daily">Every day</option>
+              <option value="weekly">Every week</option>
+              <option value="same_day">Same day (copies)</option>
+            </select>
+            <div class="flex items-center gap-2">
+              <input
+                type="number"
+                [value]="repeatCount()"
+                (input)="repeatCount.set(+$any($event.target).value)"
+                min="2" max="30"
+                class="w-20 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"
+              />
+              <span class="text-sm text-gray-500 dark:text-zinc-400">times</span>
+            </div>
+          </div>
+
+          @if (repeatPreviewDates().length > 0) {
+          <div class="flex flex-wrap gap-1.5">
+            @for (d of repeatPreviewDates(); track d + $index) {
+            <span class="inline-block rounded-md bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 font-medium">
+              {{ formatRepeatDate(d) }}
+            </span>
+            }
+          </div>
+          } @else {
+          <p class="text-xs text-gray-400 dark:text-zinc-500">Set a date to preview occurrences</p>
+          }
+        </div>
+        }
+      </div>
+
       @if (formError()) {
       <p class="text-sm text-red-500">{{ formError() }}</p>
       }
-      <div class="flex justify-end gap-2 pt-1">
-        <button
-          type="button"
-          (click)="closeModal()"
-          class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          [disabled]="saving()"
-          class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
-        >
-          {{ saving() ? 'Creating…' : 'Create' }}
-        </button>
-      </div>
+    </div>
+    <div class="shrink-0 px-5 py-3 border-t border-gray-200 dark:border-zinc-700 flex justify-end gap-2">
+      <button type="button" (click)="closeModal()"
+        class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+        Cancel
+      </button>
+      <button type="submit" [disabled]="saving()"
+        class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors">
+        @if (saving()) { Creating… }
+        @else if (repeatEnabled()) { Create {{ repeatCount() }} activities }
+        @else { Create }
+      </button>
+    </div>
     </form>
   </div>
 </div>
@@ -335,7 +524,7 @@
   (click)="closeModal()"
 >
   <div
-    class="w-full max-w-2xl bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden max-h-[85vh] flex flex-col"
+    class="w-full max-w-2xl h-[85vh] bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden flex flex-col"
     (click)="$event.stopPropagation()"
   >
     <!-- Header -->
@@ -344,9 +533,11 @@
     >
       <div class="flex items-center gap-3">
         <h3 class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
-          {{ selectedActivity()!.date | date }} · {{ selectedActivity()!.start_time }}–{{
-          selectedActivity()!.end_time }}
+          @if (selectedActivity()!.icon) {<span class="mr-1 normal-case">{{ selectedActivity()!.icon }}</span>}{{ selectedActivity()!.name || (selectedActivity()!.date | date) }}
         </h3>
+        <span class="text-xs text-gray-400 dark:text-zinc-500">
+          {{ selectedActivity()!.date | date }} · {{ selectedActivity()!.start_time }}–{{ selectedActivity()!.end_time }}
+        </span>
         <span
           class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1"
           [class]="statusBadgeClass(selectedActivity()!.status)"
@@ -402,57 +593,118 @@
       @if (detailTab() === 'info') {
       <form [formGroup]="editForm" (ngSubmit)="saveInfo()" class="space-y-4">
         <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-            >Date *</label
-          >
-          <input
-            type="date"
-            formControlName="date"
-            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            [class.border-red-400]="isInvalid('edit', 'date')"
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Name *</label>
+          <div class="flex gap-2">
+            <app-emoji-picker [(value)]="editIconValue" class="shrink-0" />
+            <input type="text" formControlName="name"
+              class="flex-1 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              [class.border-red-400]="isInvalid('edit', 'name')" />
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400">Description</label>
+            <span class="text-xs text-gray-400 dark:text-zinc-500">{{ editDescLen() }}/500</span>
+          </div>
+          <textarea formControlName="description" rows="3" maxlength="500"
+            (input)="editDescLen.set($any($event.target).value.length)"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Host congregation <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label>
+          <app-searchable-select
+            formControlName="host_id"
+            [items]="modalHostItems()"
+            placeholder="— None —"
+            emptyLabel="— None —"
           />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-              >Start *</label
-            >
-            <input
-              type="time"
-              formControlName="start_time"
+            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Date *</label>
+            <input type="date" formControlName="date"
               class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              [class.border-red-400]="isInvalid('edit', 'start_time')"
-            />
+              [class.border-red-400]="isInvalid('edit', 'date')" />
           </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-              >End *</label
-            >
-            <input
-              type="time"
-              formControlName="end_time"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              [class.border-red-400]="isInvalid('edit', 'end_time')"
-            />
-          </div>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-            >Description</label
-          >
-          <input
-            type="text"
-            formControlName="description"
-            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Location <span class="text-gray-400 dark:text-zinc-600 font-normal">(used to sort groups by distance)</span></label>
           <div class="grid grid-cols-2 gap-2">
-            <input type="number" step="any" formControlName="lat" placeholder="Latitude" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
-            <input type="number" step="any" formControlName="lng" placeholder="Longitude" class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Start *</label>
+              <input type="time" formControlName="start_time"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                [class.border-red-400]="isInvalid('edit', 'start_time')" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">End *</label>
+              <input type="time" formControlName="end_time"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                [class.border-red-400]="isInvalid('edit', 'end_time')" />
+            </div>
           </div>
         </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Departure location <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label>
+          @if (selectedEditHost()?.address || editDepartureFromHost()) {
+          <label class="flex items-center gap-2 mb-2 cursor-pointer">
+            <input type="checkbox"
+              [checked]="editDepartureFromHost()"
+              (change)="toggleLocationFromHost('edit', 'departure', $any($event.target).checked)"
+              class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+            />
+            <span class="text-sm text-gray-600 dark:text-zinc-300">Same as host congregation</span>
+          </label>
+          }
+          @if (!editDepartureFromHost()) {
+          <app-location-picker
+            [initialAddress]="selectedActivity()!.departure_address"
+            [initialLat]="selectedActivity()!.departure_lat"
+            [initialLng]="selectedActivity()!.departure_lng"
+            (locationSelected)="editDepartureLocation.set($event)"
+          />
+          }
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Activity location <span class="font-normal text-gray-400 dark:text-zinc-600">(optional — used to sort groups by distance)</span></label>
+          @if (selectedEditHost()?.address || editActivityFromHost()) {
+          <label class="flex items-center gap-2 mb-2 cursor-pointer">
+            <input type="checkbox"
+              [checked]="editActivityFromHost()"
+              (change)="toggleLocationFromHost('edit', 'activity', $any($event.target).checked)"
+              class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+            />
+            <span class="text-sm text-gray-600 dark:text-zinc-300">Same as host congregation</span>
+          </label>
+          }
+          @if (!editActivityFromHost()) {
+          <app-location-picker
+            [initialAddress]="selectedActivity()!.activity_address"
+            [initialLat]="selectedActivity()!.activity_lat"
+            [initialLng]="selectedActivity()!.activity_lng"
+            (locationSelected)="editActivityLocation.set($event)"
+          />
+          }
+        </div>
+        @if (seriesChoiceVisible()) {
+        <!-- Series update choice -->
+        <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-4 space-y-3">
+          <p class="text-sm font-semibold text-blue-800 dark:text-blue-200">Apply changes to:</p>
+          <div class="space-y-2">
+            <button type="button" (click)="confirmSaveOnlyThis()" [disabled]="detailSaving()"
+              class="w-full text-left px-3 py-2.5 rounded-lg bg-white dark:bg-[#18181b] border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+              <p class="text-sm font-semibold text-gray-800 dark:text-zinc-100">Only this activity</p>
+              <p class="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Detaches this activity from the series</p>
+            </button>
+            <button type="button" (click)="confirmSaveFuture()" [disabled]="detailSaving()"
+              class="w-full text-left px-3 py-2.5 rounded-lg bg-white dark:bg-[#18181b] border border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors disabled:opacity-50">
+              <p class="text-sm font-semibold text-blue-700 dark:text-blue-300">This and future activities</p>
+              <p class="text-xs text-blue-500 dark:text-blue-400 mt-0.5">Updates all upcoming activities in the series</p>
+            </button>
+          </div>
+          <button type="button" (click)="cancelSeriesChoice()"
+            class="text-xs text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200 transition-colors">
+            Cancel
+          </button>
+        </div>
+        } @else {
         <div class="flex items-center justify-between pt-2">
           <button
             type="button"
@@ -466,22 +718,30 @@
             {{ selectedActivity()!.status === 'published' ? 'Unpublish' : 'Publish' }}
           </button>
           <div class="flex gap-2">
-            <button
-              type="button"
-              (click)="deleteActivity(selectedActivity()!)"
-              class="rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
-            >
-              Delete
-            </button>
-            <button
-              type="submit"
-              [disabled]="detailSaving()"
-              class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
-            >
+            @if (selectedActivity()!.status !== 'published') {
+              @if (selectedActivity()!.series_id) {
+              <button type="button" (click)="deleteActivity(selectedActivity()!)"
+                class="rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
+                Delete this
+              </button>
+              <button type="button" (click)="deleteSeriesFromHere(selectedActivity()!)"
+                class="rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
+                Delete this + future
+              </button>
+              } @else {
+              <button type="button" (click)="deleteActivity(selectedActivity()!)"
+                class="rounded-lg px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
+                Delete
+              </button>
+              }
+            }
+            <button type="submit" [disabled]="detailSaving()"
+              class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors">
               {{ detailSaving() ? 'Saving…' : 'Save' }}
             </button>
           </div>
         </div>
+        }
       </form>
       }
 
@@ -496,18 +756,17 @@
           <app-searchable-select
             class="flex-1"
             [items]="availableVolunteerItems()"
-            placeholder="Add volunteer…"
-            emptyLabel="Add volunteer…"
-            [selected]="selectedVolunteerId()"
-            (selectedChange)="selectedVolunteerId.set($event)"
+            placeholder="Select volunteers…"
+            [multi]="true"
+            [(selectedItems)]="selectedVolunteerIds"
           />
           }
           <button
-            (click)="addVolunteer()"
-            [disabled]="!selectedVolunteerId() || detailSaving()"
-            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            (click)="addVolunteers()"
+            [disabled]="!selectedVolunteerIds().length || detailSaving()"
+            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
           >
-            Add
+            Add {{ selectedVolunteerIds().length > 1 ? selectedVolunteerIds().length : '' }}
           </button>
         </div>
 
@@ -559,18 +818,17 @@
           <app-searchable-select
             class="flex-1"
             [items]="availableGroupItems()"
-            placeholder="Add group…"
-            emptyLabel="Add group…"
-            [selected]="selectedGroupId()"
-            (selectedChange)="selectedGroupId.set($event)"
+            placeholder="Select groups…"
+            [multi]="true"
+            [(selectedItems)]="selectedGroupIds"
           />
           }
           <button
-            (click)="addGroup()"
-            [disabled]="!selectedGroupId() || detailSaving()"
-            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            (click)="addGroups()"
+            [disabled]="!selectedGroupIds().length || detailSaving()"
+            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
           >
-            Add
+            Add {{ selectedGroupIds().length > 1 ? selectedGroupIds().length : '' }}
           </button>
         </div>
 
