@@ -1,4 +1,9 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 export type AuditAction =
   | 'login'
@@ -23,7 +28,8 @@ export type AuditResource =
   | 'guest'
   | 'host'
   | 'volunteer'
-  | 'activity';
+  | 'activity'
+  | 'settings';
 
 @Entity('audit_logs')
 export class AuditLog {
