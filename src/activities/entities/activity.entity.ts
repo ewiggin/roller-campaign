@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Region } from '../../regions/entities/region.entity';
+import { Host } from '../../hosts/entities/host.entity';
 import { Volunteer } from '../../volunteers/entities/volunteer.entity';
 import { GuestGroup } from '../../guest-groups/entities/guest-group.entity';
 
@@ -27,6 +28,28 @@ export class Activity {
   @Column()
   region_id: string;
 
+  @Column({ type: 'varchar', nullable: true, default: null })
+  series_id: string | null;
+
+  @Column({ type: 'varchar', default: '' })
+  name: string;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  icon: string | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  description: string | null;
+
+  @Column({ type: 'varchar', default: 'draft' })
+  status: ActivityStatus;
+
+  @ManyToOne(() => Host, { nullable: true, onDelete: 'SET NULL', eager: false })
+  @JoinColumn({ name: 'host_id' })
+  host: Host | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  host_id: string | null;
+
   @Column({ type: 'varchar' })
   date: string;
 
@@ -37,16 +60,22 @@ export class Activity {
   end_time: string;
 
   @Column({ type: 'varchar', nullable: true, default: null })
-  description: string | null;
-
-  @Column({ type: 'varchar', default: 'draft' })
-  status: ActivityStatus;
+  activity_address: string | null;
 
   @Column({ type: 'float', nullable: true, default: null })
-  lat: number | null;
+  activity_lat: number | null;
 
   @Column({ type: 'float', nullable: true, default: null })
-  lng: number | null;
+  activity_lng: number | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  departure_address: string | null;
+
+  @Column({ type: 'float', nullable: true, default: null })
+  departure_lat: number | null;
+
+  @Column({ type: 'float', nullable: true, default: null })
+  departure_lng: number | null;
 
   @ManyToMany(() => Volunteer, (v) => v.activities, { eager: false })
   @JoinTable({ name: 'activity_volunteers' })

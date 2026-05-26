@@ -16,8 +16,9 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { GuestFormLookupResponseDto } from './dto/guest-form-lookup.dto';
 import { Audit } from '../audit-logs/decorators/audit.decorator';
+import { GuestActivityResponseDto } from './dto/guest-activity-response.dto';
+import { GuestFormLookupResponseDto } from './dto/guest-form-lookup.dto';
 import { GuestFormSubmitDto } from './dto/guest-form-submit.dto';
 import { GuestMeResponseDto } from './dto/guest-me-response.dto';
 import { GuestsService } from './guests.service';
@@ -33,6 +34,16 @@ export class GuestAccessController {
   getMe(@Query('token') token: string): Promise<GuestMeResponseDto> {
     if (!token) throw new UnauthorizedException('Token requerido');
     return this.guestsService.getByToken(token);
+  }
+
+  @Get('activities')
+  @ApiOkResponse({ type: [GuestActivityResponseDto] })
+  @ApiUnauthorizedResponse({ description: 'Token inválido o expirado' })
+  getActivities(
+    @Query('token') token: string,
+  ): Promise<GuestActivityResponseDto[]> {
+    if (!token) throw new UnauthorizedException('Token requerido');
+    return this.guestsService.getActivitiesByToken(token);
   }
 
   @Get('lookup')

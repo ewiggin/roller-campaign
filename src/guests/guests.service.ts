@@ -11,11 +11,14 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
+import { Activity } from '../activities/entities/activity.entity';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
+import { Host } from '../hosts/entities/host.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateGuestDto } from './dto/create-guest.dto';
+import { GuestActivityResponseDto } from './dto/guest-activity-response.dto';
 import { GuestFormLookupResponseDto } from './dto/guest-form-lookup.dto';
 import { GuestFormSubmitDto } from './dto/guest-form-submit.dto';
 import { GuestListQueryDto } from './dto/guest-list-query.dto';
@@ -115,6 +118,10 @@ export class GuestsService {
     private readonly usersRepository: Repository<User>,
     @InjectRepository(Region)
     private readonly regionsRepository: Repository<Region>,
+    @InjectRepository(Host)
+    private readonly hostsRepository: Repository<Host>,
+    @InjectRepository(Activity)
+    private readonly activitiesRepository: Repository<Activity>,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -161,7 +168,15 @@ export class GuestsService {
       throw new ForbiddenException();
     }
 
-    const { regionId, groupId, status, search, termsAccepted, page = 1, limit = 50 } = query;
+    const {
+      regionId,
+      groupId,
+      status,
+      search,
+      termsAccepted,
+      page = 1,
+      limit = 50,
+    } = query;
 
     const qb = this.guestsRepository.createQueryBuilder('g');
 
@@ -662,19 +677,96 @@ export class GuestsService {
     });
     if (!guest) throw new NotFoundException('Invitado no encontrado');
 
-    const region = await this.regionsRepository.findOne({
-      where: { id: guest.region_id },
-    });
+    const [region, group] = await Promise.all([
+      this.regionsRepository.findOne({ where: { id: guest.region_id } }),
+      guest.group_id
+        ? this.groupsRepository.findOne({ where: { id: guest.group_id } })
+        : null,
+    ]);
+
+    let host: Host | null = null;
+    if (group?.host_id) {
+      host = await this.hostsRepository.findOne({
+        where: { id: group.host_id },
+      });
+    }
 
     const dto = new GuestMeResponseDto();
     Object.assign(dto, this.toDto(guest));
+    dto.group_code = group?.group_code ?? null;
     dto.region = {
       id: region?.id ?? guest.region_id,
       name: region?.name ?? '',
       event_start_date: region?.event_start_date ?? null,
       event_end_date: region?.event_end_date ?? null,
     };
+    dto.host = host
+      ? {
+          id: host.id,
+          name: host.name,
+          address: host.address,
+          lat: host.lat,
+          lng: host.lng,
+          weekday_meeting_day: host.weekday_meeting_day,
+          weekday_meeting_time: host.weekday_meeting_time,
+          weekend_meeting_day: host.weekend_meeting_day,
+          weekend_meeting_time: host.weekend_meeting_time,
+        }
+      : null;
     return dto;
+  }
+
+  async getActivitiesByToken(
+    token: string,
+  ): Promise<GuestActivityResponseDto[]> {
+    let guestCode: string;
+    try {
+      const payload = this.jwtService.verify<{ sub: string; type: string }>(
+        token,
+      );
+      if (payload.type !== GUEST_TOKEN_TYPE) throw new Error('wrong type');
+      guestCode = payload.sub;
+    } catch {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
+
+    const guest = await this.guestsRepository.findOne({
+      where: { guest_code: guestCode },
+    });
+    if (!guest) throw new NotFoundException('Invitado no encontrado');
+    if (!guest.group_id) return [];
+
+    const activities = await this.activitiesRepository
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'gg', 'gg.id = :groupId', {
+        groupId: guest.group_id,
+      })
+      .leftJoinAndSelect('a.volunteers', 'v')
+      .where('a.status = :status', { status: 'published' })
+      .orderBy('a.date', 'ASC')
+      .addOrderBy('a.start_time', 'ASC')
+      .getMany();
+
+    return activities.map((a) => ({
+      id: a.id,
+      name: a.name,
+      icon: a.icon,
+      description: a.description,
+      date: a.date,
+      start_time: a.start_time,
+      end_time: a.end_time,
+      departure_address: a.departure_address,
+      departure_lat: a.departure_lat,
+      departure_lng: a.departure_lng,
+      activity_address: a.activity_address,
+      activity_lat: a.activity_lat,
+      activity_lng: a.activity_lng,
+      volunteers: (a.volunteers ?? []).map((v) => ({
+        full_name: v.full_name,
+        phone: v.phone,
+        email: v.email,
+      })),
+    }));
   }
 
   generateTemplate(): Buffer {

@@ -96,12 +96,14 @@ export class VolunteersService {
     if (currentUser.role !== 'superadmin' && currentUser.role !== 'region_admin') {
       throw new ForbiddenException();
     }
-    const { regionId, roleId, search, is_active, page = 1, limit = 50 } = query;
+    const { regionId, roleId, search, is_active, date, page = 1, limit = 50 } = query;
 
     const qb = this.volunteersRepo
       .createQueryBuilder('v')
       .leftJoinAndSelect('v.roles', 'roles')
       .leftJoinAndSelect('v.regions', 'regions');
+
+    let effectiveRegionId: string | null = null;
 
     if (currentUser.role === 'region_admin') {
       const user = await this.usersRepo.findOne({
@@ -111,19 +113,33 @@ export class VolunteersService {
       const adminRegionIds = (user?.regions ?? []).map((r) => r.id);
       if (adminRegionIds.length === 0) return { data: [], total: 0, page, limit };
 
-      const filterRegion = regionId && adminRegionIds.includes(regionId) ? regionId : null;
-      if (filterRegion) {
-        qb.where('regions.id = :regionId', { regionId: filterRegion });
+      effectiveRegionId = regionId && adminRegionIds.includes(regionId) ? regionId : null;
+      if (effectiveRegionId) {
+        qb.where('regions.id = :regionId', { regionId: effectiveRegionId });
       } else {
         qb.where('regions.id IN (:...adminRegionIds)', { adminRegionIds });
       }
     } else if (regionId) {
+      effectiveRegionId = regionId;
       qb.where('regions.id = :regionId', { regionId });
     }
 
     if (roleId) qb.andWhere('roles.id = :roleId', { roleId });
     if (search) qb.andWhere('v.full_name LIKE :search OR v.volunteer_code LIKE :search', { search: `%${search}%` });
     if (is_active !== undefined) qb.andWhere('v.is_active = :is_active', { is_active });
+
+    if (date && effectiveRegionId) {
+      qb.andWhere(
+        `(NOT EXISTS (
+          SELECT 1 FROM volunteer_availability _va
+          WHERE _va.volunteer_id = v.id AND _va.region_id = :_avRegion
+        ) OR EXISTS (
+          SELECT 1 FROM volunteer_availability _va2
+          WHERE _va2.volunteer_id = v.id AND _va2.region_id = :_avRegion AND _va2.date = :_avDate
+        ))`,
+        { _avRegion: effectiveRegionId, _avDate: date },
+      );
+    }
 
     const total = await qb.getCount();
     const volunteers = await qb

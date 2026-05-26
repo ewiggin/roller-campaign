@@ -28,7 +28,8 @@ import { ActivitiesService } from './activities.service';
 import { AssignGuestGroupDto } from './dto/assign-guest-group.dto';
 import { AssignVolunteerDto } from './dto/assign-volunteer.dto';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
-import { ActivityResponseDto, AvailableGroupForActivityDto } from './dto/activity-response.dto';
+import { ActivityResponseDto, AvailableGroupForActivityDto, AvailableVolunteerForActivityDto } from './dto/activity-response.dto';
+import { CreateActivityBatchDto } from './dto/create-activity-batch.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 
@@ -44,6 +45,13 @@ export class ActivitiesController {
   @ApiCreatedResponse({ type: ActivityResponseDto })
   create(@Body() dto: CreateActivityDto, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto> {
     return this.svc.create(dto, user);
+  }
+
+  @Post('batch')
+  @Roles('region_admin')
+  @ApiCreatedResponse({ type: [ActivityResponseDto] })
+  createBatch(@Body() dto: CreateActivityBatchDto, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto[]> {
+    return this.svc.createBatch(dto, user);
   }
 
   @Get()
@@ -71,12 +79,34 @@ export class ActivitiesController {
     return this.svc.update(id, dto, user);
   }
 
+  @Patch(':id/series-from-here')
+  @Roles('region_admin')
+  @ApiOkResponse({ type: ActivityResponseDto })
+  updateSeriesFromDate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateActivityDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.updateSeriesFromDate(id, dto, user);
+  }
+
   @Delete(':id')
   @Roles('region_admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<void> {
     return this.svc.remove(id, user);
+  }
+
+  @Delete(':id/series-from-here')
+  @Roles('region_admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({ description: 'Deletes this activity and all future ones in the same series' })
+  removeSeriesFromDate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    return this.svc.removeSeriesFromDate(id, user);
   }
 
   // ── Volunteers ────────────────────────────────────────────────────────────
@@ -103,6 +133,18 @@ export class ActivitiesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<ActivityResponseDto> {
     return this.svc.unassignVolunteer(id, volunteerId, user);
+  }
+
+  // ── Available volunteers ──────────────────────────────────────────────────
+
+  @Get(':id/available-volunteers')
+  @Roles('region_admin')
+  @ApiOkResponse({ type: [AvailableVolunteerForActivityDto] })
+  getAvailableVolunteers(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<AvailableVolunteerForActivityDto[]> {
+    return this.svc.getAvailableVolunteers(id, user);
   }
 
   // ── Available groups ──────────────────────────────────────────────────────
