@@ -39,7 +39,9 @@ describe('AuthService', () => {
     });
 
     it('isAuthenticated is true with existing token', () => {
-      const { service } = setup(makeJwt({ sub: '1', email: 'a@b.com', role: 'superadmin', iat: 0, exp: 9999999999 }));
+      const { service } = setup(
+        makeJwt({ sub: '1', email: 'a@b.com', role: 'superadmin', iat: 0, exp: 9999999999 }),
+      );
       expect(service.isAuthenticated()).toBe(true);
     });
 
@@ -58,12 +60,16 @@ describe('AuthService', () => {
     });
 
     it('isSuperAdmin is true for superadmin role', () => {
-      const { service } = setup(makeJwt({ sub: '1', email: 'a@b.com', role: 'superadmin', iat: 0, exp: 9999999999 }));
+      const { service } = setup(
+        makeJwt({ sub: '1', email: 'a@b.com', role: 'superadmin', iat: 0, exp: 9999999999 }),
+      );
       expect(service.isSuperAdmin()).toBe(true);
     });
 
     it('isSuperAdmin is false for region_admin role', () => {
-      const { service } = setup(makeJwt({ sub: '1', email: 'a@b.com', role: 'region_admin', iat: 0, exp: 9999999999 }));
+      const { service } = setup(
+        makeJwt({ sub: '1', email: 'a@b.com', role: 'region_admin', iat: 0, exp: 9999999999 }),
+      );
       expect(service.isSuperAdmin()).toBe(false);
     });
 
@@ -73,7 +79,13 @@ describe('AuthService', () => {
     });
 
     it('getToken returns token when present', () => {
-      const token = makeJwt({ sub: '1', email: 'a@b.com', role: 'superadmin', iat: 0, exp: 9999999999 });
+      const token = makeJwt({
+        sub: '1',
+        email: 'a@b.com',
+        role: 'superadmin',
+        iat: 0,
+        exp: 9999999999,
+      });
       const { service } = setup(token);
       expect(service.getToken()).toBe(token);
     });

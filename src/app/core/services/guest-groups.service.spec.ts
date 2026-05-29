@@ -8,7 +8,9 @@ describe('GuestGroupsService', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     service = TestBed.inject(GuestGroupsService);
     http = TestBed.inject(HttpTestingController);
   });
@@ -17,12 +19,16 @@ describe('GuestGroupsService', () => {
 
   it('getAll makes GET /api/guest-groups', () => {
     service.getAll().subscribe();
-    http.expectOne(r => r.url === '/api/guest-groups' && r.method === 'GET').flush({ data: [], total: 0, page: 1, limit: 20 });
+    http
+      .expectOne((r) => r.url === '/api/guest-groups' && r.method === 'GET')
+      .flush({ data: [], total: 0, page: 1, limit: 20 });
   });
 
   it('getAll passes regionId param', () => {
     service.getAll({ regionId: 'r1' }).subscribe();
-    const req = http.expectOne(r => r.url === '/api/guest-groups' && r.params.get('regionId') === 'r1');
+    const req = http.expectOne(
+      (r) => r.url === '/api/guest-groups' && r.params.get('regionId') === 'r1',
+    );
     req.flush({ data: [], total: 0, page: 1, limit: 20 });
   });
 
@@ -36,7 +42,7 @@ describe('GuestGroupsService', () => {
 
   it('remove makes DELETE /api/guest-groups/:id', () => {
     service.remove('g1').subscribe();
-    http.expectOne(r => r.url === '/api/guest-groups/g1' && r.method === 'DELETE').flush(null);
+    http.expectOne((r) => r.url === '/api/guest-groups/g1' && r.method === 'DELETE').flush(null);
   });
 
   it('setContact makes PATCH /api/guest-groups/:id/contact', () => {
@@ -64,11 +70,11 @@ describe('GuestGroupsService', () => {
 
   it('exportExcel makes GET /api/guest-groups/export', () => {
     service.exportExcel().subscribe();
-    http.expectOne(r => r.url === '/api/guest-groups/export').flush(new Blob());
+    http.expectOne((r) => r.url === '/api/guest-groups/export').flush(new Blob());
   });
 
   it('downloadTemplate makes GET /api/guest-groups/import/template', () => {
     service.downloadTemplate().subscribe();
-    http.expectOne(r => r.url === '/api/guest-groups/import/template').flush(new Blob());
+    http.expectOne((r) => r.url === '/api/guest-groups/import/template').flush(new Blob());
   });
 });

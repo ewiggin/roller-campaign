@@ -5,7 +5,12 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
-import type { Host, ImportHostRow, ImportHostParseResponse, ImportHostCommitResponse } from '../../../core/models/host.model';
+import type {
+  Host,
+  ImportHostRow,
+  ImportHostParseResponse,
+  ImportHostCommitResponse,
+} from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 
 type ModalMode = 'create' | 'edit' | null;
@@ -55,8 +60,8 @@ export class HostsListComponent implements OnInit {
     return rid ? this.hosts().filter((h) => h.region_id === rid) : this.hosts();
   });
 
-  readonly regionName = computed(() =>
-    this.regions().find((r) => r.id === this.selectedRegionId())?.name ?? '',
+  readonly regionName = computed(
+    () => this.regions().find((r) => r.id === this.selectedRegionId())?.name ?? '',
   );
 
   ngOnInit() {
@@ -95,15 +100,28 @@ export class HostsListComponent implements OnInit {
   }
 
   readonly days = [
-    { n: 1, label: 'L' }, { n: 2, label: 'M' }, { n: 3, label: 'X' },
-    { n: 4, label: 'J' }, { n: 5, label: 'V' }, { n: 6, label: 'S' }, { n: 7, label: 'D' },
+    { n: 1, label: 'L' },
+    { n: 2, label: 'M' },
+    { n: 3, label: 'X' },
+    { n: 4, label: 'J' },
+    { n: 5, label: 'V' },
+    { n: 6, label: 'S' },
+    { n: 7, label: 'D' },
   ];
 
   openCreate() {
     this.editingId.set(null);
-    this.form.reset({ name: '', region_id: this.selectedRegionId(), address: '', lat: null, lng: null,
-      weekday_meeting_day: null, weekday_meeting_time: '',
-      weekend_meeting_day: null, weekend_meeting_time: '' });
+    this.form.reset({
+      name: '',
+      region_id: this.selectedRegionId(),
+      address: '',
+      lat: null,
+      lng: null,
+      weekday_meeting_day: null,
+      weekday_meeting_time: '',
+      weekend_meeting_day: null,
+      weekend_meeting_time: '',
+    });
     this.formError.set('');
     this.modal.set('create');
   }
@@ -111,8 +129,11 @@ export class HostsListComponent implements OnInit {
   openEdit(host: Host) {
     this.editingId.set(host.id);
     this.form.setValue({
-      name: host.name, region_id: host.region_id, address: host.address ?? '',
-      lat: host.lat, lng: host.lng,
+      name: host.name,
+      region_id: host.region_id,
+      address: host.address ?? '',
+      lat: host.lat,
+      lng: host.lng,
       weekday_meeting_day: host.weekday_meeting_day,
       weekday_meeting_time: host.weekday_meeting_time ?? '',
       weekend_meeting_day: host.weekend_meeting_day,
@@ -163,7 +184,8 @@ export class HostsListComponent implements OnInit {
   }
 
   delete(host: Host) {
-    if (!confirm(`Delete congregation "${host.name}"? Groups assigned to it will be unassigned.`)) return;
+    if (!confirm(`Delete congregation "${host.name}"? Groups assigned to it will be unassigned.`))
+      return;
     this.svc.remove(host.id).subscribe({
       next: () => this.load(),
       error: () => alert('Error deleting congregation.'),
@@ -220,8 +242,13 @@ export class HostsListComponent implements OnInit {
     });
   }
 
-  onDragOver(ev: DragEvent) { ev.preventDefault(); this.isDragging = true; }
-  onDragLeave() { this.isDragging = false; }
+  onDragOver(ev: DragEvent) {
+    ev.preventDefault();
+    this.isDragging = true;
+  }
+  onDragLeave() {
+    this.isDragging = false;
+  }
   onDrop(ev: DragEvent) {
     ev.preventDefault();
     this.isDragging = false;
@@ -251,7 +278,10 @@ export class HostsListComponent implements OnInit {
 
   get canCommit(): boolean {
     const r = this.parseResult();
-    return !!(r && (r.valid.length > 0 || (this.importUpdateExisting() && r.duplicateRows.length > 0)));
+    return !!(
+      r &&
+      (r.valid.length > 0 || (this.importUpdateExisting() && r.duplicateRows.length > 0))
+    );
   }
 
   get commitLabel(): string {
@@ -259,7 +289,8 @@ export class HostsListComponent implements OnInit {
     if (!r) return 'Import';
     const parts: string[] = [];
     if (r.valid.length > 0) parts.push(`Import ${r.valid.length} new`);
-    if (this.importUpdateExisting() && r.duplicateRows.length > 0) parts.push(`update ${r.duplicateRows.length} existing`);
+    if (this.importUpdateExisting() && r.duplicateRows.length > 0)
+      parts.push(`update ${r.duplicateRows.length} existing`);
     return parts.join(' + ') || 'Import';
   }
 

@@ -8,9 +8,7 @@ export class ThemeService {
   private stored = localStorage.getItem('theme');
   private prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-  readonly isDark = signal<boolean>(
-    this.stored ? this.stored === 'dark' : this.prefersDark,
-  );
+  readonly isDark = signal<boolean>(this.stored ? this.stored === 'dark' : this.prefersDark);
 
   constructor() {
     effect(() => {

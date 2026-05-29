@@ -8,7 +8,9 @@ describe('DashboardService', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     service = TestBed.inject(DashboardService);
     http = TestBed.inject(HttpTestingController);
   });
@@ -17,7 +19,7 @@ describe('DashboardService', () => {
 
   it('getStats makes GET /api/regions/stats', () => {
     service.getStats().subscribe();
-    const req = http.expectOne(r => r.url === '/api/regions/stats' && r.method === 'GET');
+    const req = http.expectOne((r) => r.url === '/api/regions/stats' && r.method === 'GET');
     req.flush([]);
   });
 });

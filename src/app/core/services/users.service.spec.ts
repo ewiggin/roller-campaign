@@ -8,7 +8,9 @@ describe('UsersService', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     service = TestBed.inject(UsersService);
     http = TestBed.inject(HttpTestingController);
   });
@@ -17,7 +19,7 @@ describe('UsersService', () => {
 
   it('getAll makes GET /api/users', () => {
     service.getAll().subscribe();
-    http.expectOne(r => r.url === '/api/users' && r.method === 'GET').flush([]);
+    http.expectOne((r) => r.url === '/api/users' && r.method === 'GET').flush([]);
   });
 
   it('create makes POST /api/users', () => {
@@ -37,6 +39,6 @@ describe('UsersService', () => {
 
   it('remove makes DELETE /api/users/:id', () => {
     service.remove('u1').subscribe();
-    http.expectOne(r => r.url === '/api/users/u1' && r.method === 'DELETE').flush(null);
+    http.expectOne((r) => r.url === '/api/users/u1' && r.method === 'DELETE').flush(null);
   });
 });

@@ -1,0 +1,271 @@
+<div class="max-w-3xl space-y-6">
+  <div>
+    <h1 class="text-xl font-semibold text-gray-900 dark:text-zinc-100">Configuración</h1>
+    <p class="mt-1 text-sm text-gray-500 dark:text-zinc-400">
+      Ajustes del sistema. Solo accesible para superadmin.
+    </p>
+  </div>
+
+  <!-- ── Role permissions ─────────────────────────────────────────────── -->
+  <div
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+  >
+    <div
+      class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-800"
+    >
+      <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+        >Permisos por rol</span
+      >
+    </div>
+
+    @if (permsLoading()) {
+      <div class="px-5 py-8 text-center text-sm text-gray-400 dark:text-zinc-500">Cargando…</div>
+    } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-100 dark:border-zinc-800">
+              <th
+                class="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide w-40"
+              >
+                Rol
+              </th>
+              @for (screen of screens; track screen.key) {
+                <th
+                  class="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide"
+                >
+                  {{ screen.label }}
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
+            @for (role of roles; track role) {
+              <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                <td class="px-5 py-3 font-medium text-gray-700 dark:text-zinc-300">
+                  {{ roleLabels[role] }}
+                </td>
+                @for (screen of screens; track screen.key) {
+                  <td class="px-3 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      [checked]="hasPerm(role, screen.key)"
+                      (change)="togglePerm(role, screen.key)"
+                      class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400 cursor-pointer"
+                    />
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div
+        class="px-5 py-4 bg-gray-50 dark:bg-[#27272a] border-t border-gray-200 dark:border-zinc-800 flex items-center gap-3"
+      >
+        <button
+          type="button"
+          (click)="savePermissions()"
+          [disabled]="permsSaving()"
+          class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {{ permsSaving() ? 'Guardando…' : 'Guardar permisos' }}
+        </button>
+        @if (permsSaveSuccess()) {
+          <span class="text-sm text-green-600 dark:text-green-400 font-medium"
+            >Permisos guardados.</span
+          >
+        }
+        @if (permsError()) {
+          <span class="text-sm text-red-600 dark:text-red-400">{{ permsError() }}</span>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- ── SMTP ─────────────────────────────────────────────────────────── -->
+  <form
+    [formGroup]="smtpForm"
+    (ngSubmit)="saveSmtp()"
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+  >
+    <div
+      class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between"
+    >
+      <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+        >SMTP</span
+      >
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          formControlName="enabled"
+          class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+        />
+        <span class="text-sm font-medium text-gray-600 dark:text-zinc-400">Habilitado</span>
+      </label>
+    </div>
+
+    @if (smtpLoading()) {
+      <div class="px-5 py-8 text-center text-sm text-gray-400 dark:text-zinc-500">Cargando…</div>
+    } @else {
+      <div class="px-5 py-5 space-y-4">
+        <div class="grid grid-cols-3 gap-4">
+          <div class="col-span-2">
+            <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+              >Servidor (host)</label
+            >
+            <input
+              type="text"
+              formControlName="host"
+              placeholder="smtp.gmail.com"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+              >Puerto</label
+            >
+            <input
+              type="number"
+              formControlName="port"
+              placeholder="587"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              formControlName="secure"
+              class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+            />
+            <span class="text-sm font-medium text-gray-600 dark:text-zinc-400"
+              >SSL/TLS (puerto 465)</span
+            >
+          </label>
+          <p class="mt-1 text-xs text-gray-400 dark:text-zinc-500">
+            Desactívalo para STARTTLS en el puerto 587.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+              >Usuario</label
+            >
+            <input
+              type="text"
+              formControlName="user"
+              placeholder="user@gmail.com"
+              autocomplete="username"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+              >Contraseña</label
+            >
+            <input
+              type="password"
+              formControlName="password"
+              placeholder="Dejar vacío para no cambiar"
+              autocomplete="new-password"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+              >Nombre del remitente</label
+            >
+            <input
+              type="text"
+              formControlName="from_name"
+              placeholder="Roller Campaign"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+              >Email del remitente</label
+            >
+            <input
+              type="email"
+              formControlName="from_email"
+              placeholder="noreply@example.com"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="px-5 py-4 bg-gray-50 dark:bg-[#27272a] border-t border-gray-200 dark:border-zinc-800 flex items-center gap-3"
+      >
+        <button
+          type="submit"
+          [disabled]="smtpSaving() || smtpForm.invalid"
+          class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {{ smtpSaving() ? 'Guardando…' : 'Guardar SMTP' }}
+        </button>
+        @if (smtpSaveSuccess()) {
+          <span class="text-sm text-green-600 dark:text-green-400 font-medium"
+            >Configuración guardada.</span
+          >
+        }
+        @if (smtpError()) {
+          <span class="text-sm text-red-600 dark:text-red-400">{{ smtpError() }}</span>
+        }
+      </div>
+    }
+  </form>
+
+  <!-- ── Test email ────────────────────────────────────────────────────── -->
+  <div
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+  >
+    <div
+      class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-800"
+    >
+      <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+        >Enviar correo de prueba</span
+      >
+    </div>
+    <div class="px-5 py-5">
+      <p class="text-sm text-gray-500 dark:text-zinc-400 mb-4">
+        Comprueba que la configuración SMTP es correcta enviando un correo de prueba.
+      </p>
+      <div class="flex gap-3">
+        <input
+          type="email"
+          [value]="testEmail()"
+          (input)="updateTestEmail($any($event.target).value)"
+          placeholder="destinatario@ejemplo.com"
+          class="flex-1 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+        <button
+          type="button"
+          (click)="sendTest()"
+          [disabled]="testing() || !testEmail()"
+          class="rounded-lg bg-gray-700 dark:bg-zinc-700 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 dark:hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {{ testing() ? 'Enviando…' : 'Enviar prueba' }}
+        </button>
+      </div>
+      @if (testSuccess()) {
+        <p class="mt-3 text-sm text-green-600 dark:text-green-400 font-medium">
+          Correo enviado correctamente.
+        </p>
+      }
+      @if (testError()) {
+        <p class="mt-3 text-sm text-red-600 dark:text-red-400">{{ testError() }}</p>
+      }
+    </div>
+  </div>
+</div>

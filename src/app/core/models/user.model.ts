@@ -1,4 +1,11 @@
-export type UserRole = 'superadmin' | 'region_admin' | 'volunteer' | 'guest';
+export type UserRole =
+  | 'superadmin'
+  | 'region_admin'
+  | 'volunteer'
+  | 'volunteer_manager'
+  | 'guest_manager'
+  | 'host_manager'
+  | 'guest';
 
 export interface User {
   id: string;

@@ -9,41 +9,51 @@
     @if (value()) {
       {{ value() }}
     } @else {
-      <svg class="w-5 h-5 text-gray-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z"/>
+      <svg
+        class="w-5 h-5 text-gray-400 dark:text-zinc-500"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="1.5"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z"
+        />
       </svg>
     }
   </button>
 
   @if (open()) {
-  <div
-    [ngStyle]="panelStyle()"
-    class="z-[9999] w-72 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#18181b] shadow-xl overflow-hidden"
-  >
-    <div class="grid grid-cols-8 gap-0.5 p-2">
-      @for (emoji of emojis; track emoji) {
-      <button
-        type="button"
-        (click)="select(emoji)"
-        class="flex items-center justify-center h-8 w-8 rounded-md text-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
-        [class.bg-blue-50]="emoji === value()"
-        [class.dark:bg-zinc-700]="emoji === value()"
-      >
-        {{ emoji }}
-      </button>
+    <div
+      [ngStyle]="panelStyle()"
+      class="z-[9999] w-72 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#18181b] shadow-xl overflow-hidden"
+    >
+      <div class="grid grid-cols-8 gap-0.5 p-2">
+        @for (emoji of emojis; track emoji) {
+          <button
+            type="button"
+            (click)="select(emoji)"
+            class="flex items-center justify-center h-8 w-8 rounded-md text-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            [class.bg-blue-50]="emoji === value()"
+            [class.dark:bg-zinc-700]="emoji === value()"
+          >
+            {{ emoji }}
+          </button>
+        }
+      </div>
+      @if (value()) {
+        <div class="border-t border-gray-100 dark:border-zinc-800 px-3 py-2">
+          <button
+            type="button"
+            (click)="clear()"
+            class="text-xs text-gray-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+          >
+            Remove icon
+          </button>
+        </div>
       }
     </div>
-    @if (value()) {
-    <div class="border-t border-gray-100 dark:border-zinc-800 px-3 py-2">
-      <button
-        type="button"
-        (click)="clear()"
-        class="text-xs text-gray-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-      >
-        Remove icon
-      </button>
-    </div>
-    }
-  </div>
   }
 </div>

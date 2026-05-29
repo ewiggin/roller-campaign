@@ -2,7 +2,14 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { concatMap, from, last } from 'rxjs';
-import type { Activity, ActivityStatus, AvailableGroupForActivity, AvailableVolunteerForActivity, RepeatType, UpdateActivityPayload } from '../../../core/models/activity.model';
+import type {
+  Activity,
+  ActivityStatus,
+  AvailableGroupForActivity,
+  AvailableVolunteerForActivity,
+  RepeatType,
+  UpdateActivityPayload,
+} from '../../../core/models/activity.model';
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
@@ -10,7 +17,10 @@ import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { CalendarComponent } from '../../../shared/components/calendar/calendar';
 import { EmojiPickerComponent } from '../../../shared/components/emoji-picker/emoji-picker';
-import { LocationPickerComponent, type PlaceResult } from '../../../shared/components/location-picker/location-picker';
+import {
+  LocationPickerComponent,
+  type PlaceResult,
+} from '../../../shared/components/location-picker/location-picker';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 type ActiveModal = 'create' | 'detail' | null;
@@ -18,7 +28,15 @@ type DetailTab = 'info' | 'volunteers' | 'groups';
 
 @Component({
   selector: 'app-activities-list',
-  imports: [ReactiveFormsModule, FormsModule, DatePipe, SearchableSelectComponent, LocationPickerComponent, EmojiPickerComponent, CalendarComponent],
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    DatePipe,
+    SearchableSelectComponent,
+    LocationPickerComponent,
+    EmojiPickerComponent,
+    CalendarComponent,
+  ],
   templateUrl: './activities-list.html',
 })
 export class ActivitiesListComponent implements OnInit {
@@ -94,10 +112,19 @@ export class ActivitiesListComponent implements OnInit {
     );
     if (!ids.length) return;
     this.bulkSaving.set(true);
-    from(ids).pipe(concatMap((id) => this.svc.publish(id)), last()).subscribe({
-      next: () => { this.bulkSaving.set(false); this.clearSelection(); this.load(); },
-      error: () => this.bulkSaving.set(false),
-    });
+    from(ids)
+      .pipe(
+        concatMap((id) => this.svc.publish(id)),
+        last(),
+      )
+      .subscribe({
+        next: () => {
+          this.bulkSaving.set(false);
+          this.clearSelection();
+          this.load();
+        },
+        error: () => this.bulkSaving.set(false),
+      });
   }
 
   bulkUnpublish() {
@@ -106,10 +133,19 @@ export class ActivitiesListComponent implements OnInit {
     );
     if (!ids.length) return;
     this.bulkSaving.set(true);
-    from(ids).pipe(concatMap((id) => this.svc.unpublish(id)), last()).subscribe({
-      next: () => { this.bulkSaving.set(false); this.clearSelection(); this.load(); },
-      error: () => this.bulkSaving.set(false),
-    });
+    from(ids)
+      .pipe(
+        concatMap((id) => this.svc.unpublish(id)),
+        last(),
+      )
+      .subscribe({
+        next: () => {
+          this.bulkSaving.set(false);
+          this.clearSelection();
+          this.load();
+        },
+        error: () => this.bulkSaving.set(false),
+      });
   }
 
   readonly filterRegion = signal('');
@@ -281,7 +317,9 @@ export class ActivitiesListComponent implements OnInit {
     this.createForm.get('date')!.valueChanges.subscribe((d) => this.createDate.set(d ?? ''));
 
     // Load hosts for filter whenever region filter changes
-    this.hostsSvc.getAll(this.filterRegion() || undefined).subscribe({ next: (h) => this.filterHosts.set(h) });
+    this.hostsSvc
+      .getAll(this.filterRegion() || undefined)
+      .subscribe({ next: (h) => this.filterHosts.set(h) });
 
     this.createForm.get('region_id')!.valueChanges.subscribe((regionId) => {
       if (regionId) this.loadHostsForRegion(regionId);
@@ -331,7 +369,8 @@ export class ActivitiesListComponent implements OnInit {
     this.page.set(1);
     this.clearSelection();
     this.load();
-    if (this.viewMode() === 'calendar' && this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+    if (this.viewMode() === 'calendar' && this.calendarPeriod)
+      this.fetchCalendar(this.calendarPeriod);
   }
 
   onRegionFilterChange(regionId: string) {
@@ -357,7 +396,11 @@ export class ActivitiesListComponent implements OnInit {
     }
   }
 
-  toggleLocationFromHost(form: 'create' | 'edit', field: 'departure' | 'activity', checked: boolean) {
+  toggleLocationFromHost(
+    form: 'create' | 'edit',
+    field: 'departure' | 'activity',
+    checked: boolean,
+  ) {
     if (field === 'departure') {
       if (form === 'create') this.createDepartureFromHost.set(checked);
       else this.editDepartureFromHost.set(checked);
@@ -402,22 +445,30 @@ export class ActivitiesListComponent implements OnInit {
 
   private fetchCalendar(period: { dateFrom: string; dateTo: string }) {
     this.calendarLoading.set(true);
-    this.svc.getAll({
-      regionId: this.filterRegion() || undefined,
-      hostId: this.filterHost() || undefined,
-      dateFrom: period.dateFrom,
-      dateTo: period.dateTo,
-      limit: 500,
-    }).subscribe({
-      next: (res) => { this.calendarActivities.set(res.data); this.calendarLoading.set(false); },
-      error: () => this.calendarLoading.set(false),
-    });
+    this.svc
+      .getAll({
+        regionId: this.filterRegion() || undefined,
+        hostId: this.filterHost() || undefined,
+        dateFrom: period.dateFrom,
+        dateTo: period.dateTo,
+        limit: 500,
+      })
+      .subscribe({
+        next: (res) => {
+          this.calendarActivities.set(res.data);
+          this.calendarLoading.set(false);
+        },
+        error: () => this.calendarLoading.set(false),
+      });
   }
 
   private loadHostsForRegion(regionId: string) {
     this.hostsLoading.set(true);
     this.hostsSvc.getAll(regionId).subscribe({
-      next: (hosts) => { this.modalHosts.set(hosts); this.hostsLoading.set(false); },
+      next: (hosts) => {
+        this.modalHosts.set(hosts);
+        this.hostsLoading.set(false);
+      },
       error: () => this.hostsLoading.set(false),
     });
   }
@@ -470,16 +521,24 @@ export class ActivitiesListComponent implements OnInit {
     };
 
     if (this.repeatEnabled()) {
-      this.svc.createBatch({ ...basePayload, repetition: { type: this.repeatType(), count: this.repeatCount() } })
+      this.svc
+        .createBatch({
+          ...basePayload,
+          repetition: { type: this.repeatType(), count: this.repeatCount() },
+        })
         .subscribe({
           next: (activities) => {
             this.saving.set(false);
             this.activeModal.set(null);
             this.load();
-            if (this.viewMode() === 'calendar') if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+            if (this.viewMode() === 'calendar')
+              if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
             if (activities[0]) this.openDetail(activities[0]);
           },
-          error: () => { this.formError.set('Error creating activities.'); this.saving.set(false); },
+          error: () => {
+            this.formError.set('Error creating activities.');
+            this.saving.set(false);
+          },
         });
     } else {
       this.svc.create(basePayload).subscribe({
@@ -487,10 +546,14 @@ export class ActivitiesListComponent implements OnInit {
           this.saving.set(false);
           this.activeModal.set(null);
           this.load();
-          if (this.viewMode() === 'calendar') if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+          if (this.viewMode() === 'calendar')
+            if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
           this.openDetail(activity);
         },
-        error: () => { this.formError.set('Error creating activity.'); this.saving.set(false); },
+        error: () => {
+          this.formError.set('Error creating activity.');
+          this.saving.set(false);
+        },
       });
     }
   }
@@ -520,12 +583,22 @@ export class ActivitiesListComponent implements OnInit {
     this.editDescLen.set(activity.description?.length ?? 0);
     this.editActivityLocation.set(
       activity.activity_address && activity.activity_lat !== null && activity.activity_lng !== null
-        ? { address: activity.activity_address, lat: activity.activity_lat, lng: activity.activity_lng }
+        ? {
+            address: activity.activity_address,
+            lat: activity.activity_lat,
+            lng: activity.activity_lng,
+          }
         : null,
     );
     this.editDepartureLocation.set(
-      activity.departure_address && activity.departure_lat !== null && activity.departure_lng !== null
-        ? { address: activity.departure_address, lat: activity.departure_lat, lng: activity.departure_lng }
+      activity.departure_address &&
+        activity.departure_lat !== null &&
+        activity.departure_lng !== null
+        ? {
+            address: activity.departure_address,
+            lat: activity.departure_lat,
+            lng: activity.departure_lng,
+          }
         : null,
     );
     this.editActivityFromHost.set(false);
@@ -542,11 +615,17 @@ export class ActivitiesListComponent implements OnInit {
     this.volunteersLoading.set(true);
     this.groupsLoading.set(true);
     this.svc.getAvailableVolunteers(activity.id).subscribe({
-      next: (vs) => { this.availableVolunteersList.set(vs); this.volunteersLoading.set(false); },
+      next: (vs) => {
+        this.availableVolunteersList.set(vs);
+        this.volunteersLoading.set(false);
+      },
       error: () => this.volunteersLoading.set(false),
     });
     this.svc.getAvailableGroups(activity.id).subscribe({
-      next: (groups) => { this.availableGroups.set(groups); this.groupsLoading.set(false); },
+      next: (groups) => {
+        this.availableGroups.set(groups);
+        this.groupsLoading.set(false);
+      },
       error: () => this.groupsLoading.set(false),
     });
   }
@@ -556,7 +635,10 @@ export class ActivitiesListComponent implements OnInit {
     if (!activity) return;
     this.volunteersLoading.set(true);
     this.svc.getAvailableVolunteers(activity.id).subscribe({
-      next: (vs) => { this.availableVolunteersList.set(vs); this.volunteersLoading.set(false); },
+      next: (vs) => {
+        this.availableVolunteersList.set(vs);
+        this.volunteersLoading.set(false);
+      },
       error: () => this.volunteersLoading.set(false),
     });
   }
@@ -566,7 +648,10 @@ export class ActivitiesListComponent implements OnInit {
     if (!activity) return;
     this.groupsLoading.set(true);
     this.svc.getAvailableGroups(activity.id).subscribe({
-      next: (groups) => { this.availableGroups.set(groups); this.groupsLoading.set(false); },
+      next: (groups) => {
+        this.availableGroups.set(groups);
+        this.groupsLoading.set(false);
+      },
       error: () => this.groupsLoading.set(false),
     });
   }
@@ -695,22 +780,24 @@ export class ActivitiesListComponent implements OnInit {
     const activity = this.selectedActivity();
     if (!ids.length || !activity) return;
     this.detailSaving.set(true);
-    from(ids).pipe(
-      concatMap((id) => this.svc.assignVolunteer(activity.id, id)),
-      last(),
-    ).subscribe({
-      next: (updated) => {
-        this.selectedActivity.set(updated);
-        this.selectedVolunteerIds.set([]);
-        this.detailSaving.set(false);
-        this.reloadAvailableVolunteers();
-        this.load();
-      },
-      error: () => {
-        this.detailError.set('Error assigning volunteers.');
-        this.detailSaving.set(false);
-      },
-    });
+    from(ids)
+      .pipe(
+        concatMap((id) => this.svc.assignVolunteer(activity.id, id)),
+        last(),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.selectedActivity.set(updated);
+          this.selectedVolunteerIds.set([]);
+          this.detailSaving.set(false);
+          this.reloadAvailableVolunteers();
+          this.load();
+        },
+        error: () => {
+          this.detailError.set('Error assigning volunteers.');
+          this.detailSaving.set(false);
+        },
+      });
   }
 
   removeVolunteer(volunteerId: string) {
@@ -737,22 +824,24 @@ export class ActivitiesListComponent implements OnInit {
     const activity = this.selectedActivity();
     if (!ids.length || !activity) return;
     this.detailSaving.set(true);
-    from(ids).pipe(
-      concatMap((id) => this.svc.assignGuestGroup(activity.id, id)),
-      last(),
-    ).subscribe({
-      next: (updated) => {
-        this.selectedActivity.set(updated);
-        this.selectedGroupIds.set([]);
-        this.detailSaving.set(false);
-        this.reloadAvailableGroups();
-        this.load();
-      },
-      error: () => {
-        this.detailError.set('Error assigning groups.');
-        this.detailSaving.set(false);
-      },
-    });
+    from(ids)
+      .pipe(
+        concatMap((id) => this.svc.assignGuestGroup(activity.id, id)),
+        last(),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.selectedActivity.set(updated);
+          this.selectedGroupIds.set([]);
+          this.detailSaving.set(false);
+          this.reloadAvailableGroups();
+          this.load();
+        },
+        error: () => {
+          this.detailError.set('Error assigning groups.');
+          this.detailSaving.set(false);
+        },
+      });
   }
 
   removeGroup(groupId: string) {
@@ -781,19 +870,26 @@ export class ActivitiesListComponent implements OnInit {
       next: () => {
         if (this.selectedActivity()?.id === activity.id) this.activeModal.set(null);
         this.load();
-        if (this.viewMode() === 'calendar') if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+        if (this.viewMode() === 'calendar')
+          if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
       },
       error: () => alert('Error deleting activity.'),
     });
   }
 
   deleteSeriesFromHere(activity: Activity) {
-    if (!confirm(`Delete "${activity.name || activity.date}" and all future activities in this series?`)) return;
+    if (
+      !confirm(
+        `Delete "${activity.name || activity.date}" and all future activities in this series?`,
+      )
+    )
+      return;
     this.svc.removeSeriesFromDate(activity.id).subscribe({
       next: () => {
         this.activeModal.set(null);
         this.load();
-        if (this.viewMode() === 'calendar') if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+        if (this.viewMode() === 'calendar')
+          if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
       },
       error: () => alert('Error deleting series.'),
     });
@@ -817,7 +913,9 @@ export class ActivitiesListComponent implements OnInit {
 
   formatRepeatDate(iso: string): string {
     return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
-      weekday: 'short', day: 'numeric', month: 'short',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
     });
   }
 

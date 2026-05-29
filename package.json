@@ -8,6 +8,7 @@
     "build:staging": "ng build --configuration=staging",
     "build:production": "ng build --configuration=production",
     "watch": "ng build --watch --configuration development",
+    "format": "prettier --write \"src/**/*.ts\" \"src/**/*.html\"",
     "test": "ng test",
     "test:ci": "ng test --watch=false"
   },

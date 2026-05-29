@@ -25,9 +25,7 @@ export class HostDetailComponent implements OnInit {
   readonly assigning = signal<string | null>(null);
   readonly downloading = signal(false);
 
-  readonly totalGuests = computed(() =>
-    this.assigned().reduce((sum, g) => sum + g.guest_count, 0),
-  );
+  readonly totalGuests = computed(() => this.assigned().reduce((sum, g) => sum + g.guest_count, 0));
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -108,13 +106,23 @@ export class HostDetailComponent implements OnInit {
   }
 
   private sortFn(a: GroupSuggestion, b: GroupSuggestion): number {
-    if (a.distance_km === null && b.distance_km === null) return a.group_code.localeCompare(b.group_code);
+    if (a.distance_km === null && b.distance_km === null)
+      return a.group_code.localeCompare(b.group_code);
     if (a.distance_km === null) return 1;
     if (b.distance_km === null) return -1;
     return a.distance_km - b.distance_km;
   }
 
-  private readonly dayNames = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  private readonly dayNames = [
+    '',
+    'Lunes',
+    'Martes',
+    'Miércoles',
+    'Jueves',
+    'Viernes',
+    'Sábado',
+    'Domingo',
+  ];
 
   fmtMeeting(day: number | null, time: string | null): string {
     if (!day && !time) return '—';

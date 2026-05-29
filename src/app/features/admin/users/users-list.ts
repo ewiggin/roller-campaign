@@ -7,7 +7,25 @@ import type { User, UserRole } from '../../../core/models/user.model';
 
 type ModalMode = 'create' | 'edit' | null;
 
-const ROLES: UserRole[] = ['superadmin', 'region_admin', 'volunteer', 'guest'];
+const ROLES: UserRole[] = [
+  'superadmin',
+  'region_admin',
+  'volunteer',
+  'volunteer_manager',
+  'guest_manager',
+  'host_manager',
+  'guest',
+];
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  superadmin: 'Superadmin',
+  region_admin: 'Region Admin',
+  volunteer: 'Volunteer',
+  volunteer_manager: 'Volunteer Manager',
+  guest_manager: 'Guest Manager',
+  host_manager: 'Host Manager',
+  guest: 'Guest',
+};
 
 @Component({
   selector: 'app-users-list',
@@ -21,6 +39,7 @@ export class UsersListComponent implements OnInit {
 
   readonly currentUserId = signal(this.auth.currentUser()?.sub ?? '');
   readonly roles = ROLES;
+  readonly roleLabels = ROLE_LABELS;
 
   readonly users = signal<User[]>([]);
   readonly loading = signal(true);
@@ -125,10 +144,20 @@ export class UsersListComponent implements OnInit {
 
   roleBadgeClass(role: UserRole): string {
     const map: Record<UserRole, string> = {
-      superadmin: 'bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:ring-purple-800',
-      region_admin: 'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800',
-      volunteer: 'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800',
-      guest: 'bg-gray-50 text-gray-600 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700',
+      superadmin:
+        'bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:ring-purple-800',
+      region_admin:
+        'bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800',
+      volunteer:
+        'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800',
+      volunteer_manager:
+        'bg-teal-50 text-teal-700 ring-teal-200 dark:bg-teal-950 dark:text-teal-400 dark:ring-teal-800',
+      guest_manager:
+        'bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-950 dark:text-orange-400 dark:ring-orange-800',
+      host_manager:
+        'bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800',
+      guest:
+        'bg-gray-50 text-gray-600 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700',
     };
     return map[role];
   }
