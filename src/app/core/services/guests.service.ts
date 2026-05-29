@@ -1,17 +1,22 @@
-import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
 import type {
+  CreateGuestPayload,
   Guest,
-  GuestListResponse,
   GuestListQuery,
-  ImportParseResponse,
+  GuestListResponse,
   ImportCommitResponse,
   ImportGuestRow,
+  ImportParseResponse,
 } from '../models/guest.model';
 
 @Injectable({ providedIn: 'root' })
 export class GuestsService {
   private readonly http = inject(HttpClient);
+
+  create(payload: CreateGuestPayload) {
+    return this.http.post<Guest>('/api/guests', payload);
+  }
 
   getAll(query: GuestListQuery = {}) {
     let params = new HttpParams();
@@ -19,6 +24,8 @@ export class GuestsService {
     if (query.groupId) params = params.set('groupId', query.groupId);
     if (query.status) params = params.set('status', query.status);
     if (query.search) params = params.set('search', query.search);
+    if (query.termsAccepted !== undefined)
+      params = params.set('termsAccepted', String(query.termsAccepted));
     if (query.page) params = params.set('page', String(query.page));
     if (query.limit) params = params.set('limit', String(query.limit));
     return this.http.get<GuestListResponse>('/api/guests', { params });
@@ -65,6 +72,8 @@ export class GuestsService {
     if (query.groupId) params = params.set('groupId', query.groupId);
     if (query.status) params = params.set('status', query.status);
     if (query.search) params = params.set('search', query.search);
+    if (query.termsAccepted !== undefined)
+      params = params.set('termsAccepted', String(query.termsAccepted));
     return this.http.get('/api/guests/export', { params, responseType: 'blob' });
   }
 
@@ -73,6 +82,10 @@ export class GuestsService {
   }
 
   exportNotFound(rows: ImportGuestRow[]) {
-    return this.http.post('/api/guests/import/export-not-found', { rows }, { responseType: 'blob' });
+    return this.http.post(
+      '/api/guests/import/export-not-found',
+      { rows },
+      { responseType: 'blob' },
+    );
   }
 }

@@ -1,15 +1,18 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import type { Activity, ActivityListResponse, AvailableGroupForActivity, CreateActivityPayload } from '../models/activity.model';
+import type { Activity, ActivityListResponse, AvailableGroupForActivity, AvailableVolunteerForActivity, CreateActivityBatchPayload, CreateActivityPayload, UpdateActivityPayload } from '../models/activity.model';
 
 @Injectable({ providedIn: 'root' })
 export class ActivitiesService {
   private readonly http = inject(HttpClient);
 
-  getAll(query: { regionId?: string; date?: string; page?: number; limit?: number } = {}) {
+  getAll(query: { regionId?: string; date?: string; dateFrom?: string; dateTo?: string; hostId?: string; page?: number; limit?: number } = {}) {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
     if (query.date) params = params.set('date', query.date);
+    if (query.dateFrom) params = params.set('dateFrom', query.dateFrom);
+    if (query.dateTo) params = params.set('dateTo', query.dateTo);
+    if (query.hostId) params = params.set('hostId', query.hostId);
     if (query.page) params = params.set('page', String(query.page));
     if (query.limit) params = params.set('limit', String(query.limit));
     return this.http.get<ActivityListResponse>('/api/activities', { params });
@@ -23,12 +26,24 @@ export class ActivitiesService {
     return this.http.post<Activity>('/api/activities', payload);
   }
 
-  update(id: string, payload: Partial<CreateActivityPayload>) {
+  createBatch(payload: CreateActivityBatchPayload) {
+    return this.http.post<Activity[]>('/api/activities/batch', payload);
+  }
+
+  update(id: string, payload: UpdateActivityPayload) {
     return this.http.patch<Activity>(`/api/activities/${id}`, payload);
+  }
+
+  updateSeriesFromDate(id: string, payload: UpdateActivityPayload) {
+    return this.http.patch<Activity>(`/api/activities/${id}/series-from-here`, payload);
   }
 
   remove(id: string) {
     return this.http.delete<void>(`/api/activities/${id}`);
+  }
+
+  removeSeriesFromDate(id: string) {
+    return this.http.delete<void>(`/api/activities/${id}/series-from-here`);
   }
 
   assignVolunteer(id: string, volunteerId: string) {
@@ -37,6 +52,10 @@ export class ActivitiesService {
 
   unassignVolunteer(id: string, volunteerId: string) {
     return this.http.delete<Activity>(`/api/activities/${id}/volunteers/${volunteerId}`);
+  }
+
+  getAvailableVolunteers(id: string) {
+    return this.http.get<AvailableVolunteerForActivity[]>(`/api/activities/${id}/available-volunteers`);
   }
 
   getAvailableGroups(id: string) {

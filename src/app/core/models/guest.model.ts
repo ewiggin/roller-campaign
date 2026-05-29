@@ -1,4 +1,18 @@
 export type GuestStatus = 'pending' | 'confirmed' | 'cancelled' | 'arrived' | 'blocked';
+
+export interface CreateGuestPayload {
+  guest_code: string;
+  group_id: string;
+  region_id: string;
+  full_name: string;
+  is_minor?: boolean;
+  native_language?: string | null;
+  origin_city?: string | null;
+  email?: string | null;
+  branch?: string | null;
+  is_group_contact?: boolean;
+  is_special_servant?: boolean;
+}
 export type TransportMode = 'car' | 'bus' | 'train' | 'plane' | 'ferry' | 'motorbike' | 'other';
 
 export interface Guest {
@@ -69,6 +83,7 @@ export interface GuestListQuery {
   groupId?: string;
   status?: GuestStatus;
   search?: string;
+  termsAccepted?: boolean;
   page?: number;
   limit?: number;
 }

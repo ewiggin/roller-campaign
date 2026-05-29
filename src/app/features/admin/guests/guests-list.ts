@@ -1,8 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 import type { GuestGroup } from '../../../core/models/guest-group.model';
 import type {
   Guest,
@@ -16,12 +15,13 @@ import { AuthService } from '../../../core/services/auth.service';
 import { GuestGroupsService } from '../../../core/services/guest-groups.service';
 import { GuestsService } from '../../../core/services/guests.service';
 import { RegionsService } from '../../../core/services/regions.service';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 const STATUSES: GuestStatus[] = ['pending', 'confirmed', 'cancelled', 'arrived', 'blocked'];
 
 @Component({
   selector: 'app-guests-list',
-  imports: [FormsModule, RouterLink, DatePipe, SearchableSelectComponent],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, DatePipe, SearchableSelectComponent],
   templateUrl: './guests-list.html',
 })
 export class GuestsListComponent implements OnInit {
@@ -29,6 +29,7 @@ export class GuestsListComponent implements OnInit {
   private readonly groupsSvc = inject(GuestGroupsService);
   private readonly regionsSvc = inject(RegionsService);
   private readonly auth = inject(AuthService);
+  private readonly fb = inject(FormBuilder);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
   readonly statuses = STATUSES;
@@ -45,6 +46,7 @@ export class GuestsListComponent implements OnInit {
   readonly filterGroup = signal('');
   readonly filterStatus = signal('');
   readonly filterSearch = signal('');
+  readonly filterTermsAccepted = signal<'' | 'true' | 'false'>('');
   readonly page = signal(1);
   readonly limit = 50;
 
@@ -66,6 +68,99 @@ export class GuestsListComponent implements OnInit {
   );
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
+
+  // Create modal
+  readonly createModal = signal(false);
+  readonly saving = signal(false);
+  readonly formError = signal('');
+
+  readonly createForm = this.fb.nonNullable.group({
+    region_id: ['', Validators.required],
+    group_id: ['', Validators.required],
+    guest_code: ['', Validators.required],
+    full_name: ['', Validators.required],
+    is_minor: [false],
+    native_language: [''],
+    origin_city: [''],
+    email: [''],
+    branch: [''],
+    is_group_contact: [false],
+    is_special_servant: [false],
+  });
+
+  readonly createRegionId = signal('');
+
+  readonly createFormGroupItems = computed(() =>
+    this.groups()
+      .filter((g) => g.region_id === this.createRegionId())
+      .map((g) => ({
+        value: g.id,
+        label: g.group_code,
+        meta: g.host_name ?? undefined,
+      })),
+  );
+
+  openCreate() {
+    const presetRegion = this.filterRegion() || '';
+    this.createRegionId.set(presetRegion);
+    this.createForm.reset({
+      region_id: presetRegion,
+      group_id: this.filterGroup() && presetRegion ? this.filterGroup() : '',
+      guest_code: '',
+      full_name: '',
+      is_minor: false,
+      native_language: '',
+      origin_city: '',
+      email: '',
+      branch: '',
+      is_group_contact: false,
+      is_special_servant: false,
+    });
+    this.formError.set('');
+    this.createModal.set(true);
+  }
+
+  onCreateRegionChange(id: string) {
+    this.createRegionId.set(id);
+    this.createForm.patchValue({ region_id: id, group_id: '' });
+  }
+
+  onCreateGroupChange(id: string) {
+    this.createForm.patchValue({ group_id: id });
+  }
+
+  saveCreate() {
+    if (this.createForm.invalid || this.saving()) return;
+    this.saving.set(true);
+    this.formError.set('');
+    const v = this.createForm.getRawValue();
+    const payload = {
+      guest_code: v.guest_code,
+      group_id: v.group_id,
+      region_id: v.region_id,
+      full_name: v.full_name,
+      is_minor: v.is_minor,
+      native_language: v.native_language || null,
+      origin_city: v.origin_city || null,
+      email: v.email || null,
+      branch: v.branch || null,
+      is_group_contact: v.is_group_contact,
+      is_special_servant: v.is_special_servant,
+    };
+    this.svc.create(payload).subscribe({
+      next: () => {
+        this.createModal.set(false);
+        this.saving.set(false);
+        this.load();
+      },
+      error: (err: { status?: number }) => {
+        this.formError.set(
+          err.status === 409 ? 'El código de invitado ya existe.' : 'Error al crear el invitado.',
+        );
+        this.saving.set(false);
+      },
+    });
+  }
 
   // Import modal
   readonly importModal = signal(false);
@@ -102,6 +197,8 @@ export class GuestsListComponent implements OnInit {
         groupId: this.filterGroup() || undefined,
         status: (this.filterStatus() as GuestStatus) || undefined,
         search: this.filterSearch() || undefined,
+        termsAccepted:
+          this.filterTermsAccepted() === '' ? undefined : this.filterTermsAccepted() === 'true',
         page: this.page(),
         limit: this.limit,
       })
@@ -181,6 +278,8 @@ export class GuestsListComponent implements OnInit {
           (this.filterStatus() as import('../../../core/models/guest.model').GuestStatus) ||
           undefined,
         search: this.filterSearch() || undefined,
+        termsAccepted:
+          this.filterTermsAccepted() === '' ? undefined : this.filterTermsAccepted() === 'true',
       })
       .subscribe((blob) => {
         const url = URL.createObjectURL(blob);
