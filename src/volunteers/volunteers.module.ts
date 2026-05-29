@@ -7,10 +7,11 @@ import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { VolunteersService } from './volunteers.service';
 import { VolunteersController } from './volunteers.controller';
+import { VolunteerAccessController } from './volunteer-access.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Volunteer, VolunteerRole, VolunteerAvailability, Region, User])],
-  controllers: [VolunteersController],
+  controllers: [VolunteersController, VolunteerAccessController],
   providers: [VolunteersService],
   exports: [VolunteersService],
 })

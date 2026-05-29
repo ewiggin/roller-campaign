@@ -19,17 +19,104 @@ export class CreateRoleDto {
 }
 
 export class ImportVolunteerRowDto {
-  @ApiProperty({ example: 'V-001' })
+  @ApiProperty({ example: '5274026' })
   volunteer_code: string;
 
-  @ApiProperty({ example: 'Carlos López' })
+  @ApiProperty({ example: 'Martínez, Mario' })
   full_name: string;
 
-  @ApiPropertyOptional({ example: 'carlos@example.com' })
+  @ApiPropertyOptional({ example: 'mario@example.com' })
   email?: string | null;
 
   @ApiPropertyOptional({ example: '+34 600 000 000' })
   phone?: string | null;
+
+  @ApiPropertyOptional({ example: 'Costa Brava' })
+  region_name?: string | null;
+
+  @ApiPropertyOptional({ example: 3 })
+  car_seats?: number | null;
+
+  @ApiPropertyOptional({ example: 'Passatge Bernat Metge, 14, 17800 Olot' })
+  hosting_address?: string | null;
+
+  @ApiPropertyOptional({ example: 42.1836987 })
+  lat?: number | null;
+
+  @ApiPropertyOptional({ example: 2.4774935 })
+  lng?: number | null;
+
+  @ApiPropertyOptional({ example: 'https://www.google.com/maps?q=42.18,2.47' })
+  maps_link?: string | null;
+
+  @ApiPropertyOptional({ example: 'Varón' })
+  sex?: string | null;
+
+  @ApiPropertyOptional({ example: 'Casado' })
+  civil_status?: string | null;
+
+  @ApiPropertyOptional({ example: 'Olot' })
+  congregation?: string | null;
+
+  @ApiPropertyOptional({ example: 'Cataluña' })
+  branch?: string | null;
+
+  @ApiPropertyOptional({ example: 'No' })
+  has_assigned_shift?: string | null;
+
+  @ApiPropertyOptional({ example: 'grupo1' })
+  groups?: string | null;
+
+  @ApiPropertyOptional({ example: 0 })
+  assigned_hours?: number | null;
+
+  @ApiPropertyOptional({ example: true })
+  is_active?: boolean;
+
+  @ApiPropertyOptional({ example: 'Conductor, Guía' })
+  role_names?: string | null;
+
+  @ApiPropertyOptional({ example: false })
+  monday_morning?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  monday_afternoon?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  tuesday_morning?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  tuesday_afternoon?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  wednesday_morning?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  wednesday_afternoon?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  thursday_morning?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  thursday_afternoon?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  friday_morning?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  friday_afternoon?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  saturday_morning?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  saturday_afternoon?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  sunday_morning?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  sunday_afternoon?: boolean;
 }
 
 export class ImportVolunteerParseResponseDto {
