@@ -260,20 +260,20 @@
               Availability
             </div>
             <div class="grid grid-cols-7 gap-px">
-              @for (dia of dias; track dia.key) {
+              @for (day of days; track day.key) {
               <div class="flex flex-col items-center gap-px">
                 <span class="text-[9px] font-semibold text-gray-400 dark:text-zinc-500"
-                  >{{ dia.label }}</span
+                  >{{ day.label }}</span
                 >
                 <div
                   class="w-3.5 h-3.5 rounded-sm transition-colors"
-                  [class]="manana(v, dia.key) ? 'bg-blue-400' : 'bg-gray-100 dark:bg-zinc-800'"
-                  title="{{ dia.label }} morning"
+                  [class]="morning(v, day.key) ? 'bg-blue-400' : 'bg-gray-100 dark:bg-zinc-800'"
+                  title="{{ day.label }} morning"
                 ></div>
                 <div
                   class="w-3.5 h-3.5 rounded-sm transition-colors"
-                  [class]="tarde(v, dia.key) ? 'bg-indigo-400' : 'bg-gray-100 dark:bg-zinc-800'"
-                  title="{{ dia.label }} afternoon"
+                  [class]="afternoon(v, day.key) ? 'bg-indigo-400' : 'bg-gray-100 dark:bg-zinc-800'"
+                  title="{{ day.label }} afternoon"
                 ></div>
               </div>
               }
@@ -488,9 +488,7 @@
         <div
           class="rounded-lg bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 px-4 py-3"
         >
-          <p class="text-sm text-yellow-700 dark:text-yellow-300">
-            No new volunteers to import.
-          </p>
+          <p class="text-sm text-yellow-700 dark:text-yellow-300">No new volunteers to import.</p>
         </div>
         } @if (importError()) {
         <p class="text-sm text-red-500">{{ importError() }}</p>
@@ -505,9 +503,7 @@
           class="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-5 py-4 text-center"
         >
           <p class="text-2xl mb-2">✅</p>
-          <p class="text-sm font-semibold text-green-700 dark:text-green-300">
-            Import completed
-          </p>
+          <p class="text-sm font-semibold text-green-700 dark:text-green-300">Import completed</p>
         </div>
         <div class="flex gap-4 justify-center text-center">
           <div class="rounded-lg border border-gray-200 dark:border-zinc-700 px-5 py-3">

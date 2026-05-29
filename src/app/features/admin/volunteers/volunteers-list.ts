@@ -12,7 +12,7 @@ import {
   type VolunteerListQuery,
 } from '../../../core/services/volunteers.service';
 
-const DIAS = [
+const DAYS = [
   { key: 'monday', label: 'M' },
   { key: 'tuesday', label: 'T' },
   { key: 'wednesday', label: 'W' },
@@ -22,7 +22,7 @@ const DIAS = [
   { key: 'sunday', label: 'S' },
 ] as const;
 
-type DiaKey = (typeof DIAS)[number]['key'];
+type DayKey = (typeof DAYS)[number]['key'];
 
 @Component({
   selector: 'app-volunteers-list',
@@ -33,7 +33,7 @@ export class VolunteersListComponent implements OnInit {
   private readonly svc = inject(VolunteersService);
   private readonly regionsSvc = inject(RegionsService);
 
-  readonly dias = DIAS;
+  readonly days = DAYS;
 
   readonly regions = signal<Region[]>([]);
   readonly volunteers = signal<Volunteer[]>([]);
@@ -106,12 +106,12 @@ export class VolunteersListComponent implements OnInit {
     }
   }
 
-  manana(v: Volunteer, dia: DiaKey): boolean {
-    return v[`${dia}_morning` as keyof Volunteer] as boolean;
+  morning(v: Volunteer, day: DayKey): boolean {
+    return v[`${day}_morning` as keyof Volunteer] as boolean;
   }
 
-  tarde(v: Volunteer, dia: DiaKey): boolean {
-    return v[`${dia}_afternoon` as keyof Volunteer] as boolean;
+  afternoon(v: Volunteer, day: DayKey): boolean {
+    return v[`${day}_afternoon` as keyof Volunteer] as boolean;
   }
 
   mapsUrl(v: Volunteer): string | null {
