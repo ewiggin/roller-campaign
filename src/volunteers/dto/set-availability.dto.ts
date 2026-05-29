@@ -49,6 +49,33 @@ export class ImportVolunteerRowDto {
   @ApiPropertyOptional({ example: 'https://www.google.com/maps?q=42.18,2.47' })
   maps_link?: string | null;
 
+  @ApiPropertyOptional({ example: 'Varón' })
+  sex?: string | null;
+
+  @ApiPropertyOptional({ example: 'Casado' })
+  civil_status?: string | null;
+
+  @ApiPropertyOptional({ example: 'Olot' })
+  congregation?: string | null;
+
+  @ApiPropertyOptional({ example: 'Cataluña' })
+  branch?: string | null;
+
+  @ApiPropertyOptional({ example: 'No' })
+  has_assigned_shift?: string | null;
+
+  @ApiPropertyOptional({ example: 'grupo1' })
+  groups?: string | null;
+
+  @ApiPropertyOptional({ example: 0 })
+  assigned_hours?: number | null;
+
+  @ApiPropertyOptional({ example: true })
+  is_active?: boolean;
+
+  @ApiPropertyOptional({ example: 'Conductor, Guía' })
+  role_names?: string | null;
+
   @ApiPropertyOptional({ example: false })
   monday_morning?: boolean;
 
