@@ -91,6 +91,11 @@ export const routes: Routes = [
             (m) => m.AuditLogsListComponent,
           ),
       },
+      {
+        path: 'settings',
+        loadComponent: () =>
+          import('./features/admin/settings/settings').then((m) => m.SettingsComponent),
+      },
     ],
   },
   { path: '**', redirectTo: 'admin' },
