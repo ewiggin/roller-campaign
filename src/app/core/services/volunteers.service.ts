@@ -13,22 +13,25 @@ import type {
 export class VolunteersService {
   private readonly http = inject(HttpClient);
 
-  getAll(query: {
-    regionId?: string;
-    roleId?: string;
-    search?: string;
-    is_active?: boolean;
-    min_car_seats?: number;
-    available_slots?: string[];
-    page?: number;
-    limit?: number;
-  } = {}) {
+  getAll(
+    query: {
+      regionId?: string;
+      roleId?: string;
+      search?: string;
+      is_active?: boolean;
+      min_car_seats?: number;
+      available_slots?: string[];
+      page?: number;
+      limit?: number;
+    } = {},
+  ) {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
     if (query.roleId) params = params.set('roleId', query.roleId);
     if (query.search) params = params.set('search', query.search);
     if (query.is_active !== undefined) params = params.set('is_active', String(query.is_active));
-    if (query.min_car_seats !== undefined) params = params.set('min_car_seats', String(query.min_car_seats));
+    if (query.min_car_seats !== undefined)
+      params = params.set('min_car_seats', String(query.min_car_seats));
     for (const s of query.available_slots ?? []) params = params.append('available_slots', s);
     if (query.page) params = params.set('page', String(query.page));
     params = params.set('limit', String(query.limit ?? 50));
@@ -47,18 +50,29 @@ export class VolunteersService {
     return this.http.get<VolunteerRole[]>('/api/volunteers/roles');
   }
 
-  exportExcel(query: {
-    regionId?: string;
-    roleId?: string;
-    search?: string;
-    min_car_seats?: number;
-    available_slots?: string[];
-  } = {}) {
+  createRole(name: string) {
+    return this.http.post<VolunteerRole>('/api/volunteers/roles', { name });
+  }
+
+  deleteRole(id: string) {
+    return this.http.delete<void>(`/api/volunteers/roles/${id}`);
+  }
+
+  exportExcel(
+    query: {
+      regionId?: string;
+      roleId?: string;
+      search?: string;
+      min_car_seats?: number;
+      available_slots?: string[];
+    } = {},
+  ) {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
     if (query.roleId) params = params.set('roleId', query.roleId);
     if (query.search) params = params.set('search', query.search);
-    if (query.min_car_seats !== undefined) params = params.set('min_car_seats', String(query.min_car_seats));
+    if (query.min_car_seats !== undefined)
+      params = params.set('min_car_seats', String(query.min_car_seats));
     for (const s of query.available_slots ?? []) params = params.append('available_slots', s);
     return this.http.get('/api/volunteers/export', { params, responseType: 'blob' });
   }

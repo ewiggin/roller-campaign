@@ -28,6 +28,7 @@ export class AdminLayoutComponent {
     { label: 'Guest Groups', path: '/admin/guest-groups', icon: 'folder' },
     { label: 'Guests', path: '/admin/guests', icon: 'users' },
     { label: 'Volunteers', path: '/admin/volunteers', icon: 'user-group' },
+    { label: 'Volunteer Roles', path: '/admin/volunteer-roles', icon: 'tag' },
     { label: 'Activities', path: '/admin/activities', icon: 'calendar' },
   ];
 
