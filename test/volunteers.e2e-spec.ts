@@ -212,9 +212,9 @@ describe('Volunteers (e2e)', () => {
 
     it('POST /api/volunteers/import/parse detects existing codes (skip)', async () => {
       const xlsx = buildExcelBuffer([
-        { volunteer_code: 'V-001', full_name: 'Ya existe' },
-        { volunteer_code: 'V-NEW-1', full_name: 'Nuevo Uno', email: 'nuevo1@test.com' },
-        { volunteer_code: 'V-NEW-2', full_name: 'Nuevo Dos' },
+        { 'Número de identificación': 'V-001', 'Nombre': 'Ya existe' },
+        { 'Número de identificación': 'V-NEW-1', 'Nombre': 'Nuevo Uno', 'Email': 'nuevo1@test.com' },
+        { 'Número de identificación': 'V-NEW-2', 'Nombre': 'Nuevo Dos' },
       ]);
       const res = await request(server)
         .post('/api/volunteers/import/parse')
