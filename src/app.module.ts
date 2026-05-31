@@ -1,16 +1,17 @@
+import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { CacheModule } from '@nestjs/cache-manager';
+import { ActivitiesModule } from './activities/activities.module';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { AuthModule } from './auth/auth.module';
 import { GuestGroupsModule } from './guest-groups/guest-groups.module';
 import { GuestsModule } from './guests/guests.module';
 import { HostsModule } from './hosts/hosts.module';
 import { RegionsModule } from './regions/regions.module';
-import { ActivitiesModule } from './activities/activities.module';
+import { SettingsModule } from './settings/settings.module';
 import { UsersModule } from './users/users.module';
 import { VolunteersModule } from './volunteers/volunteers.module';
-import { AuditLogsModule } from './audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
     ActivitiesModule,
     HostsModule,
     AuditLogsModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}
