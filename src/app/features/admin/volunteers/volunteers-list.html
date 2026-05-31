@@ -35,30 +35,72 @@
 
   <!-- Filters -->
   <div class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4">
-    <div class="flex flex-wrap gap-3">
-      <select
-        [(ngModel)]="filterRegion"
-        (ngModelChange)="applyFilters()"
-        class="rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-      >
-        <option value="">All regions</option>
-        @for (r of regions(); track r.id) {
-        <option [value]="r.id">{{ r.name }}</option>
-        }
-      </select>
-      <input
-        type="text"
-        [(ngModel)]="filterSearch"
-        (keyup.enter)="applyFilters()"
-        placeholder="Search by name or code…"
-        class="rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-64 placeholder-gray-400 dark:placeholder-zinc-500"
-      />
-      <button
-        (click)="applyFilters()"
-        class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
-      >
-        Search
-      </button>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Region</label>
+        <app-searchable-select
+          [items]="regionItems()"
+          placeholder="All regions"
+          emptyLabel="All regions"
+          [compact]="true"
+          [selected]="filterRegion()"
+          (selectedChange)="filterRegion.set($event); applyFilters()"
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Role</label>
+        <app-searchable-select
+          [items]="roleItems()"
+          placeholder="All roles"
+          emptyLabel="All roles"
+          [compact]="true"
+          [selected]="filterRole()"
+          (selectedChange)="filterRole.set($event); applyFilters()"
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Min. car seats</label>
+        <input
+          type="number"
+          min="1"
+          [ngModel]="filterMinCarSeats()"
+          (ngModelChange)="filterMinCarSeats.set($event)"
+          (keyup.enter)="applyFilters()"
+          (change)="applyFilters()"
+          placeholder="Any"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Availability</label>
+        <app-searchable-select
+          [multi]="true"
+          [items]="availabilityOptions"
+          placeholder="Any shift"
+          [compact]="true"
+          [selectedItems]="filterAvailability()"
+          (selectedItemsChange)="filterAvailability.set($event); applyFilters()"
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Search</label>
+        <div class="flex gap-1.5">
+          <input
+            type="text"
+            [ngModel]="filterSearch()"
+            (ngModelChange)="filterSearch.set($event)"
+            (keyup.enter)="applyFilters()"
+            placeholder="Name or code…"
+            class="min-w-0 flex-1 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+          />
+          <button
+            (click)="applyFilters()"
+            class="shrink-0 rounded-lg bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+          >
+            Go
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -90,17 +132,17 @@
       <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
         {{ total() }} volunteer{{ total() !== 1 ? 's' : '' }}
       </span>
-      @if (totalPages > 1) {
+      @if (totalPages() > 1) {
       <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
         <button
           (click)="prevPage()"
-          [disabled]="page === 1"
+          [disabled]="page() === 1"
           class="p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
         >‹</button>
-        <span>{{ page }} / {{ totalPages }}</span>
+        <span>{{ page() }} / {{ totalPages() }}</span>
         <button
           (click)="nextPage()"
-          [disabled]="page === totalPages"
+          [disabled]="page() === totalPages()"
           class="p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
         >›</button>
       </div>
