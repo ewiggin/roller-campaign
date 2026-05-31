@@ -123,6 +123,8 @@ export class VolunteersService {
       search,
       is_active,
       date,
+      min_car_seats,
+      available_slots,
       page = 1,
       limit = 50,
     } = query;
@@ -174,6 +176,17 @@ export class VolunteersService {
         ))`,
         { _avRegion: effectiveRegionId, _avDate: date },
       );
+    }
+
+    if (min_car_seats !== undefined) {
+      qb.andWhere('v.car_seats >= :min_car_seats', { min_car_seats });
+    }
+    if (available_slots?.length) {
+      const parts = available_slots.map((s, i) => `v.${s} = :_av${i}`);
+      const params = Object.fromEntries(
+        available_slots.map((_, i) => [`_av${i}`, true]),
+      );
+      qb.andWhere(`(${parts.join(' OR ')})`, params);
     }
 
     const total = await qb.getCount();
@@ -648,7 +661,14 @@ export class VolunteersService {
     query: VolunteerListQueryDto,
     currentUser: JwtPayload,
   ): Promise<Buffer> {
-    const { regionId, search, is_active } = query;
+    const {
+      regionId,
+      roleId,
+      search,
+      is_active,
+      min_car_seats,
+      available_slots,
+    } = query;
 
     const qb = this.volunteersRepo
       .createQueryBuilder('v')
@@ -675,12 +695,22 @@ export class VolunteersService {
       throw new ForbiddenException();
     }
 
+    if (roleId) qb.andWhere('roles.id = :roleId', { roleId });
     if (search)
       qb.andWhere('v.full_name LIKE :search OR v.volunteer_code LIKE :search', {
         search: `%${search}%`,
       });
     if (is_active !== undefined)
       qb.andWhere('v.is_active = :is_active', { is_active });
+    if (min_car_seats !== undefined)
+      qb.andWhere('v.car_seats >= :min_car_seats', { min_car_seats });
+    if (available_slots?.length) {
+      const parts = available_slots.map((s, i) => `v.${s} = :_av${i}`);
+      const params = Object.fromEntries(
+        available_slots.map((_, i) => [`_av${i}`, true]),
+      );
+      qb.andWhere(`(${parts.join(' OR ')})`, params);
+    }
 
     const volunteers = await qb.orderBy('v.full_name', 'ASC').getMany();
     return this.buildVolunteersExcel(volunteers);
