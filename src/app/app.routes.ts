@@ -55,6 +55,16 @@ export const routes: Routes = [
           import('./features/admin/guests/guest-detail').then((m) => m.GuestDetailComponent),
       },
       {
+        path: 'volunteers',
+        loadComponent: () =>
+          import('./features/admin/volunteers/volunteers-list').then((m) => m.VolunteersListComponent),
+      },
+      {
+        path: 'volunteers/:id',
+        loadComponent: () =>
+          import('./features/admin/volunteers/volunteer-detail').then((m) => m.VolunteerDetailComponent),
+      },
+      {
         path: 'activities',
         loadComponent: () =>
           import('./features/admin/activities/activities-list').then((m) => m.ActivitiesListComponent),
