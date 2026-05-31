@@ -310,34 +310,67 @@ describe('Regions (e2e)', () => {
     });
 
     it('returns only own stats for region_admin', async () => {
-      const region = (await request(server).post('/api/regions').set('Authorization', auth())
-        .send({ name: `Stats Region ${Date.now()}` })).body;
+      const region = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: `Stats Region ${Date.now()}` })
+      ).body;
 
-      const user = (await request(server).post('/api/users').set('Authorization', auth())
-        .send({ email: `stats-coord-${Date.now()}@test.local`, password: 'pass1234', role: 'region_admin' })).body;
+      const user = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send({
+            email: `stats-coord-${Date.now()}@test.local`,
+            password: 'pass1234',
+            role: 'region_admin',
+          })
+      ).body;
 
-      await request(server).post(`/api/regions/${region.id}/coordinators`)
-        .set('Authorization', auth()).send({ userId: user.id });
+      await request(server)
+        .post(`/api/regions/${region.id}/coordinators`)
+        .set('Authorization', auth())
+        .send({ userId: user.id });
 
-      const token = (await request(server).post('/api/auth/login')
-        .send({ email: user.email, password: 'pass1234' })).body.access_token;
+      const token = (
+        await request(server)
+          .post('/api/auth/login')
+          .send({ email: user.email, password: 'pass1234' })
+      ).body.access_token;
 
       const res = await request(server)
         .get('/api/regions/stats')
         .set('Authorization', `Bearer ${token}`)
         .expect(200);
-      expect(res.body.every((s: { region_id: string }) => s.region_id === region.id)).toBe(true);
+      expect(
+        res.body.every((s: { region_id: string }) => s.region_id === region.id),
+      ).toBe(true);
     });
   });
 
   describe('Region admin access paths', () => {
     it('region_admin with no regions gets empty list', async () => {
-      const user = (await request(server).post('/api/users').set('Authorization', auth())
-        .send({ email: `noreg-${Date.now()}@test.local`, password: 'pass1234', role: 'region_admin' })).body;
-      const token = (await request(server).post('/api/auth/login')
-        .send({ email: user.email, password: 'pass1234' })).body.access_token;
+      const user = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send({
+            email: `noreg-${Date.now()}@test.local`,
+            password: 'pass1234',
+            role: 'region_admin',
+          })
+      ).body;
+      const token = (
+        await request(server)
+          .post('/api/auth/login')
+          .send({ email: user.email, password: 'pass1234' })
+      ).body.access_token;
 
-      const res = await request(server).get('/api/regions').set('Authorization', `Bearer ${token}`).expect(200);
+      const res = await request(server)
+        .get('/api/regions')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
       expect(res.body).toHaveLength(0);
     });
   });

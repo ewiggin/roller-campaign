@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class CreateHostDto {
   @ApiProperty({ example: 'Congregación Norte' })
@@ -152,7 +161,11 @@ export class GroupSuggestionDto {
   @ApiProperty({ example: 5 })
   guest_count: number;
 
-  @ApiPropertyOptional({ example: 2.4, nullable: true, description: 'Distance in km from host, null if no guest coordinates' })
+  @ApiPropertyOptional({
+    example: 2.4,
+    nullable: true,
+    description: 'Distance in km from host, null if no guest coordinates',
+  })
   distance_km: number | null;
 }
 

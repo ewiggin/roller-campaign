@@ -103,7 +103,10 @@ export class Volunteer {
   @Column({ default: false })
   sunday_afternoon: boolean;
 
-  @ManyToMany('Activity', (activity: { volunteers: Volunteer[] }) => activity.volunteers)
+  @ManyToMany(
+    'Activity',
+    (activity: { volunteers: Volunteer[] }) => activity.volunteers,
+  )
   activities: unknown[];
 
   @CreateDateColumn()

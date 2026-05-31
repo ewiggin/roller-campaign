@@ -31,7 +31,11 @@ import { VolunteersService } from './volunteers.service';
 import { CreateVolunteerDto } from './dto/create-volunteer.dto';
 import { UpdateVolunteerDto } from './dto/update-volunteer.dto';
 import { VolunteerListQueryDto } from './dto/volunteer-list-query.dto';
-import { VolunteerResponseDto, VolunteerRoleDto, AvailabilityEntryDto } from './dto/volunteer-response.dto';
+import {
+  VolunteerResponseDto,
+  VolunteerRoleDto,
+  AvailabilityEntryDto,
+} from './dto/volunteer-response.dto';
 import {
   SetAvailabilityDto,
   CreateRoleDto,
@@ -90,7 +94,8 @@ export class VolunteersController {
   ): Promise<void> {
     const buffer = await this.svc.exportAll(query, user);
     res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': 'attachment; filename="voluntarios.xlsx"',
     });
     res.send(buffer);
@@ -102,8 +107,14 @@ export class VolunteersController {
   @Roles('region_admin')
   getTemplate(@Res() res: Response): void {
     const buf = this.svc.generateTemplate();
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="plantilla-voluntarios.xlsx"');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="plantilla-voluntarios.xlsx"',
+    );
     res.send(buf);
   }
 
@@ -112,9 +123,16 @@ export class VolunteersController {
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
   @ApiOkResponse({ type: ImportVolunteerParseResponseDto })
-  async parseImport(@UploadedFile() file: Express.Multer.File): Promise<ImportVolunteerParseResponseDto> {
+  async parseImport(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<ImportVolunteerParseResponseDto> {
     return this.svc.parseImport(file.buffer);
   }
 
@@ -123,7 +141,9 @@ export class VolunteersController {
   @Audit('import', 'volunteer')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportVolunteerCommitResponseDto })
-  commitImport(@Body() dto: ImportVolunteerCommitDto): Promise<ImportVolunteerCommitResponseDto> {
+  commitImport(
+    @Body() dto: ImportVolunteerCommitDto,
+  ): Promise<ImportVolunteerCommitResponseDto> {
     return this.svc.commitImport(dto);
   }
 
@@ -133,7 +153,10 @@ export class VolunteersController {
   @Roles('region_admin')
   @Audit('create', 'volunteer')
   @ApiCreatedResponse({ type: VolunteerResponseDto })
-  create(@Body() dto: CreateVolunteerDto, @CurrentUser() user: JwtPayload): Promise<VolunteerResponseDto> {
+  create(
+    @Body() dto: CreateVolunteerDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<VolunteerResponseDto> {
     return this.svc.create(dto, user);
   }
 
@@ -149,7 +172,9 @@ export class VolunteersController {
   @Get('me/availability')
   @Roles('volunteer')
   @ApiOkResponse({ type: [AvailabilityEntryDto] })
-  getMyAvailability(@CurrentUser() user: JwtPayload): Promise<AvailabilityEntryDto[]> {
+  getMyAvailability(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<AvailabilityEntryDto[]> {
     return this.svc.getMyAvailability(user);
   }
 
@@ -168,7 +193,10 @@ export class VolunteersController {
   @Roles('region_admin')
   @Audit('list', 'volunteer')
   @ApiOkResponse({ description: 'Lista paginada de voluntarios' })
-  findAll(@Query() query: VolunteerListQueryDto, @CurrentUser() user: JwtPayload) {
+  findAll(
+    @Query() query: VolunteerListQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
     return this.svc.findAll(query, user);
   }
 
@@ -176,7 +204,10 @@ export class VolunteersController {
   @Roles('region_admin')
   @Audit('read', 'volunteer')
   @ApiOkResponse({ type: VolunteerResponseDto })
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<VolunteerResponseDto> {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<VolunteerResponseDto> {
     return this.svc.findOne(id, user);
   }
 

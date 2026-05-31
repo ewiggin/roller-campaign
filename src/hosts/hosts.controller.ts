@@ -1,13 +1,42 @@
 import {
-  Body, Controller, Delete, Get, HttpCode, HttpStatus,
-  Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Res,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import { ApiBearerAuth, ApiConsumes, ApiCreatedResponse, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { HostsService } from './hosts.service';
-import { CreateHostDto, UpdateHostDto, HostResponseDto, GroupSuggestionsResponseDto } from './dto/host.dto';
-import { ImportHostCommitDto, ImportHostCommitResponseDto, ImportHostParseResponseDto } from './dto/import-host.dto';
+import {
+  CreateHostDto,
+  UpdateHostDto,
+  HostResponseDto,
+  GroupSuggestionsResponseDto,
+} from './dto/host.dto';
+import {
+  ImportHostCommitDto,
+  ImportHostCommitResponseDto,
+  ImportHostParseResponseDto,
+} from './dto/import-host.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -31,7 +60,8 @@ export class HostsController {
   ): Promise<void> {
     const buffer = await this.service.exportExcel(regionId, user);
     res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': 'attachment; filename="congregaciones.xlsx"',
     });
     res.send(buffer);
@@ -39,12 +69,16 @@ export class HostsController {
 
   @Get('import/template')
   @Roles('superadmin')
-  @ApiOkResponse({ description: 'Plantilla Excel para importación de congregaciones' })
+  @ApiOkResponse({
+    description: 'Plantilla Excel para importación de congregaciones',
+  })
   downloadTemplate(@Res() res: Response): void {
     const buffer = this.service.downloadTemplate();
     res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': 'attachment; filename="plantilla-congregaciones.xlsx"',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition':
+        'attachment; filename="plantilla-congregaciones.xlsx"',
     });
     res.send(buffer);
   }
@@ -55,7 +89,9 @@ export class HostsController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOkResponse({ type: ImportHostParseResponseDto })
-  parseImport(@UploadedFile() file: Express.Multer.File): Promise<ImportHostParseResponseDto> {
+  parseImport(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<ImportHostParseResponseDto> {
     return this.service.parseImport(file.buffer);
   }
 
@@ -63,14 +99,19 @@ export class HostsController {
   @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportHostCommitResponseDto })
-  commitImport(@Body() dto: ImportHostCommitDto): Promise<ImportHostCommitResponseDto> {
+  commitImport(
+    @Body() dto: ImportHostCommitDto,
+  ): Promise<ImportHostCommitResponseDto> {
     return this.service.commitImport(dto);
   }
 
   @Post()
   @Roles('region_admin')
   @ApiCreatedResponse({ type: HostResponseDto })
-  create(@Body() dto: CreateHostDto, @CurrentUser() user: JwtPayload): Promise<HostResponseDto> {
+  create(
+    @Body() dto: CreateHostDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<HostResponseDto> {
     return this.service.create(dto, user);
   }
 
@@ -123,8 +164,14 @@ export class HostsController {
     @CurrentUser() user: JwtPayload,
     @Res() res: Response,
   ): Promise<void> {
-    const { buffer, filename } = await this.service.exportGuestsByHost(id, user);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const { buffer, filename } = await this.service.exportGuestsByHost(
+      id,
+      user,
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
   }

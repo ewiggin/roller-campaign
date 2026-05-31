@@ -7,16 +7,16 @@ import morgan from 'morgan';
 import { AppModule } from './app.module';
 
 const RESET = '\x1b[0m';
-const DIM   = '\x1b[2m';
-const BOLD  = '\x1b[1m';
+const DIM = '\x1b[2m';
+const BOLD = '\x1b[1m';
 const c = {
-  green:   (s: string) => `\x1b[32m${s}${RESET}`,
-  yellow:  (s: string) => `\x1b[33m${s}${RESET}`,
-  red:     (s: string) => `\x1b[31m${s}${RESET}`,
-  cyan:    (s: string) => `\x1b[36m${s}${RESET}`,
+  green: (s: string) => `\x1b[32m${s}${RESET}`,
+  yellow: (s: string) => `\x1b[33m${s}${RESET}`,
+  red: (s: string) => `\x1b[31m${s}${RESET}`,
+  cyan: (s: string) => `\x1b[36m${s}${RESET}`,
   magenta: (s: string) => `\x1b[35m${s}${RESET}`,
-  dim:     (s: string) => `${DIM}${s}${RESET}`,
-  bold:    (s: string) => `${BOLD}${s}${RESET}`,
+  dim: (s: string) => `${DIM}${s}${RESET}`,
+  bold: (s: string) => `${BOLD}${s}${RESET}`,
 };
 
 function colorStatus(status: number): string {
@@ -30,12 +30,18 @@ function colorStatus(status: number): string {
 function colorMethod(method: string): string {
   const pad = method.padEnd(7);
   switch (method) {
-    case 'GET':    return c.green(pad);
-    case 'POST':   return c.cyan(pad);
-    case 'PATCH':  return c.yellow(pad);
-    case 'PUT':    return c.yellow(pad);
-    case 'DELETE': return c.red(pad);
-    default:       return c.dim(pad);
+    case 'GET':
+      return c.green(pad);
+    case 'POST':
+      return c.cyan(pad);
+    case 'PATCH':
+      return c.yellow(pad);
+    case 'PUT':
+      return c.yellow(pad);
+    case 'DELETE':
+      return c.red(pad);
+    default:
+      return c.dim(pad);
   }
 }
 
@@ -47,8 +53,8 @@ morgan.token('response-time-colored', (req) => {
   const diff = process.hrtime(start);
   const t = diff[0] * 1e3 + diff[1] / 1e6;
   const s = `${t.toFixed(0)}ms`.padStart(6);
-  if (t < 100)  return c.green(s);
-  if (t < 500)  return c.yellow(s);
+  if (t < 100) return c.green(s);
+  if (t < 500) return c.yellow(s);
   return c.red(s);
 });
 morgan.token('url-trimmed', (req) => {
@@ -61,14 +67,19 @@ morgan.token('origin-colored', (req) => {
 });
 morgan.token('ip', (req) => {
   const fwd = req.headers['x-forwarded-for'];
-  const ip = (Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0]) ?? req.socket.remoteAddress ?? '-';
+  const ip =
+    (Array.isArray(fwd) ? fwd[0] : fwd?.split(',')[0]) ??
+    req.socket.remoteAddress ??
+    '-';
   return c.cyan(ip.trim());
 });
 morgan.token('user-colored', (req) => {
   const raw = req.headers.authorization?.split(' ')[1];
   if (!raw) return c.dim('anon');
   try {
-    const payload = JSON.parse(Buffer.from(raw.split('.')[1], 'base64url').toString()) as { role?: string; email?: string };
+    const payload = JSON.parse(
+      Buffer.from(raw.split('.')[1], 'base64url').toString(),
+    ) as { role?: string; email?: string };
     return c.bold(`${payload.role ?? '?'}`) + c.dim(`:${payload.email ?? '?'}`);
   } catch {
     return c.dim('anon');
@@ -96,7 +107,9 @@ async function bootstrap() {
     if (pending) {
       logger.log('Running pending migrations…');
       const ran = await dataSource.runMigrations({ transaction: 'each' });
-      logger.log(`Migrations executed: ${ran.map((m) => m.name).join(', ') || 'none'}`);
+      logger.log(
+        `Migrations executed: ${ran.map((m) => m.name).join(', ') || 'none'}`,
+      );
     } else {
       logger.log('No pending migrations.');
     }

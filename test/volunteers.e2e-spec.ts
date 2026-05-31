@@ -47,7 +47,10 @@ describe('Volunteers (e2e)', () => {
         .expect(409));
 
     it('GET /api/volunteers/roles returns all roles', async () => {
-      const res = await request(server).get('/api/volunteers/roles').set('Authorization', auth()).expect(200);
+      const res = await request(server)
+        .get('/api/volunteers/roles')
+        .set('Authorization', auth())
+        .expect(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThanOrEqual(1);
     });
@@ -57,7 +60,10 @@ describe('Volunteers (e2e)', () => {
         .post('/api/volunteers/roles')
         .set('Authorization', auth())
         .send({ name: 'Temporal' });
-      await request(server).delete(`/api/volunteers/roles/${tmp.body.id}`).set('Authorization', auth()).expect(204);
+      await request(server)
+        .delete(`/api/volunteers/roles/${tmp.body.id}`)
+        .set('Authorization', auth())
+        .expect(204);
     });
   });
 
@@ -68,9 +74,18 @@ describe('Volunteers (e2e)', () => {
       const res = await request(server)
         .post('/api/volunteers')
         .set('Authorization', auth())
-        .send({ volunteer_code: 'V-001', full_name: 'Carlos López', email: 'carlos@test.local', region_ids: [regionId] })
+        .send({
+          volunteer_code: 'V-001',
+          full_name: 'Carlos López',
+          email: 'carlos@test.local',
+          region_ids: [regionId],
+        })
         .expect(201);
-      expect(res.body).toMatchObject({ volunteer_code: 'V-001', full_name: 'Carlos López', is_active: true });
+      expect(res.body).toMatchObject({
+        volunteer_code: 'V-001',
+        full_name: 'Carlos López',
+        is_active: true,
+      });
       expect(res.body.regions).toHaveLength(1);
     });
 
@@ -138,8 +153,14 @@ describe('Volunteers (e2e)', () => {
         .post('/api/volunteers')
         .set('Authorization', auth())
         .send({ volunteer_code: 'V-DEL', full_name: 'Borrar' });
-      await request(server).delete(`/api/volunteers/${vol.body.id}`).set('Authorization', auth()).expect(204);
-      await request(server).get(`/api/volunteers/${vol.body.id}`).set('Authorization', auth()).expect(404);
+      await request(server)
+        .delete(`/api/volunteers/${vol.body.id}`)
+        .set('Authorization', auth())
+        .expect(204);
+      await request(server)
+        .get(`/api/volunteers/${vol.body.id}`)
+        .set('Authorization', auth())
+        .expect(404);
     });
   });
 
@@ -152,7 +173,11 @@ describe('Volunteers (e2e)', () => {
       const v = await request(server)
         .post('/api/volunteers')
         .set('Authorization', auth())
-        .send({ volunteer_code: 'V-AVAIL', full_name: 'Disponible', region_ids: [regionId] });
+        .send({
+          volunteer_code: 'V-AVAIL',
+          full_name: 'Disponible',
+          region_ids: [regionId],
+        });
       volId = v.body.id;
     });
 
@@ -160,7 +185,10 @@ describe('Volunteers (e2e)', () => {
       const res = await request(server)
         .put(`/api/volunteers/${volId}/availability`)
         .set('Authorization', auth())
-        .send({ region_id: regionId, dates: ['2024-06-15', '2024-06-16', '2024-06-17'] })
+        .send({
+          region_id: regionId,
+          dates: ['2024-06-15', '2024-06-16', '2024-06-17'],
+        })
         .expect(200);
       expect(res.body).toHaveLength(3);
       expect(res.body[0].date).toBe('2024-06-15');
@@ -212,9 +240,13 @@ describe('Volunteers (e2e)', () => {
 
     it('POST /api/volunteers/import/parse detects existing codes (skip)', async () => {
       const xlsx = buildExcelBuffer([
-        { 'Número de identificación': 'V-001', 'Nombre': 'Ya existe' },
-        { 'Número de identificación': 'V-NEW-1', 'Nombre': 'Nuevo Uno', 'Email': 'nuevo1@test.com' },
-        { 'Número de identificación': 'V-NEW-2', 'Nombre': 'Nuevo Dos' },
+        { 'Número de identificación': 'V-001', Nombre: 'Ya existe' },
+        {
+          'Número de identificación': 'V-NEW-1',
+          Nombre: 'Nuevo Uno',
+          Email: 'nuevo1@test.com',
+        },
+        { 'Número de identificación': 'V-NEW-2', Nombre: 'Nuevo Dos' },
       ]);
       const res = await request(server)
         .post('/api/volunteers/import/parse')
@@ -246,7 +278,9 @@ describe('Volunteers (e2e)', () => {
       const list = await request(server)
         .get(`/api/volunteers?regionId=${regionId}`)
         .set('Authorization', auth());
-      const codes = list.body.data.map((v: { volunteer_code: string }) => v.volunteer_code);
+      const codes = list.body.data.map(
+        (v: { volunteer_code: string }) => v.volunteer_code,
+      );
       expect(codes).toContain('V-NEW-1');
       expect(codes).toContain('V-NEW-2');
     });
@@ -257,22 +291,44 @@ describe('Volunteers (e2e)', () => {
     let coordRegionId: string;
 
     beforeAll(async () => {
-      const region = (await request(server).post('/api/regions').set('Authorization', auth())
-        .send({ name: `CoordVolReg-${Date.now()}` })).body;
+      const region = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: `CoordVolReg-${Date.now()}` })
+      ).body;
       coordRegionId = region.id;
 
-      const userRes = (await request(server).post('/api/users').set('Authorization', auth())
-        .send({ email: `coord-vol-${Date.now()}@test.local`, password: 'pass1234', role: 'region_admin' })).body;
+      const userRes = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send({
+            email: `coord-vol-${Date.now()}@test.local`,
+            password: 'pass1234',
+            role: 'region_admin',
+          })
+      ).body;
 
-      await request(server).post(`/api/regions/${coordRegionId}/coordinators`)
-        .set('Authorization', auth()).send({ userId: userRes.id });
+      await request(server)
+        .post(`/api/regions/${coordRegionId}/coordinators`)
+        .set('Authorization', auth())
+        .send({ userId: userRes.id });
 
-      coordToken = (await request(server).post('/api/auth/login')
-        .send({ email: userRes.email, password: 'pass1234' })).body.access_token;
+      coordToken = (
+        await request(server)
+          .post('/api/auth/login')
+          .send({ email: userRes.email, password: 'pass1234' })
+      ).body.access_token;
 
-      await request(server).post('/api/volunteers').set('Authorization', auth()).send({
-        volunteer_code: `VCRD-${Date.now()}`, full_name: 'Coord Vol', region_ids: [coordRegionId],
-      });
+      await request(server)
+        .post('/api/volunteers')
+        .set('Authorization', auth())
+        .send({
+          volunteer_code: `VCRD-${Date.now()}`,
+          full_name: 'Coord Vol',
+          region_ids: [coordRegionId],
+        });
     });
 
     it('region_admin can list volunteers in their region', async () => {
@@ -290,28 +346,42 @@ describe('Volunteers (e2e)', () => {
     let filterRoleId: string;
 
     beforeAll(async () => {
-      const region = (await request(server).post('/api/regions').set('Authorization', auth())
-        .send({ name: `FilterReg-${Date.now()}` })).body;
+      const region = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: `FilterReg-${Date.now()}` })
+      ).body;
       filterRegionId = region.id;
 
-      const role = (await request(server).post('/api/volunteers/roles').set('Authorization', auth())
-        .send({ name: `FRole-${Date.now()}` })).body;
+      const role = (
+        await request(server)
+          .post('/api/volunteers/roles')
+          .set('Authorization', auth())
+          .send({ name: `FRole-${Date.now()}` })
+      ).body;
       filterRoleId = role.id;
 
-      await request(server).post('/api/volunteers').set('Authorization', auth()).send({
-        volunteer_code: `VF-${Date.now()}`,
-        full_name: 'Filterable Vol',
-        region_ids: [filterRegionId],
-        role_ids: [filterRoleId],
-        is_active: true,
-      });
+      await request(server)
+        .post('/api/volunteers')
+        .set('Authorization', auth())
+        .send({
+          volunteer_code: `VF-${Date.now()}`,
+          full_name: 'Filterable Vol',
+          region_ids: [filterRegionId],
+          role_ids: [filterRoleId],
+          is_active: true,
+        });
 
-      await request(server).post('/api/volunteers').set('Authorization', auth()).send({
-        volunteer_code: `VI-${Date.now()}`,
-        full_name: 'Inactive Vol',
-        region_ids: [filterRegionId],
-        is_active: false,
-      });
+      await request(server)
+        .post('/api/volunteers')
+        .set('Authorization', auth())
+        .send({
+          volunteer_code: `VI-${Date.now()}`,
+          full_name: 'Inactive Vol',
+          region_ids: [filterRegionId],
+          is_active: false,
+        });
     });
 
     it('filters by roleId', async () => {
@@ -320,9 +390,11 @@ describe('Volunteers (e2e)', () => {
         .set('Authorization', auth())
         .expect(200);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-      expect(res.body.data.every((v: { roles: { id: string }[] }) =>
-        v.roles.some((r) => r.id === filterRoleId),
-      )).toBe(true);
+      expect(
+        res.body.data.every((v: { roles: { id: string }[] }) =>
+          v.roles.some((r) => r.id === filterRoleId),
+        ),
+      ).toBe(true);
     });
 
     it('filters by is_active=false', async () => {
@@ -331,14 +403,24 @@ describe('Volunteers (e2e)', () => {
         .set('Authorization', auth())
         .expect(200);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-      expect(res.body.data.every((v: { is_active: boolean }) => !v.is_active)).toBe(true);
+      expect(
+        res.body.data.every((v: { is_active: boolean }) => !v.is_active),
+      ).toBe(true);
     });
   });
 
   describe('GET /api/volunteers/:id', () => {
     it('returns a specific volunteer', async () => {
-      const created = (await request(server).post('/api/volunteers').set('Authorization', auth())
-        .send({ volunteer_code: `VG-${Date.now()}`, full_name: 'Get Vol', region_ids: [] })).body;
+      const created = (
+        await request(server)
+          .post('/api/volunteers')
+          .set('Authorization', auth())
+          .send({
+            volunteer_code: `VG-${Date.now()}`,
+            full_name: 'Get Vol',
+            region_ids: [],
+          })
+      ).body;
       const res = await request(server)
         .get(`/api/volunteers/${created.id}`)
         .set('Authorization', auth())
@@ -347,8 +429,10 @@ describe('Volunteers (e2e)', () => {
     });
 
     it('returns 404 for unknown id', () =>
-      request(server).get('/api/volunteers/00000000-0000-0000-0000-000000000000')
-        .set('Authorization', auth()).expect(404));
+      request(server)
+        .get('/api/volunteers/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', auth())
+        .expect(404));
   });
 
   describe('Volunteer "me" endpoints (volunteer role)', () => {
@@ -357,23 +441,43 @@ describe('Volunteers (e2e)', () => {
     let meRegionId: string;
 
     beforeAll(async () => {
-      const region = (await request(server).post('/api/regions').set('Authorization', auth())
-        .send({ name: `MeReg-${Date.now()}` })).body;
+      const region = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: `MeReg-${Date.now()}` })
+      ).body;
       meRegionId = region.id;
 
-      const userRes = (await request(server).post('/api/users').set('Authorization', auth())
-        .send({ email: `vol-me-${Date.now()}@test.local`, password: 'pass1234', role: 'volunteer' })).body;
+      const userRes = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send({
+            email: `vol-me-${Date.now()}@test.local`,
+            password: 'pass1234',
+            role: 'volunteer',
+          })
+      ).body;
 
-      const vol = (await request(server).post('/api/volunteers').set('Authorization', auth()).send({
-        volunteer_code: `VOLME-${Date.now()}`,
-        full_name: 'Volunteer Me',
-        region_ids: [meRegionId],
-        user_id: userRes.id,
-      })).body;
+      const vol = (
+        await request(server)
+          .post('/api/volunteers')
+          .set('Authorization', auth())
+          .send({
+            volunteer_code: `VOLME-${Date.now()}`,
+            full_name: 'Volunteer Me',
+            region_ids: [meRegionId],
+            user_id: userRes.id,
+          })
+      ).body;
       volunteerId = vol.id;
 
-      volunteerToken = (await request(server).post('/api/auth/login')
-        .send({ email: userRes.email, password: 'pass1234' })).body.access_token;
+      volunteerToken = (
+        await request(server)
+          .post('/api/auth/login')
+          .send({ email: userRes.email, password: 'pass1234' })
+      ).body.access_token;
     });
 
     it('GET /api/volunteers/me returns the linked volunteer', async () => {
@@ -404,10 +508,28 @@ describe('Volunteers (e2e)', () => {
 
   describe('PATCH /api/volunteers/:id with region_ids', () => {
     it('updates region assignments', async () => {
-      const r1 = (await request(server).post('/api/regions').set('Authorization', auth()).send({ name: `VR1-${Date.now()}` })).body;
-      const r2 = (await request(server).post('/api/regions').set('Authorization', auth()).send({ name: `VR2-${Date.now()}` })).body;
-      const vol = (await request(server).post('/api/volunteers').set('Authorization', auth())
-        .send({ volunteer_code: `VREG-${Date.now()}`, full_name: 'Region Updater', region_ids: [r1.id] })).body;
+      const r1 = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: `VR1-${Date.now()}` })
+      ).body;
+      const r2 = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: `VR2-${Date.now()}` })
+      ).body;
+      const vol = (
+        await request(server)
+          .post('/api/volunteers')
+          .set('Authorization', auth())
+          .send({
+            volunteer_code: `VREG-${Date.now()}`,
+            full_name: 'Region Updater',
+            region_ids: [r1.id],
+          })
+      ).body;
 
       const res = await request(server)
         .patch(`/api/volunteers/${vol.id}`)

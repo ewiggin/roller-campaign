@@ -1,6 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { binaryParser, buildExcelBuffer, createTestApp, loginAdmin, parseExcelResponse } from './test-app';
+import {
+  binaryParser,
+  buildExcelBuffer,
+  createTestApp,
+  loginAdmin,
+  parseExcelResponse,
+} from './test-app';
 
 describe('Guests (e2e)', () => {
   let app: INestApplication;
@@ -36,7 +42,12 @@ describe('Guests (e2e)', () => {
     await request(server)
       .post('/api/guests')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ guest_code: guestCode, group_id: groupId, region_id: regionId, full_name: 'Form Guest' });
+      .send({
+        guest_code: guestCode,
+        group_id: groupId,
+        region_id: regionId,
+        full_name: 'Form Guest',
+      });
   });
 
   afterAll(() => app.close());
@@ -641,21 +652,38 @@ describe('Guests (e2e)', () => {
       request(server)
         .patch('/api/guest-access/submit?code=ZZZZ-9999')
         .send({
-          full_name: 'X', email: 'x@x.com', origin_city: 'X',
-          car_seats: 0, speaks_english: false, other_languages: null,
-          real_arrival: '2026-07-01', real_arrival_time: '10:00',
-          real_departure: '2026-07-07', real_departure_time: '18:00',
-          hosting_address: 'X', lat: null, lng: null,
-          transport_mode: 'Coche', arrival_other_transport: null,
-          arrival_flight: null, needs_airport_transfer: false,
-          terms_accepted: true, terms_version: '1.0',
+          full_name: 'X',
+          email: 'x@x.com',
+          origin_city: 'X',
+          car_seats: 0,
+          speaks_english: false,
+          other_languages: null,
+          real_arrival: '2026-07-01',
+          real_arrival_time: '10:00',
+          real_departure: '2026-07-07',
+          real_departure_time: '18:00',
+          hosting_address: 'X',
+          lat: null,
+          lng: null,
+          transport_mode: 'Coche',
+          arrival_other_transport: null,
+          arrival_flight: null,
+          needs_airport_transfer: false,
+          terms_accepted: true,
+          terms_version: '1.0',
         })
         .expect(404));
   });
 
   describe('POST /api/guests/import/export-not-found', () => {
     it('returns xlsx with the provided rows', async () => {
-      const rows = [{ guest_code: 'G-NF-01', group_code: 'GRP-NF', full_name: 'Not Found Guest' }];
+      const rows = [
+        {
+          guest_code: 'G-NF-01',
+          group_code: 'GRP-NF',
+          full_name: 'Not Found Guest',
+        },
+      ];
       const res = await request(server)
         .post('/api/guests/import/export-not-found')
         .set('Authorization', auth())
@@ -671,10 +699,20 @@ describe('Guests (e2e)', () => {
 
   describe('Import commit mode B (group-based region, no regionId)', () => {
     it('derives region from group_code when no regionId provided', async () => {
-      const grp = (await request(server).post('/api/guest-groups').set('Authorization', auth())
-        .send({ group_code: 'GRP-MODEB', region_id: regionId })).body;
+      const grp = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: 'GRP-MODEB', region_id: regionId })
+      ).body;
 
-      const rows = [{ guest_code: 'G-MODEB-01', group_code: grp.group_code, full_name: 'Mode B Guest' }];
+      const rows = [
+        {
+          guest_code: 'G-MODEB-01',
+          group_code: grp.group_code,
+          full_name: 'Mode B Guest',
+        },
+      ];
       const res = await request(server)
         .post('/api/guests/import/commit')
         .set('Authorization', auth())
@@ -684,7 +722,13 @@ describe('Guests (e2e)', () => {
     });
 
     it('skips rows whose group is not found', async () => {
-      const rows = [{ guest_code: 'G-NFGRP-01', group_code: 'GRP-NONEXISTENT', full_name: 'Skip Me' }];
+      const rows = [
+        {
+          guest_code: 'G-NFGRP-01',
+          group_code: 'GRP-NONEXISTENT',
+          full_name: 'Skip Me',
+        },
+      ];
       const res = await request(server)
         .post('/api/guests/import/commit')
         .set('Authorization', auth())
@@ -697,14 +741,31 @@ describe('Guests (e2e)', () => {
 
   describe('Import commit with updateRows', () => {
     it('updates existing guests via updateRows', async () => {
-      const grp = (await request(server).post('/api/guest-groups').set('Authorization', auth())
-        .send({ group_code: 'GRP-UPDATE-ROWS', region_id: regionId })).body;
+      const grp = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: 'GRP-UPDATE-ROWS', region_id: regionId })
+      ).body;
 
       const code = `G-UPD-${Date.now()}`;
-      await request(server).post('/api/guests').set('Authorization', auth())
-        .send({ guest_code: code, group_id: grp.id, region_id: regionId, full_name: 'Original Name' });
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: code,
+          group_id: grp.id,
+          region_id: regionId,
+          full_name: 'Original Name',
+        });
 
-      const updateRows = [{ guest_code: code, group_code: grp.group_code, full_name: 'Updated Name' }];
+      const updateRows = [
+        {
+          guest_code: code,
+          group_code: grp.group_code,
+          full_name: 'Updated Name',
+        },
+      ];
       const res = await request(server)
         .post('/api/guests/import/commit')
         .set('Authorization', auth())
@@ -716,8 +777,17 @@ describe('Guests (e2e)', () => {
 
   describe('POST /api/guests/:id/migrate - edge cases', () => {
     it('returns 404 when target group does not exist', async () => {
-      const guest = (await request(server).post('/api/guests').set('Authorization', auth())
-        .send({ guest_code: `MIG-NF-${Date.now()}`, group_id: groupId, region_id: regionId, full_name: 'Migrate NF' })).body;
+      const guest = (
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `MIG-NF-${Date.now()}`,
+            group_id: groupId,
+            region_id: regionId,
+            full_name: 'Migrate NF',
+          })
+      ).body;
 
       await request(server)
         .post(`/api/guests/${guest.id}/migrate`)
@@ -727,13 +797,25 @@ describe('Guests (e2e)', () => {
     });
 
     it('unsets is_group_contact when migrating group contact', async () => {
-      const destGroup = (await request(server).post('/api/guest-groups').set('Authorization', auth())
-        .send({ group_code: `GRP-MGD-${Date.now()}`, region_id: regionId })).body;
+      const destGroup = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `GRP-MGD-${Date.now()}`, region_id: regionId })
+      ).body;
 
-      const guest = (await request(server).post('/api/guests').set('Authorization', auth()).send({
-        guest_code: `G-CONTACT-${Date.now()}`, group_id: groupId, region_id: regionId,
-        full_name: 'Contact Guest', is_group_contact: true,
-      })).body;
+      const guest = (
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `G-CONTACT-${Date.now()}`,
+            group_id: groupId,
+            region_id: regionId,
+            full_name: 'Contact Guest',
+            is_group_contact: true,
+          })
+      ).body;
 
       await request(server)
         .post(`/api/guests/${guest.id}/migrate`)
@@ -741,7 +823,11 @@ describe('Guests (e2e)', () => {
         .send({ targetGroupId: destGroup.id })
         .expect(200);
 
-      const updated = (await request(server).get(`/api/guests/${guest.id}`).set('Authorization', auth())).body;
+      const updated = (
+        await request(server)
+          .get(`/api/guests/${guest.id}`)
+          .set('Authorization', auth())
+      ).body;
       expect(updated.is_group_contact).toBe(false);
     });
   });
@@ -749,21 +835,32 @@ describe('Guests (e2e)', () => {
   describe('Import parse - validation branches', () => {
     it('flags rows with invalid status value', async () => {
       const file = buildExcelBuffer([
-        { guest_code: 'G-BADSTATUS', group_code: 'GRP-001', full_name: 'Bad Status', status: 'invalid_status' },
+        {
+          guest_code: 'G-BADSTATUS',
+          group_code: 'GRP-001',
+          full_name: 'Bad Status',
+          status: 'invalid_status',
+        },
       ]);
       const res = await request(server)
         .post('/api/guests/import/parse')
         .set('Authorization', auth())
         .attach('file', file, 'guests.xlsx')
         .expect(200);
-      const hasError = res.body.errors.some((e: { guest_code: string }) => e.guest_code === 'G-BADSTATUS');
+      const hasError = res.body.errors.some(
+        (e: { guest_code: string }) => e.guest_code === 'G-BADSTATUS',
+      );
       expect(hasError).toBe(true);
     });
 
     it('flags rows with duplicate guest_code within the file', async () => {
       const file = buildExcelBuffer([
         { guest_code: 'G-DUP-FILE', group_code: 'GRP-001', full_name: 'First' },
-        { guest_code: 'G-DUP-FILE', group_code: 'GRP-001', full_name: 'Duplicate' },
+        {
+          guest_code: 'G-DUP-FILE',
+          group_code: 'GRP-001',
+          full_name: 'Duplicate',
+        },
       ]);
       const res = await request(server)
         .post('/api/guests/import/parse')
@@ -778,14 +875,27 @@ describe('Guests (e2e)', () => {
     let coordToken: string;
 
     beforeAll(async () => {
-      const userRes = (await request(server).post('/api/users').set('Authorization', auth())
-        .send({ email: `coord-guests-${Date.now()}@test.local`, password: 'pass1234', role: 'region_admin' })).body;
+      const userRes = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send({
+            email: `coord-guests-${Date.now()}@test.local`,
+            password: 'pass1234',
+            role: 'region_admin',
+          })
+      ).body;
 
-      await request(server).post(`/api/regions/${regionId}/coordinators`)
-        .set('Authorization', auth()).send({ userId: userRes.id });
+      await request(server)
+        .post(`/api/regions/${regionId}/coordinators`)
+        .set('Authorization', auth())
+        .send({ userId: userRes.id });
 
-      coordToken = (await request(server).post('/api/auth/login')
-        .send({ email: userRes.email, password: 'pass1234' })).body.access_token;
+      coordToken = (
+        await request(server)
+          .post('/api/auth/login')
+          .send({ email: userRes.email, password: 'pass1234' })
+      ).body.access_token;
     });
 
     it('region_admin can list guests in their region', async () => {
@@ -797,8 +907,12 @@ describe('Guests (e2e)', () => {
     });
 
     it('region_admin gets 403 accessing a region they do not coordinate', async () => {
-      const other = (await request(server).post('/api/regions').set('Authorization', auth())
-        .send({ name: `Other Coord Region ${Date.now()}` })).body;
+      const other = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: `Other Coord Region ${Date.now()}` })
+      ).body;
       await request(server)
         .get(`/api/guests?regionId=${other.id}`)
         .set('Authorization', `Bearer ${coordToken}`)
@@ -818,10 +932,28 @@ describe('Guests (e2e)', () => {
 
   describe('PATCH /api/guests/:id - duplicate guest_code', () => {
     it('returns 409 when updating to an already-used guest_code', async () => {
-      const g1 = (await request(server).post('/api/guests').set('Authorization', auth())
-        .send({ guest_code: `DUP-A-${Date.now()}`, group_id: groupId, region_id: regionId, full_name: 'A' })).body;
-      const g2 = (await request(server).post('/api/guests').set('Authorization', auth())
-        .send({ guest_code: `DUP-B-${Date.now()}`, group_id: groupId, region_id: regionId, full_name: 'B' })).body;
+      const g1 = (
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `DUP-A-${Date.now()}`,
+            group_id: groupId,
+            region_id: regionId,
+            full_name: 'A',
+          })
+      ).body;
+      const g2 = (
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `DUP-B-${Date.now()}`,
+            group_id: groupId,
+            region_id: regionId,
+            full_name: 'B',
+          })
+      ).body;
 
       await request(server)
         .patch(`/api/guests/${g2.id}`)
@@ -836,16 +968,30 @@ describe('Guests (e2e)', () => {
       request(server).get('/api/guest-access/lookup').expect(404));
 
     it('PATCH /api/guest-access/submit with no code param returns 404', () =>
-      request(server).patch('/api/guest-access/submit').send({
-        full_name: 'X', email: 'x@x.com', origin_city: 'X',
-        car_seats: 0, speaks_english: false, other_languages: null,
-        real_arrival: '2026-07-01', real_arrival_time: '10:00',
-        real_departure: '2026-07-07', real_departure_time: '18:00',
-        hosting_address: 'X', lat: null, lng: null,
-        transport_mode: 'Coche', arrival_other_transport: null,
-        arrival_flight: null, needs_airport_transfer: false,
-        terms_accepted: true, terms_version: '1.0',
-      }).expect(404));
+      request(server)
+        .patch('/api/guest-access/submit')
+        .send({
+          full_name: 'X',
+          email: 'x@x.com',
+          origin_city: 'X',
+          car_seats: 0,
+          speaks_english: false,
+          other_languages: null,
+          real_arrival: '2026-07-01',
+          real_arrival_time: '10:00',
+          real_departure: '2026-07-07',
+          real_departure_time: '18:00',
+          hosting_address: 'X',
+          lat: null,
+          lng: null,
+          transport_mode: 'Coche',
+          arrival_other_transport: null,
+          arrival_flight: null,
+          needs_airport_transfer: false,
+          terms_accepted: true,
+          terms_version: '1.0',
+        })
+        .expect(404));
 
     it('GET /api/guest-access/me with no token param returns 401', () =>
       request(server).get('/api/guest-access/me').expect(401));

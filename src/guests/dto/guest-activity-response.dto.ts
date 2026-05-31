@@ -21,7 +21,10 @@ export class GuestActivityResponseDto {
   @ApiPropertyOptional({ example: '✈️', nullable: true })
   icon: string | null;
 
-  @ApiPropertyOptional({ example: 'Traslado desde el aeropuerto', nullable: true })
+  @ApiPropertyOptional({
+    example: 'Traslado desde el aeropuerto',
+    nullable: true,
+  })
   description: string | null;
 
   @ApiProperty({ example: '2024-06-15' })
@@ -42,7 +45,10 @@ export class GuestActivityResponseDto {
   @ApiPropertyOptional({ example: -3.7038, nullable: true })
   departure_lng: number | null;
 
-  @ApiPropertyOptional({ example: 'Aeropuerto Adolfo Suárez, Madrid', nullable: true })
+  @ApiPropertyOptional({
+    example: 'Aeropuerto Adolfo Suárez, Madrid',
+    nullable: true,
+  })
   activity_address: string | null;
 
   @ApiPropertyOptional({ example: 40.4936, nullable: true })

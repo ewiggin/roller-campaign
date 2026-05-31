@@ -28,13 +28,15 @@ export class AuditInterceptor implements NestInterceptor {
 
     const req = context.switchToHttp().getRequest<Request>();
     const user = req.user as JwtPayload | undefined;
-    const resourceId =
-      (req.params as Record<string, string>)['id'] ?? null;
+    const resourceId = (req.params as Record<string, string>)['id'] ?? null;
     const ip =
-      (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ??
+      (req.headers['x-forwarded-for'] as string | undefined)
+        ?.split(',')[0]
+        ?.trim() ??
       req.ip ??
       null;
-    const userAgent = (req.headers['user-agent'] as string | undefined)?.slice(0, 200) ?? null;
+    const userAgent =
+      (req.headers['user-agent'] as string | undefined)?.slice(0, 200) ?? null;
 
     return next.handle().pipe(
       tap({

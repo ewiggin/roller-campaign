@@ -32,7 +32,10 @@ export class AvailableVolunteerForActivityDto {
   @ApiProperty({ example: 'Carlos López' })
   full_name: string;
 
-  @ApiProperty({ example: false, description: 'True if assigned to another overlapping activity' })
+  @ApiProperty({
+    example: false,
+    description: 'True if assigned to another overlapping activity',
+  })
   already_in_activity: boolean;
 }
 
@@ -43,7 +46,10 @@ export class AvailableGroupForActivityDto {
   @ApiProperty({ example: 'GRP-001' })
   group_code: string;
 
-  @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000', nullable: true })
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    nullable: true,
+  })
   host_id: string | null;
 
   @ApiPropertyOptional({ example: 'Hotel Campanile', nullable: true })
@@ -55,13 +61,22 @@ export class AvailableGroupForActivityDto {
   @ApiPropertyOptional({ example: -3.7038, nullable: true })
   host_lng: number | null;
 
-  @ApiPropertyOptional({ example: 3.2, nullable: true, description: 'Distance in km from activity location to host. Null if either location is missing.' })
+  @ApiPropertyOptional({
+    example: 3.2,
+    nullable: true,
+    description:
+      'Distance in km from activity location to host. Null if either location is missing.',
+  })
   distance_km: number | null;
 
   @ApiProperty({ example: 12 })
   guest_count: number;
 
-  @ApiProperty({ example: false, description: 'True if assigned to another activity overlapping in date+time' })
+  @ApiProperty({
+    example: false,
+    description:
+      'True if assigned to another activity overlapping in date+time',
+  })
   already_in_activity: boolean;
 }
 
@@ -72,7 +87,10 @@ export class ActivityResponseDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   region_id: string;
 
-  @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440000', nullable: true })
+  @ApiPropertyOptional({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    nullable: true,
+  })
   series_id: string | null;
 
   @ApiProperty({ example: 'Airport pickup' })
@@ -87,7 +105,10 @@ export class ActivityResponseDto {
   @ApiProperty({ example: 'draft', enum: ['draft', 'published'] })
   status: string;
 
-  @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000', nullable: true })
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    nullable: true,
+  })
   host_id: string | null;
 
   @ApiPropertyOptional({ example: 'Congregación Norte', nullable: true })
@@ -102,7 +123,10 @@ export class ActivityResponseDto {
   @ApiProperty({ example: '13:00' })
   end_time: string;
 
-  @ApiPropertyOptional({ example: 'Aeropuerto Adolfo Suárez, Madrid', nullable: true })
+  @ApiPropertyOptional({
+    example: 'Aeropuerto Adolfo Suárez, Madrid',
+    nullable: true,
+  })
   activity_address: string | null;
 
   @ApiPropertyOptional({ example: 40.4936, nullable: true })

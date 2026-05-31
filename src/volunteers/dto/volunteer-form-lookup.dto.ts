@@ -30,7 +30,10 @@ export class VolunteerFormLookupResponseDto {
   @ApiPropertyOptional({ example: 2.1734, nullable: true })
   lng: number | null;
 
-  @ApiPropertyOptional({ example: 'https://maps.google.com/?q=41.3851,2.1734', nullable: true })
+  @ApiPropertyOptional({
+    example: 'https://maps.google.com/?q=41.3851,2.1734',
+    nullable: true,
+  })
   maps_link: string | null;
 
   @ApiProperty({ example: false })

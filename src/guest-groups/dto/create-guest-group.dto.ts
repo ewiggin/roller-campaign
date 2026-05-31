@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateGuestGroupDto {
   @ApiProperty({ example: 'GRP-001' })
@@ -21,7 +27,11 @@ export class CreateGuestGroupDto {
   @IsString()
   available_to?: string | null;
 
-  @ApiPropertyOptional({ example: 'mixed', enum: ['men_only', 'mixed', 'women_only'], nullable: true })
+  @ApiPropertyOptional({
+    example: 'mixed',
+    enum: ['men_only', 'mixed', 'women_only'],
+    nullable: true,
+  })
   @IsOptional()
   @IsIn(['men_only', 'mixed', 'women_only'])
   composition?: 'men_only' | 'mixed' | 'women_only' | null;

@@ -10,7 +10,15 @@ import { VolunteersController } from './volunteers.controller';
 import { VolunteerAccessController } from './volunteer-access.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Volunteer, VolunteerRole, VolunteerAvailability, Region, User])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Volunteer,
+      VolunteerRole,
+      VolunteerAvailability,
+      Region,
+      User,
+    ]),
+  ],
   controllers: [VolunteersController, VolunteerAccessController],
   providers: [VolunteersService],
   exports: [VolunteersService],

@@ -11,7 +11,17 @@ import { ActivitiesService } from './activities.service';
 import { ActivitiesController } from './activities.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Activity, Guest, GuestGroup, Host, Volunteer, Region, User])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Activity,
+      Guest,
+      GuestGroup,
+      Host,
+      Volunteer,
+      Region,
+      User,
+    ]),
+  ],
   controllers: [ActivitiesController],
   providers: [ActivitiesService],
   exports: [ActivitiesService],

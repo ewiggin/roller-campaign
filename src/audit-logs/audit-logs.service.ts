@@ -32,10 +32,16 @@ export class AuditLogsService {
       .skip((page - 1) * limit)
       .take(limit);
 
-    if (query.resource) qb.andWhere('log.resource = :resource', { resource: query.resource });
-    if (query.action) qb.andWhere('log.action = :action', { action: query.action });
-    if (query.actor_email) qb.andWhere('log.actor_email ILIKE :email', { email: `%${query.actor_email}%` });
-    if (query.from) qb.andWhere('log.timestamp >= :from', { from: new Date(query.from) });
+    if (query.resource)
+      qb.andWhere('log.resource = :resource', { resource: query.resource });
+    if (query.action)
+      qb.andWhere('log.action = :action', { action: query.action });
+    if (query.actor_email)
+      qb.andWhere('log.actor_email ILIKE :email', {
+        email: `%${query.actor_email}%`,
+      });
+    if (query.from)
+      qb.andWhere('log.timestamp >= :from', { from: new Date(query.from) });
     if (query.to) {
       const toDate = new Date(query.to);
       toDate.setDate(toDate.getDate() + 1);

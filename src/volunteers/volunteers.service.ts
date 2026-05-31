@@ -36,9 +36,12 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 @Injectable()
 export class VolunteersService {
   constructor(
-    @InjectRepository(Volunteer) private readonly volunteersRepo: Repository<Volunteer>,
-    @InjectRepository(VolunteerRole) private readonly rolesRepo: Repository<VolunteerRole>,
-    @InjectRepository(VolunteerAvailability) private readonly availRepo: Repository<VolunteerAvailability>,
+    @InjectRepository(Volunteer)
+    private readonly volunteersRepo: Repository<Volunteer>,
+    @InjectRepository(VolunteerRole)
+    private readonly rolesRepo: Repository<VolunteerRole>,
+    @InjectRepository(VolunteerAvailability)
+    private readonly availRepo: Repository<VolunteerAvailability>,
     @InjectRepository(Region) private readonly regionsRepo: Repository<Region>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
   ) {}
@@ -53,7 +56,9 @@ export class VolunteersService {
   async createRole(dto: CreateRoleDto): Promise<VolunteerRoleDto> {
     const exists = await this.rolesRepo.findOne({ where: { name: dto.name } });
     if (exists) throw new ConflictException('El nombre de rol ya existe');
-    const saved = await this.rolesRepo.save(this.rolesRepo.create({ name: dto.name }));
+    const saved = await this.rolesRepo.save(
+      this.rolesRepo.create({ name: dto.name }),
+    );
     return { id: saved.id, name: saved.name };
   }
 
@@ -65,9 +70,15 @@ export class VolunteersService {
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
-  async create(dto: CreateVolunteerDto, currentUser: JwtPayload): Promise<VolunteerResponseDto> {
-    const exists = await this.volunteersRepo.findOne({ where: { volunteer_code: dto.volunteer_code } });
-    if (exists) throw new ConflictException('El código de voluntario ya existe');
+  async create(
+    dto: CreateVolunteerDto,
+    currentUser: JwtPayload,
+  ): Promise<VolunteerResponseDto> {
+    const exists = await this.volunteersRepo.findOne({
+      where: { volunteer_code: dto.volunteer_code },
+    });
+    if (exists)
+      throw new ConflictException('El código de voluntario ya existe');
 
     const roles = dto.role_ids?.length
       ? await this.rolesRepo.find({ where: { id: In(dto.role_ids) } })
@@ -94,11 +105,27 @@ export class VolunteersService {
   async findAll(
     query: VolunteerListQueryDto,
     currentUser: JwtPayload,
-  ): Promise<{ data: VolunteerResponseDto[]; total: number; page: number; limit: number }> {
-    if (currentUser.role !== 'superadmin' && currentUser.role !== 'region_admin') {
+  ): Promise<{
+    data: VolunteerResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    if (
+      currentUser.role !== 'superadmin' &&
+      currentUser.role !== 'region_admin'
+    ) {
       throw new ForbiddenException();
     }
-    const { regionId, roleId, search, is_active, date, page = 1, limit = 50 } = query;
+    const {
+      regionId,
+      roleId,
+      search,
+      is_active,
+      date,
+      page = 1,
+      limit = 50,
+    } = query;
 
     const qb = this.volunteersRepo
       .createQueryBuilder('v')
@@ -113,9 +140,11 @@ export class VolunteersService {
         relations: { regions: true },
       });
       const adminRegionIds = (user?.regions ?? []).map((r) => r.id);
-      if (adminRegionIds.length === 0) return { data: [], total: 0, page, limit };
+      if (adminRegionIds.length === 0)
+        return { data: [], total: 0, page, limit };
 
-      effectiveRegionId = regionId && adminRegionIds.includes(regionId) ? regionId : null;
+      effectiveRegionId =
+        regionId && adminRegionIds.includes(regionId) ? regionId : null;
       if (effectiveRegionId) {
         qb.where('regions.id = :regionId', { regionId: effectiveRegionId });
       } else {
@@ -127,8 +156,12 @@ export class VolunteersService {
     }
 
     if (roleId) qb.andWhere('roles.id = :roleId', { roleId });
-    if (search) qb.andWhere('v.full_name LIKE :search OR v.volunteer_code LIKE :search', { search: `%${search}%` });
-    if (is_active !== undefined) qb.andWhere('v.is_active = :is_active', { is_active });
+    if (search)
+      qb.andWhere('v.full_name LIKE :search OR v.volunteer_code LIKE :search', {
+        search: `%${search}%`,
+      });
+    if (is_active !== undefined)
+      qb.andWhere('v.is_active = :is_active', { is_active });
 
     if (date && effectiveRegionId) {
       qb.andWhere(
@@ -153,7 +186,10 @@ export class VolunteersService {
     return { data: volunteers.map(this.toDto), total, page, limit };
   }
 
-  async findOne(id: string, currentUser: JwtPayload): Promise<VolunteerResponseDto> {
+  async findOne(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<VolunteerResponseDto> {
     const v = await this.volunteersRepo.findOne({
       where: { id },
       relations: { roles: true, regions: true },
@@ -163,7 +199,11 @@ export class VolunteersService {
     return this.toDto(v);
   }
 
-  async update(id: string, dto: UpdateVolunteerDto, currentUser: JwtPayload): Promise<VolunteerResponseDto> {
+  async update(
+    id: string,
+    dto: UpdateVolunteerDto,
+    currentUser: JwtPayload,
+  ): Promise<VolunteerResponseDto> {
     const v = await this.volunteersRepo.findOne({
       where: { id },
       relations: { roles: true, regions: true },
@@ -172,15 +212,22 @@ export class VolunteersService {
     await this.assertAccess(v, currentUser);
 
     if (dto.volunteer_code && dto.volunteer_code !== v.volunteer_code) {
-      const exists = await this.volunteersRepo.findOne({ where: { volunteer_code: dto.volunteer_code } });
-      if (exists) throw new ConflictException('El código de voluntario ya existe');
+      const exists = await this.volunteersRepo.findOne({
+        where: { volunteer_code: dto.volunteer_code },
+      });
+      if (exists)
+        throw new ConflictException('El código de voluntario ya existe');
     }
 
     if (dto.role_ids !== undefined) {
-      v.roles = dto.role_ids.length ? await this.rolesRepo.find({ where: { id: In(dto.role_ids) } }) : [];
+      v.roles = dto.role_ids.length
+        ? await this.rolesRepo.find({ where: { id: In(dto.role_ids) } })
+        : [];
     }
     if (dto.region_ids !== undefined) {
-      v.regions = dto.region_ids.length ? await this.regionsRepo.find({ where: { id: In(dto.region_ids) } }) : [];
+      v.regions = dto.region_ids.length
+        ? await this.regionsRepo.find({ where: { id: In(dto.region_ids) } })
+        : [];
     }
 
     Object.assign(v, {
@@ -189,6 +236,70 @@ export class VolunteersService {
       email: dto.email !== undefined ? dto.email : v.email,
       phone: dto.phone !== undefined ? dto.phone : v.phone,
       is_active: dto.is_active !== undefined ? dto.is_active : v.is_active,
+      hosting_address:
+        dto.hosting_address !== undefined
+          ? dto.hosting_address
+          : v.hosting_address,
+      lat: dto.lat !== undefined ? dto.lat : v.lat,
+      lng: dto.lng !== undefined ? dto.lng : v.lng,
+      maps_link: dto.maps_link !== undefined ? dto.maps_link : v.maps_link,
+      car_seats: dto.car_seats !== undefined ? dto.car_seats : v.car_seats,
+      monday_morning:
+        dto.monday_morning !== undefined
+          ? dto.monday_morning
+          : v.monday_morning,
+      monday_afternoon:
+        dto.monday_afternoon !== undefined
+          ? dto.monday_afternoon
+          : v.monday_afternoon,
+      tuesday_morning:
+        dto.tuesday_morning !== undefined
+          ? dto.tuesday_morning
+          : v.tuesday_morning,
+      tuesday_afternoon:
+        dto.tuesday_afternoon !== undefined
+          ? dto.tuesday_afternoon
+          : v.tuesday_afternoon,
+      wednesday_morning:
+        dto.wednesday_morning !== undefined
+          ? dto.wednesday_morning
+          : v.wednesday_morning,
+      wednesday_afternoon:
+        dto.wednesday_afternoon !== undefined
+          ? dto.wednesday_afternoon
+          : v.wednesday_afternoon,
+      thursday_morning:
+        dto.thursday_morning !== undefined
+          ? dto.thursday_morning
+          : v.thursday_morning,
+      thursday_afternoon:
+        dto.thursday_afternoon !== undefined
+          ? dto.thursday_afternoon
+          : v.thursday_afternoon,
+      friday_morning:
+        dto.friday_morning !== undefined
+          ? dto.friday_morning
+          : v.friday_morning,
+      friday_afternoon:
+        dto.friday_afternoon !== undefined
+          ? dto.friday_afternoon
+          : v.friday_afternoon,
+      saturday_morning:
+        dto.saturday_morning !== undefined
+          ? dto.saturday_morning
+          : v.saturday_morning,
+      saturday_afternoon:
+        dto.saturday_afternoon !== undefined
+          ? dto.saturday_afternoon
+          : v.saturday_afternoon,
+      sunday_morning:
+        dto.sunday_morning !== undefined
+          ? dto.sunday_morning
+          : v.sunday_morning,
+      sunday_afternoon:
+        dto.sunday_afternoon !== undefined
+          ? dto.sunday_afternoon
+          : v.sunday_afternoon,
     });
 
     const saved = await this.volunteersRepo.save(v);
@@ -203,8 +314,15 @@ export class VolunteersService {
 
   // ── Availability ───────────────────────────────────────────────────────────
 
-  async setAvailability(id: string, dto: SetAvailabilityDto, currentUser: JwtPayload): Promise<AvailabilityEntryDto[]> {
-    const v = await this.volunteersRepo.findOne({ where: { id }, relations: { regions: true } });
+  async setAvailability(
+    id: string,
+    dto: SetAvailabilityDto,
+    currentUser: JwtPayload,
+  ): Promise<AvailabilityEntryDto[]> {
+    const v = await this.volunteersRepo.findOne({
+      where: { id },
+      relations: { regions: true },
+    });
     if (!v) throw new NotFoundException('Voluntario no encontrado');
     await this.assertAccess(v, currentUser);
 
@@ -212,7 +330,12 @@ export class VolunteersService {
 
     if (dto.dates.length > 0) {
       const entries = dto.dates.map((date) =>
-        this.availRepo.create({ volunteer_id: id, region_id: dto.region_id, date, note: null }),
+        this.availRepo.create({
+          volunteer_id: id,
+          region_id: dto.region_id,
+          date,
+          note: null,
+        }),
       );
       await this.availRepo.save(entries);
     }
@@ -220,7 +343,10 @@ export class VolunteersService {
     return this.getAvailability(id, currentUser);
   }
 
-  async getAvailability(id: string, currentUser: JwtPayload): Promise<AvailabilityEntryDto[]> {
+  async getAvailability(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<AvailabilityEntryDto[]> {
     const v = await this.volunteersRepo.findOne({ where: { id } });
     if (!v) throw new NotFoundException('Voluntario no encontrado');
     await this.assertAccess(v, currentUser);
@@ -229,7 +355,11 @@ export class VolunteersService {
       where: { volunteer_id: id },
       order: { date: 'ASC' },
     });
-    return entries.map((e) => ({ date: e.date, region_id: e.region_id, note: e.note }));
+    return entries.map((e) => ({
+      date: e.date,
+      region_id: e.region_id,
+      note: e.note,
+    }));
   }
 
   // ── Import ─────────────────────────────────────────────────────────────────
@@ -237,13 +367,19 @@ export class VolunteersService {
   async parseImport(buffer: Buffer): Promise<ImportVolunteerParseResponseDto> {
     const wb = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { raw: false, defval: null });
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      raw: false,
+      defval: null,
+    });
 
     const codes = rows
       .map((r) => this.str(r['Número de identificación']))
       .filter(Boolean) as string[];
     const existing = codes.length
-      ? await this.volunteersRepo.find({ where: { volunteer_code: In(codes) }, select: { volunteer_code: true } })
+      ? await this.volunteersRepo.find({
+          where: { volunteer_code: In(codes) },
+          select: { volunteer_code: true },
+        })
       : [];
     const existingSet = new Set(existing.map((v) => v.volunteer_code));
 
@@ -259,8 +395,12 @@ export class VolunteersService {
 
     for (const row of rows) {
       const rawCode = this.str(row['Número de identificación']);
-      const code = rawCode ?? `SIN-COD-${String(sinCodIndex++).padStart(4, '0')}`;
-      if (rawCode && existingSet.has(code)) { skipped.push(code); continue; }
+      const code =
+        rawCode ?? `SIN-COD-${String(sinCodIndex++).padStart(4, '0')}`;
+      if (rawCode && existingSet.has(code)) {
+        skipped.push(code);
+        continue;
+      }
 
       to_create.push({
         volunteer_code: code,
@@ -280,7 +420,10 @@ export class VolunteersService {
         has_assigned_shift: this.str(row['Tiene asignado un turno']),
         groups: this.str(row['Grupos']),
         assigned_hours: this.parseNum(row['Horas asignadas']),
-        is_active: row['Activo'] !== undefined ? this.parseBool(row['Activo']) : undefined,
+        is_active:
+          row['Activo'] !== undefined
+            ? this.parseBool(row['Activo'])
+            : undefined,
         role_names: this.str(row['Roles']),
         monday_morning: this.parseBool(row['Lu M']),
         monday_afternoon: this.parseBool(row['Lu T']),
@@ -302,14 +445,22 @@ export class VolunteersService {
     return {
       to_create,
       skipped,
-      summary: { total: to_create.length + skipped.length, to_create: to_create.length, skipped: skipped.length },
+      summary: {
+        total: to_create.length + skipped.length,
+        to_create: to_create.length,
+        skipped: skipped.length,
+      },
     };
   }
 
-  async commitImport(dto: ImportVolunteerCommitDto): Promise<ImportVolunteerCommitResponseDto> {
+  async commitImport(
+    dto: ImportVolunteerCommitDto,
+  ): Promise<ImportVolunteerCommitResponseDto> {
     // Pre-load all regions once for name lookups
     const allRegions = await this.regionsRepo.find();
-    const regionByName = new Map(allRegions.map((r) => [r.name.trim().toLowerCase(), r]));
+    const regionByName = new Map(
+      allRegions.map((r) => [r.name.trim().toLowerCase(), r]),
+    );
 
     // Fall back to region_ids if provided (legacy path)
     const fallbackRegions = dto.region_ids?.length
@@ -320,8 +471,13 @@ export class VolunteersService {
     let skipped = 0;
 
     for (const row of dto.rows) {
-      const exists = await this.volunteersRepo.findOne({ where: { volunteer_code: row.volunteer_code } });
-      if (exists) { skipped++; continue; }
+      const exists = await this.volunteersRepo.findOne({
+        where: { volunteer_code: row.volunteer_code },
+      });
+      if (exists) {
+        skipped++;
+        continue;
+      }
 
       // Resolve region: prefer name from row, fall back to region_ids
       const rowRegion = row.region_name
@@ -371,20 +527,45 @@ export class VolunteersService {
       where: { user_id: currentUser.sub },
       relations: { roles: true, regions: true },
     });
-    if (!v) throw new NotFoundException('No tienes un perfil de voluntario vinculado a esta cuenta');
+    if (!v)
+      throw new NotFoundException(
+        'No tienes un perfil de voluntario vinculado a esta cuenta',
+      );
     return this.toDto(v);
   }
 
-  async getMyAvailability(currentUser: JwtPayload): Promise<AvailabilityEntryDto[]> {
-    const v = await this.volunteersRepo.findOne({ where: { user_id: currentUser.sub } });
-    if (!v) throw new NotFoundException('No tienes un perfil de voluntario vinculado a esta cuenta');
-    const entries = await this.availRepo.find({ where: { volunteer_id: v.id }, order: { date: 'ASC' } });
-    return entries.map((e) => ({ date: e.date, region_id: e.region_id, note: e.note }));
+  async getMyAvailability(
+    currentUser: JwtPayload,
+  ): Promise<AvailabilityEntryDto[]> {
+    const v = await this.volunteersRepo.findOne({
+      where: { user_id: currentUser.sub },
+    });
+    if (!v)
+      throw new NotFoundException(
+        'No tienes un perfil de voluntario vinculado a esta cuenta',
+      );
+    const entries = await this.availRepo.find({
+      where: { volunteer_id: v.id },
+      order: { date: 'ASC' },
+    });
+    return entries.map((e) => ({
+      date: e.date,
+      region_id: e.region_id,
+      note: e.note,
+    }));
   }
 
-  async setMyAvailability(currentUser: JwtPayload, dto: SetAvailabilityDto): Promise<AvailabilityEntryDto[]> {
-    const v = await this.volunteersRepo.findOne({ where: { user_id: currentUser.sub } });
-    if (!v) throw new NotFoundException('No tienes un perfil de voluntario vinculado a esta cuenta');
+  async setMyAvailability(
+    currentUser: JwtPayload,
+    dto: SetAvailabilityDto,
+  ): Promise<AvailabilityEntryDto[]> {
+    const v = await this.volunteersRepo.findOne({
+      where: { user_id: currentUser.sub },
+    });
+    if (!v)
+      throw new NotFoundException(
+        'No tienes un perfil de voluntario vinculado a esta cuenta',
+      );
     return this.setAvailability(v.id, dto, currentUser);
   }
 
@@ -394,20 +575,68 @@ export class VolunteersService {
 
   generateTemplate(): Buffer {
     const headers = [
-      'Número de identificación', 'Nombre', 'Sexo', 'Estado civil',
-      'Congregación', 'Sucursal', 'Tiene asignado un turno', 'Grupos',
-      'Horas asignadas', 'Plazas de coche disponibles', 'Dirección',
-      'Lu M', 'Lu T', 'Ma M', 'Ma T', 'Mi M', 'Mi T',
-      'Ju M', 'Ju T', 'Vi M', 'Vi T', 'Sa M', 'Sa T', 'Do M', 'Do T',
-      'Maps', 'Lat', 'Lon', 'Región de participación', 'Email',
+      'Número de identificación',
+      'Nombre',
+      'Sexo',
+      'Estado civil',
+      'Congregación',
+      'Sucursal',
+      'Tiene asignado un turno',
+      'Grupos',
+      'Horas asignadas',
+      'Plazas de coche disponibles',
+      'Dirección',
+      'Lu M',
+      'Lu T',
+      'Ma M',
+      'Ma T',
+      'Mi M',
+      'Mi T',
+      'Ju M',
+      'Ju T',
+      'Vi M',
+      'Vi T',
+      'Sa M',
+      'Sa T',
+      'Do M',
+      'Do T',
+      'Maps',
+      'Lat',
+      'Lon',
+      'Región de participación',
+      'Email',
     ];
     const example = [
-      '5274026', 'Martínez, Mario', 'Varón', 'Casado',
-      'Olot', 'Cataluña', 'No', 'grupo1',
-      '0', '3', 'Passatge Bernat Metge, 14, 17800 Olot',
-      'No', 'No', 'No', 'No', 'No', 'No',
-      'No', 'No', 'No', 'No', 'Sí', 'Sí', 'Sí', 'Sí',
-      'https://www.google.com/maps?q=42.18,2.47', '42,1836987', '2,4774935', 'Costa Brava', 'mario@example.com',
+      '5274026',
+      'Martínez, Mario',
+      'Varón',
+      'Casado',
+      'Olot',
+      'Cataluña',
+      'No',
+      'grupo1',
+      '0',
+      '3',
+      'Passatge Bernat Metge, 14, 17800 Olot',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'Sí',
+      'Sí',
+      'Sí',
+      'Sí',
+      'https://www.google.com/maps?q=42.18,2.47',
+      '42,1836987',
+      '2,4774935',
+      'Costa Brava',
+      'mario@example.com',
     ];
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, example]);
@@ -415,7 +644,10 @@ export class VolunteersService {
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
-  async exportAll(query: VolunteerListQueryDto, currentUser: JwtPayload): Promise<Buffer> {
+  async exportAll(
+    query: VolunteerListQueryDto,
+    currentUser: JwtPayload,
+  ): Promise<Buffer> {
     const { regionId, search, is_active } = query;
 
     const qb = this.volunteersRepo
@@ -430,7 +662,8 @@ export class VolunteersService {
       });
       const adminRegionIds = (user?.regions ?? []).map((r) => r.id);
       if (adminRegionIds.length === 0) return this.buildVolunteersExcel([]);
-      const filterRegion = regionId && adminRegionIds.includes(regionId) ? regionId : null;
+      const filterRegion =
+        regionId && adminRegionIds.includes(regionId) ? regionId : null;
       if (filterRegion) {
         qb.where('regions.id = :regionId', { regionId: filterRegion });
       } else {
@@ -442,8 +675,12 @@ export class VolunteersService {
       throw new ForbiddenException();
     }
 
-    if (search) qb.andWhere('v.full_name LIKE :search OR v.volunteer_code LIKE :search', { search: `%${search}%` });
-    if (is_active !== undefined) qb.andWhere('v.is_active = :is_active', { is_active });
+    if (search)
+      qb.andWhere('v.full_name LIKE :search OR v.volunteer_code LIKE :search', {
+        search: `%${search}%`,
+      });
+    if (is_active !== undefined)
+      qb.andWhere('v.is_active = :is_active', { is_active });
 
     const volunteers = await qb.orderBy('v.full_name', 'ASC').getMany();
     return this.buildVolunteersExcel(volunteers);
@@ -451,25 +688,61 @@ export class VolunteersService {
 
   private buildVolunteersExcel(volunteers: Volunteer[]): Buffer {
     const headers = [
-      'Número de identificación', 'Nombre', 'Email', 'Teléfono', 'Activo',
-      'Región de participación', 'Roles',
-      'Plazas de coche disponibles', 'Dirección', 'Lat', 'Lon', 'Maps',
-      'Lu M', 'Lu T', 'Ma M', 'Ma T', 'Mi M', 'Mi T',
-      'Ju M', 'Ju T', 'Vi M', 'Vi T', 'Sa M', 'Sa T', 'Do M', 'Do T',
+      'Número de identificación',
+      'Nombre',
+      'Email',
+      'Teléfono',
+      'Activo',
+      'Región de participación',
+      'Roles',
+      'Plazas de coche disponibles',
+      'Dirección',
+      'Lat',
+      'Lon',
+      'Maps',
+      'Lu M',
+      'Lu T',
+      'Ma M',
+      'Ma T',
+      'Mi M',
+      'Mi T',
+      'Ju M',
+      'Ju T',
+      'Vi M',
+      'Vi T',
+      'Sa M',
+      'Sa T',
+      'Do M',
+      'Do T',
     ];
 
     const rows = volunteers.map((v) => [
-      v.volunteer_code, v.full_name, v.email ?? '', v.phone ?? '', v.is_active ? 'Sí' : 'No',
+      v.volunteer_code,
+      v.full_name,
+      v.email ?? '',
+      v.phone ?? '',
+      v.is_active ? 'Sí' : 'No',
       (v.regions ?? []).map((r) => r.name).join(', '),
       (v.roles ?? []).map((r) => r.name).join(', '),
-      v.car_seats ?? '', v.hosting_address ?? '', v.lat ?? '', v.lng ?? '', v.maps_link ?? '',
-      v.monday_morning ? 'Yes' : 'No', v.monday_afternoon ? 'Yes' : 'No',
-      v.tuesday_morning ? 'Yes' : 'No', v.tuesday_afternoon ? 'Yes' : 'No',
-      v.wednesday_morning ? 'Yes' : 'No', v.wednesday_afternoon ? 'Yes' : 'No',
-      v.thursday_morning ? 'Yes' : 'No', v.thursday_afternoon ? 'Yes' : 'No',
-      v.friday_morning ? 'Yes' : 'No', v.friday_afternoon ? 'Yes' : 'No',
-      v.saturday_morning ? 'Yes' : 'No', v.saturday_afternoon ? 'Yes' : 'No',
-      v.sunday_morning ? 'Yes' : 'No', v.sunday_afternoon ? 'Yes' : 'No',
+      v.car_seats ?? '',
+      v.hosting_address ?? '',
+      v.lat ?? '',
+      v.lng ?? '',
+      v.maps_link ?? '',
+      v.monday_morning ? 'Yes' : 'No',
+      v.monday_afternoon ? 'Yes' : 'No',
+      v.tuesday_morning ? 'Yes' : 'No',
+      v.tuesday_afternoon ? 'Yes' : 'No',
+      v.wednesday_morning ? 'Yes' : 'No',
+      v.wednesday_afternoon ? 'Yes' : 'No',
+      v.thursday_morning ? 'Yes' : 'No',
+      v.thursday_afternoon ? 'Yes' : 'No',
+      v.friday_morning ? 'Yes' : 'No',
+      v.friday_afternoon ? 'Yes' : 'No',
+      v.saturday_morning ? 'Yes' : 'No',
+      v.saturday_afternoon ? 'Yes' : 'No',
+      v.sunday_morning ? 'Yes' : 'No',
+      v.sunday_afternoon ? 'Yes' : 'No',
     ]);
 
     const wb = XLSX.utils.book_new();
@@ -480,7 +753,10 @@ export class VolunteersService {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  private async assertAccess(v: Volunteer, currentUser: JwtPayload): Promise<void> {
+  private async assertAccess(
+    v: Volunteer,
+    currentUser: JwtPayload,
+  ): Promise<void> {
     if (currentUser.role === 'superadmin') return;
     if (currentUser.role === 'volunteer') {
       if (v.user_id === currentUser.sub) return;
@@ -582,7 +858,9 @@ export class VolunteersService {
     });
     if (!v) throw new NotFoundException('Código de voluntario no encontrado');
 
-    const region = await this.regionsRepo.findOne({ where: { id: dto.region_id } });
+    const region = await this.regionsRepo.findOne({
+      where: { id: dto.region_id },
+    });
     if (!region) throw new NotFoundException('Región no encontrada');
 
     Object.assign(v, {
@@ -608,7 +886,9 @@ export class VolunteersService {
       sunday_afternoon: dto.sunday_afternoon,
     });
 
-    const alreadyInRegion = (v.regions ?? []).some((r) => r.id === dto.region_id);
+    const alreadyInRegion = (v.regions ?? []).some(
+      (r) => r.id === dto.region_id,
+    );
     if (!alreadyInRegion) {
       v.regions = [...(v.regions ?? []), region];
     }

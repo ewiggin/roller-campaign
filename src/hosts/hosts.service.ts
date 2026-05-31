@@ -1,4 +1,9 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -10,8 +15,11 @@ import { Guest } from '../guests/entities/guest.entity';
 import { User } from '../users/entities/user.entity';
 import { Region } from '../regions/entities/region.entity';
 import {
-  CreateHostDto, UpdateHostDto, HostResponseDto,
-  GroupSuggestionDto, GroupSuggestionsResponseDto,
+  CreateHostDto,
+  UpdateHostDto,
+  HostResponseDto,
+  GroupSuggestionDto,
+  GroupSuggestionsResponseDto,
 } from './dto/host.dto';
 import {
   ImportHostCommitDto,
@@ -37,9 +45,14 @@ export class HostsService {
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
-  async create(dto: CreateHostDto, currentUser: JwtPayload): Promise<HostResponseDto> {
+  async create(
+    dto: CreateHostDto,
+    currentUser: JwtPayload,
+  ): Promise<HostResponseDto> {
     await this.assertRegionAccess(dto.region_id, currentUser);
-    const region = await this.regionsRepo.findOne({ where: { id: dto.region_id } });
+    const region = await this.regionsRepo.findOne({
+      where: { id: dto.region_id },
+    });
     if (!region) throw new NotFoundException('Región no encontrada');
 
     const host = this.hostsRepo.create({
@@ -58,7 +71,10 @@ export class HostsService {
     return this.toDto(saved, 0);
   }
 
-  async findAll(regionId: string | undefined, currentUser: JwtPayload): Promise<HostResponseDto[]> {
+  async findAll(
+    regionId: string | undefined,
+    currentUser: JwtPayload,
+  ): Promise<HostResponseDto[]> {
     const key = `hosts:${regionId ?? 'all'}:${currentUser.sub}`;
     const cached = await this.cache.get<HostResponseDto[]>(key);
     if (cached) return cached;
@@ -85,14 +101,22 @@ export class HostsService {
     const hosts = await qb.orderBy('h.name', 'ASC').getMany();
     const guestCounts = await this.guestCountsForHosts(hosts.map((h) => h.id));
     const result = hosts.map((h) =>
-      this.toDto(h, (h as Host & { group_count?: number }).group_count ?? 0, guestCounts.get(h.id) ?? 0),
+      this.toDto(
+        h,
+        (h as Host & { group_count?: number }).group_count ?? 0,
+        guestCounts.get(h.id) ?? 0,
+      ),
     );
 
     await this.cache.set(key, result, 300_000);
     return result;
   }
 
-  async update(id: string, dto: UpdateHostDto, currentUser: JwtPayload): Promise<HostResponseDto> {
+  async update(
+    id: string,
+    dto: UpdateHostDto,
+    currentUser: JwtPayload,
+  ): Promise<HostResponseDto> {
     const host = await this.hostsRepo.findOne({ where: { id } });
     if (!host) throw new NotFoundException('Congregación no encontrada');
     await this.assertRegionAccess(host.region_id, currentUser);
@@ -115,7 +139,10 @@ export class HostsService {
     await this.cache.clear();
   }
 
-  async getGroupSuggestions(hostId: string, currentUser: JwtPayload): Promise<GroupSuggestionsResponseDto> {
+  async getGroupSuggestions(
+    hostId: string,
+    currentUser: JwtPayload,
+  ): Promise<GroupSuggestionsResponseDto> {
     const host = await this.hostsRepo.findOne({ where: { id: hostId } });
     if (!host) throw new NotFoundException('Congregación no encontrada');
     await this.assertRegionAccess(host.region_id, currentUser);
@@ -128,32 +155,40 @@ export class HostsService {
 
     // Centroid (avg lat/lng) per group — all guests with accommodation coords
     const groupIds = groups.map((g) => g.id);
-    const guestCoords = groupIds.length > 0
-      ? await this.guestsRepo
-          .createQueryBuilder('g')
-          .select('g.group_id', 'group_id')
-          .addSelect('AVG(g.lat)', 'lat')
-          .addSelect('AVG(g.lng)', 'lng')
-          .where('g.group_id IN (:...groupIds)', { groupIds })
-          .andWhere('g.lat IS NOT NULL')
-          .andWhere('g.lng IS NOT NULL')
-          .groupBy('g.group_id')
-          .getRawMany<{ group_id: string; lat: string; lng: string }>()
-      : [];
+    const guestCoords =
+      groupIds.length > 0
+        ? await this.guestsRepo
+            .createQueryBuilder('g')
+            .select('g.group_id', 'group_id')
+            .addSelect('AVG(g.lat)', 'lat')
+            .addSelect('AVG(g.lng)', 'lng')
+            .where('g.group_id IN (:...groupIds)', { groupIds })
+            .andWhere('g.lat IS NOT NULL')
+            .andWhere('g.lng IS NOT NULL')
+            .groupBy('g.group_id')
+            .getRawMany<{ group_id: string; lat: string; lng: string }>()
+        : [];
 
     const coordByGroup = new Map<string, { lat: number; lng: number }>();
     for (const row of guestCoords) {
-      coordByGroup.set(row.group_id, { lat: parseFloat(row.lat), lng: parseFloat(row.lng) });
+      coordByGroup.set(row.group_id, {
+        lat: parseFloat(row.lat),
+        lng: parseFloat(row.lng),
+      });
     }
 
     const withDistance = groups.map((group) => {
-      const guestCount = (group as GuestGroup & { guest_count?: number }).guest_count ?? 0;
+      const guestCount =
+        (group as GuestGroup & { guest_count?: number }).guest_count ?? 0;
       let distance_km: number | null = null;
 
       if (host.lat !== null && host.lng !== null) {
         const coord = coordByGroup.get(group.id);
         if (coord) {
-          distance_km = Math.round(this.haversine(host.lat, host.lng, coord.lat, coord.lng) * 10) / 10;
+          distance_km =
+            Math.round(
+              this.haversine(host.lat, host.lng, coord.lat, coord.lng) * 10,
+            ) / 10;
         }
       }
 
@@ -167,14 +202,21 @@ export class HostsService {
     });
 
     const sort = (a: GroupSuggestionDto, b: GroupSuggestionDto) => {
-      if (a.distance_km === null && b.distance_km === null) return a.group_code.localeCompare(b.group_code);
+      if (a.distance_km === null && b.distance_km === null)
+        return a.group_code.localeCompare(b.group_code);
       if (a.distance_km === null) return 1;
       if (b.distance_km === null) return -1;
       return a.distance_km - b.distance_km;
     };
 
-    const assigned = withDistance.filter((r) => r.host_id === hostId).map((r) => r.dto).sort(sort);
-    const available = withDistance.filter((r) => r.host_id === null).map((r) => r.dto).sort(sort);
+    const assigned = withDistance
+      .filter((r) => r.host_id === hostId)
+      .map((r) => r.dto)
+      .sort(sort);
+    const available = withDistance
+      .filter((r) => r.host_id === null)
+      .map((r) => r.dto)
+      .sort(sort);
 
     return { assigned, available };
   }
@@ -188,17 +230,27 @@ export class HostsService {
     return this.toDto(host, groupCount, guestCount);
   }
 
-  private haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  private haversine(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
     const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
     const dLng = ((lng2 - lng1) * Math.PI) / 180;
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  private async assertRegionAccess(regionId: string, currentUser: JwtPayload): Promise<void> {
+  private async assertRegionAccess(
+    regionId: string,
+    currentUser: JwtPayload,
+  ): Promise<void> {
     if (currentUser.role === 'superadmin') return;
     if (currentUser.role === 'region_admin') {
       const user = await this.usersRepo.findOne({
@@ -220,7 +272,9 @@ export class HostsService {
     return parseInt(row?.cnt ?? '0', 10);
   }
 
-  private async guestCountsForHosts(hostIds: string[]): Promise<Map<string, number>> {
+  private async guestCountsForHosts(
+    hostIds: string[],
+  ): Promise<Map<string, number>> {
     if (hostIds.length === 0) return new Map();
     const rows = await this.guestsRepo
       .createQueryBuilder('g')
@@ -233,7 +287,10 @@ export class HostsService {
     return new Map(rows.map((r) => [r.host_id, parseInt(r.cnt, 10)]));
   }
 
-  async exportGuestsByHost(id: string, currentUser: JwtPayload): Promise<{ buffer: Buffer; filename: string }> {
+  async exportGuestsByHost(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<{ buffer: Buffer; filename: string }> {
     const host = await this.hostsRepo.findOne({ where: { id } });
     if (!host) throw new NotFoundException('Host no encontrado');
     await this.assertRegionAccess(host.region_id, currentUser);
@@ -242,18 +299,31 @@ export class HostsService {
     const groupIds = groups.map((g) => g.id);
     const groupCodeMap = new Map(groups.map((g) => [g.id, g.group_code]));
 
-    const guests = groupIds.length > 0
-      ? await this.guestsRepo.find({
-          where: { group_id: In(groupIds) },
-          order: { group_id: 'ASC', full_name: 'ASC' },
-        })
-      : [];
+    const guests =
+      groupIds.length > 0
+        ? await this.guestsRepo.find({
+            where: { group_id: In(groupIds) },
+            order: { group_id: 'ASC', full_name: 'ASC' },
+          })
+        : [];
 
     const headers = [
-      'Grupo', 'Código', 'Nombre', 'Email', 'Ciudad origen',
-      'Habla inglés', 'Otros idiomas',
-      'Llegada fecha', 'Llegada hora', 'Salida fecha', 'Salida hora',
-      'Transporte', 'Vuelo', 'Transp. aeropuerto', 'Dirección alojamiento', 'Estado',
+      'Grupo',
+      'Código',
+      'Nombre',
+      'Email',
+      'Ciudad origen',
+      'Habla inglés',
+      'Otros idiomas',
+      'Llegada fecha',
+      'Llegada hora',
+      'Salida fecha',
+      'Salida hora',
+      'Transporte',
+      'Vuelo',
+      'Transp. aeropuerto',
+      'Dirección alojamiento',
+      'Estado',
     ];
 
     const rows = guests.map((g) => [
@@ -280,31 +350,55 @@ export class HostsService {
 
     // Column widths
     ws['!cols'] = [
-      { wch: 12 }, { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 18 },
-      { wch: 12 }, { wch: 24 },
-      { wch: 13 }, { wch: 11 }, { wch: 13 }, { wch: 11 },
-      { wch: 14 }, { wch: 10 }, { wch: 18 }, { wch: 36 }, { wch: 12 },
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 28 },
+      { wch: 28 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 24 },
+      { wch: 13 },
+      { wch: 11 },
+      { wch: 13 },
+      { wch: 11 },
+      { wch: 14 },
+      { wch: 10 },
+      { wch: 18 },
+      { wch: 36 },
+      { wch: 12 },
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'Invitados');
-    const buffer = Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+    const buffer = Buffer.from(
+      XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }),
+    );
     const safeName = host.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     return { buffer, filename: `invitados-${safeName}.xlsx` };
   }
 
-  async exportExcel(regionId: string | undefined, currentUser: JwtPayload): Promise<Buffer> {
+  async exportExcel(
+    regionId: string | undefined,
+    currentUser: JwtPayload,
+  ): Promise<Buffer> {
     const hosts = await this.findAll(regionId, currentUser);
     const allRegions = await this.regionsRepo.find({ select: ['id', 'name'] });
     const regionNameMap = new Map(allRegions.map((r) => [r.id, r.name]));
 
     const dayLabel = (d: number | null) =>
-      d ? ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][d] ?? '' : '';
+      d ? (['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][d] ?? '') : '';
 
     const headers = [
-      'name', 'region_name', 'address', 'lat', 'lng',
-      'weekday_meeting_day', 'weekday_meeting_time',
-      'weekend_meeting_day', 'weekend_meeting_time',
-      'group_count', 'guest_count',
+      'name',
+      'region_name',
+      'address',
+      'lat',
+      'lng',
+      'weekday_meeting_day',
+      'weekday_meeting_time',
+      'weekend_meeting_day',
+      'weekend_meeting_time',
+      'group_count',
+      'guest_count',
     ];
     const rows = hosts.map((h) => [
       h.name,
@@ -323,9 +417,17 @@ export class HostsService {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     ws['!cols'] = [
-      { wch: 28 }, { wch: 20 }, { wch: 36 }, { wch: 10 }, { wch: 10 },
-      { wch: 20 }, { wch: 18 }, { wch: 20 }, { wch: 18 },
-      { wch: 12 }, { wch: 12 },
+      { wch: 28 },
+      { wch: 20 },
+      { wch: 36 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 20 },
+      { wch: 18 },
+      { wch: 20 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 12 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Hosts');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
@@ -333,9 +435,15 @@ export class HostsService {
 
   downloadTemplate(): Buffer {
     const headers = [
-      'name', 'region_name', 'address', 'lat', 'lng',
-      'weekday_meeting_day', 'weekday_meeting_time',
-      'weekend_meeting_day', 'weekend_meeting_time',
+      'name',
+      'region_name',
+      'address',
+      'lat',
+      'lng',
+      'weekday_meeting_day',
+      'weekday_meeting_time',
+      'weekend_meeting_day',
+      'weekend_meeting_time',
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers]);
     const wb = XLSX.utils.book_new();
@@ -346,13 +454,21 @@ export class HostsService {
   async parseImport(buffer: Buffer): Promise<ImportHostParseResponseDto> {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      defval: '',
+    });
 
     const allRegions = await this.regionsRepo.find({ select: ['id', 'name'] });
-    const regionMap = new Map(allRegions.map((r) => [r.name.toLowerCase(), r.id]));
+    const regionMap = new Map(
+      allRegions.map((r) => [r.name.toLowerCase(), r.id]),
+    );
 
-    const allHosts = await this.hostsRepo.find({ select: ['name', 'region_id'] });
-    const existingKeys = new Set(allHosts.map((h) => `${h.name.toLowerCase()}::${h.region_id}`));
+    const allHosts = await this.hostsRepo.find({
+      select: ['name', 'region_id'],
+    });
+    const existingKeys = new Set(
+      allHosts.map((h) => `${h.name.toLowerCase()}::${h.region_id}`),
+    );
 
     const valid: ImportHostRowDto[] = [];
     const duplicateRows: ImportHostRowDto[] = [];
@@ -375,7 +491,11 @@ export class HostsService {
 
       const regionId = regionMap.get(regionName.toLowerCase());
       if (!regionId) {
-        errors.push({ row: rowNum, name, reason: `Region "${regionName}" not found` });
+        errors.push({
+          row: rowNum,
+          name,
+          reason: `Region "${regionName}" not found`,
+        });
         continue;
       }
 
@@ -385,10 +505,18 @@ export class HostsService {
         address: String(raw['address'] ?? '').trim() || null,
         lat: raw['lat'] !== '' ? Number(raw['lat']) || null : null,
         lng: raw['lng'] !== '' ? Number(raw['lng']) || null : null,
-        weekday_meeting_day: raw['weekday_meeting_day'] !== '' ? Number(raw['weekday_meeting_day']) || null : null,
-        weekday_meeting_time: String(raw['weekday_meeting_time'] ?? '').trim() || null,
-        weekend_meeting_day: raw['weekend_meeting_day'] !== '' ? Number(raw['weekend_meeting_day']) || null : null,
-        weekend_meeting_time: String(raw['weekend_meeting_time'] ?? '').trim() || null,
+        weekday_meeting_day:
+          raw['weekday_meeting_day'] !== ''
+            ? Number(raw['weekday_meeting_day']) || null
+            : null,
+        weekday_meeting_time:
+          String(raw['weekday_meeting_time'] ?? '').trim() || null,
+        weekend_meeting_day:
+          raw['weekend_meeting_day'] !== ''
+            ? Number(raw['weekend_meeting_day']) || null
+            : null,
+        weekend_meeting_time:
+          String(raw['weekend_meeting_time'] ?? '').trim() || null,
       };
 
       if (existingKeys.has(`${name.toLowerCase()}::${regionId}`)) {
@@ -411,9 +539,13 @@ export class HostsService {
     };
   }
 
-  async commitImport(dto: ImportHostCommitDto): Promise<ImportHostCommitResponseDto> {
+  async commitImport(
+    dto: ImportHostCommitDto,
+  ): Promise<ImportHostCommitResponseDto> {
     const allRegions = await this.regionsRepo.find({ select: ['id', 'name'] });
-    const regionMap = new Map(allRegions.map((r) => [r.name.toLowerCase(), r.id]));
+    const regionMap = new Map(
+      allRegions.map((r) => [r.name.toLowerCase(), r.id]),
+    );
     let created = 0;
     let updated = 0;
 
@@ -465,7 +597,11 @@ export class HostsService {
     }
 
     await this.cache.clear();
-    return { created, updated, total: dto.rows.length + (dto.updateRows?.length ?? 0) };
+    return {
+      created,
+      updated,
+      total: dto.rows.length + (dto.updateRows?.length ?? 0),
+    };
   }
 
   toDto(host: Host, groupCount: number, guestCount = 0): HostResponseDto {

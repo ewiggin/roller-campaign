@@ -1,5 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsISO8601, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsISO8601,
+  IsInt,
+  IsOptional,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ActivityListQueryDto {
