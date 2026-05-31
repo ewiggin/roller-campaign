@@ -38,13 +38,24 @@ describe('Users (e2e)', () => {
 
     it('returns 409 for duplicate email', async () => {
       const payload = baseUser();
-      await request(server).post('/api/users').set('Authorization', auth()).send(payload).expect(201);
-      await request(server).post('/api/users').set('Authorization', auth()).send(payload).expect(409);
+      await request(server)
+        .post('/api/users')
+        .set('Authorization', auth())
+        .send(payload)
+        .expect(201);
+      await request(server)
+        .post('/api/users')
+        .set('Authorization', auth())
+        .send(payload)
+        .expect(409);
     });
 
     it('returns 400 for missing email', () =>
-      request(server).post('/api/users').set('Authorization', auth())
-        .send({ password: 'pass1234' }).expect(400));
+      request(server)
+        .post('/api/users')
+        .set('Authorization', auth())
+        .send({ password: 'pass1234' })
+        .expect(400));
 
     it('returns 401 without auth', () =>
       request(server).post('/api/users').send(baseUser()).expect(401));
@@ -66,7 +77,12 @@ describe('Users (e2e)', () => {
 
   describe('GET /api/users/:id', () => {
     it('returns a specific user', async () => {
-      const created = (await request(server).post('/api/users').set('Authorization', auth()).send(baseUser())).body;
+      const created = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send(baseUser())
+      ).body;
       const res = await request(server)
         .get(`/api/users/${created.id}`)
         .set('Authorization', auth())
@@ -89,7 +105,10 @@ describe('Users (e2e)', () => {
     beforeAll(async () => {
       const payload = baseUser();
       userEmail = payload.email;
-      const res = await request(server).post('/api/users').set('Authorization', auth()).send(payload);
+      const res = await request(server)
+        .post('/api/users')
+        .set('Authorization', auth())
+        .send(payload);
       userId = res.body.id;
     });
 
@@ -115,7 +134,12 @@ describe('Users (e2e)', () => {
     });
 
     it('returns 409 for duplicate email', async () => {
-      const other = (await request(server).post('/api/users').set('Authorization', auth()).send(baseUser())).body;
+      const other = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send(baseUser())
+      ).body;
       await request(server)
         .patch(`/api/users/${userId}`)
         .set('Authorization', auth())
@@ -133,9 +157,20 @@ describe('Users (e2e)', () => {
 
   describe('DELETE /api/users/:id', () => {
     it('deletes a user', async () => {
-      const created = (await request(server).post('/api/users').set('Authorization', auth()).send(baseUser())).body;
-      await request(server).delete(`/api/users/${created.id}`).set('Authorization', auth()).expect(204);
-      await request(server).get(`/api/users/${created.id}`).set('Authorization', auth()).expect(404);
+      const created = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send(baseUser())
+      ).body;
+      await request(server)
+        .delete(`/api/users/${created.id}`)
+        .set('Authorization', auth())
+        .expect(204);
+      await request(server)
+        .get(`/api/users/${created.id}`)
+        .set('Authorization', auth())
+        .expect(404);
     });
 
     it('returns 404 for unknown id', () =>

@@ -28,7 +28,11 @@ import { ActivitiesService } from './activities.service';
 import { AssignGuestGroupDto } from './dto/assign-guest-group.dto';
 import { AssignVolunteerDto } from './dto/assign-volunteer.dto';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
-import { ActivityResponseDto, AvailableGroupForActivityDto, AvailableVolunteerForActivityDto } from './dto/activity-response.dto';
+import {
+  ActivityResponseDto,
+  AvailableGroupForActivityDto,
+  AvailableVolunteerForActivityDto,
+} from './dto/activity-response.dto';
 import { CreateActivityBatchDto } from './dto/create-activity-batch.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -43,28 +47,40 @@ export class ActivitiesController {
   @Post()
   @Roles('region_admin')
   @ApiCreatedResponse({ type: ActivityResponseDto })
-  create(@Body() dto: CreateActivityDto, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto> {
+  create(
+    @Body() dto: CreateActivityDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
     return this.svc.create(dto, user);
   }
 
   @Post('batch')
   @Roles('region_admin')
   @ApiCreatedResponse({ type: [ActivityResponseDto] })
-  createBatch(@Body() dto: CreateActivityBatchDto, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto[]> {
+  createBatch(
+    @Body() dto: CreateActivityBatchDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto[]> {
     return this.svc.createBatch(dto, user);
   }
 
   @Get()
   @Roles('region_admin', 'volunteer')
   @ApiOkResponse({ description: 'Lista paginada de actividades' })
-  findAll(@Query() query: ActivityListQueryDto, @CurrentUser() user: JwtPayload) {
+  findAll(
+    @Query() query: ActivityListQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
     return this.svc.findAll(query, user);
   }
 
   @Get(':id')
   @Roles('region_admin')
   @ApiOkResponse({ type: ActivityResponseDto })
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto> {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
     return this.svc.findOne(id, user);
   }
 
@@ -94,14 +110,19 @@ export class ActivitiesController {
   @Roles('region_admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<void> {
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
     return this.svc.remove(id, user);
   }
 
   @Delete(':id/series-from-here')
   @Roles('region_admin')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiNoContentResponse({ description: 'Deletes this activity and all future ones in the same series' })
+  @ApiNoContentResponse({
+    description: 'Deletes this activity and all future ones in the same series',
+  })
   removeSeriesFromDate(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
@@ -191,7 +212,10 @@ export class ActivitiesController {
   @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ActivityResponseDto })
-  publish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto> {
+  publish(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
     return this.svc.publish(id, user);
   }
 
@@ -199,7 +223,10 @@ export class ActivitiesController {
   @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ActivityResponseDto })
-  unpublish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload): Promise<ActivityResponseDto> {
+  unpublish(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
     return this.svc.unpublish(id, user);
   }
 }

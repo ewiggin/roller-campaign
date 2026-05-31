@@ -37,7 +37,9 @@ export class RegionsService {
   ) {}
 
   async create(dto: CreateRegionDto): Promise<RegionResponseDto> {
-    const exists = await this.regionsRepository.findOne({ where: { name: dto.name } });
+    const exists = await this.regionsRepository.findOne({
+      where: { name: dto.name },
+    });
     if (exists) throw new ConflictException('El nombre de región ya existe');
 
     const region = this.regionsRepository.create({
@@ -198,16 +200,20 @@ export class RegionsService {
 
     const ids = regions.map((r) => r.id);
     const isPostgres = this.dataSource.options.type === 'postgres';
-    const placeholders = ids.map((_, i) => isPostgres ? `$${i + 1}` : '?').join(', ');
+    const placeholders = ids
+      .map((_, i) => (isPostgres ? `$${i + 1}` : '?'))
+      .join(', ');
 
     // Single query: counts per region using CTEs
-    const rows = await this.dataSource.query<Array<{
-      region_id: string;
-      guest_count: string;
-      volunteer_count: string;
-      activity_count: string;
-      covered_activities: string;
-    }>>(
+    const rows = await this.dataSource.query<
+      Array<{
+        region_id: string;
+        guest_count: string;
+        volunteer_count: string;
+        activity_count: string;
+        covered_activities: string;
+      }>
+    >(
       `SELECT
         r.id AS region_id,
         COUNT(DISTINCT g.id) AS guest_count,
@@ -226,19 +232,21 @@ export class RegionsService {
 
     const statsMap = new Map(rows.map((row) => [row.region_id, row]));
 
-    const result = regions.map((r) => {
-      const s = statsMap.get(r.id);
-      const dto = new RegionStatsDto();
-      dto.region_id = r.id;
-      dto.region_name = r.name;
-      dto.event_start_date = r.event_start_date;
-      dto.event_end_date = r.event_end_date;
-      dto.guest_count = parseInt(s?.guest_count ?? '0', 10);
-      dto.volunteer_count = parseInt(s?.volunteer_count ?? '0', 10);
-      dto.activity_count = parseInt(s?.activity_count ?? '0', 10);
-      dto.covered_activities = parseInt(s?.covered_activities ?? '0', 10);
-      return dto;
-    }).sort((a, b) => a.region_name.localeCompare(b.region_name));
+    const result = regions
+      .map((r) => {
+        const s = statsMap.get(r.id);
+        const dto = new RegionStatsDto();
+        dto.region_id = r.id;
+        dto.region_name = r.name;
+        dto.event_start_date = r.event_start_date;
+        dto.event_end_date = r.event_end_date;
+        dto.guest_count = parseInt(s?.guest_count ?? '0', 10);
+        dto.volunteer_count = parseInt(s?.volunteer_count ?? '0', 10);
+        dto.activity_count = parseInt(s?.activity_count ?? '0', 10);
+        dto.covered_activities = parseInt(s?.covered_activities ?? '0', 10);
+        return dto;
+      })
+      .sort((a, b) => a.region_name.localeCompare(b.region_name));
 
     await this.cache.set(key, result, 60_000);
     return result;
@@ -247,7 +255,12 @@ export class RegionsService {
   async exportExcel(currentUser: JwtPayload): Promise<Buffer> {
     const regions = await this.findAll(currentUser);
 
-    const headers = ['name', 'event_start_date', 'event_end_date', 'coordinators'];
+    const headers = [
+      'name',
+      'event_start_date',
+      'event_end_date',
+      'coordinators',
+    ];
     const rows = regions.map((r) => [
       r.name,
       r.event_start_date ?? '',
@@ -263,7 +276,9 @@ export class RegionsService {
   }
 
   downloadTemplate(): Buffer {
-    const ws = XLSX.utils.aoa_to_sheet([['name', 'event_start_date', 'event_end_date']]);
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['name', 'event_start_date', 'event_end_date'],
+    ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Regions');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
@@ -272,7 +287,9 @@ export class RegionsService {
   async parseImport(buffer: Buffer): Promise<ImportRegionParseResponseDto> {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      defval: '',
+    });
 
     const existing = await this.regionsRepository.find({ select: ['name'] });
     const existingNames = new Set(existing.map((r) => r.name.toLowerCase()));
@@ -317,7 +334,9 @@ export class RegionsService {
     };
   }
 
-  async commitImport(dto: ImportRegionCommitDto): Promise<ImportRegionCommitResponseDto> {
+  async commitImport(
+    dto: ImportRegionCommitDto,
+  ): Promise<ImportRegionCommitResponseDto> {
     let created = 0;
     let updated = 0;
 
@@ -349,7 +368,11 @@ export class RegionsService {
     }
 
     await this.cache.clear();
-    return { created, updated, total: dto.rows.length + (dto.updateRows?.length ?? 0) };
+    return {
+      created,
+      updated,
+      total: dto.rows.length + (dto.updateRows?.length ?? 0),
+    };
   }
 
   private toDto(region: Region): RegionResponseDto {

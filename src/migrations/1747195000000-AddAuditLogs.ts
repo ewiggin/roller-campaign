@@ -20,9 +20,15 @@ export class AddAuditLogs1747195000000 implements MigrationInterface {
         CONSTRAINT "PK_audit_logs" PRIMARY KEY ("id")
       )
     `);
-    await queryRunner.query(`CREATE INDEX "IDX_audit_logs_timestamp" ON "audit_logs" ("timestamp" DESC)`);
-    await queryRunner.query(`CREATE INDEX "IDX_audit_logs_resource" ON "audit_logs" ("resource", "resource_id")`);
-    await queryRunner.query(`CREATE INDEX "IDX_audit_logs_actor" ON "audit_logs" ("actor_id")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_audit_logs_timestamp" ON "audit_logs" ("timestamp" DESC)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_audit_logs_resource" ON "audit_logs" ("resource", "resource_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_audit_logs_actor" ON "audit_logs" ("actor_id")`,
+    );
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {

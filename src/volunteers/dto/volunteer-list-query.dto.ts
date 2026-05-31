@@ -1,6 +1,33 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+
+const ALL_SLOTS = [
+  'monday_morning',
+  'monday_afternoon',
+  'tuesday_morning',
+  'tuesday_afternoon',
+  'wednesday_morning',
+  'wednesday_afternoon',
+  'thursday_morning',
+  'thursday_afternoon',
+  'friday_morning',
+  'friday_afternoon',
+  'saturday_morning',
+  'saturday_afternoon',
+  'sunday_morning',
+  'sunday_afternoon',
+] as const;
 
 export class VolunteerListQueryDto {
   @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -43,4 +70,21 @@ export class VolunteerListQueryDto {
   @Min(1)
   @Max(200)
   limit?: number = 50;
+
+  @ApiPropertyOptional({ example: 2 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  min_car_seats?: number;
+
+  @ApiPropertyOptional({
+    example: ['monday_morning', 'saturday_afternoon'],
+    type: [String],
+  })
+  @IsOptional()
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
+  @IsArray()
+  @IsIn([...ALL_SLOTS], { each: true })
+  available_slots?: string[];
 }

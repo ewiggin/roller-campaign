@@ -1,6 +1,6 @@
 {
   "name": "roller-backend",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "",
   "author": "ewiggin",
   "private": true,
@@ -38,6 +38,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "morgan": "^1.10.1",
+    "nodemailer": "^8.0.9",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -60,6 +61,7 @@
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.1.0",
     "@types/node": "^24.0.0",
+    "@types/nodemailer": "^8.0.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^7.0.0",

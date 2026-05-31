@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
+import {
+  IsISO8601,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -18,14 +27,20 @@ export class CreateActivityDto {
   @IsString()
   icon?: string | null;
 
-  @ApiPropertyOptional({ example: 'Actividad de bienvenida en el aeropuerto', nullable: true })
+  @ApiPropertyOptional({
+    example: 'Actividad de bienvenida en el aeropuerto',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)
   description?: string | null;
 
-  @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000', nullable: true })
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    nullable: true,
+  })
   @IsOptional()
   @IsUUID()
   host_id?: string | null;
@@ -42,7 +57,10 @@ export class CreateActivityDto {
   @Matches(TIME_REGEX, { message: 'end_time debe tener formato HH:MM' })
   end_time: string;
 
-  @ApiPropertyOptional({ example: 'Aeropuerto Adolfo Suárez, Madrid', nullable: true })
+  @ApiPropertyOptional({
+    example: 'Aeropuerto Adolfo Suárez, Madrid',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   activity_address?: string | null;

@@ -66,7 +66,8 @@ export class GuestsController {
   ): Promise<void> {
     const buffer = await this.service.exportAll(query, user);
     res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': 'attachment; filename="invitados.xlsx"',
     });
     res.send(buffer);

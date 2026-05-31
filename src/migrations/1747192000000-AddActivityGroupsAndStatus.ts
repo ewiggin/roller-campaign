@@ -24,6 +24,8 @@ export class AddActivityGroupsAndStatus1747192000000 implements MigrationInterfa
 
   async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "activity_guest_groups"`);
-    await queryRunner.query(`ALTER TABLE "activities" DROP COLUMN IF EXISTS "status"`);
+    await queryRunner.query(
+      `ALTER TABLE "activities" DROP COLUMN IF EXISTS "status"`,
+    );
   }
 }

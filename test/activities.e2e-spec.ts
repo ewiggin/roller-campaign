@@ -17,13 +17,21 @@ describe('Activities (e2e)', () => {
     const region = await request(server)
       .post('/api/regions')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Turns Region', event_start_date: '2024-06-14', event_end_date: '2024-06-22' });
+      .send({
+        name: 'Turns Region',
+        event_start_date: '2024-06-14',
+        event_end_date: '2024-06-22',
+      });
     regionId = region.body.id;
 
     const volunteer = await request(server)
       .post('/api/volunteers')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ volunteer_code: 'V-T01', full_name: 'Voluntario Turno', region_ids: [regionId] });
+      .send({
+        volunteer_code: 'V-T01',
+        full_name: 'Voluntario Turno',
+        region_ids: [regionId],
+      });
     volunteerId = volunteer.body.id;
   });
 
@@ -49,7 +57,11 @@ describe('Activities (e2e)', () => {
         .set('Authorization', auth())
         .send(baseTurn())
         .expect(201);
-      expect(res.body).toMatchObject({ date: '2024-06-15', start_time: '09:00', end_time: '13:00' });
+      expect(res.body).toMatchObject({
+        date: '2024-06-15',
+        start_time: '09:00',
+        end_time: '13:00',
+      });
       expect(res.body.volunteers).toEqual([]);
       expect(res.body.volunteer_count).toBe(0);
     });
@@ -80,20 +92,27 @@ describe('Activities (e2e)', () => {
     });
 
     it('filters by date', async () => {
-      await request(server).post('/api/activities').set('Authorization', auth())
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
         .send({ ...baseTurn(), date: '2024-06-20' });
 
       const res = await request(server)
         .get(`/api/activities?regionId=${regionId}&date=2024-06-20`)
         .set('Authorization', auth())
         .expect(200);
-      expect(res.body.data.every((t: { date: string }) => t.date === '2024-06-20')).toBe(true);
+      expect(
+        res.body.data.every((t: { date: string }) => t.date === '2024-06-20'),
+      ).toBe(true);
     });
   });
 
   describe('PATCH /api/activities/:id', () => {
     it('updates a turn', async () => {
-      const turn = await request(server).post('/api/activities').set('Authorization', auth()).send(baseTurn());
+      const turn = await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send(baseTurn());
       const res = await request(server)
         .patch(`/api/activities/${turn.body.id}`)
         .set('Authorization', auth())
@@ -105,9 +124,18 @@ describe('Activities (e2e)', () => {
 
   describe('DELETE /api/activities/:id', () => {
     it('deletes a turn', async () => {
-      const turn = await request(server).post('/api/activities').set('Authorization', auth()).send(baseTurn());
-      await request(server).delete(`/api/activities/${turn.body.id}`).set('Authorization', auth()).expect(204);
-      await request(server).get(`/api/activities/${turn.body.id}`).set('Authorization', auth()).expect(404);
+      const turn = await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send(baseTurn());
+      await request(server)
+        .delete(`/api/activities/${turn.body.id}`)
+        .set('Authorization', auth())
+        .expect(204);
+      await request(server)
+        .get(`/api/activities/${turn.body.id}`)
+        .set('Authorization', auth())
+        .expect(404);
     });
   });
 
@@ -120,7 +148,11 @@ describe('Activities (e2e)', () => {
       const turn = await request(server)
         .post('/api/activities')
         .set('Authorization', auth())
-        .send({ ...baseTurn(), date: '2024-06-16', description: 'Turno asignación' });
+        .send({
+          ...baseTurn(),
+          date: '2024-06-16',
+          description: 'Turno asignación',
+        });
       turnId = turn.body.id;
     });
 
@@ -170,7 +202,11 @@ describe('Activities (e2e)', () => {
       const otherVol = await request(server)
         .post('/api/volunteers')
         .set('Authorization', auth())
-        .send({ volunteer_code: 'V-OTHER', full_name: 'Otra Región Vol', region_ids: [otherRegion.body.id] });
+        .send({
+          volunteer_code: 'V-OTHER',
+          full_name: 'Otra Región Vol',
+          region_ids: [otherRegion.body.id],
+        });
 
       await request(server)
         .post(`/api/activities/${turnId}/volunteers`)
@@ -187,16 +223,22 @@ describe('Activities (e2e)', () => {
       const userRes = await request(server)
         .post('/api/users')
         .set('Authorization', auth())
-        .send({ email: 'coord.turns@test.local', password: 'pass1234', role: 'region_admin' });
+        .send({
+          email: 'coord.turns@test.local',
+          password: 'pass1234',
+          role: 'region_admin',
+        });
 
       await request(server)
         .post(`/api/regions/${regionId}/coordinators`)
         .set('Authorization', auth())
         .send({ userId: userRes.body.id });
 
-      const coordToken = (await request(server)
-        .post('/api/auth/login')
-        .send({ email: 'coord.turns@test.local', password: 'pass1234' })).body.access_token;
+      const coordToken = (
+        await request(server)
+          .post('/api/auth/login')
+          .send({ email: 'coord.turns@test.local', password: 'pass1234' })
+      ).body.access_token;
 
       const otherRegion = await request(server)
         .post('/api/regions')
@@ -213,20 +255,37 @@ describe('Activities (e2e)', () => {
         .set('Authorization', `Bearer ${coordToken}`)
         .expect(200);
 
-      expect(res.body.data.every((t: { region_id: string }) => t.region_id === regionId)).toBe(true);
+      expect(
+        res.body.data.every(
+          (t: { region_id: string }) => t.region_id === regionId,
+        ),
+      ).toBe(true);
     });
   });
 
   describe('Volunteer role access', () => {
     it('volunteer can list activities they are assigned to', async () => {
-      const userRes = (await request(server).post('/api/users').set('Authorization', auth())
-        .send({ email: `vol-act-${Date.now()}@test.local`, password: 'pass1234', role: 'volunteer' })).body;
+      const userRes = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send({
+            email: `vol-act-${Date.now()}@test.local`,
+            password: 'pass1234',
+            role: 'volunteer',
+          })
+      ).body;
 
-      await request(server).patch(`/api/volunteers/${volunteerId}`)
-        .set('Authorization', auth()).send({ user_id: userRes.id });
+      await request(server)
+        .patch(`/api/volunteers/${volunteerId}`)
+        .set('Authorization', auth())
+        .send({ user_id: userRes.id });
 
-      const volToken = (await request(server).post('/api/auth/login')
-        .send({ email: userRes.email, password: 'pass1234' })).body.access_token;
+      const volToken = (
+        await request(server)
+          .post('/api/auth/login')
+          .send({ email: userRes.email, password: 'pass1234' })
+      ).body.access_token;
 
       const res = await request(server)
         .get('/api/activities')
@@ -249,14 +308,27 @@ describe('Activities (e2e)', () => {
     let coordToken: string;
 
     beforeAll(async () => {
-      const userRes = (await request(server).post('/api/users').set('Authorization', auth())
-        .send({ email: `coord-act-${Date.now()}@test.local`, password: 'pass1234', role: 'region_admin' })).body;
+      const userRes = (
+        await request(server)
+          .post('/api/users')
+          .set('Authorization', auth())
+          .send({
+            email: `coord-act-${Date.now()}@test.local`,
+            password: 'pass1234',
+            role: 'region_admin',
+          })
+      ).body;
 
-      await request(server).post(`/api/regions/${regionId}/coordinators`)
-        .set('Authorization', auth()).send({ userId: userRes.id });
+      await request(server)
+        .post(`/api/regions/${regionId}/coordinators`)
+        .set('Authorization', auth())
+        .send({ userId: userRes.id });
 
-      coordToken = (await request(server).post('/api/auth/login')
-        .send({ email: userRes.email, password: 'pass1234' })).body.access_token;
+      coordToken = (
+        await request(server)
+          .post('/api/auth/login')
+          .send({ email: userRes.email, password: 'pass1234' })
+      ).body.access_token;
     });
 
     it('region_admin can list activities in their region', async () => {
@@ -278,7 +350,12 @@ describe('Activities (e2e)', () => {
 
   describe('GET /api/activities/:id', () => {
     it('returns a specific activity', async () => {
-      const created = (await request(server).post('/api/activities').set('Authorization', auth()).send(baseTurn())).body;
+      const created = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(baseTurn())
+      ).body;
       const res = await request(server)
         .get(`/api/activities/${created.id}`)
         .set('Authorization', auth())
@@ -296,7 +373,12 @@ describe('Activities (e2e)', () => {
 
   describe('GET /api/activities/:id/available-groups', () => {
     it('returns available groups for an activity', async () => {
-      const activity = (await request(server).post('/api/activities').set('Authorization', auth()).send(baseTurn())).body;
+      const activity = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(baseTurn())
+      ).body;
 
       await request(server)
         .post('/api/guest-groups')
@@ -316,10 +398,19 @@ describe('Activities (e2e)', () => {
     let groupId: string;
 
     beforeAll(async () => {
-      const act = (await request(server).post('/api/activities').set('Authorization', auth()).send(baseTurn())).body;
+      const act = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(baseTurn())
+      ).body;
       activityId = act.id;
-      const grp = (await request(server).post('/api/guest-groups').set('Authorization', auth())
-        .send({ group_code: `GRPACT-${Date.now()}`, region_id: regionId })).body;
+      const grp = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `GRPACT-${Date.now()}`, region_id: regionId })
+      ).body;
       groupId = grp.id;
     });
 
@@ -329,7 +420,9 @@ describe('Activities (e2e)', () => {
         .set('Authorization', auth())
         .send({ groupId })
         .expect(200);
-      expect(res.body.guest_groups.some((g: { id: string }) => g.id === groupId)).toBe(true);
+      expect(
+        res.body.guest_groups.some((g: { id: string }) => g.id === groupId),
+      ).toBe(true);
     });
 
     it('assigning same group twice is idempotent', async () => {
@@ -338,7 +431,9 @@ describe('Activities (e2e)', () => {
         .set('Authorization', auth())
         .send({ groupId })
         .expect(200);
-      const count = res.body.guest_groups.filter((g: { id: string }) => g.id === groupId).length;
+      const count = res.body.guest_groups.filter(
+        (g: { id: string }) => g.id === groupId,
+      ).length;
       expect(count).toBe(1);
     });
 
@@ -347,13 +442,27 @@ describe('Activities (e2e)', () => {
         .delete(`/api/activities/${activityId}/guest-groups/${groupId}`)
         .set('Authorization', auth())
         .expect(200);
-      expect(res.body.guest_groups.some((g: { id: string }) => g.id === groupId)).toBe(false);
+      expect(
+        res.body.guest_groups.some((g: { id: string }) => g.id === groupId),
+      ).toBe(false);
     });
 
     it('returns 400 assigning group from different region', async () => {
-      const otherRegion = (await request(server).post('/api/regions').set('Authorization', auth()).send({ name: 'Other Act Region' })).body;
-      const otherGroup = (await request(server).post('/api/guest-groups').set('Authorization', auth())
-        .send({ group_code: `GRPOTHER-${Date.now()}`, region_id: otherRegion.id })).body;
+      const otherRegion = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({ name: 'Other Act Region' })
+      ).body;
+      const otherGroup = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({
+            group_code: `GRPOTHER-${Date.now()}`,
+            region_id: otherRegion.id,
+          })
+      ).body;
 
       await request(server)
         .post(`/api/activities/${activityId}/guest-groups`)
@@ -367,7 +476,12 @@ describe('Activities (e2e)', () => {
     let activityId: string;
 
     beforeAll(async () => {
-      activityId = (await request(server).post('/api/activities').set('Authorization', auth()).send(baseTurn())).body.id;
+      activityId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(baseTurn())
+      ).body.id;
     });
 
     it('POST /api/activities/:id/publish sets status to published', async () => {
@@ -393,17 +507,32 @@ describe('Activities (e2e)', () => {
     let actId: string;
 
     beforeAll(async () => {
-      actId = (await request(server).post('/api/activities').set('Authorization', auth()).send(baseTurn())).body.id;
-      await request(server).post(`/api/activities/${actId}/publish`).set('Authorization', auth());
+      actId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(baseTurn())
+      ).body.id;
+      await request(server)
+        .post(`/api/activities/${actId}/publish`)
+        .set('Authorization', auth());
     });
 
     it('returns 400 when deleting a published activity', async () => {
-      await request(server).delete(`/api/activities/${actId}`).set('Authorization', auth()).expect(400);
+      await request(server)
+        .delete(`/api/activities/${actId}`)
+        .set('Authorization', auth())
+        .expect(400);
     });
 
     it('can delete after unpublishing', async () => {
-      await request(server).post(`/api/activities/${actId}/unpublish`).set('Authorization', auth());
-      await request(server).delete(`/api/activities/${actId}`).set('Authorization', auth()).expect(204);
+      await request(server)
+        .post(`/api/activities/${actId}/unpublish`)
+        .set('Authorization', auth());
+      await request(server)
+        .delete(`/api/activities/${actId}`)
+        .set('Authorization', auth())
+        .expect(204);
     });
   });
 
@@ -414,7 +543,11 @@ describe('Activities (e2e)', () => {
       const res = await request(server)
         .post('/api/activities/batch')
         .set('Authorization', auth())
-        .send({ ...baseTurn(), date: '2024-07-01', repetition: { type: 'daily', count: 3 } })
+        .send({
+          ...baseTurn(),
+          date: '2024-07-01',
+          repetition: { type: 'daily', count: 3 },
+        })
         .expect(201);
       expect(res.body).toHaveLength(3);
       expect(res.body[0].date).toBe('2024-07-01');
@@ -422,14 +555,20 @@ describe('Activities (e2e)', () => {
       expect(res.body[2].date).toBe('2024-07-03');
       const seriesId = res.body[0].series_id;
       expect(seriesId).toBeTruthy();
-      expect(res.body.every((a: { series_id: string }) => a.series_id === seriesId)).toBe(true);
+      expect(
+        res.body.every((a: { series_id: string }) => a.series_id === seriesId),
+      ).toBe(true);
     });
 
     it('creates N activities with weekly repetition', async () => {
       const res = await request(server)
         .post('/api/activities/batch')
         .set('Authorization', auth())
-        .send({ ...baseTurn(), date: '2024-07-08', repetition: { type: 'weekly', count: 3 } })
+        .send({
+          ...baseTurn(),
+          date: '2024-07-08',
+          repetition: { type: 'weekly', count: 3 },
+        })
         .expect(201);
       expect(res.body[0].date).toBe('2024-07-08');
       expect(res.body[1].date).toBe('2024-07-15');
@@ -440,10 +579,16 @@ describe('Activities (e2e)', () => {
       const res = await request(server)
         .post('/api/activities/batch')
         .set('Authorization', auth())
-        .send({ ...baseTurn(), date: '2024-07-30', repetition: { type: 'same_day', count: 3 } })
+        .send({
+          ...baseTurn(),
+          date: '2024-07-30',
+          repetition: { type: 'same_day', count: 3 },
+        })
         .expect(201);
       expect(res.body).toHaveLength(3);
-      expect(res.body.every((a: { date: string }) => a.date === '2024-07-30')).toBe(true);
+      expect(
+        res.body.every((a: { date: string }) => a.date === '2024-07-30'),
+      ).toBe(true);
     });
 
     it('returns 400 for count < 2', async () => {
@@ -464,7 +609,11 @@ describe('Activities (e2e)', () => {
       const res = await request(server)
         .post('/api/activities/batch')
         .set('Authorization', auth())
-        .send({ ...baseTurn(), date: '2024-08-01', repetition: { type: 'daily', count: 5 } });
+        .send({
+          ...baseTurn(),
+          date: '2024-08-01',
+          repetition: { type: 'daily', count: 5 },
+        });
       ids = res.body.map((a: { id: string }) => a.id);
     });
 
@@ -474,10 +623,22 @@ describe('Activities (e2e)', () => {
         .set('Authorization', auth())
         .expect(204);
 
-      await request(server).get(`/api/activities/${ids[0]}`).set('Authorization', auth()).expect(200);
-      await request(server).get(`/api/activities/${ids[1]}`).set('Authorization', auth()).expect(200);
-      await request(server).get(`/api/activities/${ids[2]}`).set('Authorization', auth()).expect(404);
-      await request(server).get(`/api/activities/${ids[4]}`).set('Authorization', auth()).expect(404);
+      await request(server)
+        .get(`/api/activities/${ids[0]}`)
+        .set('Authorization', auth())
+        .expect(200);
+      await request(server)
+        .get(`/api/activities/${ids[1]}`)
+        .set('Authorization', auth())
+        .expect(200);
+      await request(server)
+        .get(`/api/activities/${ids[2]}`)
+        .set('Authorization', auth())
+        .expect(404);
+      await request(server)
+        .get(`/api/activities/${ids[4]}`)
+        .set('Authorization', auth())
+        .expect(404);
     });
   });
 
@@ -490,7 +651,12 @@ describe('Activities (e2e)', () => {
       const res = await request(server)
         .post('/api/activities/batch')
         .set('Authorization', auth())
-        .send({ ...baseTurn(), date: '2024-09-01', name: 'Original', repetition: { type: 'daily', count: 3 } });
+        .send({
+          ...baseTurn(),
+          date: '2024-09-01',
+          name: 'Original',
+          repetition: { type: 'daily', count: 3 },
+        });
       ids = res.body.map((a: { id: string }) => a.id);
     });
 
@@ -501,13 +667,19 @@ describe('Activities (e2e)', () => {
         .send({ name: 'Updated' })
         .expect(200);
 
-      const first = await request(server).get(`/api/activities/${ids[0]}`).set('Authorization', auth());
+      const first = await request(server)
+        .get(`/api/activities/${ids[0]}`)
+        .set('Authorization', auth());
       expect(first.body.name).toBe('Original');
 
-      const second = await request(server).get(`/api/activities/${ids[1]}`).set('Authorization', auth());
+      const second = await request(server)
+        .get(`/api/activities/${ids[1]}`)
+        .set('Authorization', auth());
       expect(second.body.name).toBe('Updated');
 
-      const third = await request(server).get(`/api/activities/${ids[2]}`).set('Authorization', auth());
+      const third = await request(server)
+        .get(`/api/activities/${ids[2]}`)
+        .set('Authorization', auth());
       expect(third.body.name).toBe('Updated');
     });
 
@@ -519,7 +691,9 @@ describe('Activities (e2e)', () => {
         .expect(200);
       // date unchanged
       expect(res.body.date).toBe('2024-09-01');
-      const second = await request(server).get(`/api/activities/${ids[1]}`).set('Authorization', auth());
+      const second = await request(server)
+        .get(`/api/activities/${ids[1]}`)
+        .set('Authorization', auth());
       expect(second.body.date).toBe('2024-09-02');
     });
   });
@@ -531,12 +705,30 @@ describe('Activities (e2e)', () => {
     let conflictingId: string;
 
     beforeAll(async () => {
-      activityId = (await request(server).post('/api/activities').set('Authorization', auth())
-        .send({ ...baseTurn(), date: '2024-10-01', start_time: '09:00', end_time: '13:00' })).body.id;
+      activityId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            ...baseTurn(),
+            date: '2024-10-01',
+            start_time: '09:00',
+            end_time: '13:00',
+          })
+      ).body.id;
 
       // Overlapping activity that also uses volunteerId
-      conflictingId = (await request(server).post('/api/activities').set('Authorization', auth())
-        .send({ ...baseTurn(), date: '2024-10-01', start_time: '10:00', end_time: '14:00' })).body.id;
+      conflictingId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            ...baseTurn(),
+            date: '2024-10-01',
+            start_time: '10:00',
+            end_time: '14:00',
+          })
+      ).body.id;
       await request(server)
         .post(`/api/activities/${conflictingId}/volunteers`)
         .set('Authorization', auth())
@@ -549,7 +741,12 @@ describe('Activities (e2e)', () => {
         .set('Authorization', auth())
         .expect(200);
       expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.every((v: { already_in_activity: boolean }) => typeof v.already_in_activity === 'boolean')).toBe(true);
+      expect(
+        res.body.every(
+          (v: { already_in_activity: boolean }) =>
+            typeof v.already_in_activity === 'boolean',
+        ),
+      ).toBe(true);
     });
 
     it('marks volunteer already assigned to overlapping activity', async () => {
@@ -562,12 +759,17 @@ describe('Activities (e2e)', () => {
     });
 
     it('does not include volunteers already assigned to this activity', async () => {
-      await request(server).post(`/api/activities/${activityId}/volunteers`).set('Authorization', auth()).send({ volunteerId });
+      await request(server)
+        .post(`/api/activities/${activityId}/volunteers`)
+        .set('Authorization', auth())
+        .send({ volunteerId });
       const res = await request(server)
         .get(`/api/activities/${activityId}/available-volunteers`)
         .set('Authorization', auth())
         .expect(200);
-      expect(res.body.find((v: { id: string }) => v.id === volunteerId)).toBeUndefined();
+      expect(
+        res.body.find((v: { id: string }) => v.id === volunteerId),
+      ).toBeUndefined();
     });
   });
 
@@ -583,10 +785,22 @@ describe('Activities (e2e)', () => {
         .send({ name: 'Test Host', region_id: regionId });
       hostId = host.body.id;
 
-      await request(server).post('/api/activities').set('Authorization', auth()).send({ ...baseTurn(), date: '2024-11-01' });
-      await request(server).post('/api/activities').set('Authorization', auth()).send({ ...baseTurn(), date: '2024-11-15' });
-      await request(server).post('/api/activities').set('Authorization', auth()).send({ ...baseTurn(), date: '2024-11-30' });
-      await request(server).post('/api/activities').set('Authorization', auth()).send({ ...baseTurn(), date: '2024-11-10', host_id: hostId });
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-11-01' });
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-11-15' });
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-11-30' });
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-11-10', host_id: hostId });
     });
 
     it('filters by dateFrom', async () => {
@@ -595,7 +809,9 @@ describe('Activities (e2e)', () => {
         .query({ regionId, dateFrom: '2024-11-10' })
         .set('Authorization', auth())
         .expect(200);
-      const dates: string[] = res.body.data.map((a: { date: string }) => a.date);
+      const dates: string[] = res.body.data.map(
+        (a: { date: string }) => a.date,
+      );
       expect(dates.every((d) => d >= '2024-11-10')).toBe(true);
       expect(dates).not.toContain('2024-11-01');
     });
@@ -606,7 +822,9 @@ describe('Activities (e2e)', () => {
         .query({ regionId, dateTo: '2024-11-15' })
         .set('Authorization', auth())
         .expect(200);
-      const dates: string[] = res.body.data.map((a: { date: string }) => a.date);
+      const dates: string[] = res.body.data.map(
+        (a: { date: string }) => a.date,
+      );
       expect(dates.every((d) => d <= '2024-11-15')).toBe(true);
       expect(dates).not.toContain('2024-11-30');
     });
@@ -617,7 +835,9 @@ describe('Activities (e2e)', () => {
         .query({ regionId, dateFrom: '2024-11-05', dateTo: '2024-11-20' })
         .set('Authorization', auth())
         .expect(200);
-      const dates: string[] = res.body.data.map((a: { date: string }) => a.date);
+      const dates: string[] = res.body.data.map(
+        (a: { date: string }) => a.date,
+      );
       expect(dates).toContain('2024-11-10');
       expect(dates).toContain('2024-11-15');
       expect(dates).not.toContain('2024-11-01');
@@ -630,7 +850,9 @@ describe('Activities (e2e)', () => {
         .query({ regionId, hostId })
         .set('Authorization', auth())
         .expect(200);
-      expect(res.body.data.every((a: { host_id: string }) => a.host_id === hostId)).toBe(true);
+      expect(
+        res.body.data.every((a: { host_id: string }) => a.host_id === hostId),
+      ).toBe(true);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
     });
   });

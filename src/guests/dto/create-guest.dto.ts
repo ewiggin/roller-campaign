@@ -15,8 +15,22 @@ import {
 } from 'class-validator';
 import type { GuestStatus, TransportMode } from '../entities/guest.entity';
 
-const TRANSPORT_VALUES = ['car', 'bus', 'train', 'plane', 'ferry', 'motorbike', 'other'] as const;
-const STATUS_VALUES = ['pending', 'confirmed', 'cancelled', 'arrived', 'blocked'] as const;
+const TRANSPORT_VALUES = [
+  'car',
+  'bus',
+  'train',
+  'plane',
+  'ferry',
+  'motorbike',
+  'other',
+] as const;
+const STATUS_VALUES = [
+  'pending',
+  'confirmed',
+  'cancelled',
+  'arrived',
+  'blocked',
+] as const;
 
 export class CreateGuestDto {
   @ApiProperty({ example: 'G-001' })

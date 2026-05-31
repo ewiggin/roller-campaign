@@ -62,7 +62,9 @@ describe('Auth (e2e)', () => {
         .expect(401));
 
     it('allows access with valid admin token', async () => {
-      const loginRes = await request(server).post('/api/auth/login').send(TEST_ADMIN);
+      const loginRes = await request(server)
+        .post('/api/auth/login')
+        .send(TEST_ADMIN);
       await request(server)
         .get('/api/regions')
         .set('Authorization', `Bearer ${loginRes.body.access_token}`)

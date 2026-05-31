@@ -608,12 +608,10 @@ export class ActivitiesService {
     >();
     for (const g of guests) {
       if (!guestsByGroup.has(g.group_id)) guestsByGroup.set(g.group_id, []);
-      guestsByGroup
-        .get(g.group_id)!
-        .push({
-          available_from: g.available_from,
-          available_to: g.available_to,
-        });
+      guestsByGroup.get(g.group_id)!.push({
+        available_from: g.available_from,
+        available_to: g.available_to,
+      });
     }
 
     const result: AvailableGroupForActivityDto[] = [];

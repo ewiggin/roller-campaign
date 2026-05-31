@@ -46,7 +46,67 @@ export class Volunteer {
   @OneToMany(() => VolunteerAvailability, (a) => a.volunteer)
   availability: VolunteerAvailability[];
 
-  @ManyToMany('Activity', (activity: { volunteers: Volunteer[] }) => activity.volunteers)
+  @Column({ type: 'varchar', nullable: true, default: null })
+  hosting_address: string | null;
+
+  @Column({ type: 'float', nullable: true, default: null })
+  lat: number | null;
+
+  @Column({ type: 'float', nullable: true, default: null })
+  lng: number | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  maps_link: string | null;
+
+  @Column({ type: 'int', nullable: true, default: null })
+  car_seats: number | null;
+
+  @Column({ default: false })
+  monday_morning: boolean;
+
+  @Column({ default: false })
+  monday_afternoon: boolean;
+
+  @Column({ default: false })
+  tuesday_morning: boolean;
+
+  @Column({ default: false })
+  tuesday_afternoon: boolean;
+
+  @Column({ default: false })
+  wednesday_morning: boolean;
+
+  @Column({ default: false })
+  wednesday_afternoon: boolean;
+
+  @Column({ default: false })
+  thursday_morning: boolean;
+
+  @Column({ default: false })
+  thursday_afternoon: boolean;
+
+  @Column({ default: false })
+  friday_morning: boolean;
+
+  @Column({ default: false })
+  friday_afternoon: boolean;
+
+  @Column({ default: false })
+  saturday_morning: boolean;
+
+  @Column({ default: false })
+  saturday_afternoon: boolean;
+
+  @Column({ default: false })
+  sunday_morning: boolean;
+
+  @Column({ default: false })
+  sunday_afternoon: boolean;
+
+  @ManyToMany(
+    'Activity',
+    (activity: { volunteers: Volunteer[] }) => activity.volunteers,
+  )
   activities: unknown[];
 
   @CreateDateColumn()

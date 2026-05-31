@@ -28,17 +28,26 @@ export class AuditLogQueryDto {
   @IsString()
   action?: string;
 
-  @ApiPropertyOptional({ example: 'admin@example.com', description: 'Filtrar por email del actor' })
+  @ApiPropertyOptional({
+    example: 'admin@example.com',
+    description: 'Filtrar por email del actor',
+  })
   @IsOptional()
   @IsString()
   actor_email?: string;
 
-  @ApiPropertyOptional({ example: '2026-05-01', description: 'Desde fecha (ISO)' })
+  @ApiPropertyOptional({
+    example: '2026-05-01',
+    description: 'Desde fecha (ISO)',
+  })
   @IsOptional()
   @IsString()
   from?: string;
 
-  @ApiPropertyOptional({ example: '2026-05-31', description: 'Hasta fecha (ISO)' })
+  @ApiPropertyOptional({
+    example: '2026-05-31',
+    description: 'Hasta fecha (ISO)',
+  })
   @IsOptional()
   @IsString()
   to?: string;

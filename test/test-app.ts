@@ -7,11 +7,17 @@ import * as fs from 'fs';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 
-export const TEST_ADMIN = { email: 'admin@test.local', password: 'testpass123' };
+export const TEST_ADMIN = {
+  email: 'admin@test.local',
+  password: 'testpass123',
+};
 
 export async function createTestApp(): Promise<INestApplication> {
   // Each call gets a unique temp DB file so concurrent/sequential specs don't share state
-  const dbPath = path.join(os.tmpdir(), `roller-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
+  const dbPath = path.join(
+    os.tmpdir(),
+    `roller-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  );
 
   process.env['NODE_ENV'] = 'development';
   process.env['DATABASE_PATH'] = dbPath;
@@ -40,7 +46,9 @@ export async function createTestApp(): Promise<INestApplication> {
   return app;
 }
 
-export async function loginAdmin(server: ReturnType<INestApplication['getHttpServer']>): Promise<string> {
+export async function loginAdmin(
+  server: ReturnType<INestApplication['getHttpServer']>,
+): Promise<string> {
   const res = await request(server)
     .post('/api/auth/login')
     .send(TEST_ADMIN)
@@ -74,6 +82,8 @@ export function parseExcelResponse(body: Buffer): Record<string, unknown>[] {
 /** Parse an xlsx Buffer and return the header row. */
 export function parseExcelHeaders(body: Buffer): string[] {
   const wb = XLSX.read(body, { type: 'buffer' });
-  const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+  const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[wb.SheetNames[0]], {
+    header: 1,
+  });
   return rows[0] ?? [];
 }

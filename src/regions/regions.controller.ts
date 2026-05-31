@@ -51,10 +51,14 @@ export class RegionsController {
   @Get('export')
   @Roles('region_admin')
   @ApiOkResponse({ description: 'Excel con todas las regiones' })
-  async exportExcel(@CurrentUser() user: JwtPayload, @Res() res: Response): Promise<void> {
+  async exportExcel(
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
     const buffer = await this.regionsService.exportExcel(user);
     res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': 'attachment; filename="regiones.xlsx"',
     });
     res.send(buffer);
@@ -62,11 +66,14 @@ export class RegionsController {
 
   @Get('import/template')
   @Roles('superadmin')
-  @ApiOkResponse({ description: 'Plantilla Excel para importación de regiones' })
+  @ApiOkResponse({
+    description: 'Plantilla Excel para importación de regiones',
+  })
   downloadTemplate(@Res() res: Response): void {
     const buffer = this.regionsService.downloadTemplate();
     res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': 'attachment; filename="plantilla-regiones.xlsx"',
     });
     res.send(buffer);
@@ -78,7 +85,9 @@ export class RegionsController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOkResponse({ type: ImportRegionParseResponseDto })
-  parseImport(@UploadedFile() file: Express.Multer.File): Promise<ImportRegionParseResponseDto> {
+  parseImport(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<ImportRegionParseResponseDto> {
     return this.regionsService.parseImport(file.buffer);
   }
 
@@ -86,7 +95,9 @@ export class RegionsController {
   @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportRegionCommitResponseDto })
-  commitImport(@Body() dto: ImportRegionCommitDto): Promise<ImportRegionCommitResponseDto> {
+  commitImport(
+    @Body() dto: ImportRegionCommitDto,
+  ): Promise<ImportRegionCommitResponseDto> {
     return this.regionsService.commitImport(dto);
   }
 
