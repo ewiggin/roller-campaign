@@ -66,7 +66,7 @@ export interface VolunteerSummary {
 }
 
 export interface VolunteerListResponse {
-  data: VolunteerSummary[];
+  data: Volunteer[];
   total: number;
   page: number;
   limit: number;
