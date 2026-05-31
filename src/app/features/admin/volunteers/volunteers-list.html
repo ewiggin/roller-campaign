@@ -62,86 +62,115 @@
     </div>
   </div>
 
-  <!-- Table -->
+  <!-- List -->
+  @if (loading()) {
   <div class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden">
-    @if (loading()) {
-    <div class="divide-y divide-gray-100 dark:divide-zinc-800">
+    <div class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700">
+      <div class="animate-pulse h-3 bg-gray-200 dark:bg-zinc-700 rounded w-20"></div>
+    </div>
+    <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
       @for (i of [1,2,3,4,5,6,7,8]; track i) {
-      <div class="px-5 py-3.5 flex gap-4">
-        <div class="animate-pulse h-3 bg-gray-200 dark:bg-zinc-700 rounded w-20 shrink-0"></div>
-        <div class="animate-pulse h-3 bg-gray-200 dark:bg-zinc-700 rounded w-40"></div>
-        <div class="animate-pulse h-3 bg-gray-100 dark:bg-zinc-800 rounded flex-1"></div>
+      <li class="px-5 py-3 flex items-center gap-4">
+        <div class="flex-1 space-y-2">
+          <div class="animate-pulse h-3.5 bg-gray-200 dark:bg-zinc-700 rounded" [style.width.%]="30 + (i * 7) % 40"></div>
+          <div class="animate-pulse h-2.5 bg-gray-100 dark:bg-zinc-800 rounded w-20"></div>
+        </div>
+        <div class="animate-pulse h-5 bg-gray-100 dark:bg-zinc-800 rounded-full w-16"></div>
+      </li>
+      }
+    </ul>
+  </div>
+  } @else if (error()) {
+  <div class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900 px-5 py-4">
+    <p class="text-sm text-red-600 dark:text-red-400">{{ error() }}</p>
+  </div>
+  } @else {
+  <div class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden">
+    <div class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between">
+      <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+        {{ total() }} volunteer{{ total() !== 1 ? 's' : '' }}
+      </span>
+      @if (totalPages > 1) {
+      <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
+        <button
+          (click)="prevPage()"
+          [disabled]="page === 1"
+          class="p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+        >‹</button>
+        <span>{{ page }} / {{ totalPages }}</span>
+        <button
+          (click)="nextPage()"
+          [disabled]="page === totalPages"
+          class="p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+        >›</button>
       </div>
       }
     </div>
-    } @else if (error()) {
-    <div class="px-5 py-4 text-sm text-red-500 dark:text-red-400">{{ error() }}</div>
-    } @else if (volunteers().length === 0) {
-    <div class="px-5 py-8 text-sm text-gray-400 dark:text-zinc-500 text-center">No volunteers found.</div>
-    } @else {
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="border-b border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-[#27272a]">
-          <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide">Code</th>
-          <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide">Name</th>
-          <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide hidden sm:table-cell">Regions</th>
-          <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide hidden md:table-cell">Roles</th>
-          <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide">Status</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
-        @for (v of volunteers(); track v.id) {
-        <tr
-          class="hover:bg-gray-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors"
-          [routerLink]="['/admin/volunteers', v.id]"
-        >
-          <td class="px-5 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap">{{ v.volunteer_code }}</td>
-          <td class="px-5 py-3 font-medium text-gray-900 dark:text-zinc-100">{{ v.full_name }}</td>
-          <td class="px-5 py-3 text-gray-500 dark:text-zinc-400 hidden sm:table-cell">
-            {{ v.regions.map(r => r.name).join(', ') || '—' }}
-          </td>
-          <td class="px-5 py-3 hidden md:table-cell">
-            <div class="flex flex-wrap gap-1">
-              @for (role of v.roles.slice(0, 3); track role.id) {
-              <span class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800">
-                {{ role.name }}
-              </span>
-              }
-              @if (v.roles.length > 3) {
-              <span class="text-[10px] text-gray-400 dark:text-zinc-500">+{{ v.roles.length - 3 }}</span>
-              }
-            </div>
-          </td>
-          <td class="px-5 py-3">
-            @if (v.is_active) {
-            <span class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800">Active</span>
-            } @else {
-            <span class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-gray-50 text-gray-600 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700">Inactive</span>
-            }
-          </td>
-        </tr>
-        }
-      </tbody>
-    </table>
-    }
-  </div>
 
-  <!-- Pagination -->
-  @if (total() > limit) {
-  <div class="mt-4 flex items-center justify-between text-sm text-gray-500 dark:text-zinc-400">
-    <span>{{ total() }} volunteers · Page {{ page }} of {{ totalPages }}</span>
-    <div class="flex gap-2">
-      <button
-        (click)="prevPage()"
-        [disabled]="page <= 1"
-        class="rounded-lg px-3 py-1.5 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
-      >← Prev</button>
-      <button
-        (click)="nextPage()"
-        [disabled]="page >= totalPages"
-        class="rounded-lg px-3 py-1.5 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
-      >Next →</button>
-    </div>
+    @if (volunteers().length === 0) {
+    <p class="px-5 py-10 text-center text-sm text-gray-400 dark:text-zinc-500">No volunteers found.</p>
+    } @else {
+    <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
+      @for (v of volunteers(); track v.id) {
+      <li class="px-5 py-3 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50 cursor-pointer" [routerLink]="['/admin/volunteers', v.id]">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate">{{ v.full_name }}</span>
+            @for (role of v.roles.slice(0, 2); track role.id) {
+            <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800">{{ role.name }}</span>
+            }
+            @if (v.roles.length > 2) {
+            <span class="shrink-0 text-[10px] text-gray-400 dark:text-zinc-500">+{{ v.roles.length - 2 }}</span>
+            }
+          </div>
+          <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+            {{ v.volunteer_code }}@if (v.regions.length > 0) { · {{ v.regions.map(r => r.name).join(', ') }}}
+          </p>
+        </div>
+
+        <!-- Car icon -->
+        @if (v.car_seats && v.car_seats > 0) {
+        <div class="shrink-0 flex items-center gap-1 text-xs text-gray-400 dark:text-zinc-500" title="{{ v.car_seats }} car seats">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.08 3H5.77L6.85 7zM19 17H5v-2h14v2z"/>
+            <circle cx="7.5" cy="17.5" r="1.5"/>
+            <circle cx="16.5" cy="17.5" r="1.5"/>
+          </svg>
+          <span>{{ v.car_seats }}</span>
+        </div>
+        }
+
+        <!-- Availability grid -->
+        <div class="shrink-0 hidden sm:flex flex-col gap-0.5" title="Morning / Afternoon availability">
+          <!-- Day labels -->
+          <div class="flex gap-1">
+            @for (d of ['Mo','Tu','We','Th','Fr','Sa','Su']; track d) {
+            <span class="w-4 text-center text-[8px] font-medium text-gray-400 dark:text-zinc-500 leading-none">{{ d }}</span>
+            }
+          </div>
+          <!-- Morning row (blue) -->
+          <div class="flex gap-1">
+            @for (slot of [v.monday_morning, v.tuesday_morning, v.wednesday_morning, v.thursday_morning, v.friday_morning, v.saturday_morning, v.sunday_morning]; track $index) {
+            <span class="w-4 h-2.5 rounded-sm" [class]="slot ? 'bg-blue-300 dark:bg-blue-600' : 'bg-gray-100 dark:bg-zinc-800'"></span>
+            }
+          </div>
+          <!-- Afternoon row (violet) -->
+          <div class="flex gap-1">
+            @for (slot of [v.monday_afternoon, v.tuesday_afternoon, v.wednesday_afternoon, v.thursday_afternoon, v.friday_afternoon, v.saturday_afternoon, v.sunday_afternoon]; track $index) {
+            <span class="w-4 h-2.5 rounded-sm" [class]="slot ? 'bg-violet-300 dark:bg-violet-600' : 'bg-gray-100 dark:bg-zinc-800'"></span>
+            }
+          </div>
+        </div>
+
+        @if (v.is_active) {
+        <span class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800">Active</span>
+        } @else {
+        <span class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-gray-50 text-gray-600 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700">Inactive</span>
+        }
+      </li>
+      }
+    </ul>
+    }
   </div>
   }
 </div>
