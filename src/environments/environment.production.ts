@@ -1,5 +1,5 @@
 export const environment = {
-  production: false,
+  production: true,
   googleMapsApiKey: 'AIzaSyCAlxhBc7f3JB3dcUtamk_vka3VGGccOlQ',
-  apiUrl: '/api',
+  apiUrl: 'https://roller-api-production.up.railway.app/api',
 };

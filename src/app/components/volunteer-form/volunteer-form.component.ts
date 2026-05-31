@@ -1,4 +1,4 @@
-import { Component, signal } from "@angular/core";
+import { Component, inject, OnInit, signal } from "@angular/core";
 import {
   FormBuilder,
   FormControl,
@@ -7,10 +7,10 @@ import {
   Validators,
 } from "@angular/forms";
 import {
-  ExistingFormData,
-  GoogleSheetsService,
-  VolunteerFormData,
-} from "../../services/google-sheets.service";
+  RegionOption,
+  VolunteerApiService,
+  VolunteerSubmitData,
+} from "../../services/volunteer-api.service";
 import {
   LocationPickerComponent,
   PlaceResult,
@@ -18,23 +18,23 @@ import {
 
 type Step = "code" | "form" | "success";
 
-const DIAS = [
-  "lunes",
-  "martes",
-  "miercoles",
-  "jueves",
-  "viernes",
-  "sabado",
-  "domingo",
+const DAYS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
 ] as const;
-const DIAS_LABEL: Record<(typeof DIAS)[number], string> = {
-  lunes: "Lunes",
-  martes: "Martes",
-  miercoles: "Miércoles",
-  jueves: "Jueves",
-  viernes: "Viernes",
-  sabado: "Sábado",
-  domingo: "Domingo",
+const DAY_LABEL: Record<(typeof DAYS)[number], string> = {
+  monday: "Lunes",
+  tuesday: "Martes",
+  wednesday: "Miércoles",
+  thursday: "Jueves",
+  friday: "Viernes",
+  saturday: "Sábado",
+  sunday: "Domingo",
 };
 
 @Component({
@@ -43,7 +43,7 @@ const DIAS_LABEL: Record<(typeof DIAS)[number], string> = {
   imports: [ReactiveFormsModule, LocationPickerComponent],
   templateUrl: "./volunteer-form.component.html",
 })
-export class VolunteerFormComponent {
+export class VolunteerFormComponent implements OnInit {
   readonly step = signal<Step>("code");
   readonly isValidating = signal(false);
   readonly codeError = signal<string | null>(null);
@@ -53,43 +53,54 @@ export class VolunteerFormComponent {
   readonly locationTouched = signal(false);
   readonly initialLocation = signal<PlaceResult | null>(null);
   readonly carAvailable = signal(false);
+  readonly availableRegions = signal<RegionOption[]>([]);
+  readonly regionsError = signal<string | null>(null);
 
-  readonly dias = DIAS;
-  readonly diasLabel = DIAS_LABEL;
+  readonly days = DAYS;
+  readonly dayLabel = DAY_LABEL;
 
-  private volunteerRow = 0;
+  private volunteerCode = "";
+
+  protected readonly apiService = inject(VolunteerApiService);
+  private readonly fb = inject(FormBuilder);
 
   codeControl!: FormControl<number | null>;
   form!: FormGroup;
-  turnosGroup!: FormGroup;
+  shiftsGroup!: FormGroup;
 
-  constructor(
-    private fb: FormBuilder,
-    public sheetsService: GoogleSheetsService,
-  ) {
-    this.codeControl = fb.control<number | null>(null, Validators.required);
-    this.turnosGroup = fb.group({
-      lunesManana: [false],
-      lunesTarde: [false],
-      martesManana: [false],
-      martesTarde: [false],
-      miercolesManana: [false],
-      miercolesTarde: [false],
-      juevesManana: [false],
-      juevesTarde: [false],
-      viernesManana: [false],
-      viernesTarde: [false],
-      sabadoManana: [false],
-      sabadoTarde: [false],
-      domingoManana: [false],
-      domingoTarde: [false],
+  constructor() {
+    this.codeControl = this.fb.control<number | null>(null, Validators.required);
+    this.shiftsGroup = this.fb.group({
+      monday_morning: [false],
+      monday_afternoon: [false],
+      tuesday_morning: [false],
+      tuesday_afternoon: [false],
+      wednesday_morning: [false],
+      wednesday_afternoon: [false],
+      thursday_morning: [false],
+      thursday_afternoon: [false],
+      friday_morning: [false],
+      friday_afternoon: [false],
+      saturday_morning: [false],
+      saturday_afternoon: [false],
+      sunday_morning: [false],
+      sunday_afternoon: [false],
     });
-    this.form = fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      region: ['', Validators.required],
-      plazasCoche: [0],
-      turnos: this.turnosGroup,
+    this.form = this.fb.group({
+      email: ["", [Validators.required, Validators.email]],
+      region_id: ["", Validators.required],
+      carSeats: [0],
+      shifts: this.shiftsGroup,
     });
+  }
+
+  async ngOnInit(): Promise<void> {
+    try {
+      const regions = await this.apiService.getRegions();
+      this.availableRegions.set(regions);
+    } catch {
+      this.regionsError.set("No se pudieron cargar las regiones. Recarga la página.");
+    }
   }
 
   onLocationSelected(place: PlaceResult | null): void {
@@ -98,19 +109,19 @@ export class VolunteerFormComponent {
   }
 
   async validateCode(): Promise<void> {
-    const codigo =
+    const code =
       this.codeControl.value != null ? String(this.codeControl.value) : null;
-    if (!codigo) return;
+    if (!code) return;
 
     this.isValidating.set(true);
     this.codeError.set(null);
 
     try {
-      const result = await this.sheetsService.validateCode(codigo);
+      const result = await this.apiService.lookup(code);
       if (result !== null) {
-        this.volunteerRow = result.fila;
-        this.volunteerName.set(result.nombre);
-        this.applyExistingData(result.formData);
+        this.volunteerCode = result.volunteer_code;
+        this.volunteerName.set(result.full_name);
+        this.applyExistingData(result);
         this.step.set("form");
       } else {
         this.codeError.set("Código no encontrado. Revisa que sea correcto.");
@@ -127,52 +138,83 @@ export class VolunteerFormComponent {
     return !!(control?.invalid && control?.touched);
   }
 
-  private applyExistingData(data: ExistingFormData | null): void {
-    if (!data) return;
+  private applyExistingData(data: {
+    email: string | null;
+    car_seats: number | null;
+    hosting_address: string | null;
+    lat: number | null;
+    lng: number | null;
+    maps_link: string | null;
+    regions: RegionOption[];
+    monday_morning: boolean;
+    monday_afternoon: boolean;
+    tuesday_morning: boolean;
+    tuesday_afternoon: boolean;
+    wednesday_morning: boolean;
+    wednesday_afternoon: boolean;
+    thursday_morning: boolean;
+    thursday_afternoon: boolean;
+    friday_morning: boolean;
+    friday_afternoon: boolean;
+    saturday_morning: boolean;
+    saturday_afternoon: boolean;
+    sunday_morning: boolean;
+    sunday_afternoon: boolean;
+  }): void {
+    const carSeats = data.car_seats ?? 0;
+    this.carAvailable.set(carSeats > 0);
 
-    this.form.patchValue({ email: data.email ?? '', region: data.region ?? '', plazasCoche: data.plazasCoche });
-    this.turnosGroup.patchValue({
-      lunesManana: data.lunesManana,
-      lunesTarde: data.lunesTarde,
-      martesManana: data.martesManana,
-      martesTarde: data.martesTarde,
-      miercolesManana: data.miercolesManana,
-      miercolesTarde: data.miercolesTarde,
-      juevesManana: data.juevesManana,
-      juevesTarde: data.juevesTarde,
-      viernesManana: data.viernesManana,
-      viernesTarde: data.viernesTarde,
-      sabadoManana: data.sabadoManana,
-      sabadoTarde: data.sabadoTarde,
-      domingoManana: data.domingoManana,
-      domingoTarde: data.domingoTarde,
+    const preselectedRegion =
+      data.regions.length === 1 ? data.regions[0].id : "";
+
+    this.form.patchValue({
+      email: data.email ?? "",
+      region_id: preselectedRegion,
+      carSeats,
     });
 
-    if (data.direccion && data.lat && data.lon) {
+    this.shiftsGroup.patchValue({
+      monday_morning: data.monday_morning,
+      monday_afternoon: data.monday_afternoon,
+      tuesday_morning: data.tuesday_morning,
+      tuesday_afternoon: data.tuesday_afternoon,
+      wednesday_morning: data.wednesday_morning,
+      wednesday_afternoon: data.wednesday_afternoon,
+      thursday_morning: data.thursday_morning,
+      thursday_afternoon: data.thursday_afternoon,
+      friday_morning: data.friday_morning,
+      friday_afternoon: data.friday_afternoon,
+      saturday_morning: data.saturday_morning,
+      saturday_afternoon: data.saturday_afternoon,
+      sunday_morning: data.sunday_morning,
+      sunday_afternoon: data.sunday_afternoon,
+    });
+
+    if (data.hosting_address && data.lat && data.lng) {
       const location: PlaceResult = {
-        address: data.direccion,
+        address: data.hosting_address,
         lat: data.lat,
-        lng: data.lon,
+        lng: data.lng,
       };
       this.initialLocation.set(location);
       this.selectedLocation.set(location);
     }
   }
 
-  incrementPlazas(): void {
-    const v = this.form.get("plazasCoche")?.value ?? 0;
-    if (v < 8) this.form.get("plazasCoche")?.setValue(v + 1);
+  incrementSeats(): void {
+    const v = this.form.get("carSeats")?.value ?? 0;
+    if (v < 8) this.form.get("carSeats")?.setValue(v + 1);
   }
 
-  decrementPlazas(): void {
-    const v = this.form.get("plazasCoche")?.value ?? 0;
-    if (v > 0) this.form.get("plazasCoche")?.setValue(v - 1);
+  decrementSeats(): void {
+    const v = this.form.get("carSeats")?.value ?? 0;
+    if (v > 0) this.form.get("carSeats")?.setValue(v - 1);
   }
 
-  toggleCar() {
+  toggleCar(): void {
     this.carAvailable.set(!this.carAvailable());
     if (!this.carAvailable()) {
-      this.form.get("plazasCoche")?.patchValue(0);
+      this.form.get("carSeats")?.patchValue(0);
     }
   }
 
@@ -181,27 +223,27 @@ export class VolunteerFormComponent {
     this.locationTouched.set(true);
     if (this.form.invalid || !this.selectedLocation()) return;
 
-
     this.submitError.set(null);
 
     try {
-      const turnos = this.turnosGroup.getRawValue();
-      const data: VolunteerFormData = {
-        codigoVoluntario: String(this.codeControl.value!),
-        fila: this.volunteerRow,
-        email: this.form.get('email')!.value,
-        region: this.form.get('region')!.value,
-        direccion: this.selectedLocation()!.address,
-        mapsLink: `https://www.google.com/maps?q=${this.selectedLocation()!.lat},${this.selectedLocation()!.lng}`,
-        lat: this.selectedLocation()!.lat,
-        lon: this.selectedLocation()!.lng,
-        plazasCoche: this.form.get("plazasCoche")!.value,
-        ...turnos,
+      const shifts = this.shiftsGroup.getRawValue();
+      const loc = this.selectedLocation()!;
+      const data: VolunteerSubmitData = {
+        email: this.form.get("email")!.value,
+        region_id: this.form.get("region_id")!.value,
+        hosting_address: loc.address,
+        lat: loc.lat,
+        lng: loc.lng,
+        maps_link: `https://www.google.com/maps?q=${loc.lat},${loc.lng}`,
+        car_seats: this.form.get("carSeats")!.value,
+        ...shifts,
       };
-      await this.sheetsService.saveRow(data);
+      await this.apiService.submit(this.volunteerCode, data);
       this.step.set("success");
-    } catch (err: any) {
-      this.submitError.set(err.message ?? "Error desconocido al enviar");
+    } catch (err: unknown) {
+      this.submitError.set(
+        err instanceof Error ? err.message : "Error desconocido al enviar",
+      );
     }
   }
 }

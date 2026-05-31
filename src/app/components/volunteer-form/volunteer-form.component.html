@@ -19,7 +19,7 @@
       <div class="bg-white rounded-2xl shadow-lg p-6 space-y-4">
         <div class="space-y-1">
           <label class="block text-sm font-semibold text-gray-700">
-            Código de voluntario Builder Assistant<span class="text-red-500"
+            Código de voluntario<span class="text-red-500"
               >*</span
             >
           </label>
@@ -129,30 +129,30 @@
           <label class="block text-sm font-semibold text-gray-700">
             Región en la que participas <span class="text-red-500">*</span>
           </label>
+          @if (regionsError()) {
+            <p class="text-xs text-red-500">{{ regionsError() }}</p>
+          }
           <div class="grid grid-cols-2 gap-2">
-            @for (
-              region of ["Costa Brava", "Málaga", "Mallorca", "Tenerife"];
-              track region
-            ) {
+            @for (region of availableRegions(); track region.id) {
               <label
                 class="flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2.5 cursor-pointer text-sm font-medium transition-colors"
-                [class.border-indigo-500]="form.get('region')?.value === region"
-                [class.bg-indigo-50]="form.get('region')?.value === region"
-                [class.text-indigo-700]="form.get('region')?.value === region"
-                [class.border-gray-300]="form.get('region')?.value !== region"
-                [class.text-gray-600]="form.get('region')?.value !== region"
+                [class.border-indigo-500]="form.get('region_id')?.value === region.id"
+                [class.bg-indigo-50]="form.get('region_id')?.value === region.id"
+                [class.text-indigo-700]="form.get('region_id')?.value === region.id"
+                [class.border-gray-300]="form.get('region_id')?.value !== region.id"
+                [class.text-gray-600]="form.get('region_id')?.value !== region.id"
               >
                 <input
                   type="radio"
                   class="hidden"
-                  formControlName="region"
-                  [value]="region"
+                  formControlName="region_id"
+                  [value]="region.id"
                 />
-                {{ region }}
+                {{ region.name }}
               </label>
             }
           </div>
-          @if (isInvalid("region")) {
+          @if (isInvalid("region_id")) {
             <p class="text-xs text-red-500">Selecciona una región</p>
           }
         </div>
@@ -187,46 +187,46 @@
               <div
                 class="relative w-12 h-6 rounded-full transition-colors duration-200"
                 [class.bg-indigo-500]="
-                  carAvailable() || form.get('plazasCoche')?.value
+                  carAvailable() || form.get('carSeats')?.value
                 "
                 [class.bg-gray-300]="
-                  !carAvailable() && !form.get('plazasCoche')?.value
+                  !carAvailable() && !form.get('carSeats')?.value
                 "
                 (click)="toggleCar()"
               >
                 <div
                   class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
                   [class.translate-x-6]="
-                    carAvailable() || form.get('plazasCoche')?.value
+                    carAvailable() || form.get('carSeats')?.value
                   "
                 ></div>
               </div>
               <span class="text-sm text-gray-700">
                 {{
-                  carAvailable() || form.get("plazasCoche")?.value ? "Sí" : "No"
+                  carAvailable() || form.get("carSeats")?.value ? "Sí" : "No"
                 }}
               </span>
             </label>
           </div>
 
-          @if (carAvailable() || form.get("plazasCoche")?.value > 0) {
+          @if (carAvailable() || form.get("carSeats")?.value > 0) {
             <label class="block text-sm font-semibold text-gray-700">
               Plazas disponibles en tu coche
             </label>
             <div class="flex items-center gap-3">
               <button
                 type="button"
-                (click)="decrementPlazas()"
+                (click)="decrementSeats()"
                 class="w-10 h-10 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-lg transition flex items-center justify-center"
               >
                 −
               </button>
               <span class="text-2xl font-bold text-indigo-700 w-8 text-center">
-                {{ form.get("plazasCoche")?.value }}
+                {{ form.get("carSeats")?.value }}
               </span>
               <button
                 type="button"
-                (click)="incrementPlazas()"
+                (click)="incrementSeats()"
                 class="w-10 h-10 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-lg transition flex items-center justify-center"
               >
                 +
@@ -270,25 +270,25 @@
                   </th>
                 </tr>
               </thead>
-              <tbody [formGroup]="turnosGroup">
-                @for (dia of dias; track dia) {
+              <tbody [formGroup]="shiftsGroup">
+                @for (day of days; track day) {
                   <tr
                     class="border-t border-gray-100 hover:bg-gray-50 transition-colors"
                   >
                     <td class="px-3 py-2.5 font-medium text-gray-700 text-xs">
-                      {{ diasLabel[dia] }}
+                      {{ dayLabel[day] }}
                     </td>
                     <td class="text-center px-3 py-2.5">
                       <input
                         type="checkbox"
-                        [formControlName]="dia + 'Manana'"
+                        [formControlName]="day + '_morning'"
                         class="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
                       />
                     </td>
                     <td class="text-center px-3 py-2.5">
                       <input
                         type="checkbox"
-                        [formControlName]="dia + 'Tarde'"
+                        [formControlName]="day + '_afternoon'"
                         class="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
                       />
                     </td>
@@ -310,10 +310,10 @@
 
         <button
           type="submit"
-          [disabled]="sheetsService.isLoading()"
+          [disabled]="apiService.isLoading()"
           class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
         >
-          @if (sheetsService.isLoading()) {
+          @if (apiService.isLoading()) {
             <span class="inline-flex items-center gap-2 justify-center">
               <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                 <circle
