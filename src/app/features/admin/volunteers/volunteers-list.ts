@@ -1,51 +1,68 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import type { Region } from '../../../core/models/region.model';
 import type {
-  Volunteer,
-  ImportVolunteerParseResponse,
   ImportVolunteerCommitResponse,
+  ImportVolunteerParseResponse,
+  ImportVolunteerRow,
+  VolunteerRole,
+  VolunteerSummary,
 } from '../../../core/models/volunteer.model';
 import { RegionsService } from '../../../core/services/regions.service';
-import {
-  VolunteersService,
-  type VolunteerListQuery,
-} from '../../../core/services/volunteers.service';
+import { VolunteersService } from '../../../core/services/volunteers.service';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
-const DAYS = [
-  { key: 'monday', label: 'M' },
-  { key: 'tuesday', label: 'T' },
-  { key: 'wednesday', label: 'W' },
-  { key: 'thursday', label: 'T' },
-  { key: 'friday', label: 'F' },
-  { key: 'saturday', label: 'S' },
-  { key: 'sunday', label: 'S' },
-] as const;
-
-type DayKey = (typeof DAYS)[number]['key'];
+const AVAILABILITY_OPTIONS = [
+  { value: 'monday_morning',    label: 'Mon – morning' },
+  { value: 'monday_afternoon',  label: 'Mon – afternoon' },
+  { value: 'tuesday_morning',   label: 'Tue – morning' },
+  { value: 'tuesday_afternoon', label: 'Tue – afternoon' },
+  { value: 'wednesday_morning',    label: 'Wed – morning' },
+  { value: 'wednesday_afternoon',  label: 'Wed – afternoon' },
+  { value: 'thursday_morning',  label: 'Thu – morning' },
+  { value: 'thursday_afternoon',label: 'Thu – afternoon' },
+  { value: 'friday_morning',    label: 'Fri – morning' },
+  { value: 'friday_afternoon',  label: 'Fri – afternoon' },
+  { value: 'saturday_morning',  label: 'Sat – morning' },
+  { value: 'saturday_afternoon',label: 'Sat – afternoon' },
+  { value: 'sunday_morning',    label: 'Sun – morning' },
+  { value: 'sunday_afternoon',  label: 'Sun – afternoon' },
+];
 
 @Component({
   selector: 'app-volunteers-list',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink, SearchableSelectComponent],
   templateUrl: './volunteers-list.html',
 })
 export class VolunteersListComponent implements OnInit {
   private readonly svc = inject(VolunteersService);
   private readonly regionsSvc = inject(RegionsService);
 
-  readonly days = DAYS;
-
   readonly regions = signal<Region[]>([]);
-  readonly volunteers = signal<Volunteer[]>([]);
+  readonly roles = signal<VolunteerRole[]>([]);
+  readonly volunteers = signal<VolunteerSummary[]>([]);
   readonly total = signal(0);
   readonly loading = signal(true);
   readonly error = signal('');
 
   readonly filterRegion = signal('');
+  readonly filterRole = signal('');
+  readonly filterMinCarSeats = signal('');
+  readonly filterAvailability = signal<string[]>([]);
   readonly filterSearch = signal('');
-  readonly filterActive = signal<'' | 'true' | 'false'>('');
   readonly page = signal(1);
   readonly limit = 50;
+
+  readonly regionItems = computed(() =>
+    this.regions().map((r) => ({ value: r.id, label: r.name }))
+  );
+
+  readonly roleItems = computed(() =>
+    this.roles().map((r) => ({ value: r.id, label: r.name }))
+  );
+
+  readonly availabilityOptions = AVAILABILITY_OPTIONS;
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 
@@ -60,28 +77,32 @@ export class VolunteersListComponent implements OnInit {
 
   ngOnInit() {
     this.regionsSvc.getAll().subscribe({ next: (r) => this.regions.set(r) });
+    this.svc.getRoles().subscribe({ next: (r) => this.roles.set(r) });
     this.load();
+  }
+
+  private buildQuery() {
+    const minSeats = this.filterMinCarSeats();
+    const slots = this.filterAvailability();
+    return {
+      regionId: this.filterRegion() || undefined,
+      roleId: this.filterRole() || undefined,
+      search: this.filterSearch() || undefined,
+      min_car_seats: minSeats ? parseInt(minSeats, 10) : undefined,
+      available_slots: slots.length ? slots : undefined,
+    };
   }
 
   load() {
     this.loading.set(true);
-    const query: VolunteerListQuery = {
-      regionId: this.filterRegion() || undefined,
-      search: this.filterSearch() || undefined,
-      page: this.page(),
-      limit: this.limit,
-    };
-    if (this.filterActive() !== '') {
-      query.is_active = this.filterActive() === 'true';
-    }
-    this.svc.getAll(query).subscribe({
+    this.svc.getAll({ ...this.buildQuery(), page: this.page(), limit: this.limit }).subscribe({
       next: (res) => {
         this.volunteers.set(res.data);
         this.total.set(res.total);
         this.loading.set(false);
       },
       error: () => {
-        this.error.set('Error cargando voluntarios.');
+        this.error.set('Error loading volunteers.');
         this.loading.set(false);
       },
     });
@@ -93,50 +114,22 @@ export class VolunteersListComponent implements OnInit {
   }
 
   prevPage() {
-    if (this.page() > 1) {
-      this.page.update((p) => p - 1);
-      this.load();
-    }
+    if (this.page() > 1) { this.page.update((p) => p - 1); this.load(); }
   }
 
   nextPage() {
-    if (this.page() < this.totalPages()) {
-      this.page.update((p) => p + 1);
-      this.load();
-    }
+    if (this.page() < this.totalPages()) { this.page.update((p) => p + 1); this.load(); }
   }
-
-  morning(v: Volunteer, day: DayKey): boolean {
-    return v[`${day}_morning` as keyof Volunteer] as boolean;
-  }
-
-  afternoon(v: Volunteer, day: DayKey): boolean {
-    return v[`${day}_afternoon` as keyof Volunteer] as boolean;
-  }
-
-  mapsUrl(v: Volunteer): string | null {
-    if (v.maps_link) return v.maps_link;
-    if (v.lat && v.lng) return `https://www.google.com/maps?q=${v.lat},${v.lng}`;
-    return null;
-  }
-
-  // ── Export ────────────────────────────────────────────────────────────────
 
   downloadExcel() {
-    this.svc
-      .exportExcel({
-        regionId: this.filterRegion() || undefined,
-        search: this.filterSearch() || undefined,
-        is_active: this.filterActive() !== '' ? this.filterActive() === 'true' : undefined,
-      })
-      .subscribe((blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'voluntarios.xlsx';
-        a.click();
-        URL.revokeObjectURL(url);
-      });
+    this.svc.exportExcel(this.buildQuery()).subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'voluntarios.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
   }
 
   downloadTemplate() {
@@ -150,22 +143,21 @@ export class VolunteersListComponent implements OnInit {
     });
   }
 
-  // ── Import ────────────────────────────────────────────────────────────────
-
   openImport() {
-    this.importModal.set(true);
     this.importStep.set('upload');
     this.importError.set('');
     this.parseResult.set(null);
     this.commitResult.set(null);
+    this.importModal.set(true);
   }
 
   closeImport() {
     this.importModal.set(false);
+    if (this.importStep() === 'done') this.load();
   }
 
-  onDragOver(e: DragEvent) {
-    e.preventDefault();
+  onDragOver(ev: DragEvent) {
+    ev.preventDefault();
     this.isDragging = true;
   }
 
@@ -173,19 +165,19 @@ export class VolunteersListComponent implements OnInit {
     this.isDragging = false;
   }
 
-  onDrop(e: DragEvent) {
-    e.preventDefault();
+  onDrop(ev: DragEvent) {
+    ev.preventDefault();
     this.isDragging = false;
-    const file = e.dataTransfer?.files[0];
+    const file = ev.dataTransfer?.files[0];
     if (file) this.parseFile(file);
   }
 
-  onFileSelected(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
+  onFileSelected(ev: Event) {
+    const file = (ev.target as HTMLInputElement).files?.[0];
     if (file) this.parseFile(file);
   }
 
-  parseFile(file: File) {
+  private parseFile(file: File) {
     this.importing.set(true);
     this.importError.set('');
     this.svc.parseImport(file).subscribe({
@@ -195,25 +187,25 @@ export class VolunteersListComponent implements OnInit {
         this.importing.set(false);
       },
       error: () => {
-        this.importError.set('Error al procesar el archivo. Comprueba el formato.');
+        this.importError.set('Error parsing file. Check the format.');
         this.importing.set(false);
       },
     });
   }
 
-  confirmImport() {
+  commitImport() {
     const result = this.parseResult();
-    if (!result?.to_create.length) return;
+    if (!result || result.to_create.length === 0) return;
     this.importing.set(true);
-    this.svc.commitImport(result.to_create).subscribe({
+    this.importError.set('');
+    this.svc.commitImport(result.to_create as ImportVolunteerRow[]).subscribe({
       next: (res) => {
         this.commitResult.set(res);
         this.importStep.set('done');
         this.importing.set(false);
-        this.load();
       },
       error: () => {
-        this.importError.set('Error al importar. Inténtalo de nuevo.');
+        this.importError.set('Error committing import.');
         this.importing.set(false);
       },
     });

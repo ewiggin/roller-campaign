@@ -46,6 +46,23 @@ export interface VolunteerSummary {
   volunteer_code: string;
   full_name: string;
   is_active: boolean;
+  roles: VolunteerRole[];
+  regions: VolunteerRegion[];
+  car_seats: number | null;
+  monday_morning: boolean;
+  monday_afternoon: boolean;
+  tuesday_morning: boolean;
+  tuesday_afternoon: boolean;
+  wednesday_morning: boolean;
+  wednesday_afternoon: boolean;
+  thursday_morning: boolean;
+  thursday_afternoon: boolean;
+  friday_morning: boolean;
+  friday_afternoon: boolean;
+  saturday_morning: boolean;
+  saturday_afternoon: boolean;
+  sunday_morning: boolean;
+  sunday_afternoon: boolean;
 }
 
 export interface VolunteerListResponse {
