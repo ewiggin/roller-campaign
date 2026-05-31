@@ -3,9 +3,10 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { Volunteer, VolunteerRole } from '../../../core/models/volunteer.model';
+import { LocationPickerComponent, type PlaceResult } from '../../../shared/components/location-picker/location-picker';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 
-type EditSection = 'contact' | 'roles' | null;
+type EditSection = 'contact' | 'roles' | 'location' | 'schedule' | null;
 
 const DAYS: { key: string; label: string; morningField: keyof Volunteer; afternoonField: keyof Volunteer }[] = [
   { key: 'mon', label: 'Mon', morningField: 'monday_morning', afternoonField: 'monday_afternoon' },
@@ -19,7 +20,7 @@ const DAYS: { key: string; label: string; morningField: keyof Volunteer; afterno
 
 @Component({
   selector: 'app-volunteer-detail',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [RouterLink, ReactiveFormsModule, LocationPickerComponent],
   providers: [DatePipe],
   templateUrl: './volunteer-detail.html',
 })
@@ -37,6 +38,7 @@ export class VolunteerDetailComponent implements OnInit {
   readonly saveError = signal('');
   readonly allRoles = signal<VolunteerRole[]>([]);
   readonly selectedRoleIds = signal<string[]>([]);
+  readonly locationResult = signal<PlaceResult | null>(null);
 
   readonly days = DAYS;
 
@@ -49,6 +51,33 @@ export class VolunteerDetailComponent implements OnInit {
     email: [''],
     phone: [''],
     is_active: [true],
+  });
+
+  readonly locationForm = this.fb.nonNullable.group({
+    car_seats: [''],
+  });
+
+  readonly scheduleForm = this.fb.nonNullable.group({
+    monday_morning: [false],
+    monday_afternoon: [false],
+    tuesday_morning: [false],
+    tuesday_afternoon: [false],
+    wednesday_morning: [false],
+    wednesday_afternoon: [false],
+    thursday_morning: [false],
+    thursday_afternoon: [false],
+    friday_morning: [false],
+    friday_afternoon: [false],
+    saturday_morning: [false],
+    saturday_afternoon: [false],
+    sunday_morning: [false],
+    sunday_afternoon: [false],
+  });
+
+  readonly volunteerMapsLink = computed(() => {
+    const v = this.volunteer();
+    if (!v?.lat || !v?.lng) return null;
+    return `https://www.google.com/maps?q=${v.lat},${v.lng}`;
   });
 
   ngOnInit() {
@@ -85,6 +114,30 @@ export class VolunteerDetailComponent implements OnInit {
       });
     } else if (section === 'roles') {
       this.selectedRoleIds.set(v.roles.map(r => r.id));
+    } else if (section === 'location') {
+      this.locationForm.setValue({ car_seats: v.car_seats != null ? String(v.car_seats) : '' });
+      this.locationResult.set(
+        v.hosting_address && v.lat != null && v.lng != null
+          ? { address: v.hosting_address, lat: v.lat, lng: v.lng }
+          : null
+      );
+    } else if (section === 'schedule') {
+      this.scheduleForm.setValue({
+        monday_morning: v.monday_morning,
+        monday_afternoon: v.monday_afternoon,
+        tuesday_morning: v.tuesday_morning,
+        tuesday_afternoon: v.tuesday_afternoon,
+        wednesday_morning: v.wednesday_morning,
+        wednesday_afternoon: v.wednesday_afternoon,
+        thursday_morning: v.thursday_morning,
+        thursday_afternoon: v.thursday_afternoon,
+        friday_morning: v.friday_morning,
+        friday_afternoon: v.friday_afternoon,
+        saturday_morning: v.saturday_morning,
+        saturday_afternoon: v.saturday_afternoon,
+        sunday_morning: v.sunday_morning,
+        sunday_afternoon: v.sunday_afternoon,
+      });
     }
 
     this.editSection.set(section);
@@ -118,6 +171,18 @@ export class VolunteerDetailComponent implements OnInit {
       };
     } else if (section === 'roles') {
       payload = { role_ids: this.selectedRoleIds() };
+    } else if (section === 'location') {
+      const raw = this.locationForm.getRawValue();
+      const loc = this.locationResult();
+      payload = {
+        hosting_address: loc?.address ?? null,
+        lat: loc?.lat ?? null,
+        lng: loc?.lng ?? null,
+        maps_link: loc ? `https://www.google.com/maps?q=${loc.lat},${loc.lng}` : null,
+        car_seats: raw.car_seats !== '' ? parseInt(raw.car_seats, 10) : null,
+      };
+    } else if (section === 'schedule') {
+      payload = this.scheduleForm.getRawValue();
     }
 
     this.svc.update(v.id, payload).subscribe({
