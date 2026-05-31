@@ -15,17 +15,17 @@ describe('VolunteersService', () => {
 
   afterEach(() => http.verify());
 
-  it('getAll makes GET /api/volunteers with default limit 200', () => {
+  it('getAll makes GET /api/volunteers with default limit 50', () => {
     service.getAll().subscribe();
-    const req = http.expectOne(r => r.url === '/api/volunteers' && r.params.get('limit') === '200');
+    const req = http.expectOne(r => r.url === '/api/volunteers' && r.params.get('limit') === '50');
     expect(req.request.method).toBe('GET');
-    req.flush({ data: [], total: 0, page: 1, limit: 200 });
+    req.flush({ data: [], total: 0, page: 1, limit: 50 });
   });
 
   it('getAll passes regionId param', () => {
     service.getAll({ regionId: 'r1' }).subscribe();
     const req = http.expectOne(r => r.url === '/api/volunteers' && r.params.get('regionId') === 'r1');
-    req.flush({ data: [], total: 0, page: 1, limit: 200 });
+    req.flush({ data: [], total: 0, page: 1, limit: 50 });
   });
 
   it('getAll passes custom limit', () => {
