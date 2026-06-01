@@ -260,55 +260,88 @@
                 class="shrink-0 hidden sm:flex flex-col gap-0.5"
                 title="Morning / Afternoon availability"
               >
-                <!-- Day labels -->
-                <div class="flex gap-1">
-                  @for (d of ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']; track d) {
-                    <span
-                      class="w-4 text-center text-[8px] font-medium text-gray-400 dark:text-zinc-500 leading-none"
-                      >{{ d }}</span
-                    >
-                  }
-                </div>
-                <!-- Morning row (blue) -->
-                <div class="flex gap-1">
+                <!-- Day labels: Sat★ Sun★ Mo Tu We Th Fr Sa Su Mon★ -->
+                <div class="flex gap-0.5">
                   @for (
-                    slot of [
-                      v.monday_morning,
-                      v.tuesday_morning,
-                      v.wednesday_morning,
-                      v.thursday_morning,
-                      v.friday_morning,
-                      v.saturday_morning,
-                      v.sunday_morning,
+                    d of [
+                      { label: 'Sa', outside: true },
+                      { label: 'Su', outside: true },
+                      { label: 'Mo', outside: false },
+                      { label: 'Tu', outside: false },
+                      { label: 'We', outside: false },
+                      { label: 'Th', outside: false },
+                      { label: 'Fr', outside: false },
+                      { label: 'Sa', outside: false },
+                      { label: 'Su', outside: false },
+                      { label: 'Mo', outside: true },
                     ];
                     track $index
                   ) {
                     <span
-                      class="w-4 h-2.5 rounded-sm"
+                      class="w-3.5 text-center text-[7px] font-medium leading-none"
                       [class]="
-                        slot ? 'bg-blue-300 dark:bg-blue-600' : 'bg-gray-100 dark:bg-zinc-800'
+                        d.outside
+                          ? 'text-amber-400 dark:text-amber-500'
+                          : 'text-gray-400 dark:text-zinc-500'
+                      "
+                      >{{ d.label }}</span
+                    >
+                  }
+                </div>
+                <!-- Morning row (blue / amber for outside-week) -->
+                <div class="flex gap-0.5">
+                  @for (
+                    s of [
+                      { slot: v.saturday_prev_morning, outside: true },
+                      { slot: v.sunday_prev_morning, outside: true },
+                      { slot: v.monday_morning, outside: false },
+                      { slot: v.tuesday_morning, outside: false },
+                      { slot: v.wednesday_morning, outside: false },
+                      { slot: v.thursday_morning, outside: false },
+                      { slot: v.friday_morning, outside: false },
+                      { slot: v.saturday_morning, outside: false },
+                      { slot: v.sunday_morning, outside: false },
+                      { slot: v.monday_next_morning, outside: true },
+                    ];
+                    track $index
+                  ) {
+                    <span
+                      class="w-3.5 h-2.5 rounded-sm"
+                      [class]="
+                        s.slot
+                          ? s.outside
+                            ? 'bg-amber-300 dark:bg-amber-600'
+                            : 'bg-blue-300 dark:bg-blue-600'
+                          : 'bg-gray-100 dark:bg-zinc-800'
                       "
                     ></span>
                   }
                 </div>
-                <!-- Afternoon row (violet) -->
-                <div class="flex gap-1">
+                <!-- Afternoon row (violet / amber for outside-week) -->
+                <div class="flex gap-0.5">
                   @for (
-                    slot of [
-                      v.monday_afternoon,
-                      v.tuesday_afternoon,
-                      v.wednesday_afternoon,
-                      v.thursday_afternoon,
-                      v.friday_afternoon,
-                      v.saturday_afternoon,
-                      v.sunday_afternoon,
+                    s of [
+                      { slot: v.saturday_prev_afternoon, outside: true },
+                      { slot: v.sunday_prev_afternoon, outside: true },
+                      { slot: v.monday_afternoon, outside: false },
+                      { slot: v.tuesday_afternoon, outside: false },
+                      { slot: v.wednesday_afternoon, outside: false },
+                      { slot: v.thursday_afternoon, outside: false },
+                      { slot: v.friday_afternoon, outside: false },
+                      { slot: v.saturday_afternoon, outside: false },
+                      { slot: v.sunday_afternoon, outside: false },
+                      { slot: v.monday_next_afternoon, outside: true },
                     ];
                     track $index
                   ) {
                     <span
-                      class="w-4 h-2.5 rounded-sm"
+                      class="w-3.5 h-2.5 rounded-sm"
                       [class]="
-                        slot ? 'bg-violet-300 dark:bg-violet-600' : 'bg-gray-100 dark:bg-zinc-800'
+                        s.slot
+                          ? s.outside
+                            ? 'bg-amber-200 dark:bg-amber-700'
+                            : 'bg-violet-300 dark:bg-violet-600'
+                          : 'bg-gray-100 dark:bg-zinc-800'
                       "
                     ></span>
                   }
