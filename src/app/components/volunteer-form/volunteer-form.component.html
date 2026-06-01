@@ -124,6 +124,19 @@
           }
         </div>
 
+        <!-- Teléfono -->
+        <div class="space-y-1">
+          <label class="block text-sm font-semibold text-gray-700">
+            Teléfono
+          </label>
+          <input
+            type="tel"
+            formControlName="phone"
+            placeholder="Ej. +34 600 000 000"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+          />
+        </div>
+
         <!-- Región de participación -->
         <div class="space-y-2">
           <label class="block text-sm font-semibold text-gray-700">
@@ -283,23 +296,40 @@
               <tbody [formGroup]="shiftsGroup">
                 @for (day of days; track day) {
                   <tr
-                    class="border-t border-gray-100 hover:bg-gray-50 transition-colors"
+                    [class]="
+                      outsideWeek.has(day)
+                        ? 'border-t border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors'
+                        : 'border-t border-gray-100 hover:bg-gray-50 transition-colors'
+                    "
                   >
-                    <td class="px-3 py-2.5 font-medium text-gray-700 text-xs">
+                    <td
+                      [class]="
+                        outsideWeek.has(day)
+                          ? 'px-3 py-2.5 font-medium text-amber-700 text-xs'
+                          : 'px-3 py-2.5 font-medium text-gray-700 text-xs'
+                      "
+                    >
                       {{ dayLabel[day] }}
+                      @if (outsideWeek.has(day)) {
+                        <span class="ml-1 text-amber-500 text-[10px]">★</span>
+                      }
                     </td>
                     <td class="text-center px-3 py-2.5">
                       <input
                         type="checkbox"
                         [formControlName]="day + '_morning'"
-                        class="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
+                        class="w-4 h-4 rounded cursor-pointer"
+                        [class.accent-amber-500]="outsideWeek.has(day)"
+                        [class.accent-indigo-600]="!outsideWeek.has(day)"
                       />
                     </td>
                     <td class="text-center px-3 py-2.5">
                       <input
                         type="checkbox"
                         [formControlName]="day + '_afternoon'"
-                        class="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
+                        class="w-4 h-4 rounded cursor-pointer"
+                        [class.accent-amber-500]="outsideWeek.has(day)"
+                        [class.accent-indigo-600]="!outsideWeek.has(day)"
                       />
                     </td>
                   </tr>
@@ -307,6 +337,13 @@
               </tbody>
             </table>
           </div>
+          <p class="text-xs text-amber-600 flex items-center gap-1">
+            <span>★</span>
+            <span
+              >Días fuera de la semana principal (sábado previo y lunes
+              siguiente)</span
+            >
+          </p>
         </div>
 
         <!-- Aceptación de condiciones -->

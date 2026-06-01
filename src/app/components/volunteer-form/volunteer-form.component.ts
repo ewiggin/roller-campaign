@@ -21,6 +21,8 @@ import { TERMS_VERSION } from "../../pages/legal/legal";
 type Step = "code" | "form" | "success";
 
 const DAYS = [
+  "saturday_prev",
+  "sunday_prev",
   "monday",
   "tuesday",
   "wednesday",
@@ -28,8 +30,11 @@ const DAYS = [
   "friday",
   "saturday",
   "sunday",
+  "monday_next",
 ] as const;
 const DAY_LABEL: Record<(typeof DAYS)[number], string> = {
+  saturday_prev: "Sábado",
+  sunday_prev: "Domingo",
   monday: "Lunes",
   tuesday: "Martes",
   wednesday: "Miércoles",
@@ -37,7 +42,14 @@ const DAY_LABEL: Record<(typeof DAYS)[number], string> = {
   friday: "Viernes",
   saturday: "Sábado",
   sunday: "Domingo",
+  monday_next: "Lunes",
 };
+
+const OUTSIDE_WEEK = new Set<(typeof DAYS)[number]>([
+  "saturday_prev",
+  "sunday_prev",
+  "monday_next",
+]);
 
 @Component({
   selector: "app-volunteer-form",
@@ -62,6 +74,7 @@ export class VolunteerFormComponent implements OnInit {
 
   readonly days = DAYS;
   readonly dayLabel = DAY_LABEL;
+  readonly outsideWeek = OUTSIDE_WEEK;
 
   private volunteerCode = "";
 
@@ -78,6 +91,10 @@ export class VolunteerFormComponent implements OnInit {
       Validators.required,
     );
     this.shiftsGroup = this.fb.group({
+      saturday_prev_morning: [false],
+      saturday_prev_afternoon: [false],
+      sunday_prev_morning: [false],
+      sunday_prev_afternoon: [false],
       monday_morning: [false],
       monday_afternoon: [false],
       tuesday_morning: [false],
@@ -92,9 +109,12 @@ export class VolunteerFormComponent implements OnInit {
       saturday_afternoon: [false],
       sunday_morning: [false],
       sunday_afternoon: [false],
+      monday_next_morning: [false],
+      monday_next_afternoon: [false],
     });
     this.form = this.fb.group({
       email: ["", [Validators.required, Validators.email]],
+      phone: [""],
       region_id: ["", Validators.required],
       carSeats: [0],
       shifts: this.shiftsGroup,
@@ -150,6 +170,7 @@ export class VolunteerFormComponent implements OnInit {
 
   private applyExistingData(data: {
     email: string | null;
+    phone: string | null;
     car_seats: number | null;
     hosting_address: string | null;
     lat: number | null;
@@ -170,6 +191,12 @@ export class VolunteerFormComponent implements OnInit {
     saturday_afternoon: boolean;
     sunday_morning: boolean;
     sunday_afternoon: boolean;
+    saturday_prev_morning: boolean;
+    saturday_prev_afternoon: boolean;
+    sunday_prev_morning: boolean;
+    sunday_prev_afternoon: boolean;
+    monday_next_morning: boolean;
+    monday_next_afternoon: boolean;
     terms_accepted: boolean | null;
     terms_accepted_at: string | null;
   }): void {
@@ -185,6 +212,7 @@ export class VolunteerFormComponent implements OnInit {
 
     this.form.patchValue({
       email: data.email ?? "",
+      phone: data.phone ?? "",
       region_id: preselectedRegion,
       carSeats,
       aceptaCondiciones: alreadyAccepted,
@@ -205,6 +233,12 @@ export class VolunteerFormComponent implements OnInit {
       saturday_afternoon: data.saturday_afternoon,
       sunday_morning: data.sunday_morning,
       sunday_afternoon: data.sunday_afternoon,
+      saturday_prev_morning: data.saturday_prev_morning,
+      saturday_prev_afternoon: data.saturday_prev_afternoon,
+      sunday_prev_morning: data.sunday_prev_morning,
+      sunday_prev_afternoon: data.sunday_prev_afternoon,
+      monday_next_morning: data.monday_next_morning,
+      monday_next_afternoon: data.monday_next_afternoon,
     });
 
     if (data.hosting_address && data.lat && data.lng) {
@@ -258,6 +292,7 @@ export class VolunteerFormComponent implements OnInit {
       const loc = this.selectedLocation()!;
       const data: VolunteerSubmitData = {
         email: this.form.get("email")!.value,
+        phone: this.form.get("phone")!.value || null,
         region_id: this.form.get("region_id")!.value,
         hosting_address: loc.address,
         lat: loc.lat,

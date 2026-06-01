@@ -10,6 +10,7 @@ export interface VolunteerLookupData {
   volunteer_code: string;
   full_name: string;
   email: string | null;
+  phone: string | null;
   car_seats: number | null;
   hosting_address: string | null;
   lat: number | null;
@@ -29,6 +30,12 @@ export interface VolunteerLookupData {
   saturday_afternoon: boolean;
   sunday_morning: boolean;
   sunday_afternoon: boolean;
+  saturday_prev_morning: boolean;
+  saturday_prev_afternoon: boolean;
+  sunday_prev_morning: boolean;
+  sunday_prev_afternoon: boolean;
+  monday_next_morning: boolean;
+  monday_next_afternoon: boolean;
   regions: RegionOption[];
   terms_accepted: boolean | null;
   terms_accepted_at: string | null;
@@ -36,6 +43,7 @@ export interface VolunteerLookupData {
 
 export interface VolunteerSubmitData {
   email: string;
+  phone?: string | null;
   region_id: string;
   hosting_address?: string;
   lat?: number;
@@ -56,6 +64,12 @@ export interface VolunteerSubmitData {
   saturday_afternoon: boolean;
   sunday_morning: boolean;
   sunday_afternoon: boolean;
+  saturday_prev_morning: boolean;
+  saturday_prev_afternoon: boolean;
+  sunday_prev_morning: boolean;
+  sunday_prev_afternoon: boolean;
+  monday_next_morning: boolean;
+  monday_next_afternoon: boolean;
   terms_accepted: boolean;
   terms_version: string;
 }
