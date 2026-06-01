@@ -1,9 +1,11 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, computed } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { UsersService } from '../../../core/services/users.service';
+import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
 import type { User, UserRole } from '../../../core/models/user.model';
+import type { Region } from '../../../core/models/region.model';
 
 type ModalMode = 'create' | 'edit' | null;
 
@@ -34,6 +36,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 })
 export class UsersListComponent implements OnInit {
   private readonly svc = inject(UsersService);
+  private readonly regionsSvc = inject(RegionsService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
 
@@ -42,6 +45,7 @@ export class UsersListComponent implements OnInit {
   readonly roleLabels = ROLE_LABELS;
 
   readonly users = signal<User[]>([]);
+  readonly regions = signal<Region[]>([]);
   readonly loading = signal(true);
   readonly error = signal('');
 
@@ -50,14 +54,21 @@ export class UsersListComponent implements OnInit {
   readonly formError = signal('');
   private editingId = signal<string | null>(null);
 
+  readonly selectedRegionIds = signal<Set<string>>(new Set());
+
   readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.minLength(8)]],
     role: ['region_admin' as UserRole, Validators.required],
   });
 
+  readonly showRegions = computed(
+    () => !['superadmin', 'guest'].includes(this.form.getRawValue().role),
+  );
+
   ngOnInit() {
     this.load();
+    this.loadRegions();
   }
 
   private load() {
@@ -74,11 +85,19 @@ export class UsersListComponent implements OnInit {
     });
   }
 
+  private loadRegions() {
+    this.regionsSvc.getAll().subscribe({
+      next: (r) => this.regions.set(r),
+      error: () => {},
+    });
+  }
+
   openCreate() {
     this.editingId.set(null);
     this.form.reset({ email: '', password: '', role: 'region_admin' });
     this.form.get('password')!.setValidators([Validators.required, Validators.minLength(8)]);
     this.form.get('password')!.updateValueAndValidity();
+    this.selectedRegionIds.set(new Set());
     this.formError.set('');
     this.modal.set('create');
   }
@@ -88,8 +107,22 @@ export class UsersListComponent implements OnInit {
     this.form.setValue({ email: user.email, password: '', role: user.role });
     this.form.get('password')!.setValidators([Validators.minLength(8)]);
     this.form.get('password')!.updateValueAndValidity();
+    this.selectedRegionIds.set(new Set(user.regions?.map((r) => r.id) ?? []));
     this.formError.set('');
     this.modal.set('edit');
+  }
+
+  toggleRegion(id: string) {
+    this.selectedRegionIds.update((set) => {
+      const next = new Set(set);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  isRegionSelected(id: string) {
+    return this.selectedRegionIds().has(id);
   }
 
   save() {
@@ -99,19 +132,22 @@ export class UsersListComponent implements OnInit {
 
     const raw = this.form.getRawValue();
     const id = this.editingId();
+    const region_ids = [...this.selectedRegionIds()];
 
     if (id) {
-      const payload: Record<string, unknown> = { email: raw.email, role: raw.role };
+      const payload: Record<string, unknown> = { email: raw.email, role: raw.role, region_ids };
       if (raw.password) payload['password'] = raw.password;
       this.svc.update(id, payload).subscribe({
         next: () => this.onSaved(),
         error: (err) => this.onError(err),
       });
     } else {
-      this.svc.create({ email: raw.email, password: raw.password, role: raw.role }).subscribe({
-        next: () => this.onSaved(),
-        error: (err) => this.onError(err),
-      });
+      this.svc
+        .create({ email: raw.email, password: raw.password, role: raw.role, region_ids })
+        .subscribe({
+          next: () => this.onSaved(),
+          error: (err) => this.onError(err),
+        });
     }
   }
 

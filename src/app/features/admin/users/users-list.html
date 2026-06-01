@@ -61,9 +61,15 @@
                   <span class="text-[10px] text-gray-400 dark:text-zinc-500">(you)</span>
                 }
               </div>
-              <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
-                Created {{ user.created_at | date: 'dd/MM/yyyy' }}
-              </p>
+              @if (user.regions?.length) {
+                <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5 truncate">
+                  @for (r of user.regions; track r.id; let last = $last) {
+                    {{ r.name }}{{ !last ? ', ' : '' }}
+                  }
+                </p>
+              } @else {
+                <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">No regions assigned</p>
+              }
             </div>
 
             <span
@@ -189,6 +195,35 @@
             }
           </select>
         </div>
+
+        @if (showRegions()) {
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-2">
+              Regions
+            </label>
+            @if (regions().length === 0) {
+              <p class="text-xs text-gray-400 dark:text-zinc-500">No regions available.</p>
+            } @else {
+              <div
+                class="rounded-lg border border-gray-200 dark:border-zinc-700 divide-y divide-gray-100 dark:divide-zinc-800 max-h-48 overflow-y-auto"
+              >
+                @for (region of regions(); track region.id) {
+                  <label
+                    class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-zinc-800/50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="isRegionSelected(region.id)"
+                      (change)="toggleRegion(region.id)"
+                      class="rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+                    />
+                    <span class="text-sm text-gray-700 dark:text-zinc-300">{{ region.name }}</span>
+                  </label>
+                }
+              </div>
+            }
+          </div>
+        }
 
         @if (formError()) {
           <p class="text-sm text-red-500">{{ formError() }}</p>

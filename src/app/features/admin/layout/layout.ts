@@ -74,8 +74,18 @@ export class AdminLayoutComponent implements OnInit {
       paths: ICONS.folder,
     },
     { label: 'Guests', path: '/admin/guests', screen: 'guests', paths: ICONS.users },
-    { label: 'Volunteers', path: '/admin/volunteers', paths: ICONS['user-group'] },
-    { label: 'Volunteer Roles', path: '/admin/volunteer-roles', paths: ICONS.tag },
+    {
+      label: 'Volunteers',
+      path: '/admin/volunteers',
+      screen: 'volunteers',
+      paths: ICONS['user-group'],
+    },
+    {
+      label: 'Volunteer Roles',
+      path: '/admin/volunteer-roles',
+      screen: 'volunteers',
+      paths: ICONS.tag,
+    },
     { label: 'Activities', path: '/admin/activities', screen: 'activities', paths: ICONS.calendar },
   ];
 
