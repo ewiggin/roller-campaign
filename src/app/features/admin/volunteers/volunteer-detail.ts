@@ -2,14 +2,16 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import type { Region } from '../../../core/models/region.model';
 import type { Volunteer, VolunteerRole } from '../../../core/models/volunteer.model';
 import {
   LocationPickerComponent,
   type PlaceResult,
 } from '../../../shared/components/location-picker/location-picker';
+import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 
-type EditSection = 'contact' | 'roles' | 'location' | 'schedule' | null;
+type EditSection = 'contact' | 'identity' | 'roles' | 'location' | 'schedule' | null;
 
 const DAYS: {
   key: string;
@@ -77,6 +79,7 @@ const DAYS: {
 export class VolunteerDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly svc = inject(VolunteersService);
+  private readonly regionsSvc = inject(RegionsService);
   private readonly fb = inject(FormBuilder);
   private readonly datePipe = inject(DatePipe);
 
@@ -88,6 +91,8 @@ export class VolunteerDetailComponent implements OnInit {
   readonly saveError = signal('');
   readonly allRoles = signal<VolunteerRole[]>([]);
   readonly selectedRoleIds = signal<string[]>([]);
+  readonly allRegions = signal<Region[]>([]);
+  readonly selectedRegionIds = signal<string[]>([]);
   readonly locationResult = signal<PlaceResult | null>(null);
 
   readonly days = DAYS;
@@ -95,6 +100,10 @@ export class VolunteerDetailComponent implements OnInit {
   readonly regionNames = computed(
     () => (this.volunteer()?.regions ?? []).map((r) => r.name).join(', ') || '—',
   );
+
+  readonly identityForm = this.fb.nonNullable.group({
+    volunteer_code: [''],
+  });
 
   readonly contactForm = this.fb.nonNullable.group({
     full_name: [''],
@@ -139,6 +148,7 @@ export class VolunteerDetailComponent implements OnInit {
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.svc.getRoles().subscribe({ next: (r) => this.allRoles.set(r) });
+    this.regionsSvc.getAll().subscribe({ next: (r) => this.allRegions.set(r) });
     this.loadVolunteer(id);
   }
 
@@ -161,7 +171,10 @@ export class VolunteerDetailComponent implements OnInit {
     if (!v) return;
     this.saveError.set('');
 
-    if (section === 'contact') {
+    if (section === 'identity') {
+      this.identityForm.setValue({ volunteer_code: v.volunteer_code });
+      this.selectedRegionIds.set(v.regions.map((r) => r.id));
+    } else if (section === 'contact') {
       this.contactForm.setValue({
         full_name: v.full_name,
         email: v.email ?? '',
@@ -214,6 +227,19 @@ export class VolunteerDetailComponent implements OnInit {
     }
   }
 
+  isRegionSelected(regionId: string): boolean {
+    return this.selectedRegionIds().includes(regionId);
+  }
+
+  toggleRegion(regionId: string) {
+    const current = this.selectedRegionIds();
+    if (current.includes(regionId)) {
+      this.selectedRegionIds.set(current.filter((id) => id !== regionId));
+    } else {
+      this.selectedRegionIds.set([...current, regionId]);
+    }
+  }
+
   save() {
     const v = this.volunteer();
     if (!v || this.saving()) return;
@@ -223,7 +249,12 @@ export class VolunteerDetailComponent implements OnInit {
     const section = this.editSection();
     let payload: Record<string, unknown> = {};
 
-    if (section === 'contact') {
+    if (section === 'identity') {
+      payload = {
+        volunteer_code: this.identityForm.getRawValue().volunteer_code.trim(),
+        region_ids: this.selectedRegionIds(),
+      };
+    } else if (section === 'contact') {
       const raw = this.contactForm.getRawValue();
       payload = {
         full_name: raw.full_name,
