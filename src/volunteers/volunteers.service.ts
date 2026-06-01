@@ -119,6 +119,7 @@ export class VolunteersService {
       date,
       min_car_seats,
       available_slots,
+      terms_accepted,
       page = 1,
       limit = 50,
     } = query;
@@ -181,6 +182,16 @@ export class VolunteersService {
         available_slots.map((_, i) => [`_av${i}`, true]),
       );
       qb.andWhere(`(${parts.join(' OR ')})`, params);
+    }
+    if (terms_accepted === true) {
+      qb.andWhere('v.terms_accepted = :terms_accepted', {
+        terms_accepted: true,
+      });
+    } else if (terms_accepted === false) {
+      qb.andWhere(
+        '(v.terms_accepted IS NULL OR v.terms_accepted = :terms_accepted)',
+        { terms_accepted: false },
+      );
     }
 
     const total = await qb.getCount();
@@ -820,6 +831,9 @@ export class VolunteersService {
     saturday_afternoon: v.saturday_afternoon,
     sunday_morning: v.sunday_morning,
     sunday_afternoon: v.sunday_afternoon,
+    terms_accepted: v.terms_accepted,
+    terms_accepted_at: v.terms_accepted_at,
+    terms_version: v.terms_version,
     created_at: v.created_at,
     updated_at: v.updated_at,
   });
