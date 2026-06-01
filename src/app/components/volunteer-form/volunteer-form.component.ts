@@ -6,6 +6,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from "@angular/forms";
+import { RouterLink } from "@angular/router";
 import {
   RegionOption,
   VolunteerApiService,
@@ -15,6 +16,7 @@ import {
   LocationPickerComponent,
   PlaceResult,
 } from "../location-picker/location-picker.component";
+import { TERMS_VERSION } from "../../pages/legal/legal";
 
 type Step = "code" | "form" | "success";
 
@@ -40,7 +42,7 @@ const DAY_LABEL: Record<(typeof DAYS)[number], string> = {
 @Component({
   selector: "app-volunteer-form",
   standalone: true,
-  imports: [ReactiveFormsModule, LocationPickerComponent],
+  imports: [ReactiveFormsModule, LocationPickerComponent, RouterLink],
   templateUrl: "./volunteer-form.component.html",
 })
 export class VolunteerFormComponent implements OnInit {
@@ -55,6 +57,8 @@ export class VolunteerFormComponent implements OnInit {
   readonly carAvailable = signal(false);
   readonly availableRegions = signal<RegionOption[]>([]);
   readonly regionsError = signal<string | null>(null);
+  readonly termsAlreadyAccepted = signal(false);
+  readonly termsAcceptedAt = signal<string | null>(null);
 
   readonly days = DAYS;
   readonly dayLabel = DAY_LABEL;
@@ -69,7 +73,10 @@ export class VolunteerFormComponent implements OnInit {
   shiftsGroup!: FormGroup;
 
   constructor() {
-    this.codeControl = this.fb.control<number | null>(null, Validators.required);
+    this.codeControl = this.fb.control<number | null>(
+      null,
+      Validators.required,
+    );
     this.shiftsGroup = this.fb.group({
       monday_morning: [false],
       monday_afternoon: [false],
@@ -91,6 +98,7 @@ export class VolunteerFormComponent implements OnInit {
       region_id: ["", Validators.required],
       carSeats: [0],
       shifts: this.shiftsGroup,
+      aceptaCondiciones: [false, Validators.requiredTrue],
     });
   }
 
@@ -99,7 +107,9 @@ export class VolunteerFormComponent implements OnInit {
       const regions = await this.apiService.getRegions();
       this.availableRegions.set(regions);
     } catch {
-      this.regionsError.set("No se pudieron cargar las regiones. Recarga la página.");
+      this.regionsError.set(
+        "No se pudieron cargar las regiones. Recarga la página.",
+      );
     }
   }
 
@@ -160,9 +170,15 @@ export class VolunteerFormComponent implements OnInit {
     saturday_afternoon: boolean;
     sunday_morning: boolean;
     sunday_afternoon: boolean;
+    terms_accepted: boolean | null;
+    terms_accepted_at: string | null;
   }): void {
     const carSeats = data.car_seats ?? 0;
     this.carAvailable.set(carSeats > 0);
+
+    const alreadyAccepted = data.terms_accepted === true;
+    this.termsAlreadyAccepted.set(alreadyAccepted);
+    this.termsAcceptedAt.set(data.terms_accepted_at);
 
     const preselectedRegion =
       data.regions.length === 1 ? data.regions[0].id : "";
@@ -171,6 +187,7 @@ export class VolunteerFormComponent implements OnInit {
       email: data.email ?? "",
       region_id: preselectedRegion,
       carSeats,
+      aceptaCondiciones: alreadyAccepted,
     });
 
     this.shiftsGroup.patchValue({
@@ -199,6 +216,17 @@ export class VolunteerFormComponent implements OnInit {
       this.initialLocation.set(location);
       this.selectedLocation.set(location);
     }
+  }
+
+  formatTermsDate(isoString: string): string {
+    const d = new Date(isoString);
+    return d.toLocaleString("es-ES", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   incrementSeats(): void {
@@ -237,6 +265,8 @@ export class VolunteerFormComponent implements OnInit {
         maps_link: `https://www.google.com/maps?q=${loc.lat},${loc.lng}`,
         car_seats: this.form.get("carSeats")!.value,
         ...shifts,
+        terms_accepted: this.form.get("aceptaCondiciones")!.value,
+        terms_version: TERMS_VERSION,
       };
       await this.apiService.submit(this.volunteerCode, data);
       this.step.set("success");

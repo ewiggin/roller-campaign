@@ -1,5 +1,5 @@
-import { Injectable, signal } from '@angular/core';
-import { environment } from '../../environments/environment';
+import { Injectable, signal } from "@angular/core";
+import { environment } from "../../environments/environment";
 
 export interface RegionOption {
   id: string;
@@ -30,6 +30,8 @@ export interface VolunteerLookupData {
   sunday_morning: boolean;
   sunday_afternoon: boolean;
   regions: RegionOption[];
+  terms_accepted: boolean | null;
+  terms_accepted_at: string | null;
 }
 
 export interface VolunteerSubmitData {
@@ -54,15 +56,19 @@ export interface VolunteerSubmitData {
   saturday_afternoon: boolean;
   sunday_morning: boolean;
   sunday_afternoon: boolean;
+  terms_accepted: boolean;
+  terms_version: string;
 }
 
-@Injectable({ providedIn: 'root' })
+@Injectable({ providedIn: "root" })
 export class VolunteerApiService {
   readonly isLoading = signal(false);
 
   async getRegions(): Promise<RegionOption[]> {
-    const response = await fetch(`${environment.apiUrl}/volunteer-access/regions`);
-    if (!response.ok) throw new Error('Error al cargar las regiones');
+    const response = await fetch(
+      `${environment.apiUrl}/volunteer-access/regions`,
+    );
+    if (!response.ok) throw new Error("Error al cargar las regiones");
     return response.json() as Promise<RegionOption[]>;
   }
 
@@ -71,7 +77,7 @@ export class VolunteerApiService {
       `${environment.apiUrl}/volunteer-access/lookup?code=${encodeURIComponent(code)}`,
     );
     if (response.status === 404) return null;
-    if (!response.ok) throw new Error('Error al verificar el código');
+    if (!response.ok) throw new Error("Error al verificar el código");
     return response.json() as Promise<VolunteerLookupData>;
   }
 
@@ -81,14 +87,17 @@ export class VolunteerApiService {
       const response = await fetch(
         `${environment.apiUrl}/volunteer-access/submit?code=${encodeURIComponent(code)}`,
         {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         },
       );
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error((body as { message?: string }).message ?? 'Error al enviar el formulario');
+        throw new Error(
+          (body as { message?: string }).message ??
+            "Error al enviar el formulario",
+        );
       }
     } finally {
       this.isLoading.set(false);
