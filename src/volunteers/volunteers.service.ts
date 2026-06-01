@@ -877,6 +877,8 @@ export class VolunteersService {
       sunday_morning: v.sunday_morning,
       sunday_afternoon: v.sunday_afternoon,
       regions: (v.regions ?? []).map((r) => ({ id: r.id, name: r.name })),
+      terms_accepted: v.terms_accepted,
+      terms_accepted_at: v.terms_accepted_at,
     };
   }
 
@@ -914,6 +916,12 @@ export class VolunteersService {
       saturday_afternoon: dto.saturday_afternoon,
       sunday_morning: dto.sunday_morning,
       sunday_afternoon: dto.sunday_afternoon,
+      terms_accepted: dto.terms_accepted ?? null,
+      terms_version: dto.terms_version ?? null,
+      terms_accepted_at:
+        dto.terms_accepted && !v.terms_accepted_at
+          ? new Date().toISOString()
+          : v.terms_accepted_at,
     });
 
     const alreadyInRegion = (v.regions ?? []).some(
