@@ -87,4 +87,10 @@ export class VolunteerListQueryDto {
   @IsArray()
   @IsIn([...ALL_SLOTS], { each: true })
   available_slots?: string[];
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  terms_accepted?: boolean;
 }

@@ -101,4 +101,14 @@ export class VolunteerFormSubmitDto {
   @ApiProperty({ example: false })
   @IsBoolean()
   sunday_afternoon: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  terms_accepted?: boolean;
+
+  @ApiPropertyOptional({ example: '1.0' })
+  @IsOptional()
+  @IsString()
+  terms_version?: string;
 }

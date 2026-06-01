@@ -104,6 +104,15 @@ export class VolunteerResponseDto {
   @ApiProperty({ example: false })
   sunday_afternoon: boolean;
 
+  @ApiPropertyOptional({ example: true, nullable: true })
+  terms_accepted: boolean | null;
+
+  @ApiPropertyOptional({ example: '2024-01-15T10:00:00.000Z', nullable: true })
+  terms_accepted_at: string | null;
+
+  @ApiPropertyOptional({ example: 'v1', nullable: true })
+  terms_version: string | null;
+
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })
   created_at: Date;
 

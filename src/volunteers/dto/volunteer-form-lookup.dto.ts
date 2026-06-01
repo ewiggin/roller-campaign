@@ -80,4 +80,10 @@ export class VolunteerFormLookupResponseDto {
 
   @ApiProperty({ type: [VolunteerFormRegionDto] })
   regions: VolunteerFormRegionDto[];
+
+  @ApiPropertyOptional({ example: true, nullable: true })
+  terms_accepted: boolean | null;
+
+  @ApiPropertyOptional({ example: '2026-06-01T10:30:00.000Z', nullable: true })
+  terms_accepted_at: string | null;
 }

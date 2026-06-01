@@ -103,6 +103,15 @@ export class Volunteer {
   @Column({ default: false })
   sunday_afternoon: boolean;
 
+  @Column({ type: 'boolean', nullable: true, default: null })
+  terms_accepted: boolean | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  terms_version: string | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  terms_accepted_at: string | null;
+
   @ManyToMany(
     'Activity',
     (activity: { volunteers: Volunteer[] }) => activity.volunteers,
