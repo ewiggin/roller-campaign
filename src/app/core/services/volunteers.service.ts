@@ -21,6 +21,7 @@ export class VolunteersService {
       is_active?: boolean;
       min_car_seats?: number;
       available_slots?: string[];
+      terms_accepted?: boolean;
       page?: number;
       limit?: number;
     } = {},
@@ -33,6 +34,8 @@ export class VolunteersService {
     if (query.min_car_seats !== undefined)
       params = params.set('min_car_seats', String(query.min_car_seats));
     for (const s of query.available_slots ?? []) params = params.append('available_slots', s);
+    if (query.terms_accepted !== undefined)
+      params = params.set('terms_accepted', String(query.terms_accepted));
     if (query.page) params = params.set('page', String(query.page));
     params = params.set('limit', String(query.limit ?? 50));
     return this.http.get<VolunteerListResponse>('/api/volunteers', { params });
@@ -65,6 +68,7 @@ export class VolunteersService {
       search?: string;
       min_car_seats?: number;
       available_slots?: string[];
+      terms_accepted?: boolean;
     } = {},
   ) {
     let params = new HttpParams();
@@ -74,6 +78,8 @@ export class VolunteersService {
     if (query.min_car_seats !== undefined)
       params = params.set('min_car_seats', String(query.min_car_seats));
     for (const s of query.available_slots ?? []) params = params.append('available_slots', s);
+    if (query.terms_accepted !== undefined)
+      params = params.set('terms_accepted', String(query.terms_accepted));
     return this.http.get('/api/volunteers/export', { params, responseType: 'blob' });
   }
 

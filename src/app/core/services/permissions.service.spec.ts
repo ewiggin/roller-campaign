@@ -5,7 +5,15 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { PermissionsService } from './permissions.service';
 import type { RolePermissions } from '../models/settings.model';
 
-const ALL_SCREENS = ['dashboard', 'regions', 'hosts', 'guest-groups', 'guests', 'activities', 'volunteers'];
+const ALL_SCREENS = [
+  'dashboard',
+  'regions',
+  'hosts',
+  'guest-groups',
+  'guests',
+  'activities',
+  'volunteers',
+];
 
 function makeJwt(payload: Record<string, unknown>): string {
   const header = btoa(JSON.stringify({ alg: 'HS256' }));

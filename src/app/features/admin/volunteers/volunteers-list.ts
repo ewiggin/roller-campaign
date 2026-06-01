@@ -50,6 +50,7 @@ export class VolunteersListComponent implements OnInit {
   readonly filterRole = signal('');
   readonly filterMinCarSeats = signal('');
   readonly filterAvailability = signal<string[]>([]);
+  readonly filterTermsAccepted = signal<'' | 'true' | 'false'>('');
   readonly filterSearch = signal('');
   readonly page = signal(1);
   readonly limit = 50;
@@ -82,12 +83,14 @@ export class VolunteersListComponent implements OnInit {
   private buildQuery() {
     const minSeats = this.filterMinCarSeats();
     const slots = this.filterAvailability();
+    const terms = this.filterTermsAccepted();
     return {
       regionId: this.filterRegion() || undefined,
       roleId: this.filterRole() || undefined,
       search: this.filterSearch() || undefined,
       min_car_seats: minSeats ? parseInt(minSeats, 10) : undefined,
       available_slots: slots.length ? slots : undefined,
+      terms_accepted: terms === '' ? undefined : terms === 'true',
     };
   }
 
