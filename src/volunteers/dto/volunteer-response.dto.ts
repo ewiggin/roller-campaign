@@ -104,6 +104,24 @@ export class VolunteerResponseDto {
   @ApiProperty({ example: false })
   sunday_afternoon: boolean;
 
+  @ApiProperty({ example: false })
+  saturday_prev_morning: boolean;
+
+  @ApiProperty({ example: false })
+  saturday_prev_afternoon: boolean;
+
+  @ApiProperty({ example: false })
+  sunday_prev_morning: boolean;
+
+  @ApiProperty({ example: false })
+  sunday_prev_afternoon: boolean;
+
+  @ApiProperty({ example: false })
+  monday_next_morning: boolean;
+
+  @ApiProperty({ example: false })
+  monday_next_afternoon: boolean;
+
   @ApiPropertyOptional({ example: true, nullable: true })
   terms_accepted: boolean | null;
 

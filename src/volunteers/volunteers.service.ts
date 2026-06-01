@@ -318,6 +318,30 @@ export class VolunteersService {
         dto.sunday_afternoon !== undefined
           ? dto.sunday_afternoon
           : v.sunday_afternoon,
+      saturday_prev_morning:
+        dto.saturday_prev_morning !== undefined
+          ? dto.saturday_prev_morning
+          : v.saturday_prev_morning,
+      saturday_prev_afternoon:
+        dto.saturday_prev_afternoon !== undefined
+          ? dto.saturday_prev_afternoon
+          : v.saturday_prev_afternoon,
+      sunday_prev_morning:
+        dto.sunday_prev_morning !== undefined
+          ? dto.sunday_prev_morning
+          : v.sunday_prev_morning,
+      sunday_prev_afternoon:
+        dto.sunday_prev_afternoon !== undefined
+          ? dto.sunday_prev_afternoon
+          : v.sunday_prev_afternoon,
+      monday_next_morning:
+        dto.monday_next_morning !== undefined
+          ? dto.monday_next_morning
+          : v.monday_next_morning,
+      monday_next_afternoon:
+        dto.monday_next_afternoon !== undefined
+          ? dto.monday_next_afternoon
+          : v.monday_next_afternoon,
     });
 
     const saved = await this.volunteersRepo.save(v);
@@ -457,6 +481,12 @@ export class VolunteersService {
         saturday_afternoon: this.parseBool(row['Sa T']),
         sunday_morning: this.parseBool(row['Do M']),
         sunday_afternoon: this.parseBool(row['Do T']),
+        saturday_prev_morning: this.parseBool(row['SaA M']),
+        saturday_prev_afternoon: this.parseBool(row['SaA T']),
+        sunday_prev_morning: this.parseBool(row['DoA M']),
+        sunday_prev_afternoon: this.parseBool(row['DoA T']),
+        monday_next_morning: this.parseBool(row['LuS M']),
+        monday_next_afternoon: this.parseBool(row['LuS T']),
       });
     }
 
@@ -530,6 +560,12 @@ export class VolunteersService {
           saturday_afternoon: row.saturday_afternoon ?? false,
           sunday_morning: row.sunday_morning ?? false,
           sunday_afternoon: row.sunday_afternoon ?? false,
+          saturday_prev_morning: row.saturday_prev_morning ?? false,
+          saturday_prev_afternoon: row.saturday_prev_afternoon ?? false,
+          sunday_prev_morning: row.sunday_prev_morning ?? false,
+          sunday_prev_afternoon: row.sunday_prev_afternoon ?? false,
+          monday_next_morning: row.monday_next_morning ?? false,
+          monday_next_afternoon: row.monday_next_afternoon ?? false,
         }),
       );
       created++;
@@ -618,6 +654,12 @@ export class VolunteersService {
       'Sa T',
       'Do M',
       'Do T',
+      'SaA M',
+      'SaA T',
+      'DoA M',
+      'DoA T',
+      'LuS M',
+      'LuS T',
       'Maps',
       'Lat',
       'Lon',
@@ -650,6 +692,12 @@ export class VolunteersService {
       'Sí',
       'Sí',
       'Sí',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
       'https://www.google.com/maps?q=42.18,2.47',
       '42,1836987',
       '2,4774935',
@@ -747,6 +795,12 @@ export class VolunteersService {
       'Sa T',
       'Do M',
       'Do T',
+      'SaA M',
+      'SaA T',
+      'DoA M',
+      'DoA T',
+      'LuS M',
+      'LuS T',
     ];
 
     const rows = volunteers.map((v) => [
@@ -776,6 +830,12 @@ export class VolunteersService {
       v.saturday_afternoon ? 'Yes' : 'No',
       v.sunday_morning ? 'Yes' : 'No',
       v.sunday_afternoon ? 'Yes' : 'No',
+      v.saturday_prev_morning ? 'Yes' : 'No',
+      v.saturday_prev_afternoon ? 'Yes' : 'No',
+      v.sunday_prev_morning ? 'Yes' : 'No',
+      v.sunday_prev_afternoon ? 'Yes' : 'No',
+      v.monday_next_morning ? 'Yes' : 'No',
+      v.monday_next_afternoon ? 'Yes' : 'No',
     ]);
 
     const wb = XLSX.utils.book_new();
@@ -831,6 +891,12 @@ export class VolunteersService {
     saturday_afternoon: v.saturday_afternoon,
     sunday_morning: v.sunday_morning,
     sunday_afternoon: v.sunday_afternoon,
+    saturday_prev_morning: v.saturday_prev_morning,
+    saturday_prev_afternoon: v.saturday_prev_afternoon,
+    sunday_prev_morning: v.sunday_prev_morning,
+    sunday_prev_afternoon: v.sunday_prev_afternoon,
+    monday_next_morning: v.monday_next_morning,
+    monday_next_afternoon: v.monday_next_afternoon,
     terms_accepted: v.terms_accepted,
     terms_accepted_at: v.terms_accepted_at,
     terms_version: v.terms_version,
@@ -857,6 +923,7 @@ export class VolunteersService {
       volunteer_code: v.volunteer_code,
       full_name: v.full_name,
       email: v.email,
+      phone: v.phone,
       car_seats: v.car_seats,
       hosting_address: v.hosting_address,
       lat: v.lat,
@@ -876,6 +943,12 @@ export class VolunteersService {
       saturday_afternoon: v.saturday_afternoon,
       sunday_morning: v.sunday_morning,
       sunday_afternoon: v.sunday_afternoon,
+      saturday_prev_morning: v.saturday_prev_morning,
+      saturday_prev_afternoon: v.saturday_prev_afternoon,
+      sunday_prev_morning: v.sunday_prev_morning,
+      sunday_prev_afternoon: v.sunday_prev_afternoon,
+      monday_next_morning: v.monday_next_morning,
+      monday_next_afternoon: v.monday_next_afternoon,
       regions: (v.regions ?? []).map((r) => ({ id: r.id, name: r.name })),
       terms_accepted: v.terms_accepted,
       terms_accepted_at: v.terms_accepted_at,
@@ -897,6 +970,7 @@ export class VolunteersService {
 
     Object.assign(v, {
       email: dto.email,
+      phone: dto.phone ?? null,
       hosting_address: dto.hosting_address ?? null,
       lat: dto.lat ?? null,
       lng: dto.lng ?? null,
@@ -916,6 +990,12 @@ export class VolunteersService {
       saturday_afternoon: dto.saturday_afternoon,
       sunday_morning: dto.sunday_morning,
       sunday_afternoon: dto.sunday_afternoon,
+      saturday_prev_morning: dto.saturday_prev_morning,
+      saturday_prev_afternoon: dto.saturday_prev_afternoon,
+      sunday_prev_morning: dto.sunday_prev_morning,
+      sunday_prev_afternoon: dto.sunday_prev_afternoon,
+      monday_next_morning: dto.monday_next_morning,
+      monday_next_afternoon: dto.monday_next_afternoon,
       terms_accepted: dto.terms_accepted ?? null,
       terms_version: dto.terms_version ?? null,
       terms_accepted_at:
