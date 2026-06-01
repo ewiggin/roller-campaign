@@ -123,6 +123,24 @@ export class ImportVolunteerRowDto {
 
   @ApiPropertyOptional({ example: true })
   sunday_afternoon?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  saturday_prev_morning?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  saturday_prev_afternoon?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  sunday_prev_morning?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  sunday_prev_afternoon?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  monday_next_morning?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  monday_next_afternoon?: boolean;
 }
 
 export class ImportVolunteerParseResponseDto {

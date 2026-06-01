@@ -16,6 +16,11 @@ export class VolunteerFormSubmitDto {
   @IsEmail()
   email: string;
 
+  @ApiPropertyOptional({ example: '+34 600 000 000' })
+  @IsOptional()
+  @IsString()
+  phone?: string | null;
+
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   @IsUUID()
   region_id: string;
@@ -101,6 +106,30 @@ export class VolunteerFormSubmitDto {
   @ApiProperty({ example: false })
   @IsBoolean()
   sunday_afternoon: boolean;
+
+  @ApiProperty({ example: false })
+  @IsBoolean()
+  saturday_prev_morning: boolean;
+
+  @ApiProperty({ example: false })
+  @IsBoolean()
+  saturday_prev_afternoon: boolean;
+
+  @ApiProperty({ example: false })
+  @IsBoolean()
+  sunday_prev_morning: boolean;
+
+  @ApiProperty({ example: false })
+  @IsBoolean()
+  sunday_prev_afternoon: boolean;
+
+  @ApiProperty({ example: false })
+  @IsBoolean()
+  monday_next_morning: boolean;
+
+  @ApiProperty({ example: false })
+  @IsBoolean()
+  monday_next_afternoon: boolean;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()
