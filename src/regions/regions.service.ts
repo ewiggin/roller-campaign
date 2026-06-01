@@ -64,7 +64,7 @@ export class RegionsService {
         relations: { coordinators: true },
       });
       result = regions.map(this.toDto);
-    } else if (currentUser.role === 'region_admin') {
+    } else {
       const user = await this.usersRepository.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
@@ -76,8 +76,6 @@ export class RegionsService {
         relations: { coordinators: true },
       });
       result = regions.map(this.toDto);
-    } else {
-      throw new ForbiddenException();
     }
 
     await this.cache.set(key, result, 300_000);
@@ -130,11 +128,10 @@ export class RegionsService {
 
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
-    if (user.role !== 'region_admin') {
+    if (user.role !== 'region_admin')
       throw new BadRequestException(
-        'Solo usuarios con rol region_admin pueden ser coordinadores',
+        'Only users with role region_admin can be assigned as coordinators',
       );
-    }
 
     const alreadyCoordinator = region.coordinators.some((c) => c.id === userId);
     if (!alreadyCoordinator) {
@@ -164,14 +161,10 @@ export class RegionsService {
 
   private assertAccess(region: Region, currentUser: JwtPayload): void {
     if (currentUser.role === 'superadmin') return;
-    if (currentUser.role === 'region_admin') {
-      const isCoordinator = (region.coordinators ?? []).some(
-        (c) => c.id === currentUser.sub,
-      );
-      if (!isCoordinator) throw new ForbiddenException();
-      return;
-    }
-    throw new ForbiddenException();
+    const isCoordinator = (region.coordinators ?? []).some(
+      (c) => c.id === currentUser.sub,
+    );
+    if (!isCoordinator) throw new ForbiddenException();
   }
 
   async getStats(currentUser: JwtPayload): Promise<RegionStatsDto[]> {
@@ -181,15 +174,13 @@ export class RegionsService {
 
     // Resolve which regions the user can see
     let regionIds: string[] | null = null;
-    if (currentUser.role === 'region_admin') {
+    if (currentUser.role !== 'superadmin') {
       const user = await this.usersRepository.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
       });
       regionIds = (user?.regions ?? []).map((r) => r.id);
       if (regionIds.length === 0) return [];
-    } else if (currentUser.role !== 'superadmin') {
-      return [];
     }
 
     const regions = regionIds

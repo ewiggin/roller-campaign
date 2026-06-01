@@ -8,7 +8,14 @@ import {
 } from 'typeorm';
 import type { Region } from '../../regions/entities/region.entity';
 
-export type UserRole = 'superadmin' | 'region_admin' | 'volunteer' | 'guest';
+export type UserRole =
+  | 'superadmin'
+  | 'region_admin'
+  | 'volunteer'
+  | 'volunteer_manager'
+  | 'guest_manager'
+  | 'host_manager'
+  | 'guest';
 
 @Entity('users')
 export class User {

@@ -38,20 +38,17 @@ import {
   ImportHostParseResponseDto,
 } from './dto/import-host.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiTags('hosts')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 @Controller('hosts')
 export class HostsController {
   constructor(private readonly service: HostsService) {}
 
   @Get('export')
-  @Roles('region_admin')
   @ApiOkResponse({ description: 'Excel con todas las congregaciones' })
   async exportExcel(
     @Query('regionId') regionId: string | undefined,
@@ -68,7 +65,6 @@ export class HostsController {
   }
 
   @Get('import/template')
-  @Roles('superadmin')
   @ApiOkResponse({
     description: 'Plantilla Excel para importación de congregaciones',
   })
@@ -84,7 +80,6 @@ export class HostsController {
   }
 
   @Post('import/parse')
-  @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -96,7 +91,6 @@ export class HostsController {
   }
 
   @Post('import/commit')
-  @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportHostCommitResponseDto })
   commitImport(
@@ -106,7 +100,6 @@ export class HostsController {
   }
 
   @Post()
-  @Roles('region_admin')
   @ApiCreatedResponse({ type: HostResponseDto })
   create(
     @Body() dto: CreateHostDto,
@@ -116,7 +109,6 @@ export class HostsController {
   }
 
   @Get(':id')
-  @Roles('region_admin')
   @ApiOkResponse({ type: HostResponseDto })
   getOne(
     @Param('id', ParseUUIDPipe) id: string,
@@ -126,7 +118,6 @@ export class HostsController {
   }
 
   @Get(':id/group-suggestions')
-  @Roles('region_admin')
   @ApiOkResponse({ type: GroupSuggestionsResponseDto })
   getGroupSuggestions(
     @Param('id', ParseUUIDPipe) id: string,
@@ -136,7 +127,6 @@ export class HostsController {
   }
 
   @Get()
-  @Roles('region_admin')
   @ApiOkResponse({ type: [HostResponseDto] })
   findAll(
     @Query('regionId') regionId: string | undefined,
@@ -146,7 +136,6 @@ export class HostsController {
   }
 
   @Patch(':id')
-  @Roles('region_admin')
   @ApiOkResponse({ type: HostResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -157,7 +146,6 @@ export class HostsController {
   }
 
   @Get(':id/guests/export')
-  @Roles('region_admin')
   @ApiOkResponse({ description: 'Excel con invitados asignados al host' })
   async exportGuests(
     @Param('id', ParseUUIDPipe) id: string,
@@ -177,7 +165,6 @@ export class HostsController {
   }
 
   @Delete(':id')
-  @Roles('superadmin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
