@@ -5,7 +5,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { PermissionsService } from './permissions.service';
 import type { RolePermissions } from '../models/settings.model';
 
-const ALL_SCREENS = ['dashboard', 'regions', 'hosts', 'guest-groups', 'guests', 'activities'];
+const ALL_SCREENS = ['dashboard', 'regions', 'hosts', 'guest-groups', 'guests', 'activities', 'volunteers'];
 
 function makeJwt(payload: Record<string, unknown>): string {
   const header = btoa(JSON.stringify({ alg: 'HS256' }));
@@ -55,7 +55,7 @@ describe('PermissionsService', () => {
     it('region_admin defaults to all screens', () => {
       const { service } = setup('superadmin');
       expect(service.permissions().region_admin).toEqual(expect.arrayContaining(ALL_SCREENS));
-      expect(service.permissions().region_admin).toHaveLength(6);
+      expect(service.permissions().region_admin).toHaveLength(7);
     });
 
     it('new roles default to empty array', () => {
