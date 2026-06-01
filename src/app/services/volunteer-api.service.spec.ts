@@ -1,9 +1,9 @@
-import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { VolunteerApiService } from './volunteer-api.service';
+import { TestBed } from "@angular/core/testing";
+import { provideHttpClient } from "@angular/common/http";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
+import { VolunteerApiService } from "./volunteer-api.service";
 
-describe('VolunteerApiService', () => {
+describe("VolunteerApiService", () => {
   let service: VolunteerApiService;
 
   beforeEach(() => {
@@ -13,7 +13,7 @@ describe('VolunteerApiService', () => {
     service = TestBed.inject(VolunteerApiService);
   });
 
-  it('should be created', () => {
+  it("should be created", () => {
     expect(service).toBeTruthy();
   });
 });
