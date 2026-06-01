@@ -37,6 +37,9 @@ export interface Volunteer {
   saturday_afternoon: boolean;
   sunday_morning: boolean;
   sunday_afternoon: boolean;
+  terms_accepted: boolean | null;
+  terms_accepted_at: string | null;
+  terms_version: string | null;
   created_at: string;
   updated_at: string;
 }
