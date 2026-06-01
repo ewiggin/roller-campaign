@@ -1,6 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import type { Host, CreateHostPayload, UpdateHostPayload, GroupSuggestionsResponse, ImportHostRow, ImportHostParseResponse, ImportHostCommitResponse } from '../models/host.model';
+import type {
+  Host,
+  CreateHostPayload,
+  UpdateHostPayload,
+  GroupSuggestionsResponse,
+  ImportHostRow,
+  ImportHostParseResponse,
+  ImportHostCommitResponse,
+} from '../models/host.model';
 
 @Injectable({ providedIn: 'root' })
 export class HostsService {

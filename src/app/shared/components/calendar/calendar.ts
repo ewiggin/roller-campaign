@@ -1,11 +1,4 @@
-import {
-  Component,
-  OnInit,
-  computed,
-  input,
-  output,
-  signal,
-} from '@angular/core';
+import { Component, OnInit, computed, input, output, signal } from '@angular/core';
 import { NgStyle } from '@angular/common';
 import type { Activity } from '../../../core/models/activity.model';
 
@@ -16,9 +9,14 @@ const HOUR_END = 22;
 const PX_PER_HOUR = 64;
 const TOTAL_HEIGHT = (HOUR_END - HOUR_START) * PX_PER_HOUR;
 
-export interface Layout { col: number; totalCols: number; }
+export interface Layout {
+  col: number;
+  totalCols: number;
+}
 
-export function computeLayout(acts: { id: string; start_time: string; end_time: string }[]): Map<string, Layout> {
+export function computeLayout(
+  acts: { id: string; start_time: string; end_time: string }[],
+): Map<string, Layout> {
   const result = new Map<string, Layout>();
   if (!acts.length) return result;
 
@@ -70,7 +68,10 @@ export class CalendarComponent implements OnInit {
 
   readonly nowY = (() => {
     const now = new Date();
-    return Math.max(0, (now.getHours() - HOUR_START) * PX_PER_HOUR + now.getMinutes() * (PX_PER_HOUR / 60));
+    return Math.max(
+      0,
+      (now.getHours() - HOUR_START) * PX_PER_HOUR + now.getMinutes() * (PX_PER_HOUR / 60),
+    );
   })();
 
   private readonly todayStr = this.toISO(new Date());
@@ -88,7 +89,12 @@ export class CalendarComponent implements OnInit {
         return `${mon.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${sun.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
       }
       case 'day':
-        return a.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        return a.toLocaleDateString('en-GB', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
     }
   });
 
@@ -102,16 +108,28 @@ export class CalendarComponent implements OnInit {
     const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
     const pad = (n: number) => String(n).padStart(2, '0');
 
-    const cells: { dateStr: string | null; day: number | null; isToday: boolean; acts: Activity[] }[] = [];
+    const cells: {
+      dateStr: string | null;
+      day: number | null;
+      isToday: boolean;
+      acts: Activity[];
+    }[] = [];
 
-    for (let i = 0; i < firstWeekday; i++) cells.push({ dateStr: null, day: null, isToday: false, acts: [] });
+    for (let i = 0; i < firstWeekday; i++)
+      cells.push({ dateStr: null, day: null, isToday: false, acts: [] });
 
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${pad(month + 1)}-${pad(d)}`;
-      cells.push({ dateStr, day: d, isToday: dateStr === this.todayStr, acts: this.activities().filter((a) => a.date === dateStr) });
+      cells.push({
+        dateStr,
+        day: d,
+        isToday: dateStr === this.todayStr,
+        acts: this.activities().filter((a) => a.date === dateStr),
+      });
     }
 
-    while (cells.length % 7 !== 0) cells.push({ dateStr: null, day: null, isToday: false, acts: [] });
+    while (cells.length % 7 !== 0)
+      cells.push({ dateStr: null, day: null, isToday: false, acts: [] });
 
     const weeks: (typeof cells)[] = [];
     for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
@@ -156,9 +174,15 @@ export class CalendarComponent implements OnInit {
   prev() {
     const a = new Date(this.anchor());
     switch (this.view()) {
-      case 'month': a.setMonth(a.getMonth() - 1); break;
-      case 'week': a.setDate(a.getDate() - 7); break;
-      case 'day': a.setDate(a.getDate() - 1); break;
+      case 'month':
+        a.setMonth(a.getMonth() - 1);
+        break;
+      case 'week':
+        a.setDate(a.getDate() - 7);
+        break;
+      case 'day':
+        a.setDate(a.getDate() - 1);
+        break;
     }
     this.anchor.set(a);
     this.expandedMonthCell.set(null);
@@ -168,9 +192,15 @@ export class CalendarComponent implements OnInit {
   next() {
     const a = new Date(this.anchor());
     switch (this.view()) {
-      case 'month': a.setMonth(a.getMonth() + 1); break;
-      case 'week': a.setDate(a.getDate() + 7); break;
-      case 'day': a.setDate(a.getDate() + 1); break;
+      case 'month':
+        a.setMonth(a.getMonth() + 1);
+        break;
+      case 'week':
+        a.setDate(a.getDate() + 7);
+        break;
+      case 'day':
+        a.setDate(a.getDate() + 1);
+        break;
     }
     this.anchor.set(a);
     this.expandedMonthCell.set(null);
@@ -203,7 +233,7 @@ export class CalendarComponent implements OnInit {
     const [eh, em] = activity.end_time.split(':').map(Number);
     const top = Math.max(0, (sh - HOUR_START) * PX_PER_HOUR + sm * (PX_PER_HOUR / 60));
     const height = Math.max(((eh - sh) * 60 + (em - sm)) * (PX_PER_HOUR / 60), 28);
-    const leftPct = (col / totalCols * 100).toFixed(2);
+    const leftPct = ((col / totalCols) * 100).toFixed(2);
     const widthPct = (100 / totalCols).toFixed(2);
     return {
       top: `${top}px`,
@@ -223,7 +253,6 @@ export class CalendarComponent implements OnInit {
     return `${String(h).padStart(2, '0')}:00`;
   }
 
-
   private emitPeriod() {
     const a = this.anchor();
     let dateFrom: string;
@@ -231,7 +260,8 @@ export class CalendarComponent implements OnInit {
 
     switch (this.view()) {
       case 'month': {
-        const y = a.getFullYear(); const m = a.getMonth();
+        const y = a.getFullYear();
+        const m = a.getMonth();
         dateFrom = this.ymd(y, m + 1, 1);
         dateTo = this.ymd(y, m + 1, new Date(y, m + 1, 0).getDate());
         break;

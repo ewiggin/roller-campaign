@@ -3,18 +3,46 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { Volunteer, VolunteerRole } from '../../../core/models/volunteer.model';
-import { LocationPickerComponent, type PlaceResult } from '../../../shared/components/location-picker/location-picker';
+import {
+  LocationPickerComponent,
+  type PlaceResult,
+} from '../../../shared/components/location-picker/location-picker';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 
 type EditSection = 'contact' | 'roles' | 'location' | 'schedule' | null;
 
-const DAYS: { key: string; label: string; morningField: keyof Volunteer; afternoonField: keyof Volunteer }[] = [
+const DAYS: {
+  key: string;
+  label: string;
+  morningField: keyof Volunteer;
+  afternoonField: keyof Volunteer;
+}[] = [
   { key: 'mon', label: 'Mon', morningField: 'monday_morning', afternoonField: 'monday_afternoon' },
-  { key: 'tue', label: 'Tue', morningField: 'tuesday_morning', afternoonField: 'tuesday_afternoon' },
-  { key: 'wed', label: 'Wed', morningField: 'wednesday_morning', afternoonField: 'wednesday_afternoon' },
-  { key: 'thu', label: 'Thu', morningField: 'thursday_morning', afternoonField: 'thursday_afternoon' },
+  {
+    key: 'tue',
+    label: 'Tue',
+    morningField: 'tuesday_morning',
+    afternoonField: 'tuesday_afternoon',
+  },
+  {
+    key: 'wed',
+    label: 'Wed',
+    morningField: 'wednesday_morning',
+    afternoonField: 'wednesday_afternoon',
+  },
+  {
+    key: 'thu',
+    label: 'Thu',
+    morningField: 'thursday_morning',
+    afternoonField: 'thursday_afternoon',
+  },
   { key: 'fri', label: 'Fri', morningField: 'friday_morning', afternoonField: 'friday_afternoon' },
-  { key: 'sat', label: 'Sat', morningField: 'saturday_morning', afternoonField: 'saturday_afternoon' },
+  {
+    key: 'sat',
+    label: 'Sat',
+    morningField: 'saturday_morning',
+    afternoonField: 'saturday_afternoon',
+  },
   { key: 'sun', label: 'Sun', morningField: 'sunday_morning', afternoonField: 'sunday_afternoon' },
 ];
 
@@ -42,8 +70,8 @@ export class VolunteerDetailComponent implements OnInit {
 
   readonly days = DAYS;
 
-  readonly regionNames = computed(() =>
-    (this.volunteer()?.regions ?? []).map(r => r.name).join(', ') || '—'
+  readonly regionNames = computed(
+    () => (this.volunteer()?.regions ?? []).map((r) => r.name).join(', ') || '—',
   );
 
   readonly contactForm = this.fb.nonNullable.group({
@@ -113,13 +141,13 @@ export class VolunteerDetailComponent implements OnInit {
         is_active: v.is_active,
       });
     } else if (section === 'roles') {
-      this.selectedRoleIds.set(v.roles.map(r => r.id));
+      this.selectedRoleIds.set(v.roles.map((r) => r.id));
     } else if (section === 'location') {
       this.locationForm.setValue({ car_seats: v.car_seats != null ? String(v.car_seats) : '' });
       this.locationResult.set(
         v.hosting_address && v.lat != null && v.lng != null
           ? { address: v.hosting_address, lat: v.lat, lng: v.lng }
-          : null
+          : null,
       );
     } else if (section === 'schedule') {
       this.scheduleForm.setValue({
@@ -146,7 +174,7 @@ export class VolunteerDetailComponent implements OnInit {
   toggleRole(roleId: string) {
     const current = this.selectedRoleIds();
     if (current.includes(roleId)) {
-      this.selectedRoleIds.set(current.filter(id => id !== roleId));
+      this.selectedRoleIds.set(current.filter((id) => id !== roleId));
     } else {
       this.selectedRoleIds.set([...current, roleId]);
     }

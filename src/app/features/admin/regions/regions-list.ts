@@ -3,7 +3,12 @@ import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
-import type { Region, ImportRegionRow, ImportRegionParseResponse, ImportRegionCommitResponse } from '../../../core/models/region.model';
+import type {
+  Region,
+  ImportRegionRow,
+  ImportRegionParseResponse,
+  ImportRegionCommitResponse,
+} from '../../../core/models/region.model';
 import type { User } from '../../../core/models/user.model';
 
 type ModalMode = 'create' | 'edit' | 'coordinators' | null;
@@ -48,9 +53,7 @@ export class RegionsListComponent implements OnInit {
     const coordinatorIds = new Set(region?.coordinators.map((c) => c.id) ?? []);
     const search = this.userSearch().toLowerCase();
     return this.allUsers().filter(
-      (u) =>
-        !coordinatorIds.has(u.id) &&
-        (search === '' || u.email.toLowerCase().includes(search)),
+      (u) => !coordinatorIds.has(u.id) && (search === '' || u.email.toLowerCase().includes(search)),
     );
   });
 
@@ -217,8 +220,13 @@ export class RegionsListComponent implements OnInit {
     });
   }
 
-  onDragOver(ev: DragEvent) { ev.preventDefault(); this.isDragging = true; }
-  onDragLeave() { this.isDragging = false; }
+  onDragOver(ev: DragEvent) {
+    ev.preventDefault();
+    this.isDragging = true;
+  }
+  onDragLeave() {
+    this.isDragging = false;
+  }
   onDrop(ev: DragEvent) {
     ev.preventDefault();
     this.isDragging = false;
@@ -248,7 +256,10 @@ export class RegionsListComponent implements OnInit {
 
   get canCommit(): boolean {
     const r = this.parseResult();
-    return !!(r && (r.valid.length > 0 || (this.importUpdateExisting() && r.duplicateRows.length > 0)));
+    return !!(
+      r &&
+      (r.valid.length > 0 || (this.importUpdateExisting() && r.duplicateRows.length > 0))
+    );
   }
 
   get commitLabel(): string {
@@ -256,7 +267,8 @@ export class RegionsListComponent implements OnInit {
     if (!r) return 'Import';
     const parts: string[] = [];
     if (r.valid.length > 0) parts.push(`Import ${r.valid.length} new`);
-    if (this.importUpdateExisting() && r.duplicateRows.length > 0) parts.push(`update ${r.duplicateRows.length} existing`);
+    if (this.importUpdateExisting() && r.duplicateRows.length > 0)
+      parts.push(`update ${r.duplicateRows.length} existing`);
     return parts.join(' + ') || 'Import';
   }
 

@@ -8,7 +8,9 @@ describe('ActivitiesService', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     service = TestBed.inject(ActivitiesService);
     http = TestBed.inject(HttpTestingController);
   });
@@ -17,26 +19,37 @@ describe('ActivitiesService', () => {
 
   it('getAll makes GET /api/activities', () => {
     service.getAll().subscribe();
-    http.expectOne(r => r.url === '/api/activities' && r.method === 'GET').flush({ data: [], total: 0, page: 1, limit: 20 });
+    http
+      .expectOne((r) => r.url === '/api/activities' && r.method === 'GET')
+      .flush({ data: [], total: 0, page: 1, limit: 20 });
   });
 
   it('getAll passes regionId and date params', () => {
     service.getAll({ regionId: 'r1', date: '2026-07-01' }).subscribe();
-    const req = http.expectOne(r =>
-      r.url === '/api/activities' &&
-      r.params.get('regionId') === 'r1' &&
-      r.params.get('date') === '2026-07-01',
+    const req = http.expectOne(
+      (r) =>
+        r.url === '/api/activities' &&
+        r.params.get('regionId') === 'r1' &&
+        r.params.get('date') === '2026-07-01',
     );
     req.flush({ data: [], total: 0, page: 1, limit: 20 });
   });
 
   it('getOne makes GET /api/activities/:id', () => {
     service.getOne('a1').subscribe();
-    http.expectOne(r => r.url === '/api/activities/a1' && r.method === 'GET').flush({});
+    http.expectOne((r) => r.url === '/api/activities/a1' && r.method === 'GET').flush({});
   });
 
   it('create makes POST /api/activities', () => {
-    service.create({ region_id: 'r1', name: 'Test activity', date: '2026-07-01', start_time: '09:00', end_time: '13:00' }).subscribe();
+    service
+      .create({
+        region_id: 'r1',
+        name: 'Test activity',
+        date: '2026-07-01',
+        start_time: '09:00',
+        end_time: '13:00',
+      })
+      .subscribe();
     const req = http.expectOne('/api/activities');
     expect(req.request.method).toBe('POST');
     req.flush({});
@@ -51,7 +64,7 @@ describe('ActivitiesService', () => {
 
   it('remove makes DELETE /api/activities/:id', () => {
     service.remove('a1').subscribe();
-    http.expectOne(r => r.url === '/api/activities/a1' && r.method === 'DELETE').flush(null);
+    http.expectOne((r) => r.url === '/api/activities/a1' && r.method === 'DELETE').flush(null);
   });
 
   it('assignVolunteer makes POST /api/activities/:id/volunteers', () => {
@@ -64,12 +77,14 @@ describe('ActivitiesService', () => {
 
   it('unassignVolunteer makes DELETE /api/activities/:id/volunteers/:vid', () => {
     service.unassignVolunteer('a1', 'v1').subscribe();
-    http.expectOne(r => r.url === '/api/activities/a1/volunteers/v1' && r.method === 'DELETE').flush({});
+    http
+      .expectOne((r) => r.url === '/api/activities/a1/volunteers/v1' && r.method === 'DELETE')
+      .flush({});
   });
 
   it('getAvailableGroups makes GET /api/activities/:id/available-groups', () => {
     service.getAvailableGroups('a1').subscribe();
-    http.expectOne(r => r.url === '/api/activities/a1/available-groups').flush([]);
+    http.expectOne((r) => r.url === '/api/activities/a1/available-groups').flush([]);
   });
 
   it('assignGuestGroup makes POST /api/activities/:id/guest-groups', () => {
@@ -82,7 +97,9 @@ describe('ActivitiesService', () => {
 
   it('unassignGuestGroup makes DELETE /api/activities/:id/guest-groups/:gid', () => {
     service.unassignGuestGroup('a1', 'grp1').subscribe();
-    http.expectOne(r => r.url === '/api/activities/a1/guest-groups/grp1' && r.method === 'DELETE').flush({});
+    http
+      .expectOne((r) => r.url === '/api/activities/a1/guest-groups/grp1' && r.method === 'DELETE')
+      .flush({});
   });
 
   it('publish makes POST /api/activities/:id/publish', () => {
@@ -100,10 +117,16 @@ describe('ActivitiesService', () => {
   });
 
   it('createBatch makes POST /api/activities/batch', () => {
-    service.createBatch({
-      region_id: 'r1', name: 'Batch', date: '2026-07-01', start_time: '09:00', end_time: '13:00',
-      repetition: { type: 'daily', count: 3 },
-    }).subscribe();
+    service
+      .createBatch({
+        region_id: 'r1',
+        name: 'Batch',
+        date: '2026-07-01',
+        start_time: '09:00',
+        end_time: '13:00',
+        repetition: { type: 'daily', count: 3 },
+      })
+      .subscribe();
     const req = http.expectOne('/api/activities/batch');
     expect(req.request.method).toBe('POST');
     expect(req.request.body.repetition).toEqual({ type: 'daily', count: 3 });
@@ -127,22 +150,27 @@ describe('ActivitiesService', () => {
 
   it('getAvailableVolunteers makes GET /api/activities/:id/available-volunteers', () => {
     service.getAvailableVolunteers('a1').subscribe();
-    http.expectOne(r => r.url === '/api/activities/a1/available-volunteers' && r.method === 'GET').flush([]);
+    http
+      .expectOne((r) => r.url === '/api/activities/a1/available-volunteers' && r.method === 'GET')
+      .flush([]);
   });
 
   it('getAll passes dateFrom and dateTo params', () => {
     service.getAll({ dateFrom: '2026-06-01', dateTo: '2026-06-30' }).subscribe();
-    const req = http.expectOne(r =>
-      r.url === '/api/activities' &&
-      r.params.get('dateFrom') === '2026-06-01' &&
-      r.params.get('dateTo') === '2026-06-30',
+    const req = http.expectOne(
+      (r) =>
+        r.url === '/api/activities' &&
+        r.params.get('dateFrom') === '2026-06-01' &&
+        r.params.get('dateTo') === '2026-06-30',
     );
     req.flush({ data: [], total: 0, page: 1, limit: 20 });
   });
 
   it('getAll passes hostId param', () => {
     service.getAll({ hostId: 'h1' }).subscribe();
-    const req = http.expectOne(r => r.url === '/api/activities' && r.params.get('hostId') === 'h1');
+    const req = http.expectOne(
+      (r) => r.url === '/api/activities' && r.params.get('hostId') === 'h1',
+    );
     req.flush({ data: [], total: 0, page: 1, limit: 20 });
   });
 

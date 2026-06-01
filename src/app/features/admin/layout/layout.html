@@ -11,7 +11,7 @@
 
     <nav class="flex-1 overflow-y-auto py-3">
       <ul class="space-y-0.5 px-2">
-        @for (item of navItems; track item.path) {
+        @for (item of navItems(); track item.path) {
           <li>
             <a
               [routerLink]="item.path"

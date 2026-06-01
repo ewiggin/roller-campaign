@@ -70,9 +70,7 @@ export class SearchableSelectComponent implements ControlValueAccessor {
     const q = this.query().toLowerCase().trim();
     if (!q) return this.items();
     return this.items().filter(
-      (i) =>
-        i.label.toLowerCase().includes(q) ||
-        (i.meta?.toLowerCase().includes(q) ?? false),
+      (i) => i.label.toLowerCase().includes(q) || (i.meta?.toLowerCase().includes(q) ?? false),
     );
   });
 
@@ -81,8 +79,12 @@ export class SearchableSelectComponent implements ControlValueAccessor {
   writeValue(value: string): void {
     this.selected.set(value ?? '');
   }
-  registerOnChange(fn: (value: string) => void): void { this.onChange = fn; }
-  registerOnTouched(fn: () => void): void { this.onTouched = fn; }
+  registerOnChange(fn: (value: string) => void): void {
+    this.onChange = fn;
+  }
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(e: MouseEvent) {
@@ -135,9 +137,7 @@ export class SearchableSelectComponent implements ControlValueAccessor {
 
   protected triggerClass() {
     const py = this.compact() ? 'py-1.5' : 'py-2';
-    const border = this.invalid()
-      ? 'border-red-400'
-      : 'border-gray-300 dark:border-zinc-700';
+    const border = this.invalid() ? 'border-red-400' : 'border-gray-300 dark:border-zinc-700';
     return `w-full flex items-center justify-between gap-2 rounded-lg border ${border} bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 ${py} text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors`;
   }
 }

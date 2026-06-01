@@ -168,8 +168,7 @@ export class LocationPickerComponent implements OnInit, OnDestroy {
       return;
     }
     this.geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-      const address =
-        status === 'OK' && results?.[0] ? results[0].formatted_address : fallback;
+      const address = status === 'OK' && results?.[0] ? results[0].formatted_address : fallback;
       this.addressValue = address;
       this.setResult({ address, lat, lng });
     });

@@ -3,10 +3,7 @@ import { Component, input } from '@angular/core';
 @Component({
   selector: 'app-skeleton',
   template: `
-    <div
-      class="animate-pulse bg-gray-200 dark:bg-zinc-700 rounded"
-      [class]="cls()"
-    ></div>
+    <div class="animate-pulse bg-gray-200 dark:bg-zinc-700 rounded" [class]="cls()"></div>
   `,
 })
 export class SkeletonComponent {
