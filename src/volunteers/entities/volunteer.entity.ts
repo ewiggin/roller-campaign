@@ -103,6 +103,24 @@ export class Volunteer {
   @Column({ default: false })
   sunday_afternoon: boolean;
 
+  @Column({ default: false })
+  saturday_prev_morning: boolean;
+
+  @Column({ default: false })
+  saturday_prev_afternoon: boolean;
+
+  @Column({ default: false })
+  sunday_prev_morning: boolean;
+
+  @Column({ default: false })
+  sunday_prev_afternoon: boolean;
+
+  @Column({ default: false })
+  monday_next_morning: boolean;
+
+  @Column({ default: false })
+  monday_next_afternoon: boolean;
+
   @Column({ type: 'boolean', nullable: true, default: null })
   terms_accepted: boolean | null;
 

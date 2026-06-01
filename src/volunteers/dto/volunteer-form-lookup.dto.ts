@@ -18,6 +18,9 @@ export class VolunteerFormLookupResponseDto {
   @ApiPropertyOptional({ example: 'carlos@example.com', nullable: true })
   email: string | null;
 
+  @ApiPropertyOptional({ example: '+34 600 000 000', nullable: true })
+  phone: string | null;
+
   @ApiPropertyOptional({ example: 2, nullable: true })
   car_seats: number | null;
 
@@ -77,6 +80,24 @@ export class VolunteerFormLookupResponseDto {
 
   @ApiProperty({ example: false })
   sunday_afternoon: boolean;
+
+  @ApiProperty({ example: false })
+  saturday_prev_morning: boolean;
+
+  @ApiProperty({ example: false })
+  saturday_prev_afternoon: boolean;
+
+  @ApiProperty({ example: false })
+  sunday_prev_morning: boolean;
+
+  @ApiProperty({ example: false })
+  sunday_prev_afternoon: boolean;
+
+  @ApiProperty({ example: false })
+  monday_next_morning: boolean;
+
+  @ApiProperty({ example: false })
+  monday_next_afternoon: boolean;
 
   @ApiProperty({ type: [VolunteerFormRegionDto] })
   regions: VolunteerFormRegionDto[];
