@@ -10,6 +10,7 @@ const SCREEN_ROUTES: { screen: string; path: string }[] = [
   { screen: 'guest-groups', path: '/admin/guest-groups' },
   { screen: 'guests', path: '/admin/guests' },
   { screen: 'activities', path: '/admin/activities' },
+  { screen: 'volunteers', path: '/admin/volunteers' },
 ];
 
 export const permissionsGuard: CanActivateFn = async (route) => {

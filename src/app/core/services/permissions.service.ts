@@ -6,7 +6,15 @@ import { SettingsService } from './settings.service';
 import type { RolePermissions } from '../models/settings.model';
 
 const DEFAULT_PERMISSIONS: RolePermissions = {
-  region_admin: ['dashboard', 'regions', 'hosts', 'guest-groups', 'guests', 'activities'],
+  region_admin: [
+    'dashboard',
+    'regions',
+    'hosts',
+    'guest-groups',
+    'guests',
+    'activities',
+    'volunteers',
+  ],
   volunteer: [],
   volunteer_manager: [],
   guest_manager: [],

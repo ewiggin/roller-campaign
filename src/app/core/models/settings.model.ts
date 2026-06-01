@@ -26,7 +26,8 @@ export type ScreenKey =
   | 'hosts'
   | 'guest-groups'
   | 'guests'
-  | 'activities';
+  | 'activities'
+  | 'volunteers';
 
 export interface ScreenConfig {
   key: ScreenKey;
@@ -40,6 +41,7 @@ export const CONFIGURABLE_SCREENS: ScreenConfig[] = [
   { key: 'guest-groups', label: 'Guest Groups' },
   { key: 'guests', label: 'Guests' },
   { key: 'activities', label: 'Activities' },
+  { key: 'volunteers', label: 'Volunteers' },
 ];
 
 export interface RolePermissions {

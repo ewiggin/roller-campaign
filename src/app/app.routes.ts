@@ -72,6 +72,33 @@ export const routes: Routes = [
           import('./features/admin/guests/guest-detail').then((m) => m.GuestDetailComponent),
       },
       {
+        path: 'volunteers',
+        data: { screen: 'volunteers' },
+        canActivate: [permissionsGuard],
+        loadComponent: () =>
+          import('./features/admin/volunteers/volunteers-list').then(
+            (m) => m.VolunteersListComponent,
+          ),
+      },
+      {
+        path: 'volunteers/:id',
+        data: { screen: 'volunteers' },
+        canActivate: [permissionsGuard],
+        loadComponent: () =>
+          import('./features/admin/volunteers/volunteer-detail').then(
+            (m) => m.VolunteerDetailComponent,
+          ),
+      },
+      {
+        path: 'volunteer-roles',
+        data: { screen: 'volunteers' },
+        canActivate: [permissionsGuard],
+        loadComponent: () =>
+          import('./features/admin/volunteers/volunteer-roles-list').then(
+            (m) => m.VolunteerRolesListComponent,
+          ),
+      },
+      {
         path: 'activities',
         data: { screen: 'activities' },
         canActivate: [permissionsGuard],

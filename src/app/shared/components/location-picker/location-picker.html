@@ -2,11 +2,13 @@
   <!-- Preview: static map with change button -->
   @if (mode() === 'preview' && result()) {
     <div class="rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-700">
-      <img
-        [src]="staticMapUrl()"
-        alt="Location preview"
-        class="w-full h-36 object-cover bg-gray-100 dark:bg-zinc-800"
-      />
+      @if (showMap) {
+        <img
+          [src]="staticMapUrl()"
+          alt="Location preview"
+          class="w-full h-36 object-cover bg-gray-100 dark:bg-zinc-800"
+        />
+      }
       <div
         class="flex items-center justify-between px-3 py-1.5 bg-gray-50 dark:bg-[#27272a] text-xs text-gray-500 dark:text-zinc-400"
       >

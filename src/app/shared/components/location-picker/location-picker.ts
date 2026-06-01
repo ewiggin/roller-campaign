@@ -33,6 +33,7 @@ export class LocationPickerComponent implements OnInit, OnDestroy {
   @Output() locationSelected = new EventEmitter<PlaceResult | null>();
 
   @Input() required = false;
+  @Input() showMap = true;
   @Input() initialAddress: string | null = null;
   @Input() initialLat: number | null = null;
   @Input() initialLng: number | null = null;
