@@ -16,7 +16,22 @@ const DAYS: {
   label: string;
   morningField: keyof Volunteer;
   afternoonField: keyof Volunteer;
+  outsideWeek?: boolean;
 }[] = [
+  {
+    key: 'sat-prev',
+    label: 'Sat',
+    morningField: 'saturday_prev_morning',
+    afternoonField: 'saturday_prev_afternoon',
+    outsideWeek: true,
+  },
+  {
+    key: 'sun-prev',
+    label: 'Sun',
+    morningField: 'sunday_prev_morning',
+    afternoonField: 'sunday_prev_afternoon',
+    outsideWeek: true,
+  },
   { key: 'mon', label: 'Mon', morningField: 'monday_morning', afternoonField: 'monday_afternoon' },
   {
     key: 'tue',
@@ -44,6 +59,13 @@ const DAYS: {
     afternoonField: 'saturday_afternoon',
   },
   { key: 'sun', label: 'Sun', morningField: 'sunday_morning', afternoonField: 'sunday_afternoon' },
+  {
+    key: 'mon-next',
+    label: 'Mon',
+    morningField: 'monday_next_morning',
+    afternoonField: 'monday_next_afternoon',
+    outsideWeek: true,
+  },
 ];
 
 @Component({
@@ -86,6 +108,10 @@ export class VolunteerDetailComponent implements OnInit {
   });
 
   readonly scheduleForm = this.fb.nonNullable.group({
+    saturday_prev_morning: [false],
+    saturday_prev_afternoon: [false],
+    sunday_prev_morning: [false],
+    sunday_prev_afternoon: [false],
     monday_morning: [false],
     monday_afternoon: [false],
     tuesday_morning: [false],
@@ -100,6 +126,8 @@ export class VolunteerDetailComponent implements OnInit {
     saturday_afternoon: [false],
     sunday_morning: [false],
     sunday_afternoon: [false],
+    monday_next_morning: [false],
+    monday_next_afternoon: [false],
   });
 
   readonly volunteerMapsLink = computed(() => {
@@ -151,6 +179,10 @@ export class VolunteerDetailComponent implements OnInit {
       );
     } else if (section === 'schedule') {
       this.scheduleForm.setValue({
+        saturday_prev_morning: v.saturday_prev_morning,
+        saturday_prev_afternoon: v.saturday_prev_afternoon,
+        sunday_prev_morning: v.sunday_prev_morning,
+        sunday_prev_afternoon: v.sunday_prev_afternoon,
         monday_morning: v.monday_morning,
         monday_afternoon: v.monday_afternoon,
         tuesday_morning: v.tuesday_morning,
@@ -165,6 +197,8 @@ export class VolunteerDetailComponent implements OnInit {
         saturday_afternoon: v.saturday_afternoon,
         sunday_morning: v.sunday_morning,
         sunday_afternoon: v.sunday_afternoon,
+        monday_next_morning: v.monday_next_morning,
+        monday_next_afternoon: v.monday_next_afternoon,
       });
     }
 

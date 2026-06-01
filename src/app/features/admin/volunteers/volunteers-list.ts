@@ -28,6 +28,12 @@ const AVAILABILITY_OPTIONS = [
   { value: 'saturday_afternoon', label: 'Sat – afternoon' },
   { value: 'sunday_morning', label: 'Sun – morning' },
   { value: 'sunday_afternoon', label: 'Sun – afternoon' },
+  { value: 'saturday_prev_morning', label: 'Sat (prev) – morning' },
+  { value: 'saturday_prev_afternoon', label: 'Sat (prev) – afternoon' },
+  { value: 'sunday_prev_morning', label: 'Sun (prev) – morning' },
+  { value: 'sunday_prev_afternoon', label: 'Sun (prev) – afternoon' },
+  { value: 'monday_next_morning', label: 'Mon (next) – morning' },
+  { value: 'monday_next_afternoon', label: 'Mon (next) – afternoon' },
 ];
 
 @Component({
