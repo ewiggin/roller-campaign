@@ -74,66 +74,40 @@
     </div>
   </div>
 
-  <!-- Region tabs -->
-  <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-    @if (regions().length > 0) {
-      <div class="flex gap-1 flex-wrap">
-        <button
-          (click)="selectRegion('')"
-          class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          [class]="
-            selectedRegionId() === ''
-              ? 'bg-blue-500 text-white'
-              : 'bg-white dark:bg-[#18181b] text-gray-600 dark:text-zinc-400 border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800'
-          "
-        >
-          All
-        </button>
-        @for (r of regions(); track r.id) {
-          <button
-            (click)="selectRegion(r.id)"
-            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            [class]="
-              selectedRegionId() === r.id
-                ? 'bg-blue-500 text-white'
-                : 'bg-white dark:bg-[#18181b] text-gray-600 dark:text-zinc-400 border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800'
-            "
-          >
-            {{ r.name }}
-          </button>
-        }
-      </div>
-    }
-
-    <div class="relative sm:ml-auto w-full sm:w-56">
-      <svg
-        class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-zinc-500 pointer-events-none"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
-        />
-      </svg>
-      <input
-        type="search"
-        placeholder="Search by code…"
-        [value]="searchCode()"
-        (input)="onSearchInput($any($event.target).value)"
-        class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
-      />
-    </div>
-  </div>
-
   <!-- Filters -->
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4"
   >
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <!-- Region -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Region</label
+        >
+        <app-searchable-select
+          [items]="regionItems()"
+          placeholder="All regions"
+          emptyLabel="All regions"
+          [compact]="true"
+          [selected]="selectedRegionId()"
+          (selectedChange)="selectRegion($event)"
+        />
+      </div>
+
+      <!-- Search -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Search</label
+        >
+        <input
+          type="search"
+          placeholder="Search by code…"
+          [value]="searchCode()"
+          (input)="onSearchInput($any($event.target).value)"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+        />
+      </div>
+
       <!-- Min car seats -->
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
@@ -279,12 +253,6 @@
   </div>
 
   @if (loading()) {
-    <!-- Tab skeletons -->
-    <div class="flex gap-1 mb-4">
-      @for (i of [1, 2, 3]; track i) {
-        <div class="animate-pulse h-8 bg-gray-200 dark:bg-zinc-700 rounded-lg w-24"></div>
-      }
-    </div>
     <div
       class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
     >

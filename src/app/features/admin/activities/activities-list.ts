@@ -309,7 +309,6 @@ export class ActivitiesListComponent implements OnInit {
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
         this.regions.set(r);
-        if (r.length > 0) this.filterRegion.set(r[0].id);
         this.load();
       },
     });

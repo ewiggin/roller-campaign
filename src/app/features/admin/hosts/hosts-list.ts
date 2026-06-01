@@ -68,10 +68,7 @@ export class HostsListComponent implements OnInit {
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
         this.regions.set(r);
-        if (r.length > 0) {
-          this.selectedRegionId.set(r[0].id);
-          this.form.patchValue({ region_id: r[0].id });
-        }
+        if (r.length > 0) this.form.patchValue({ region_id: r[0].id });
         this.load();
       },
       error: () => {

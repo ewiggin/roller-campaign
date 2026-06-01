@@ -56,6 +56,17 @@
   <!-- Region tabs -->
   @if (regions().length > 0) {
     <div class="flex gap-1 mb-4 flex-wrap">
+      <button
+        (click)="selectRegion('')"
+        class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+        [class]="
+          selectedRegionId() === ''
+            ? 'bg-blue-500 text-white'
+            : 'bg-white dark:bg-[#18181b] text-gray-600 dark:text-zinc-400 border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800'
+        "
+      >
+        All
+      </button>
       @for (r of regions(); track r.id) {
         <button
           (click)="selectRegion(r.id)"
