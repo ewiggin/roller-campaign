@@ -82,7 +82,7 @@ describe('computeLayout', () => {
 @Component({
   standalone: true,
   imports: [CalendarComponent],
-  template: `<app-calendar [activities]="[]" (periodChange)="$event" />`,
+  template: `<app-calendar [activities]="[]" (periodChange)="($event)" />`,
 })
 class HostComponent {
   readonly cal = viewChild.required(CalendarComponent);

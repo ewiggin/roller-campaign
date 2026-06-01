@@ -1,6 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import type { Region, CreateRegionPayload, UpdateRegionPayload, ImportRegionRow, ImportRegionParseResponse, ImportRegionCommitResponse } from '../models/region.model';
+import type {
+  Region,
+  CreateRegionPayload,
+  UpdateRegionPayload,
+  ImportRegionRow,
+  ImportRegionParseResponse,
+  ImportRegionCommitResponse,
+} from '../models/region.model';
 import type { User } from '../models/user.model';
 
 @Injectable({ providedIn: 'root' })

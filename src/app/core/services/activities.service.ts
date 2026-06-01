@@ -1,12 +1,30 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import type { Activity, ActivityListResponse, AvailableGroupForActivity, AvailableVolunteerForActivity, CreateActivityBatchPayload, CreateActivityPayload, UpdateActivityPayload } from '../models/activity.model';
+import type {
+  Activity,
+  ActivityListResponse,
+  AvailableGroupForActivity,
+  AvailableVolunteerForActivity,
+  CreateActivityBatchPayload,
+  CreateActivityPayload,
+  UpdateActivityPayload,
+} from '../models/activity.model';
 
 @Injectable({ providedIn: 'root' })
 export class ActivitiesService {
   private readonly http = inject(HttpClient);
 
-  getAll(query: { regionId?: string; date?: string; dateFrom?: string; dateTo?: string; hostId?: string; page?: number; limit?: number } = {}) {
+  getAll(
+    query: {
+      regionId?: string;
+      date?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      hostId?: string;
+      page?: number;
+      limit?: number;
+    } = {},
+  ) {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
     if (query.date) params = params.set('date', query.date);
@@ -55,7 +73,9 @@ export class ActivitiesService {
   }
 
   getAvailableVolunteers(id: string) {
-    return this.http.get<AvailableVolunteerForActivity[]>(`/api/activities/${id}/available-volunteers`);
+    return this.http.get<AvailableVolunteerForActivity[]>(
+      `/api/activities/${id}/available-volunteers`,
+    );
   }
 
   getAvailableGroups(id: string) {

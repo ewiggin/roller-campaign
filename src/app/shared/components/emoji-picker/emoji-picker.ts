@@ -1,22 +1,71 @@
-import {
-  Component,
-  ElementRef,
-  HostListener,
-  ViewChild,
-  model,
-  signal,
-} from '@angular/core';
+import { Component, ElementRef, HostListener, ViewChild, model, signal } from '@angular/core';
 import { NgStyle } from '@angular/common';
 
 export const ACTIVITY_EMOJIS = [
-  '✈️','🚗','🚌','🚐','🚁','🚂','🛳️','🚑',
-  '🏠','🏛️','⛪','🏟️','🏪','🌳','🏖️','⛰️',
-  '🎤','🎵','🎶','📚','🙏','❤️','⭐','🎯',
-  '👥','🤝','🫂','🤲','🙌','💪','🫶','✊',
-  '🎉','🎊','🎗️','🏆','🎁','🎈','📅','🗓️',
-  '🌸','🌻','☀️','🌙','⛅','🌈','🍃','🌊',
-  '📋','📢','🔔','💡','🔑','📦','📍','🛍️',
-  '☕','🍕','🍽️','🥗','🍰','🧃','🍎','🥪',
+  '✈️',
+  '🚗',
+  '🚌',
+  '🚐',
+  '🚁',
+  '🚂',
+  '🛳️',
+  '🚑',
+  '🏠',
+  '🏛️',
+  '⛪',
+  '🏟️',
+  '🏪',
+  '🌳',
+  '🏖️',
+  '⛰️',
+  '🎤',
+  '🎵',
+  '🎶',
+  '📚',
+  '🙏',
+  '❤️',
+  '⭐',
+  '🎯',
+  '👥',
+  '🤝',
+  '🫂',
+  '🤲',
+  '🙌',
+  '💪',
+  '🫶',
+  '✊',
+  '🎉',
+  '🎊',
+  '🎗️',
+  '🏆',
+  '🎁',
+  '🎈',
+  '📅',
+  '🗓️',
+  '🌸',
+  '🌻',
+  '☀️',
+  '🌙',
+  '⛅',
+  '🌈',
+  '🍃',
+  '🌊',
+  '📋',
+  '📢',
+  '🔔',
+  '💡',
+  '🔑',
+  '📦',
+  '📍',
+  '🛍️',
+  '☕',
+  '🍕',
+  '🍽️',
+  '🥗',
+  '🍰',
+  '🧃',
+  '🍎',
+  '🥪',
 ];
 
 @Component({
@@ -41,7 +90,10 @@ export class EmojiPickerComponent {
   }
 
   protected toggle() {
-    if (this.open()) { this.open.set(false); return; }
+    if (this.open()) {
+      this.open.set(false);
+      return;
+    }
     if (this.triggerEl) {
       const rect = this.triggerEl.nativeElement.getBoundingClientRect();
       this.panelStyle.set({

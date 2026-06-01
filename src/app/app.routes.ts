@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { permissionsGuard } from './core/guards/permissions.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'admin', pathMatch: 'full' },
@@ -16,11 +17,15 @@ export const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       {
         path: 'dashboard',
+        data: { screen: 'dashboard' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/dashboard/dashboard').then((m) => m.DashboardComponent),
       },
       {
         path: 'regions',
+        data: { screen: 'regions' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/regions/regions-list').then((m) => m.RegionsListComponent),
       },
@@ -31,16 +36,22 @@ export const routes: Routes = [
       },
       {
         path: 'hosts',
+        data: { screen: 'hosts' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/hosts/hosts-list').then((m) => m.HostsListComponent),
       },
       {
         path: 'hosts/:id',
+        data: { screen: 'hosts' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/hosts/host-detail').then((m) => m.HostDetailComponent),
       },
       {
         path: 'guest-groups',
+        data: { screen: 'guest-groups' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/guest-groups/guest-groups-list').then(
             (m) => m.GuestGroupsListComponent,
@@ -48,16 +59,22 @@ export const routes: Routes = [
       },
       {
         path: 'guests',
+        data: { screen: 'guests' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/guests/guests-list').then((m) => m.GuestsListComponent),
       },
       {
         path: 'guests/:id',
+        data: { screen: 'guests' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/guests/guest-detail').then((m) => m.GuestDetailComponent),
       },
       {
         path: 'volunteers',
+        data: { screen: 'volunteers' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/volunteers/volunteers-list').then(
             (m) => m.VolunteersListComponent,
@@ -65,6 +82,8 @@ export const routes: Routes = [
       },
       {
         path: 'volunteers/:id',
+        data: { screen: 'volunteers' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/volunteers/volunteer-detail').then(
             (m) => m.VolunteerDetailComponent,
@@ -72,6 +91,8 @@ export const routes: Routes = [
       },
       {
         path: 'volunteer-roles',
+        data: { screen: 'volunteers' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/volunteers/volunteer-roles-list').then(
             (m) => m.VolunteerRolesListComponent,
@@ -79,6 +100,8 @@ export const routes: Routes = [
       },
       {
         path: 'activities',
+        data: { screen: 'activities' },
+        canActivate: [permissionsGuard],
         loadComponent: () =>
           import('./features/admin/activities/activities-list').then(
             (m) => m.ActivitiesListComponent,
@@ -95,6 +118,11 @@ export const routes: Routes = [
         path: 'settings',
         loadComponent: () =>
           import('./features/admin/settings/settings').then((m) => m.SettingsComponent),
+      },
+      {
+        path: 'unauthorized',
+        loadComponent: () =>
+          import('./features/admin/unauthorized/unauthorized').then((m) => m.UnauthorizedComponent),
       },
     ],
   },

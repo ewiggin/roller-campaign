@@ -14,20 +14,20 @@ import { VolunteersService } from '../../../core/services/volunteers.service';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 const AVAILABILITY_OPTIONS = [
-  { value: 'monday_morning',    label: 'Mon – morning' },
-  { value: 'monday_afternoon',  label: 'Mon – afternoon' },
-  { value: 'tuesday_morning',   label: 'Tue – morning' },
+  { value: 'monday_morning', label: 'Mon – morning' },
+  { value: 'monday_afternoon', label: 'Mon – afternoon' },
+  { value: 'tuesday_morning', label: 'Tue – morning' },
   { value: 'tuesday_afternoon', label: 'Tue – afternoon' },
-  { value: 'wednesday_morning',    label: 'Wed – morning' },
-  { value: 'wednesday_afternoon',  label: 'Wed – afternoon' },
-  { value: 'thursday_morning',  label: 'Thu – morning' },
-  { value: 'thursday_afternoon',label: 'Thu – afternoon' },
-  { value: 'friday_morning',    label: 'Fri – morning' },
-  { value: 'friday_afternoon',  label: 'Fri – afternoon' },
-  { value: 'saturday_morning',  label: 'Sat – morning' },
-  { value: 'saturday_afternoon',label: 'Sat – afternoon' },
-  { value: 'sunday_morning',    label: 'Sun – morning' },
-  { value: 'sunday_afternoon',  label: 'Sun – afternoon' },
+  { value: 'wednesday_morning', label: 'Wed – morning' },
+  { value: 'wednesday_afternoon', label: 'Wed – afternoon' },
+  { value: 'thursday_morning', label: 'Thu – morning' },
+  { value: 'thursday_afternoon', label: 'Thu – afternoon' },
+  { value: 'friday_morning', label: 'Fri – morning' },
+  { value: 'friday_afternoon', label: 'Fri – afternoon' },
+  { value: 'saturday_morning', label: 'Sat – morning' },
+  { value: 'saturday_afternoon', label: 'Sat – afternoon' },
+  { value: 'sunday_morning', label: 'Sun – morning' },
+  { value: 'sunday_afternoon', label: 'Sun – afternoon' },
 ];
 
 @Component({
@@ -55,12 +55,10 @@ export class VolunteersListComponent implements OnInit {
   readonly limit = 50;
 
   readonly regionItems = computed(() =>
-    this.regions().map((r) => ({ value: r.id, label: r.name }))
+    this.regions().map((r) => ({ value: r.id, label: r.name })),
   );
 
-  readonly roleItems = computed(() =>
-    this.roles().map((r) => ({ value: r.id, label: r.name }))
-  );
+  readonly roleItems = computed(() => this.roles().map((r) => ({ value: r.id, label: r.name })));
 
   readonly availabilityOptions = AVAILABILITY_OPTIONS;
 
@@ -114,11 +112,17 @@ export class VolunteersListComponent implements OnInit {
   }
 
   prevPage() {
-    if (this.page() > 1) { this.page.update((p) => p - 1); this.load(); }
+    if (this.page() > 1) {
+      this.page.update((p) => p - 1);
+      this.load();
+    }
   }
 
   nextPage() {
-    if (this.page() < this.totalPages()) { this.page.update((p) => p + 1); this.load(); }
+    if (this.page() < this.totalPages()) {
+      this.page.update((p) => p + 1);
+      this.load();
+    }
   }
 
   downloadExcel() {

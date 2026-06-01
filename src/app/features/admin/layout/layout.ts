@@ -1,12 +1,14 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, OnInit } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
+import { PermissionsService } from '../../../core/services/permissions.service';
 
 interface NavItem {
   label: string;
   path: string;
-  paths: string[];
+  screen?: string;
+  paths?: string[];
 }
 
 // Heroicons outline v2 path data
@@ -53,22 +55,38 @@ const ICONS = {
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './layout.html',
 })
-export class AdminLayoutComponent {
+export class AdminLayoutComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   protected readonly theme = inject(ThemeService);
+  private readonly perms = inject(PermissionsService);
 
   protected readonly userEmail = computed(() => this.auth.currentUser()?.email ?? '');
   protected readonly isSuperAdmin = this.auth.isSuperAdmin;
 
-  protected readonly navItems: NavItem[] = [
-    { label: 'Dashboard', path: '/admin/dashboard', paths: ICONS.grid },
-    { label: 'Regions', path: '/admin/regions', paths: ICONS.map },
-    { label: 'Hosts', path: '/admin/hosts', paths: ICONS.home },
-    { label: 'Guest Groups', path: '/admin/guest-groups', paths: ICONS.folder },
-    { label: 'Guests', path: '/admin/guests', paths: ICONS.users },
-    { label: 'Volunteers', path: '/admin/volunteers', paths: ICONS['user-group'] },
-    { label: 'Volunteer Roles', path: '/admin/volunteer-roles', paths: ICONS.tag },
-    { label: 'Activities', path: '/admin/activities', paths: ICONS.calendar },
+  private readonly ALL_NAV_ITEMS: NavItem[] = [
+    { label: 'Dashboard', path: '/admin/dashboard', screen: 'dashboard', paths: ICONS.grid },
+    { label: 'Regions', path: '/admin/regions', screen: 'regions', paths: ICONS.map },
+    { label: 'Hosts', path: '/admin/hosts', screen: 'hosts', paths: ICONS.home },
+    {
+      label: 'Guest Groups',
+      path: '/admin/guest-groups',
+      screen: 'guest-groups',
+      paths: ICONS.folder,
+    },
+    { label: 'Guests', path: '/admin/guests', screen: 'guests', paths: ICONS.users },
+    {
+      label: 'Volunteers',
+      path: '/admin/volunteers',
+      screen: 'volunteers',
+      paths: ICONS['user-group'],
+    },
+    {
+      label: 'Volunteer Roles',
+      path: '/admin/volunteer-roles',
+      screen: 'volunteers',
+      paths: ICONS.tag,
+    },
+    { label: 'Activities', path: '/admin/activities', screen: 'activities', paths: ICONS.calendar },
   ];
 
   protected readonly adminNavItems: NavItem[] = [
@@ -76,6 +94,15 @@ export class AdminLayoutComponent {
     { label: 'Audit Log', path: '/admin/audit-logs', paths: ICONS.clipboard },
     { label: 'Settings', path: '/admin/settings', paths: ICONS.settings },
   ];
+
+  protected readonly navItems = computed(() => {
+    if (this.isSuperAdmin()) return this.ALL_NAV_ITEMS;
+    return this.ALL_NAV_ITEMS.filter((item) => !item.screen || this.perms.canAccess(item.screen));
+  });
+
+  ngOnInit() {
+    this.perms.load();
+  }
 
   logout() {
     this.auth.logout();

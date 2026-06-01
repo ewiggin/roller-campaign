@@ -19,3 +19,43 @@ export interface UpdateSmtpSettingsPayload {
   from_email?: string;
   enabled?: boolean;
 }
+
+export type ScreenKey =
+  | 'dashboard'
+  | 'regions'
+  | 'hosts'
+  | 'guest-groups'
+  | 'guests'
+  | 'activities'
+  | 'volunteers';
+
+export interface ScreenConfig {
+  key: ScreenKey;
+  label: string;
+}
+
+export const CONFIGURABLE_SCREENS: ScreenConfig[] = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'regions', label: 'Regions' },
+  { key: 'hosts', label: 'Hosts' },
+  { key: 'guest-groups', label: 'Guest Groups' },
+  { key: 'guests', label: 'Guests' },
+  { key: 'activities', label: 'Activities' },
+  { key: 'volunteers', label: 'Volunteers' },
+];
+
+export interface RolePermissions {
+  region_admin: string[];
+  volunteer: string[];
+  volunteer_manager: string[];
+  guest_manager: string[];
+  host_manager: string[];
+}
+
+export interface UpdatePermissionsPayload {
+  region_admin?: string[];
+  volunteer?: string[];
+  volunteer_manager?: string[];
+  guest_manager?: string[];
+  host_manager?: string[];
+}

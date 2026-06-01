@@ -140,7 +140,6 @@ export class GuestDetailComponent implements OnInit {
     transport_mode: [''],
   });
 
-
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.regionsSvc.getAll().subscribe({ next: (r) => this.regions.set(r) });
