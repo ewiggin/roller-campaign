@@ -44,15 +44,13 @@ import {
   ImportVolunteerCommitResponseDto,
 } from './dto/set-availability.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Audit } from '../audit-logs/decorators/audit.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiTags('volunteers')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 @Controller('volunteers')
 export class VolunteersController {
   constructor(private readonly svc: VolunteersService) {}
@@ -60,21 +58,18 @@ export class VolunteersController {
   // ── Roles ──────────────────────────────────────────────────────────────────
 
   @Get('roles')
-  @Roles('region_admin')
   @ApiOkResponse({ type: [VolunteerRoleDto] })
   findAllRoles(): Promise<VolunteerRoleDto[]> {
     return this.svc.findAllRoles();
   }
 
   @Post('roles')
-  @Roles('region_admin')
   @ApiCreatedResponse({ type: VolunteerRoleDto })
   createRole(@Body() dto: CreateRoleDto): Promise<VolunteerRoleDto> {
     return this.svc.createRole(dto);
   }
 
   @Delete('roles/:id')
-  @Roles('superadmin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   deleteRole(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
@@ -84,7 +79,6 @@ export class VolunteersController {
   // ── Export ─────────────────────────────────────────────────────────────────
 
   @Get('export')
-  @Roles('region_admin')
   @Audit('export', 'volunteer')
   @ApiOkResponse({ description: 'Excel con listado de voluntarios' })
   async exportAll(
@@ -104,7 +98,6 @@ export class VolunteersController {
   // ── Import ─────────────────────────────────────────────────────────────────
 
   @Get('import/template')
-  @Roles('region_admin')
   getTemplate(@Res() res: Response): void {
     const buf = this.svc.generateTemplate();
     res.setHeader(
@@ -119,7 +112,6 @@ export class VolunteersController {
   }
 
   @Post('import/parse')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -137,7 +129,6 @@ export class VolunteersController {
   }
 
   @Post('import/commit')
-  @Roles('region_admin')
   @Audit('import', 'volunteer')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportVolunteerCommitResponseDto })
@@ -150,7 +141,6 @@ export class VolunteersController {
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
   @Post()
-  @Roles('region_admin')
   @Audit('create', 'volunteer')
   @ApiCreatedResponse({ type: VolunteerResponseDto })
   create(
@@ -163,14 +153,12 @@ export class VolunteersController {
   // ── Me (volunteer self-service) ────────────────────────────────────────────
 
   @Get('me')
-  @Roles('volunteer')
   @ApiOkResponse({ type: VolunteerResponseDto })
   getMe(@CurrentUser() user: JwtPayload): Promise<VolunteerResponseDto> {
     return this.svc.getMe(user);
   }
 
   @Get('me/availability')
-  @Roles('volunteer')
   @ApiOkResponse({ type: [AvailabilityEntryDto] })
   getMyAvailability(
     @CurrentUser() user: JwtPayload,
@@ -179,7 +167,6 @@ export class VolunteersController {
   }
 
   @Put('me/availability')
-  @Roles('volunteer')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: [AvailabilityEntryDto] })
   setMyAvailability(
@@ -190,7 +177,6 @@ export class VolunteersController {
   }
 
   @Get()
-  @Roles('region_admin')
   @Audit('list', 'volunteer')
   @ApiOkResponse({ description: 'Lista paginada de voluntarios' })
   findAll(
@@ -201,7 +187,6 @@ export class VolunteersController {
   }
 
   @Get(':id')
-  @Roles('region_admin')
   @Audit('read', 'volunteer')
   @ApiOkResponse({ type: VolunteerResponseDto })
   findOne(
@@ -212,7 +197,6 @@ export class VolunteersController {
   }
 
   @Patch(':id')
-  @Roles('region_admin')
   @Audit('update', 'volunteer')
   @ApiOkResponse({ type: VolunteerResponseDto })
   update(
@@ -224,7 +208,6 @@ export class VolunteersController {
   }
 
   @Delete(':id')
-  @Roles('superadmin')
   @Audit('delete', 'volunteer')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
@@ -235,7 +218,6 @@ export class VolunteersController {
   // ── Availability ───────────────────────────────────────────────────────────
 
   @Put(':id/availability')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: [AvailabilityEntryDto] })
   setAvailability(
@@ -247,7 +229,6 @@ export class VolunteersController {
   }
 
   @Get(':id/availability')
-  @Roles('region_admin')
   @ApiOkResponse({ type: [AvailabilityEntryDto] })
   getAvailability(
     @Param('id', ParseUUIDPipe) id: string,

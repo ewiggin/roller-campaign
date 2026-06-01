@@ -36,20 +36,17 @@ import {
   ImportRegionParseResponseDto,
 } from './dto/import-region.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiTags('regions')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 @Controller('regions')
 export class RegionsController {
   constructor(private readonly regionsService: RegionsService) {}
 
   @Get('export')
-  @Roles('region_admin')
   @ApiOkResponse({ description: 'Excel con todas las regiones' })
   async exportExcel(
     @CurrentUser() user: JwtPayload,
@@ -65,7 +62,6 @@ export class RegionsController {
   }
 
   @Get('import/template')
-  @Roles('superadmin')
   @ApiOkResponse({
     description: 'Plantilla Excel para importación de regiones',
   })
@@ -80,7 +76,6 @@ export class RegionsController {
   }
 
   @Post('import/parse')
-  @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -92,7 +87,6 @@ export class RegionsController {
   }
 
   @Post('import/commit')
-  @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportRegionCommitResponseDto })
   commitImport(
@@ -102,28 +96,24 @@ export class RegionsController {
   }
 
   @Post()
-  @Roles('superadmin')
   @ApiCreatedResponse({ type: RegionResponseDto })
   create(@Body() dto: CreateRegionDto): Promise<RegionResponseDto> {
     return this.regionsService.create(dto);
   }
 
   @Get('stats')
-  @Roles('region_admin')
   @ApiOkResponse({ type: [RegionStatsDto] })
   getStats(@CurrentUser() user: JwtPayload): Promise<RegionStatsDto[]> {
     return this.regionsService.getStats(user);
   }
 
   @Get()
-  @Roles('region_admin')
   @ApiOkResponse({ type: [RegionResponseDto] })
   findAll(@CurrentUser() user: JwtPayload): Promise<RegionResponseDto[]> {
     return this.regionsService.findAll(user);
   }
 
   @Get(':id')
-  @Roles('region_admin')
   @ApiOkResponse({ type: RegionResponseDto })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
@@ -133,7 +123,6 @@ export class RegionsController {
   }
 
   @Patch(':id')
-  @Roles('superadmin')
   @ApiOkResponse({ type: RegionResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -144,7 +133,6 @@ export class RegionsController {
   }
 
   @Delete(':id')
-  @Roles('superadmin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
@@ -152,7 +140,6 @@ export class RegionsController {
   }
 
   @Post(':id/coordinators')
-  @Roles('superadmin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: RegionResponseDto })
   addCoordinator(
@@ -163,7 +150,6 @@ export class RegionsController {
   }
 
   @Delete(':id/coordinators/:userId')
-  @Roles('superadmin')
   @ApiOkResponse({ type: RegionResponseDto })
   removeCoordinator(
     @Param('id', ParseUUIDPipe) id: string,

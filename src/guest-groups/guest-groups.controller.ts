@@ -29,9 +29,7 @@ import {
 import type { Response } from 'express';
 import { Audit } from '../audit-logs/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateGuestGroupDto } from './dto/create-guest-group.dto';
 import { GuestGroupResponseDto } from './dto/guest-group-response.dto';
@@ -42,13 +40,12 @@ import { GuestGroupsService } from './guest-groups.service';
 
 @ApiTags('guest-groups')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 @Controller('guest-groups')
 export class GuestGroupsController {
   constructor(private readonly service: GuestGroupsService) {}
 
   @Get('export')
-  @Roles('region_admin')
   @ApiOkResponse({ description: 'Excel con listado de grupos' })
   async exportAll(
     @Query('regionId') regionId: string | undefined,
@@ -65,7 +62,6 @@ export class GuestGroupsController {
   }
 
   @Get('import/template')
-  @Roles('region_admin')
   @ApiOkResponse({ description: 'Plantilla Excel para importación de grupos' })
   getTemplate(@Res() res: Response): void {
     const buffer = this.service.generateTemplate();
@@ -81,7 +77,6 @@ export class GuestGroupsController {
   }
 
   @Post('import')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -104,7 +99,6 @@ export class GuestGroupsController {
   }
 
   @Post()
-  @Roles('region_admin')
   @ApiCreatedResponse({ type: GuestGroupResponseDto })
   create(
     @Body() dto: CreateGuestGroupDto,
@@ -114,7 +108,6 @@ export class GuestGroupsController {
   }
 
   @Get()
-  @Roles('region_admin')
   @ApiOkResponse({
     description: 'Paginated list of guest groups with available filter options',
   })
@@ -148,7 +141,6 @@ export class GuestGroupsController {
   }
 
   @Get(':id')
-  @Roles('region_admin')
   @ApiOkResponse({ type: GuestGroupResponseDto })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
@@ -158,7 +150,6 @@ export class GuestGroupsController {
   }
 
   @Patch(':id')
-  @Roles('region_admin')
   @ApiOkResponse({ type: GuestGroupResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -169,7 +160,6 @@ export class GuestGroupsController {
   }
 
   @Delete('truncate')
-  @Roles('superadmin')
   @Audit('truncate', 'guest_group')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ description: 'Deleted guests and guest-groups counts' })
@@ -178,7 +168,6 @@ export class GuestGroupsController {
   }
 
   @Delete(':id')
-  @Roles('superadmin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
@@ -186,7 +175,6 @@ export class GuestGroupsController {
   }
 
   @Patch(':id/host')
-  @Roles('region_admin')
   @ApiOkResponse({ type: GuestGroupResponseDto })
   assignHost(
     @Param('id', ParseUUIDPipe) id: string,
@@ -197,7 +185,6 @@ export class GuestGroupsController {
   }
 
   @Patch(':id/contact')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   setContact(
