@@ -184,6 +184,8 @@ export class GuestsService {
 
       if (regionId && adminRegionIds.includes(regionId)) {
         qb.where('g.region_id = :regionId', { regionId });
+      } else if (regionId) {
+        throw new ForbiddenException();
       } else {
         qb.where('g.region_id IN (:...adminRegionIds)', { adminRegionIds });
       }

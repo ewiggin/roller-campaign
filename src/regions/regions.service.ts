@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -127,6 +128,10 @@ export class RegionsService {
 
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (user.role !== 'region_admin')
+      throw new BadRequestException(
+        'Only users with role region_admin can be assigned as coordinators',
+      );
 
     const alreadyCoordinator = region.coordinators.some((c) => c.id === userId);
     if (!alreadyCoordinator) {

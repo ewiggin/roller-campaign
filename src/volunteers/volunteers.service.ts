@@ -780,6 +780,7 @@ export class VolunteersService {
     currentUser: JwtPayload,
   ): Promise<void> {
     if (currentUser.role === 'superadmin') return;
+    if (v.user_id === currentUser.sub) return;
     const user = await this.usersRepo.findOne({
       where: { id: currentUser.sub },
       relations: { regions: true },
