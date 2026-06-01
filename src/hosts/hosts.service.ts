@@ -86,7 +86,7 @@ export class HostsService {
     if (regionId) {
       await this.assertRegionAccess(regionId, currentUser);
       qb.where('h.region_id = :regionId', { regionId });
-    } else if (currentUser.role === 'region_admin') {
+    } else if (currentUser.role !== 'superadmin') {
       const user = await this.usersRepo.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
@@ -94,8 +94,6 @@ export class HostsService {
       const ids = (user?.regions ?? []).map((r) => r.id);
       if (ids.length === 0) return [];
       qb.where('h.region_id IN (:...ids)', { ids });
-    } else if (currentUser.role !== 'superadmin') {
-      throw new ForbiddenException();
     }
 
     const hosts = await qb.orderBy('h.name', 'ASC').getMany();
@@ -252,13 +250,11 @@ export class HostsService {
     currentUser: JwtPayload,
   ): Promise<void> {
     if (currentUser.role === 'superadmin') return;
-    if (currentUser.role === 'region_admin') {
-      const user = await this.usersRepo.findOne({
-        where: { id: currentUser.sub },
-        relations: { regions: true },
-      });
-      if ((user?.regions ?? []).some((r) => r.id === regionId)) return;
-    }
+    const user = await this.usersRepo.findOne({
+      where: { id: currentUser.sub },
+      relations: { regions: true },
+    });
+    if ((user?.regions ?? []).some((r) => r.id === regionId)) return;
     throw new ForbiddenException();
   }
 

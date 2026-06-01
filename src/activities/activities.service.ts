@@ -137,11 +137,6 @@ export class ActivitiesService {
     page: number;
     limit: number;
   }> {
-    if (
-      !['superadmin', 'region_admin', 'volunteer'].includes(currentUser.role)
-    ) {
-      throw new ForbiddenException();
-    }
     const {
       regionId,
       date,
@@ -186,7 +181,7 @@ export class ActivitiesService {
       };
     }
 
-    if (currentUser.role === 'region_admin') {
+    if (currentUser.role !== 'superadmin') {
       const user = await this.usersRepo.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
@@ -194,8 +189,7 @@ export class ActivitiesService {
       const adminIds = (user?.regions ?? []).map((r) => r.id);
       if (adminIds.length === 0) return { data: [], total: 0, page, limit };
 
-      if (regionId) {
-        if (!adminIds.includes(regionId)) throw new ForbiddenException();
+      if (regionId && adminIds.includes(regionId)) {
         qb.where('a.region_id = :regionId', { regionId });
       } else {
         qb.where('a.region_id IN (:...adminIds)', { adminIds });
@@ -724,14 +718,11 @@ export class ActivitiesService {
     currentUser: JwtPayload,
   ): Promise<void> {
     if (currentUser.role === 'superadmin') return;
-    if (currentUser.role === 'region_admin') {
-      const user = await this.usersRepo.findOne({
-        where: { id: currentUser.sub },
-        relations: { regions: true },
-      });
-      if ((user?.regions ?? []).some((r) => r.id === regionId)) return;
-      throw new ForbiddenException();
-    }
+    const user = await this.usersRepo.findOne({
+      where: { id: currentUser.sub },
+      relations: { regions: true },
+    });
+    if ((user?.regions ?? []).some((r) => r.id === regionId)) return;
     throw new ForbiddenException();
   }
 

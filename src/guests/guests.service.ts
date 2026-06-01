@@ -161,13 +161,6 @@ export class GuestsService {
     page: number;
     limit: number;
   }> {
-    if (
-      currentUser.role !== 'superadmin' &&
-      currentUser.role !== 'region_admin'
-    ) {
-      throw new ForbiddenException();
-    }
-
     const {
       regionId,
       groupId,
@@ -180,7 +173,7 @@ export class GuestsService {
 
     const qb = this.guestsRepository.createQueryBuilder('g');
 
-    if (currentUser.role === 'region_admin') {
+    if (currentUser.role !== 'superadmin') {
       const user = await this.usersRepository.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
@@ -189,8 +182,7 @@ export class GuestsService {
       if (adminRegionIds.length === 0)
         return { data: [], total: 0, page, limit };
 
-      if (regionId) {
-        if (!adminRegionIds.includes(regionId)) throw new ForbiddenException();
+      if (regionId && adminRegionIds.includes(regionId)) {
         qb.where('g.region_id = :regionId', { regionId });
       } else {
         qb.where('g.region_id IN (:...adminRegionIds)', { adminRegionIds });
@@ -785,23 +777,20 @@ export class GuestsService {
 
     const qb = this.guestsRepository.createQueryBuilder('g');
 
-    if (currentUser.role === 'region_admin') {
+    if (currentUser.role !== 'superadmin') {
       const user = await this.usersRepository.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
       });
       const adminRegionIds = (user?.regions ?? []).map((r) => r.id);
       if (adminRegionIds.length === 0) return this.buildGuestsExcel([]);
-      if (regionId) {
-        if (!adminRegionIds.includes(regionId)) throw new ForbiddenException();
+      if (regionId && adminRegionIds.includes(regionId)) {
         qb.where('g.region_id = :regionId', { regionId });
       } else {
         qb.where('g.region_id IN (:...adminRegionIds)', { adminRegionIds });
       }
-    } else if (currentUser.role === 'superadmin') {
-      if (regionId) qb.where('g.region_id = :regionId', { regionId });
     } else {
-      throw new ForbiddenException();
+      if (regionId) qb.where('g.region_id = :regionId', { regionId });
     }
 
     if (groupId) qb.andWhere('g.group_id = :groupId', { groupId });
@@ -932,16 +921,12 @@ export class GuestsService {
     currentUser: JwtPayload,
   ): Promise<void> {
     if (currentUser.role === 'superadmin') return;
-    if (currentUser.role === 'region_admin') {
-      const user = await this.usersRepository.findOne({
-        where: { id: currentUser.sub },
-        relations: { regions: true },
-      });
-      const hasAccess = (user?.regions ?? []).some((r) => r.id === regionId);
-      if (!hasAccess) throw new ForbiddenException();
-      return;
-    }
-    throw new ForbiddenException();
+    const user = await this.usersRepository.findOne({
+      where: { id: currentUser.sub },
+      relations: { regions: true },
+    });
+    const hasAccess = (user?.regions ?? []).some((r) => r.id === regionId);
+    if (!hasAccess) throw new ForbiddenException();
   }
 
   private async hasRegionAccess(
@@ -949,14 +934,11 @@ export class GuestsService {
     currentUser: JwtPayload,
   ): Promise<boolean> {
     if (currentUser.role === 'superadmin') return true;
-    if (currentUser.role === 'region_admin') {
-      const user = await this.usersRepository.findOne({
-        where: { id: currentUser.sub },
-        relations: { regions: true },
-      });
-      return (user?.regions ?? []).some((r) => r.id === regionId);
-    }
-    return false;
+    const user = await this.usersRepository.findOne({
+      where: { id: currentUser.sub },
+      relations: { regions: true },
+    });
+    return (user?.regions ?? []).some((r) => r.id === regionId);
   }
 
   async lookupByCode(code: string): Promise<GuestFormLookupResponseDto> {

@@ -74,13 +74,6 @@ export class GuestGroupsService {
     limit: number;
     available_languages: string[];
   }> {
-    if (
-      currentUser.role !== 'superadmin' &&
-      currentUser.role !== 'region_admin'
-    ) {
-      throw new ForbiddenException();
-    }
-
     const query = this.groupsRepository
       .createQueryBuilder('gg')
       .loadRelationCountAndMap('gg.guest_count', 'gg.guests')
@@ -92,7 +85,7 @@ export class GuestGroupsService {
     if (regionId) {
       await this.assertRegionAccess(regionId, currentUser);
       query.where('gg.region_id = :regionId', { regionId });
-    } else if (currentUser.role === 'region_admin') {
+    } else if (currentUser.role !== 'superadmin') {
       const user = await this.usersRepository.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
@@ -506,7 +499,7 @@ export class GuestGroupsService {
     if (regionId) {
       await this.assertRegionAccess(regionId, currentUser);
       query.where('gg.region_id = :regionId', { regionId });
-    } else if (currentUser.role === 'region_admin') {
+    } else if (currentUser.role !== 'superadmin') {
       const user = await this.usersRepository.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
@@ -514,8 +507,6 @@ export class GuestGroupsService {
       const ids = (user?.regions ?? []).map((r) => r.id);
       if (ids.length === 0) return this.buildGroupsExcel([]);
       query.where('gg.region_id IN (:...ids)', { ids });
-    } else if (currentUser.role !== 'superadmin') {
-      throw new ForbiddenException();
     }
 
     const groups = await query.getMany();
@@ -607,16 +598,12 @@ export class GuestGroupsService {
     currentUser: JwtPayload,
   ): Promise<void> {
     if (currentUser.role === 'superadmin') return;
-    if (currentUser.role === 'region_admin') {
-      const user = await this.usersRepository.findOne({
-        where: { id: currentUser.sub },
-        relations: { regions: true },
-      });
-      const hasAccess = (user?.regions ?? []).some((r) => r.id === regionId);
-      if (!hasAccess) throw new ForbiddenException();
-      return;
-    }
-    throw new ForbiddenException();
+    const user = await this.usersRepository.findOne({
+      where: { id: currentUser.sub },
+      relations: { regions: true },
+    });
+    const hasAccess = (user?.regions ?? []).some((r) => r.id === regionId);
+    if (!hasAccess) throw new ForbiddenException();
   }
 
   async truncate(): Promise<{

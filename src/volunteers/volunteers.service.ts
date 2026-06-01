@@ -111,12 +111,6 @@ export class VolunteersService {
     page: number;
     limit: number;
   }> {
-    if (
-      currentUser.role !== 'superadmin' &&
-      currentUser.role !== 'region_admin'
-    ) {
-      throw new ForbiddenException();
-    }
     const {
       regionId,
       roleId,
@@ -136,7 +130,7 @@ export class VolunteersService {
 
     let effectiveRegionId: string | null = null;
 
-    if (currentUser.role === 'region_admin') {
+    if (currentUser.role !== 'superadmin') {
       const user = await this.usersRepo.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
@@ -675,7 +669,7 @@ export class VolunteersService {
       .leftJoinAndSelect('v.roles', 'roles')
       .leftJoinAndSelect('v.regions', 'regions');
 
-    if (currentUser.role === 'region_admin') {
+    if (currentUser.role !== 'superadmin') {
       const user = await this.usersRepo.findOne({
         where: { id: currentUser.sub },
         relations: { regions: true },
@@ -689,10 +683,8 @@ export class VolunteersService {
       } else {
         qb.where('regions.id IN (:...adminRegionIds)', { adminRegionIds });
       }
-    } else if (currentUser.role === 'superadmin') {
-      if (regionId) qb.where('regions.id = :regionId', { regionId });
     } else {
-      throw new ForbiddenException();
+      if (regionId) qb.where('regions.id = :regionId', { regionId });
     }
 
     if (roleId) qb.andWhere('roles.id = :roleId', { roleId });
@@ -788,20 +780,13 @@ export class VolunteersService {
     currentUser: JwtPayload,
   ): Promise<void> {
     if (currentUser.role === 'superadmin') return;
-    if (currentUser.role === 'volunteer') {
-      if (v.user_id === currentUser.sub) return;
-      throw new ForbiddenException();
-    }
-    if (currentUser.role === 'region_admin') {
-      const user = await this.usersRepo.findOne({
-        where: { id: currentUser.sub },
-        relations: { regions: true },
-      });
-      const adminIds = new Set((user?.regions ?? []).map((r) => r.id));
-      const volunteerRegionIds = (v.regions ?? []).map((r) => r.id);
-      if (volunteerRegionIds.some((id) => adminIds.has(id))) return;
-      throw new ForbiddenException();
-    }
+    const user = await this.usersRepo.findOne({
+      where: { id: currentUser.sub },
+      relations: { regions: true },
+    });
+    const adminIds = new Set((user?.regions ?? []).map((r) => r.id));
+    const volunteerRegionIds = (v.regions ?? []).map((r) => r.id);
+    if (volunteerRegionIds.some((id) => adminIds.has(id))) return;
     throw new ForbiddenException();
   }
 
