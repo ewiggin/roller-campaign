@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomBytes } from 'crypto';
 import { In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Volunteer } from './entities/volunteer.entity';
@@ -425,20 +426,13 @@ export class VolunteersService {
       : [];
     const existingSet = new Set(existing.map((v) => v.volunteer_code));
 
-    // Starting index for auto-generated codes (avoids collisions with previous imports)
-    const sinCodCount = await this.volunteersRepo
-      .createQueryBuilder('v')
-      .where("v.volunteer_code LIKE 'SIN-COD-%'")
-      .getCount();
-    let sinCodIndex = sinCodCount + 1;
-
     const to_create: ImportVolunteerRowDto[] = [];
     const skipped: string[] = [];
 
     for (const row of rows) {
       const rawCode = this.str(row['Número de identificación']);
       const code =
-        rawCode ?? `SIN-COD-${String(sinCodIndex++).padStart(4, '0')}`;
+        rawCode ?? `GEN-${randomBytes(4).toString('hex').toUpperCase()}`;
       if (rawCode && existingSet.has(code)) {
         skipped.push(code);
         continue;
