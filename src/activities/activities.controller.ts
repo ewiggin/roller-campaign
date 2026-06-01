@@ -20,9 +20,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { ActivitiesService } from './activities.service';
 import { AssignGuestGroupDto } from './dto/assign-guest-group.dto';
@@ -39,13 +37,12 @@ import { UpdateActivityDto } from './dto/update-activity.dto';
 
 @ApiTags('activities')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 @Controller('activities')
 export class ActivitiesController {
   constructor(private readonly svc: ActivitiesService) {}
 
   @Post()
-  @Roles('region_admin')
   @ApiCreatedResponse({ type: ActivityResponseDto })
   create(
     @Body() dto: CreateActivityDto,
@@ -55,7 +52,6 @@ export class ActivitiesController {
   }
 
   @Post('batch')
-  @Roles('region_admin')
   @ApiCreatedResponse({ type: [ActivityResponseDto] })
   createBatch(
     @Body() dto: CreateActivityBatchDto,
@@ -65,7 +61,6 @@ export class ActivitiesController {
   }
 
   @Get()
-  @Roles('region_admin', 'volunteer')
   @ApiOkResponse({ description: 'Lista paginada de actividades' })
   findAll(
     @Query() query: ActivityListQueryDto,
@@ -75,7 +70,6 @@ export class ActivitiesController {
   }
 
   @Get(':id')
-  @Roles('region_admin')
   @ApiOkResponse({ type: ActivityResponseDto })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
@@ -85,7 +79,6 @@ export class ActivitiesController {
   }
 
   @Patch(':id')
-  @Roles('region_admin')
   @ApiOkResponse({ type: ActivityResponseDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -96,7 +89,6 @@ export class ActivitiesController {
   }
 
   @Patch(':id/series-from-here')
-  @Roles('region_admin')
   @ApiOkResponse({ type: ActivityResponseDto })
   updateSeriesFromDate(
     @Param('id', ParseUUIDPipe) id: string,
@@ -107,7 +99,6 @@ export class ActivitiesController {
   }
 
   @Delete(':id')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   remove(
@@ -118,7 +109,6 @@ export class ActivitiesController {
   }
 
   @Delete(':id/series-from-here')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse({
     description: 'Deletes this activity and all future ones in the same series',
@@ -133,7 +123,6 @@ export class ActivitiesController {
   // ── Volunteers ────────────────────────────────────────────────────────────
 
   @Post(':id/volunteers')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ActivityResponseDto })
   assignVolunteer(
@@ -145,7 +134,6 @@ export class ActivitiesController {
   }
 
   @Delete(':id/volunteers/:volunteerId')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ActivityResponseDto })
   unassignVolunteer(
@@ -159,7 +147,6 @@ export class ActivitiesController {
   // ── Available volunteers ──────────────────────────────────────────────────
 
   @Get(':id/available-volunteers')
-  @Roles('region_admin')
   @ApiOkResponse({ type: [AvailableVolunteerForActivityDto] })
   getAvailableVolunteers(
     @Param('id', ParseUUIDPipe) id: string,
@@ -171,7 +158,6 @@ export class ActivitiesController {
   // ── Available groups ──────────────────────────────────────────────────────
 
   @Get(':id/available-groups')
-  @Roles('region_admin')
   @ApiOkResponse({ type: [AvailableGroupForActivityDto] })
   getAvailableGroups(
     @Param('id', ParseUUIDPipe) id: string,
@@ -183,7 +169,6 @@ export class ActivitiesController {
   // ── Guest groups ──────────────────────────────────────────────────────────
 
   @Post(':id/guest-groups')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ActivityResponseDto })
   assignGuestGroup(
@@ -195,7 +180,6 @@ export class ActivitiesController {
   }
 
   @Delete(':id/guest-groups/:groupId')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ActivityResponseDto })
   unassignGuestGroup(
@@ -209,7 +193,6 @@ export class ActivitiesController {
   // ── Publish ───────────────────────────────────────────────────────────────
 
   @Post(':id/publish')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ActivityResponseDto })
   publish(
@@ -220,7 +203,6 @@ export class ActivitiesController {
   }
 
   @Post(':id/unpublish')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ActivityResponseDto })
   unpublish(

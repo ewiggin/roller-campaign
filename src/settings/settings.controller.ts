@@ -15,25 +15,39 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Audit } from '../audit-logs/decorators/audit.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
 import { MailerService } from '../mailer/mailer.service';
+import { RolePermissionsResponseDto } from './dto/role-permissions-response.dto';
 import { SmtpSettingsResponseDto } from './dto/smtp-settings-response.dto';
 import { TestSmtpDto } from './dto/test-smtp.dto';
+import { UpdatePermissionsDto } from './dto/update-permissions.dto';
 import { UpdateSmtpSettingsDto } from './dto/update-smtp-settings.dto';
 import { SettingsService } from './settings.service';
 
 @ApiTags('settings')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('superadmin')
+@UseGuards(JwtAuthGuard)
 @Controller('settings')
 export class SettingsController {
   constructor(
     private readonly settingsService: SettingsService,
     private readonly mailerService: MailerService,
   ) {}
+
+  @Get('permissions')
+  @ApiOkResponse({ type: RolePermissionsResponseDto })
+  getPermissions(): Promise<RolePermissionsResponseDto> {
+    return this.settingsService.getPermissions();
+  }
+
+  @Patch('permissions')
+  @Audit('update', 'settings')
+  @ApiOkResponse({ type: RolePermissionsResponseDto })
+  updatePermissions(
+    @Body() dto: UpdatePermissionsDto,
+  ): Promise<RolePermissionsResponseDto> {
+    return this.settingsService.updatePermissions(dto);
+  }
 
   @Get('smtp')
   @ApiOkResponse({ type: SmtpSettingsResponseDto })

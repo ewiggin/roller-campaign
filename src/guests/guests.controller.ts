@@ -27,9 +27,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateGuestDto } from './dto/create-guest.dto';
 import { GuestListQueryDto } from './dto/guest-list-query.dto';
@@ -50,13 +48,12 @@ import { Audit } from '../audit-logs/decorators/audit.decorator';
 
 @ApiTags('guests')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 @Controller('guests')
 export class GuestsController {
   constructor(private readonly service: GuestsService) {}
 
   @Get('export')
-  @Roles('region_admin')
   @Audit('export', 'guest')
   @ApiOkResponse({ description: 'Excel con listado de invitados' })
   async exportAll(
@@ -74,7 +71,6 @@ export class GuestsController {
   }
 
   @Get('import/template')
-  @Roles('region_admin')
   @ApiOkResponse({
     description: 'Plantilla Excel para importación de invitados',
   })
@@ -92,7 +88,6 @@ export class GuestsController {
   }
 
   @Post('import/parse')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -116,7 +111,6 @@ export class GuestsController {
   }
 
   @Post('import/commit')
-  @Roles('region_admin')
   @Audit('import', 'guest')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ImportCommitResponseDto })
@@ -128,7 +122,6 @@ export class GuestsController {
   }
 
   @Post('import/export-not-found')
-  @Roles('region_admin')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
     description: 'Excel con filas cuyo grupo no fue encontrado',
@@ -150,7 +143,6 @@ export class GuestsController {
   }
 
   @Post()
-  @Roles('region_admin')
   @Audit('create', 'guest')
   @ApiCreatedResponse({ type: GuestResponseDto })
   create(
@@ -161,7 +153,6 @@ export class GuestsController {
   }
 
   @Get()
-  @Roles('region_admin')
   @Audit('list', 'guest')
   @ApiOkResponse({ description: 'Lista paginada de invitados' })
   findAll(@Query() query: GuestListQueryDto, @CurrentUser() user: JwtPayload) {
@@ -169,7 +160,6 @@ export class GuestsController {
   }
 
   @Get(':id/token')
-  @Roles('region_admin')
   @Audit('generate_token', 'guest')
   @ApiOkResponse({ type: GuestTokenResponseDto })
   generateToken(
@@ -180,7 +170,6 @@ export class GuestsController {
   }
 
   @Get(':id')
-  @Roles('region_admin')
   @Audit('read', 'guest')
   @ApiOkResponse({ type: GuestResponseDto })
   findOne(
@@ -191,7 +180,6 @@ export class GuestsController {
   }
 
   @Patch(':id')
-  @Roles('region_admin')
   @Audit('update', 'guest')
   @ApiOkResponse({ type: GuestResponseDto })
   update(
@@ -203,7 +191,6 @@ export class GuestsController {
   }
 
   @Delete(':id')
-  @Roles('superadmin')
   @Audit('delete', 'guest')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
@@ -212,7 +199,6 @@ export class GuestsController {
   }
 
   @Post(':id/migrate')
-  @Roles('region_admin')
   @Audit('migrate', 'guest')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: GuestResponseDto })
