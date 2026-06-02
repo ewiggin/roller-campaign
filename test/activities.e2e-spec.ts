@@ -393,6 +393,126 @@ describe('Activities (e2e)', () => {
     });
   });
 
+  // ── Host schedule conflict ────────────────────────────────────────────────
+
+  describe('Host schedule conflict', () => {
+    // 2024-06-15 is a Saturday → JS getDay()=6 → our convention day 6
+    let conflictGroupId: string;
+    let noConflictGroupId: string;
+    let activityId: string;
+
+    beforeAll(async () => {
+      const host = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send({
+            name: `Sched Host ${Date.now()}`,
+            region_id: regionId,
+            weekend_meeting_day: 6, // Saturday
+            weekend_meeting_time: '10:00', // falls within 09:00-13:00
+          })
+      ).body;
+
+      const conflictGroup = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({
+            group_code: `SCHEDCONF-${Date.now()}`,
+            region_id: regionId,
+          })
+      ).body;
+      conflictGroupId = conflictGroup.id;
+      // Assign host via dedicated endpoint (host_id is not in CreateGuestGroupDto)
+      await request(server)
+        .patch(`/api/guest-groups/${conflictGroupId}/host`)
+        .set('Authorization', auth())
+        .send({ hostId: host.id });
+
+      noConflictGroupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({
+            group_code: `SCHEDNONE-${Date.now()}`,
+            region_id: regionId,
+          })
+      ).body.id;
+
+      activityId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            ...baseTurn(),
+            date: '2024-06-15', // Saturday
+            start_time: '09:00',
+            end_time: '13:00',
+          })
+      ).body.id;
+    });
+
+    it('available-groups includes host_schedule_conflict on every item', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(
+        res.body.every(
+          (g: { host_schedule_conflict: boolean }) =>
+            typeof g.host_schedule_conflict === 'boolean',
+        ),
+      ).toBe(true);
+    });
+
+    it('flags group whose host meeting overlaps the activity', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+      const group = res.body.find(
+        (g: { id: string }) => g.id === conflictGroupId,
+      );
+      expect(group).toBeDefined();
+      expect(group.host_schedule_conflict).toBe(true);
+    });
+
+    it('does not flag group without host', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+      const group = res.body.find(
+        (g: { id: string }) => g.id === noConflictGroupId,
+      );
+      expect(group).toBeDefined();
+      expect(group.host_schedule_conflict).toBe(false);
+    });
+
+    it('returns 400 when assigning a group with host schedule conflict', async () => {
+      await request(server)
+        .post(`/api/activities/${activityId}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: conflictGroupId })
+        .expect(400);
+    });
+
+    it('allows assigning a group without host schedule conflict', async () => {
+      const res = await request(server)
+        .post(`/api/activities/${activityId}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: noConflictGroupId })
+        .expect(200);
+      expect(
+        res.body.guest_groups.some(
+          (g: { id: string }) => g.id === noConflictGroupId,
+        ),
+      ).toBe(true);
+    });
+  });
+
   describe('Guest group assignment', () => {
     let activityId: string;
     let groupId: string;

@@ -78,6 +78,13 @@ export class AvailableGroupForActivityDto {
       'True if assigned to another activity overlapping in date+time',
   })
   already_in_activity: boolean;
+
+  @ApiProperty({
+    example: false,
+    description:
+      "True if the activity time overlaps with the host congregation's meeting schedule",
+  })
+  host_schedule_conflict: boolean;
 }
 
 export class ActivityResponseDto {
