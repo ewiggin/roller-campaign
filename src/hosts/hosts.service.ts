@@ -65,6 +65,7 @@ export class HostsService {
       weekday_meeting_time: dto.weekday_meeting_time ?? null,
       weekend_meeting_day: dto.weekend_meeting_day ?? null,
       weekend_meeting_time: dto.weekend_meeting_time ?? null,
+      capacity: dto.capacity ?? null,
     });
     const saved = await this.hostsRepo.save(host);
     await this.cache.clear();
@@ -393,6 +394,7 @@ export class HostsService {
       'weekday_meeting_time',
       'weekend_meeting_day',
       'weekend_meeting_time',
+      'capacity',
       'group_count',
       'guest_count',
     ];
@@ -406,6 +408,7 @@ export class HostsService {
       h.weekday_meeting_time ?? '',
       h.weekend_meeting_day ? dayLabel(h.weekend_meeting_day) : '',
       h.weekend_meeting_time ?? '',
+      h.capacity ?? '',
       h.group_count,
       h.guest_count,
     ]);
@@ -422,6 +425,7 @@ export class HostsService {
       { wch: 18 },
       { wch: 20 },
       { wch: 18 },
+      { wch: 10 },
       { wch: 12 },
       { wch: 12 },
     ];
@@ -440,6 +444,7 @@ export class HostsService {
       'weekday_meeting_time',
       'weekend_meeting_day',
       'weekend_meeting_time',
+      'capacity',
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers]);
     const wb = XLSX.utils.book_new();
@@ -513,6 +518,8 @@ export class HostsService {
             : null,
         weekend_meeting_time:
           String(raw['weekend_meeting_time'] ?? '').trim() || null,
+        capacity:
+          raw['capacity'] !== '' ? Number(raw['capacity']) || null : null,
       };
 
       if (existingKeys.has(`${name.toLowerCase()}::${regionId}`)) {
@@ -565,6 +572,7 @@ export class HostsService {
           weekday_meeting_time: row.weekday_meeting_time ?? null,
           weekend_meeting_day: row.weekend_meeting_day ?? null,
           weekend_meeting_time: row.weekend_meeting_time ?? null,
+          capacity: row.capacity ?? null,
         }),
       );
       created++;
@@ -587,6 +595,7 @@ export class HostsService {
         weekday_meeting_time: row.weekday_meeting_time ?? null,
         weekend_meeting_day: row.weekend_meeting_day ?? null,
         weekend_meeting_time: row.weekend_meeting_time ?? null,
+        capacity: row.capacity ?? null,
       });
       await this.hostsRepo.save(existing);
       updated++;
@@ -612,6 +621,7 @@ export class HostsService {
     dto.weekday_meeting_time = host.weekday_meeting_time;
     dto.weekend_meeting_day = host.weekend_meeting_day;
     dto.weekend_meeting_time = host.weekend_meeting_time;
+    dto.capacity = host.capacity;
     dto.group_count = groupCount;
     dto.guest_count = guestCount;
     dto.created_at = host.created_at;

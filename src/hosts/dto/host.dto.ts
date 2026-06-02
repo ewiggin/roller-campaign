@@ -58,6 +58,12 @@ export class CreateHostDto {
   @IsOptional()
   @IsString()
   weekend_meeting_time?: string | null;
+
+  @ApiPropertyOptional({ example: 150 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  capacity?: number | null;
 }
 
 export class UpdateHostDto {
@@ -105,6 +111,12 @@ export class UpdateHostDto {
   @IsOptional()
   @IsString()
   weekend_meeting_time?: string | null;
+
+  @ApiPropertyOptional({ example: 150 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  capacity?: number | null;
 }
 
 export class HostResponseDto {
@@ -137,6 +149,9 @@ export class HostResponseDto {
 
   @ApiPropertyOptional({ example: '10:00', nullable: true })
   weekend_meeting_time: string | null;
+
+  @ApiPropertyOptional({ example: 150, nullable: true })
+  capacity: number | null;
 
   @ApiProperty({ example: 0 })
   group_count: number;

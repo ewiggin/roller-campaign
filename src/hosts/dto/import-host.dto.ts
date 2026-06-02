@@ -41,6 +41,10 @@ export class ImportHostRowDto {
   @IsOptional()
   @IsString()
   weekend_meeting_time?: string | null;
+
+  @ApiPropertyOptional({ example: 150, nullable: true })
+  @IsOptional()
+  capacity?: number | null;
 }
 
 export class ImportHostErrorDto {
