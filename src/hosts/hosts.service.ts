@@ -176,6 +176,33 @@ export class HostsService {
       });
     }
 
+    const guestLanguages =
+      groupIds.length > 0
+        ? await this.guestsRepo
+            .createQueryBuilder('g')
+            .select('g.group_id', 'group_id')
+            .addSelect('g.native_language', 'native_language')
+            .addSelect('g.other_languages', 'other_languages')
+            .where('g.group_id IN (:...groupIds)', { groupIds })
+            .andWhere(
+              '(g.native_language IS NOT NULL OR g.other_languages IS NOT NULL)',
+            )
+            .getRawMany<{
+              group_id: string;
+              native_language: string | null;
+              other_languages: string[] | null;
+            }>()
+        : [];
+
+    const languagesByGroup = new Map<string, Set<string>>();
+    for (const row of guestLanguages) {
+      if (!languagesByGroup.has(row.group_id))
+        languagesByGroup.set(row.group_id, new Set());
+      const set = languagesByGroup.get(row.group_id)!;
+      if (row.native_language) set.add(row.native_language);
+      if (row.other_languages) row.other_languages.forEach((l) => set.add(l));
+    }
+
     const withDistance = groups.map((group) => {
       const guestCount =
         (group as GuestGroup & { guest_count?: number }).guest_count ?? 0;
@@ -191,11 +218,14 @@ export class HostsService {
         }
       }
 
+      const languages = Array.from(languagesByGroup.get(group.id) ?? []).sort();
+
       const dto: GroupSuggestionDto = {
         id: group.id,
         group_code: group.group_code,
         guest_count: guestCount,
         distance_km,
+        languages,
       };
       return { dto, host_id: group.host_id };
     });

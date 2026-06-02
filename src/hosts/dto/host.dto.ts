@@ -182,6 +182,9 @@ export class GroupSuggestionDto {
     description: 'Distance in km from host, null if no guest coordinates',
   })
   distance_km: number | null;
+
+  @ApiProperty({ example: ['Spanish', 'English'], type: [String] })
+  languages: string[];
 }
 
 export class GroupSuggestionsResponseDto {
