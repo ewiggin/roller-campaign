@@ -14,6 +14,10 @@ import { VolunteersService } from '../../../core/services/volunteers.service';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 const AVAILABILITY_OPTIONS = [
+  { value: 'saturday_prev_morning', label: 'Sat (prev) – morning' },
+  { value: 'saturday_prev_afternoon', label: 'Sat (prev) – afternoon' },
+  { value: 'sunday_prev_morning', label: 'Sun (prev) – morning' },
+  { value: 'sunday_prev_afternoon', label: 'Sun (prev) – afternoon' },
   { value: 'monday_morning', label: 'Mon – morning' },
   { value: 'monday_afternoon', label: 'Mon – afternoon' },
   { value: 'tuesday_morning', label: 'Tue – morning' },
@@ -28,10 +32,6 @@ const AVAILABILITY_OPTIONS = [
   { value: 'saturday_afternoon', label: 'Sat – afternoon' },
   { value: 'sunday_morning', label: 'Sun – morning' },
   { value: 'sunday_afternoon', label: 'Sun – afternoon' },
-  { value: 'saturday_prev_morning', label: 'Sat (prev) – morning' },
-  { value: 'saturday_prev_afternoon', label: 'Sat (prev) – afternoon' },
-  { value: 'sunday_prev_morning', label: 'Sun (prev) – morning' },
-  { value: 'sunday_prev_afternoon', label: 'Sun (prev) – afternoon' },
   { value: 'monday_next_morning', label: 'Mon (next) – morning' },
   { value: 'monday_next_afternoon', label: 'Mon (next) – afternoon' },
 ];
@@ -119,6 +119,26 @@ export class VolunteersListComponent implements OnInit {
     this.page.set(1);
     this.load();
   }
+
+  clearFilters() {
+    this.filterRegion.set('');
+    this.filterRole.set('');
+    this.filterMinCarSeats.set('');
+    this.filterAvailability.set([]);
+    this.filterTermsAccepted.set('');
+    this.filterSearch.set('');
+    this.applyFilters();
+  }
+
+  readonly hasActiveFilters = computed(
+    () =>
+      !!this.filterRegion() ||
+      !!this.filterRole() ||
+      !!this.filterMinCarSeats() ||
+      this.filterAvailability().length > 0 ||
+      this.filterTermsAccepted() !== '' ||
+      !!this.filterSearch(),
+  );
 
   prevPage() {
     if (this.page() > 1) {
