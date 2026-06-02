@@ -137,7 +137,7 @@ export class HostsListComponent implements OnInit {
       weekday_meeting_time: host.weekday_meeting_time ?? '',
       weekend_meeting_day: host.weekend_meeting_day,
       weekend_meeting_time: host.weekend_meeting_time ?? '',
-      capacity: host.capacity,
+      capacity: host.capacity ?? null,
     });
     this.formError.set('');
     this.modal.set('edit');
