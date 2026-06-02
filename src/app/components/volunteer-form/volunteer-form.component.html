@@ -22,14 +22,10 @@
             Código de voluntario<span class="text-red-500">*</span>
           </label>
           <p class="text-xs text-gray-500">
-            Lo podrás encontrar en
-            <a href="https://ba.jw.org/">Builder Assistant</a> > Ver mi perfil >
-            Núm. debajo de "Número de identificación"
+            Lo podrás encontrar en JW Hub > Mi perfil > "Número de identificación"
           </p>
           <input
-            type="number"
-            inputmode="numeric"
-            pattern="[0-9]*"
+            type="text"
             [formControl]="codeControl"
             (keydown.enter)="validateCode()"
             placeholder="Ej. 1234567"
