@@ -190,9 +190,16 @@ export class HostsService {
             .getRawMany<{
               group_id: string;
               native_language: string | null;
-              other_languages: string[] | null;
+              other_languages: string | string[] | null;
             }>()
         : [];
+
+    const parseRawArray = (val: string | string[] | null): string[] => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      // TypeORM simple-array stores as plain comma-separated string (no braces)
+      return val.split(',').filter(Boolean).map((s) => s.trim());
+    };
 
     const languagesByGroup = new Map<string, Set<string>>();
     for (const row of guestLanguages) {
@@ -200,7 +207,7 @@ export class HostsService {
         languagesByGroup.set(row.group_id, new Set());
       const set = languagesByGroup.get(row.group_id)!;
       if (row.native_language) set.add(row.native_language);
-      if (row.other_languages) row.other_languages.forEach((l) => set.add(l));
+      parseRawArray(row.other_languages).forEach((l) => set.add(l));
     }
 
     const withDistance = groups.map((group) => {
