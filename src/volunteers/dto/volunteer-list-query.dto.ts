@@ -27,6 +27,12 @@ const ALL_SLOTS = [
   'saturday_afternoon',
   'sunday_morning',
   'sunday_afternoon',
+  'saturday_prev_morning',
+  'saturday_prev_afternoon',
+  'sunday_prev_morning',
+  'sunday_prev_afternoon',
+  'monday_next_morning',
+  'monday_next_afternoon',
 ] as const;
 
 export class VolunteerListQueryDto {
