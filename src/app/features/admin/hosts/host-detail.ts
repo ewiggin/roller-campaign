@@ -27,6 +27,22 @@ export class HostDetailComponent implements OnInit {
 
   readonly totalGuests = computed(() => this.assigned().reduce((sum, g) => sum + g.guest_count, 0));
 
+  readonly remainingCapacity = computed(() => {
+    const cap = this.host()?.capacity;
+    if (!cap) return null;
+    return cap - this.totalGuests();
+  });
+
+  readonly capacityBadgeClass = computed(() => {
+    const rem = this.remainingCapacity();
+    if (rem === null) return null;
+    if (rem < 0)
+      return 'bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800';
+    if (rem <= Math.ceil(this.host()!.capacity! * 0.15))
+      return 'bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800';
+    return 'bg-gray-100 text-gray-500 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700';
+  });
+
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.svc.getOne(id).subscribe({

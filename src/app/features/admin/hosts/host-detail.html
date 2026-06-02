@@ -111,20 +111,6 @@
           </div>
         }
       </div>
-      <div class="flex flex-col items-end gap-1.5 shrink-0">
-        <span
-          class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:ring-purple-800"
-        >
-          {{ assigned().length }} group{{ assigned().length !== 1 ? 's' : '' }}
-        </span>
-        @if (host()!.capacity) {
-          <span
-            class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
-          >
-            {{ host()!.capacity }} capacity
-          </span>
-        }
-      </div>
     </div>
   </div>
 
@@ -145,10 +131,26 @@
             </span>
             @if (!suggestionsLoading()) {
               <span
-                class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800"
+                class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:ring-purple-800"
               >
-                {{ totalGuests() }} guest{{ totalGuests() !== 1 ? 's' : '' }}
+                {{ assigned().length }} group{{ assigned().length !== 1 ? 's' : '' }}
               </span>
+            }
+            @if (!suggestionsLoading()) {
+              @if (host()!.capacity) {
+                <span
+                  class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1"
+                  [class]="capacityBadgeClass()!"
+                >
+                  {{ totalGuests() }}/{{ host()!.capacity }} guests
+                </span>
+              } @else {
+                <span
+                  class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800"
+                >
+                  {{ totalGuests() }} guest{{ totalGuests() !== 1 ? 's' : '' }}
+                </span>
+              }
             }
           </div>
           @if (assigned().length > 0) {
