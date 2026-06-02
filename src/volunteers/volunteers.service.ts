@@ -4,9 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Volunteer } from './entities/volunteer.entity';
 import { VolunteerRole } from './entities/volunteer-role.entity';
@@ -45,7 +45,21 @@ export class VolunteersService {
     private readonly availRepo: Repository<VolunteerAvailability>,
     @InjectRepository(Region) private readonly regionsRepo: Repository<Region>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
+
+  private buildSearchCondition(alias: string): string {
+    if (this.dataSource.options.type === 'postgres') {
+      return (
+        `(unaccent(lower(${alias}.full_name)) LIKE unaccent(lower(:search))` +
+        ` OR unaccent(lower(${alias}.volunteer_code)) LIKE unaccent(lower(:search)))`
+      );
+    }
+    return (
+      `(lower(${alias}.full_name) LIKE lower(:search)` +
+      ` OR lower(${alias}.volunteer_code) LIKE lower(:search))`
+    );
+  }
 
   // ── Roles ──────────────────────────────────────────────────────────────────
 
@@ -155,9 +169,7 @@ export class VolunteersService {
 
     if (roleId) qb.andWhere('roles.id = :roleId', { roleId });
     if (search)
-      qb.andWhere('v.full_name LIKE :search OR v.volunteer_code LIKE :search', {
-        search: `%${search}%`,
-      });
+      qb.andWhere(this.buildSearchCondition('v'), { search: `%${search}%` });
     if (is_active !== undefined)
       qb.andWhere('v.is_active = :is_active', { is_active });
 
@@ -182,7 +194,7 @@ export class VolunteersService {
       const params = Object.fromEntries(
         available_slots.map((_, i) => [`_av${i}`, true]),
       );
-      qb.andWhere(`(${parts.join(' OR ')})`, params);
+      qb.andWhere(`(${parts.join(' AND ')})`, params);
     }
     if (terms_accepted === true) {
       qb.andWhere('v.terms_accepted = :terms_accepted', {
@@ -742,9 +754,7 @@ export class VolunteersService {
 
     if (roleId) qb.andWhere('roles.id = :roleId', { roleId });
     if (search)
-      qb.andWhere('v.full_name LIKE :search OR v.volunteer_code LIKE :search', {
-        search: `%${search}%`,
-      });
+      qb.andWhere(this.buildSearchCondition('v'), { search: `%${search}%` });
     if (is_active !== undefined)
       qb.andWhere('v.is_active = :is_active', { is_active });
     if (min_car_seats !== undefined)
@@ -754,7 +764,7 @@ export class VolunteersService {
       const params = Object.fromEntries(
         available_slots.map((_, i) => [`_av${i}`, true]),
       );
-      qb.andWhere(`(${parts.join(' OR ')})`, params);
+      qb.andWhere(`(${parts.join(' AND ')})`, params);
     }
 
     const volunteers = await qb.orderBy('v.full_name', 'ASC').getMany();
