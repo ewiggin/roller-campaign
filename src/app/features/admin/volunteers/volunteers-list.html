@@ -228,156 +228,158 @@
       } @else {
         <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
           @for (v of volunteers(); track v.id) {
-            <li
-              class="px-5 py-3 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50 cursor-pointer"
-              [routerLink]="['/admin/volunteers', v.id]"
-            >
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate">{{
-                    v.full_name
-                  }}</span>
-                  @for (role of v.roles.slice(0, 2); track role.id) {
-                    <span
-                      class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800"
-                      >{{ role.name }}</span
-                    >
-                  }
-                  @if (v.roles.length > 2) {
-                    <span class="shrink-0 text-[10px] text-gray-400 dark:text-zinc-500"
-                      >+{{ v.roles.length - 2 }}</span
-                    >
-                  }
-                </div>
-                <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
-                  {{ v.volunteer_code }}
-                  @if (v.regions.length > 0) {
-                    · {{ v.regions.map((r) => r.name).join(', ') }}
-                  }
-                </p>
-              </div>
-
-              <!-- Car icon -->
-              @if (v.car_seats && v.car_seats > 0) {
-                <div
-                  class="shrink-0 flex items-center gap-1 text-xs text-gray-400 dark:text-zinc-500"
-                  title="{{ v.car_seats }} car seats"
-                >
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                      d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.08 3H5.77L6.85 7zM19 17H5v-2h14v2z"
-                    />
-                    <circle cx="7.5" cy="17.5" r="1.5" />
-                    <circle cx="16.5" cy="17.5" r="1.5" />
-                  </svg>
-                  <span>{{ v.car_seats }}</span>
-                </div>
-              }
-
-              <!-- Availability grid -->
-              <div
-                class="shrink-0 hidden sm:flex flex-col gap-0.5"
-                title="Morning / Afternoon availability"
+            <li>
+              <a
+                [routerLink]="['/admin/volunteers', v.id]"
+                class="px-5 py-3 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50"
               >
-                <!-- Day labels: Sat★ Sun★ Mo Tu We Th Fr Sa Su Mon★ -->
-                <div class="flex gap-0.5">
-                  @for (
-                    d of [
-                      { label: 'Sa', outside: true },
-                      { label: 'Su', outside: true },
-                      { label: 'Mo', outside: false },
-                      { label: 'Tu', outside: false },
-                      { label: 'We', outside: false },
-                      { label: 'Th', outside: false },
-                      { label: 'Fr', outside: false },
-                      { label: 'Sa', outside: false },
-                      { label: 'Su', outside: false },
-                      { label: 'Mo', outside: true },
-                    ];
-                    track $index
-                  ) {
-                    <span
-                      class="w-3.5 text-center text-[7px] font-medium leading-none"
-                      [class]="
-                        d.outside
-                          ? 'text-amber-400 dark:text-amber-500'
-                          : 'text-gray-400 dark:text-zinc-500'
-                      "
-                      >{{ d.label }}</span
-                    >
-                  }
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate">{{
+                      v.full_name
+                    }}</span>
+                    @for (role of v.roles.slice(0, 2); track role.id) {
+                      <span
+                        class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800"
+                        >{{ role.name }}</span
+                      >
+                    }
+                    @if (v.roles.length > 2) {
+                      <span class="shrink-0 text-[10px] text-gray-400 dark:text-zinc-500"
+                        >+{{ v.roles.length - 2 }}</span
+                      >
+                    }
+                  </div>
+                  <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+                    {{ v.volunteer_code }}
+                    @if (v.regions.length > 0) {
+                      · {{ v.regions.map((r) => r.name).join(', ') }}
+                    }
+                  </p>
                 </div>
-                <!-- Morning row (blue / amber for outside-week) -->
-                <div class="flex gap-0.5">
-                  @for (
-                    s of [
-                      { slot: v.saturday_prev_morning, outside: true },
-                      { slot: v.sunday_prev_morning, outside: true },
-                      { slot: v.monday_morning, outside: false },
-                      { slot: v.tuesday_morning, outside: false },
-                      { slot: v.wednesday_morning, outside: false },
-                      { slot: v.thursday_morning, outside: false },
-                      { slot: v.friday_morning, outside: false },
-                      { slot: v.saturday_morning, outside: false },
-                      { slot: v.sunday_morning, outside: false },
-                      { slot: v.monday_next_morning, outside: true },
-                    ];
-                    track $index
-                  ) {
-                    <span
-                      class="w-3.5 h-2.5 rounded-sm"
-                      [class]="
-                        s.slot
-                          ? s.outside
-                            ? 'bg-amber-300 dark:bg-amber-600'
-                            : 'bg-blue-300 dark:bg-blue-600'
-                          : 'bg-gray-100 dark:bg-zinc-800'
-                      "
-                    ></span>
-                  }
-                </div>
-                <!-- Afternoon row (violet / amber for outside-week) -->
-                <div class="flex gap-0.5">
-                  @for (
-                    s of [
-                      { slot: v.saturday_prev_afternoon, outside: true },
-                      { slot: v.sunday_prev_afternoon, outside: true },
-                      { slot: v.monday_afternoon, outside: false },
-                      { slot: v.tuesday_afternoon, outside: false },
-                      { slot: v.wednesday_afternoon, outside: false },
-                      { slot: v.thursday_afternoon, outside: false },
-                      { slot: v.friday_afternoon, outside: false },
-                      { slot: v.saturday_afternoon, outside: false },
-                      { slot: v.sunday_afternoon, outside: false },
-                      { slot: v.monday_next_afternoon, outside: true },
-                    ];
-                    track $index
-                  ) {
-                    <span
-                      class="w-3.5 h-2.5 rounded-sm"
-                      [class]="
-                        s.slot
-                          ? s.outside
-                            ? 'bg-amber-200 dark:bg-amber-700'
-                            : 'bg-violet-300 dark:bg-violet-600'
-                          : 'bg-gray-100 dark:bg-zinc-800'
-                      "
-                    ></span>
-                  }
-                </div>
-              </div>
 
-              @if (v.is_active) {
-                <span
-                  class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
-                  >Active</span
+                <!-- Car icon -->
+                @if (v.car_seats && v.car_seats > 0) {
+                  <div
+                    class="shrink-0 flex items-center gap-1 text-xs text-gray-400 dark:text-zinc-500"
+                    title="{{ v.car_seats }} car seats"
+                  >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path
+                        d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.08 3H5.77L6.85 7zM19 17H5v-2h14v2z"
+                      />
+                      <circle cx="7.5" cy="17.5" r="1.5" />
+                      <circle cx="16.5" cy="17.5" r="1.5" />
+                    </svg>
+                    <span>{{ v.car_seats }}</span>
+                  </div>
+                }
+
+                <!-- Availability grid -->
+                <div
+                  class="shrink-0 hidden sm:flex flex-col gap-0.5"
+                  title="Morning / Afternoon availability"
                 >
-              } @else {
-                <span
-                  class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-gray-50 text-gray-600 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700"
-                  >Inactive</span
-                >
-              }
+                  <!-- Day labels: Sat★ Sun★ Mo Tu We Th Fr Sa Su Mon★ -->
+                  <div class="flex gap-0.5">
+                    @for (
+                      d of [
+                        { label: 'Sa', outside: true },
+                        { label: 'Su', outside: true },
+                        { label: 'Mo', outside: false },
+                        { label: 'Tu', outside: false },
+                        { label: 'We', outside: false },
+                        { label: 'Th', outside: false },
+                        { label: 'Fr', outside: false },
+                        { label: 'Sa', outside: false },
+                        { label: 'Su', outside: false },
+                        { label: 'Mo', outside: true },
+                      ];
+                      track $index
+                    ) {
+                      <span
+                        class="w-3.5 text-center text-[7px] font-medium leading-none"
+                        [class]="
+                          d.outside
+                            ? 'text-amber-400 dark:text-amber-500'
+                            : 'text-gray-400 dark:text-zinc-500'
+                        "
+                        >{{ d.label }}</span
+                      >
+                    }
+                  </div>
+                  <!-- Morning row (blue / amber for outside-week) -->
+                  <div class="flex gap-0.5">
+                    @for (
+                      s of [
+                        { slot: v.saturday_prev_morning, outside: true },
+                        { slot: v.sunday_prev_morning, outside: true },
+                        { slot: v.monday_morning, outside: false },
+                        { slot: v.tuesday_morning, outside: false },
+                        { slot: v.wednesday_morning, outside: false },
+                        { slot: v.thursday_morning, outside: false },
+                        { slot: v.friday_morning, outside: false },
+                        { slot: v.saturday_morning, outside: false },
+                        { slot: v.sunday_morning, outside: false },
+                        { slot: v.monday_next_morning, outside: true },
+                      ];
+                      track $index
+                    ) {
+                      <span
+                        class="w-3.5 h-2.5 rounded-sm"
+                        [class]="
+                          s.slot
+                            ? s.outside
+                              ? 'bg-amber-300 dark:bg-amber-600'
+                              : 'bg-blue-300 dark:bg-blue-600'
+                            : 'bg-gray-100 dark:bg-zinc-800'
+                        "
+                      ></span>
+                    }
+                  </div>
+                  <!-- Afternoon row (violet / amber for outside-week) -->
+                  <div class="flex gap-0.5">
+                    @for (
+                      s of [
+                        { slot: v.saturday_prev_afternoon, outside: true },
+                        { slot: v.sunday_prev_afternoon, outside: true },
+                        { slot: v.monday_afternoon, outside: false },
+                        { slot: v.tuesday_afternoon, outside: false },
+                        { slot: v.wednesday_afternoon, outside: false },
+                        { slot: v.thursday_afternoon, outside: false },
+                        { slot: v.friday_afternoon, outside: false },
+                        { slot: v.saturday_afternoon, outside: false },
+                        { slot: v.sunday_afternoon, outside: false },
+                        { slot: v.monday_next_afternoon, outside: true },
+                      ];
+                      track $index
+                    ) {
+                      <span
+                        class="w-3.5 h-2.5 rounded-sm"
+                        [class]="
+                          s.slot
+                            ? s.outside
+                              ? 'bg-amber-200 dark:bg-amber-700'
+                              : 'bg-violet-300 dark:bg-violet-600'
+                            : 'bg-gray-100 dark:bg-zinc-800'
+                        "
+                      ></span>
+                    }
+                  </div>
+                </div>
+
+                @if (v.is_active) {
+                  <span
+                    class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
+                    >Active</span
+                  >
+                } @else {
+                  <span
+                    class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-gray-50 text-gray-600 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700"
+                    >Inactive</span
+                  >
+                }
+              </a>
             </li>
           }
         </ul>
