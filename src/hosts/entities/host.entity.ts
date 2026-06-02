@@ -49,6 +49,9 @@ export class Host {
   @Column({ type: 'varchar', nullable: true, default: null })
   weekend_meeting_time: string | null;
 
+  @Column({ type: 'int', nullable: true, default: null })
+  capacity: number | null;
+
   @OneToMany('GuestGroup', (g: GuestGroup) => g.host)
   groups: GuestGroup[];
 
