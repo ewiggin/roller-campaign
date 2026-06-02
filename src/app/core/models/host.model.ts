@@ -46,6 +46,7 @@ export interface GroupSuggestion {
   group_code: string;
   guest_count: number;
   distance_km: number | null;
+  languages: string[];
 }
 
 export interface GroupSuggestionsResponse {

@@ -1,4 +1,13 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  ViewChild,
+  inject,
+  signal,
+  computed,
+  OnInit,
+} from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HostsService } from '../../../core/services/hosts.service';
 import { GuestGroupsService } from '../../../core/services/guest-groups.service';
@@ -32,6 +41,34 @@ export class HostDetailComponent implements OnInit {
     if (!cap) return null;
     return cap - this.totalGuests();
   });
+
+  readonly selectedLanguages = signal<string[]>([]);
+  readonly langDropdownOpen = signal(false);
+
+  readonly availableLanguages = computed(() =>
+    Array.from(new Set(this.available().flatMap((g) => g.languages))).sort(),
+  );
+
+  readonly filteredAvailable = computed(() => {
+    const langs = this.selectedLanguages();
+    if (langs.length === 0) return this.available();
+    return this.available().filter((g) => langs.every((l) => g.languages.includes(l)));
+  });
+
+  toggleLanguage(lang: string) {
+    this.selectedLanguages.update((ls) =>
+      ls.includes(lang) ? ls.filter((l) => l !== lang) : [...ls, lang],
+    );
+  }
+
+  @ViewChild('langDropdown') private readonly langDropdownRef?: ElementRef<HTMLElement>;
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(e: MouseEvent) {
+    if (this.langDropdownRef && !this.langDropdownRef.nativeElement.contains(e.target as Node)) {
+      this.langDropdownOpen.set(false);
+    }
+  }
 
   readonly capacityBadgeClass = computed(() => {
     const rem = this.remainingCapacity();
