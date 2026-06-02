@@ -343,6 +343,17 @@
                 <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
                   {{ g.guest_count }} guest{{ g.guest_count !== 1 ? 's' : '' }}
                 </p>
+                @if (g.languages.length > 0) {
+                  <div class="flex flex-wrap gap-1 mt-1">
+                    @for (lang of g.languages; track lang) {
+                      <span
+                        class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800"
+                      >
+                        {{ lang }}
+                      </span>
+                    }
+                  </div>
+                }
               </div>
 
               <span
