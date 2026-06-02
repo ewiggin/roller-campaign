@@ -111,11 +111,20 @@
           </div>
         }
       </div>
-      <span
-        class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:ring-purple-800 shrink-0"
-      >
-        {{ assigned().length }} group{{ assigned().length !== 1 ? 's' : '' }}
-      </span>
+      <div class="flex flex-col items-end gap-1.5 shrink-0">
+        <span
+          class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:ring-purple-800"
+        >
+          {{ assigned().length }} group{{ assigned().length !== 1 ? 's' : '' }}
+        </span>
+        @if (host()!.capacity) {
+          <span
+            class="rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
+          >
+            {{ host()!.capacity }} capacity
+          </span>
+        }
+      </div>
     </div>
   </div>
 
