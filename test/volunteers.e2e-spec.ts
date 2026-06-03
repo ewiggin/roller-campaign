@@ -286,6 +286,65 @@ describe('Volunteers (e2e)', () => {
     });
   });
 
+  describe('Volunteer import deleteAbsent sync', () => {
+    // DB: V-KEEP-A, V-KEEP-B, V-GONE-1, V-GONE-2
+    // Excel: V-KEEP-A (skip), V-KEEP-B (skip), V-BRAND-NEW
+    // to_delete = [V-GONE-1, V-GONE-2]
+
+    beforeAll(async () => {
+      for (const code of ['V-KEEP-A', 'V-KEEP-B', 'V-GONE-1', 'V-GONE-2']) {
+        await request(server)
+          .post('/api/volunteers/import/commit')
+          .set('Authorization', auth())
+          .send({ rows: [{ volunteer_code: code, full_name: code }] });
+      }
+    });
+
+    it('parse includes to_delete for volunteers absent from Excel', async () => {
+      const xlsx = buildExcelBuffer([
+        { 'Número de identificación': 'V-KEEP-A', Nombre: 'Keep A' },
+        { 'Número de identificación': 'V-KEEP-B', Nombre: 'Keep B' },
+        { 'Número de identificación': 'V-BRAND-NEW', Nombre: 'Brand New' },
+      ]);
+      const res = await request(server)
+        .post('/api/volunteers/import/parse')
+        .set('Authorization', auth())
+        .attach('file', xlsx, 'vols.xlsx')
+        .expect(200);
+
+      expect(res.body.to_delete).toContain('V-GONE-1');
+      expect(res.body.to_delete).toContain('V-GONE-2');
+      expect(res.body.to_delete).not.toContain('V-KEEP-A');
+      expect(res.body.to_delete).not.toContain('V-KEEP-B');
+      expect(res.body.summary.to_delete).toBe(res.body.to_delete.length);
+    });
+
+    it('commit with deleteAbsent removes only absent volunteers', async () => {
+      const res = await request(server)
+        .post('/api/volunteers/import/commit')
+        .set('Authorization', auth())
+        .send({
+          rows: [{ volunteer_code: 'V-BRAND-NEW', full_name: 'Brand New' }],
+          deleteAbsent: true,
+          toDeleteCodes: ['V-GONE-1', 'V-GONE-2'],
+        })
+        .expect(200);
+
+      expect(res.body.deleted).toBe(2);
+
+      const list = await request(server)
+        .get('/api/volunteers')
+        .set('Authorization', auth());
+      const codes = list.body.data.map((v: { volunteer_code: string }) => v.volunteer_code);
+
+      expect(codes).not.toContain('V-GONE-1');
+      expect(codes).not.toContain('V-GONE-2');
+      expect(codes).toContain('V-KEEP-A');
+      expect(codes).toContain('V-KEEP-B');
+      expect(codes).toContain('V-BRAND-NEW');
+    });
+  });
+
   describe('region_admin access paths', () => {
     let coordToken: string;
     let coordRegionId: string;
