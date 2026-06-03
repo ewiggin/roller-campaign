@@ -106,7 +106,8 @@ export interface ImportParseResponse {
   errors: ImportError[];
   duplicates: string[];
   duplicateRows: ImportGuestRow[];
-  summary: { total: number; valid: number; errors: number; duplicates: number };
+  toDelete: { guest_code: string; full_name: string | null }[];
+  summary: { total: number; valid: number; errors: number; duplicates: number; to_delete: number };
   columns: string[];
 }
 

@@ -65,12 +65,14 @@ export class GuestsService {
     deleteAbsent?: boolean,
     partialUpdate?: boolean,
     columns?: string[],
+    toDeleteCodes?: string[],
   ) {
     return this.http.post<ImportCommitResponse>('/api/guests/import/commit', {
       ...(regionId ? { regionId } : {}),
       rows,
       ...(updateRows?.length ? { updateRows } : {}),
       ...(deleteAbsent ? { deleteAbsent: true } : {}),
+      ...(toDeleteCodes?.length ? { toDeleteCodes } : {}),
       ...(partialUpdate && columns?.length ? { partialUpdate: true, columns } : {}),
     });
   }

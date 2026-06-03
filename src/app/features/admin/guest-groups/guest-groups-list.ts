@@ -89,6 +89,7 @@ export class GuestGroupsListComponent implements OnInit {
   readonly importing = signal(false);
   readonly importError = signal('');
   readonly importResult = signal<ImportGroupResult | null>(null);
+  readonly importDeleteAbsent = signal(false);
   isDragging = false;
 
   // Guests modal
@@ -339,6 +340,7 @@ export class GuestGroupsListComponent implements OnInit {
     this.importRegionId.set(this.selectedRegionId() || this.regions()[0]?.id || '');
     this.importError.set('');
     this.importResult.set(null);
+    this.importDeleteAbsent.set(false);
     this.activeModal.set('import');
   }
 
@@ -367,17 +369,23 @@ export class GuestGroupsListComponent implements OnInit {
     this.importing.set(true);
     this.importError.set('');
     this.importResult.set(null);
-    this.svc.importFromExcel(file, this.importRegionId() || undefined).subscribe({
-      next: (result) => {
-        this.importResult.set(result);
-        this.importing.set(false);
-        this.loadGroups();
-      },
-      error: () => {
-        this.importError.set('Error importing file. Check the format.');
-        this.importing.set(false);
-      },
-    });
+    this.svc
+      .importFromExcel(
+        file,
+        this.importRegionId() || undefined,
+        this.importDeleteAbsent() || undefined,
+      )
+      .subscribe({
+        next: (result) => {
+          this.importResult.set(result);
+          this.importing.set(false);
+          this.loadGroups();
+        },
+        error: () => {
+          this.importError.set('Error importing file. Check the format.');
+          this.importing.set(false);
+        },
+      });
   }
 
   downloadExcel() {

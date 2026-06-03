@@ -463,7 +463,7 @@ export class GuestsListComponent implements OnInit {
     return (
       result.valid.length > 0 ||
       (this.importUpdateExisting() && (result.duplicateRows?.length ?? 0) > 0) ||
-      (this.importMode() === 'region' && this.importDeleteAbsent())
+      (this.importDeleteAbsent() && (result.toDelete?.length ?? 0) > 0)
     );
   }
 
@@ -480,7 +480,8 @@ export class GuestsListComponent implements OnInit {
       const colNote = selCols < allCols ? ` (${selCols} cols)` : '';
       parts.push(`update ${updates} existing${colNote}`);
     }
-    if (this.importMode() === 'region' && this.importDeleteAbsent()) parts.push('delete absent');
+    if (this.importDeleteAbsent() && (result.toDelete?.length ?? 0) > 0)
+      parts.push(`delete ${result.toDelete.length} absent`);
     return parts.join(' + ') || 'Import';
   }
 
@@ -491,8 +492,8 @@ export class GuestsListComponent implements OnInit {
     this.importError.set('');
     const regionId = this.importMode() === 'region' ? this.importRegionId() : undefined;
     const updateRows = this.importUpdateExisting() ? (result.duplicateRows ?? []) : undefined;
-    const deleteAbsent =
-      this.importMode() === 'region' && this.importDeleteAbsent() ? true : undefined;
+    const deleteAbsent = this.importDeleteAbsent() ? true : undefined;
+    const toDeleteCodes = deleteAbsent ? result.toDelete?.map((g) => g.guest_code) : undefined;
     const selectedCols = this.importSelectedColumns();
     const allCols = result.columns ?? [];
     const isPartial = selectedCols.length < allCols.length;
@@ -504,6 +505,7 @@ export class GuestsListComponent implements OnInit {
         deleteAbsent,
         isPartial ? true : undefined,
         isPartial ? selectedCols : undefined,
+        toDeleteCodes,
       )
       .subscribe({
         next: (res) => {
