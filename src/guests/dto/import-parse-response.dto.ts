@@ -70,6 +70,14 @@ export class ImportErrorDto {
   reason: string;
 }
 
+export class ImportToDeleteGuestDto {
+  @ApiProperty({ example: 'G-001' })
+  guest_code: string;
+
+  @ApiProperty({ example: 'Juan García López', nullable: true })
+  full_name: string | null;
+}
+
 export class ImportSummaryDto {
   @ApiProperty({ example: 150 })
   total: number;
@@ -82,6 +90,9 @@ export class ImportSummaryDto {
 
   @ApiProperty({ example: 2 })
   duplicates: number;
+
+  @ApiProperty({ example: 5 })
+  to_delete: number;
 }
 
 export class ImportParseResponseDto {
@@ -105,4 +116,8 @@ export class ImportParseResponseDto {
   /** Columnas reconocidas presentes en el Excel (para actualización parcial). */
   @ApiProperty({ example: ['guest_code', 'group_code', 'status'] })
   columns: string[];
+
+  /** Invitados en la BD que NO están en el Excel (se borrarán si deleteAbsent=true). */
+  @ApiProperty({ type: [ImportToDeleteGuestDto] })
+  toDelete: ImportToDeleteGuestDto[];
 }

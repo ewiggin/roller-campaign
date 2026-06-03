@@ -20,11 +20,17 @@ export class ImportCommitDto {
   @IsArray()
   updateRows?: ImportGuestRowDto[];
 
-  /** Si true, elimina de la BD los invitados de la región que no aparezcan en el Excel (solo modo región). */
+  /** Si true, elimina de la BD los invitados que no aparezcan en el Excel. */
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
   deleteAbsent?: boolean;
+
+  /** Códigos exactos a borrar (calculados en el parse). Cuando se proveen, se usan directamente en lugar de recalcular. */
+  @ApiPropertyOptional({ example: ['G-001', 'G-005'] })
+  @IsOptional()
+  @IsArray()
+  toDeleteCodes?: string[];
 
   /** Si true, en los updateRows solo se patchean los campos cuya columna estaba presente en el Excel. */
   @ApiPropertyOptional({ example: false })

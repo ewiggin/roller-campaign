@@ -35,6 +35,7 @@ import {
   ImportErrorDto,
   ImportGuestRowDto,
   ImportParseResponseDto,
+  ImportToDeleteGuestDto,
 } from './dto/import-parse-response.dto';
 import { UpdateGuestDto } from './dto/update-guest.dto';
 import { Guest } from './entities/guest.entity';
@@ -416,11 +417,13 @@ export class GuestsService {
       errors,
       duplicates: [],
       duplicateRows: [],
+      toDelete: [],
       summary: {
         total: rows.length,
         valid: valid.length,
         errors: errors.length,
         duplicates: 0,
+        to_delete: 0,
       },
       columns,
     };
@@ -431,6 +434,8 @@ export class GuestsService {
     regionId?: string,
   ): Promise<ImportParseResponseDto> {
     const preview = this.parseExcel(buffer, regionId);
+
+    const allExcelCodes = new Set(preview.valid.map((r) => r.guest_code));
 
     if (preview.valid.length > 0) {
       const codes = preview.valid.map((r) => r.guest_code);
@@ -452,6 +457,16 @@ export class GuestsService {
       preview.summary.duplicates = preview.duplicates.length;
       preview.summary.valid = preview.valid.length;
     }
+
+    // Guests in DB that are absent from the Excel
+    const allDbGuests = await this.guestsRepository.find({
+      select: { guest_code: true, full_name: true },
+    });
+    const toDelete: ImportToDeleteGuestDto[] = allDbGuests.filter(
+      (g) => !allExcelCodes.has(g.guest_code),
+    );
+    preview.toDelete = toDelete;
+    preview.summary.to_delete = toDelete.length;
 
     return preview;
   }
@@ -584,22 +599,16 @@ export class GuestsService {
       updatedGuests++;
     }
 
-    // ── Delete absent (mode A only) ───────────────────────────────────────
-    if (dto.deleteAbsent && dto.regionId) {
-      const importedCodes = new Set([
-        ...dto.rows.map((r) => r.guest_code),
-        ...(dto.updateRows ?? []).map((r) => r.guest_code),
-      ]);
-      const toDelete = await this.guestsRepository.find({
-        where: { region_id: dto.regionId },
-        select: { id: true, guest_code: true },
-      });
-      const absentGuests = toDelete.filter(
-        (g) => !importedCodes.has(g.guest_code),
-      );
-      if (absentGuests.length > 0) {
-        await this.guestsRepository.remove(absentGuests);
-        deletedGuests = absentGuests.length;
+    // ── Delete absent (global) ────────────────────────────────────────────
+    if (dto.deleteAbsent) {
+      const codesToDelete = dto.toDeleteCodes ?? [];
+      if (codesToDelete.length > 0) {
+        for (let i = 0; i < codesToDelete.length; i += 200) {
+          await this.guestsRepository.delete({
+            guest_code: In(codesToDelete.slice(i, i + 200)),
+          });
+        }
+        deletedGuests = codesToDelete.length;
       }
     }
 

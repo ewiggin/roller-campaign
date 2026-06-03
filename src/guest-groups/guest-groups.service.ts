@@ -302,6 +302,7 @@ export class GuestGroupsService {
     buffer: Buffer,
     regionId: string | undefined,
     currentUser: JwtPayload,
+    deleteAbsent = false,
   ): Promise<ImportGroupResponseDto> {
     const wb = XLSX.read(buffer, { type: 'buffer' });
     const ws = wb.Sheets[wb.SheetNames[0]];
@@ -320,6 +321,7 @@ export class GuestGroupsService {
     let created = 0;
     let updated = 0;
     let regions_not_found = 0;
+    const excelGroupCodes = new Set<string>();
 
     if (!hasRegionCol) {
       // ── Single-region mode ────────────────────────────────────────────────
@@ -332,6 +334,7 @@ export class GuestGroupsService {
       for (const row of rows) {
         const code = this.parseGroupCode(row);
         if (!code) continue;
+        excelGroupCodes.add(code);
         const exists = await this.groupsRepository.findOne({
           where: { group_code: code },
         });
@@ -386,6 +389,7 @@ export class GuestGroupsService {
           continue;
         }
 
+        excelGroupCodes.add(code);
         const exists = await this.groupsRepository.findOne({
           where: { group_code: code },
         });
@@ -406,11 +410,38 @@ export class GuestGroupsService {
       }
     }
 
+    // ── Delete absent (global) ────────────────────────────────────────────
+    let deleted = 0;
+    if (deleteAbsent) {
+      const allDbGroups = await this.groupsRepository.find({
+        select: { id: true, group_code: true },
+      });
+      const absentGroups = allDbGroups.filter(
+        (g) => !excelGroupCodes.has(g.group_code),
+      );
+      if (absentGroups.length > 0) {
+        const absentIds = absentGroups.map((g) => g.id);
+        // Delete guests first (FK_guests_group is RESTRICT), in chunks for SQLite
+        for (let i = 0; i < absentIds.length; i += 200) {
+          await this.guestsRepository.delete({
+            group_id: In(absentIds.slice(i, i + 200)),
+          });
+        }
+        for (let i = 0; i < absentIds.length; i += 200) {
+          await this.groupsRepository.delete({
+            id: In(absentIds.slice(i, i + 200)),
+          });
+        }
+        deleted = absentGroups.length;
+      }
+    }
+
     return {
       created,
       updated,
       total: rows.length,
       ...(hasRegionCol && regions_not_found > 0 ? { regions_not_found } : {}),
+      ...(deleted > 0 ? { deleted } : {}),
     };
   }
 
