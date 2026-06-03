@@ -284,6 +284,12 @@ export class GuestsService {
   parseExcel(buffer: Buffer, regionId?: string): ImportParseResponseDto {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const sheetHeaders = (XLSX.utils.sheet_to_json<string[]>(sheet, {
+      header: 1,
+    })[0] ?? []) as string[];
+    const columns = sheetHeaders.filter(
+      (h) => typeof h === 'string' && h in EXCEL_COLUMNS,
+    );
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       raw: false,
       defval: null,
@@ -308,7 +314,6 @@ export class GuestsService {
 
       if (!guest_code) rowErrors.push('guest_code es obligatorio');
       if (!group_code) rowErrors.push('group_code es obligatorio');
-      if (!full_name) rowErrors.push('full_name es obligatorio');
 
       if (guest_code && seenCodes.has(guest_code)) {
         rowErrors.push('guest_code duplicado en el archivo');
@@ -348,7 +353,7 @@ export class GuestsService {
       valid.push({
         guest_code: guest_code!,
         group_code: group_code!,
-        full_name: full_name!,
+        full_name: full_name ?? null,
         is_minor: this.parseBool(row['is_minor']),
         status: (status as ImportGuestRowDto['status']) || 'pending',
         branch: this.parseString(row['branch']),
@@ -417,6 +422,7 @@ export class GuestsService {
         errors: errors.length,
         duplicates: 0,
       },
+      columns,
     };
   }
 
@@ -458,6 +464,7 @@ export class GuestsService {
     let createdGroups = 0;
     let createdGuests = 0;
     let updatedGuests = 0;
+    let deletedGuests = 0;
     let groupsNotFound = 0;
     const notFoundRows: ImportGuestRowDto[] = [];
 
@@ -537,6 +544,9 @@ export class GuestsService {
     }
 
     // ── Updates (updateRows) ──────────────────────────────────────────────
+    const updateColumns =
+      dto.partialUpdate && dto.columns ? new Set(dto.columns) : null;
+
     for (const row of dto.updateRows ?? []) {
       const guest = await this.guestsRepository.findOne({
         where: { guest_code: row.guest_code },
@@ -560,11 +570,37 @@ export class GuestsService {
         if (group) newGroupId = group.id;
       }
 
-      Object.assign(guest, this.rowToGuestFields(row), {
-        group_id: newGroupId,
-      });
+      const allFields = this.rowToGuestFields(row);
+      const patch = updateColumns
+        ? Object.fromEntries(
+            Object.entries(allFields).filter(
+              ([k]) => k !== 'guest_code' && updateColumns.has(k),
+            ),
+          )
+        : allFields;
+
+      Object.assign(guest, patch, { group_id: newGroupId });
       await this.guestsRepository.save(guest);
       updatedGuests++;
+    }
+
+    // ── Delete absent (mode A only) ───────────────────────────────────────
+    if (dto.deleteAbsent && dto.regionId) {
+      const importedCodes = new Set([
+        ...dto.rows.map((r) => r.guest_code),
+        ...(dto.updateRows ?? []).map((r) => r.guest_code),
+      ]);
+      const toDelete = await this.guestsRepository.find({
+        where: { region_id: dto.regionId },
+        select: { id: true, guest_code: true },
+      });
+      const absentGuests = toDelete.filter(
+        (g) => !importedCodes.has(g.guest_code),
+      );
+      if (absentGuests.length > 0) {
+        await this.guestsRepository.remove(absentGuests);
+        deletedGuests = absentGuests.length;
+      }
     }
 
     return {
@@ -572,6 +608,7 @@ export class GuestsService {
       updated_guests: updatedGuests,
       created_groups: createdGroups,
       total: dto.rows.length + (dto.updateRows?.length ?? 0),
+      ...(deletedGuests > 0 ? { deleted_guests: deletedGuests } : {}),
       ...(dto.regionId
         ? {}
         : {
@@ -584,7 +621,7 @@ export class GuestsService {
   private rowToGuestFields(row: ImportGuestRowDto) {
     return {
       guest_code: row.guest_code,
-      full_name: row.full_name,
+      full_name: row.full_name || `INVITADO - ${row.guest_code}`,
       is_minor: row.is_minor ?? false,
       status: (row.status as Guest['status']) ?? 'pending',
       branch: row.branch ?? null,

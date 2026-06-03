@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsUUID } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsUUID } from 'class-validator';
 import { ImportGuestRowDto } from './import-parse-response.dto';
 
 export class ImportCommitDto {
@@ -19,6 +19,24 @@ export class ImportCommitDto {
   @IsOptional()
   @IsArray()
   updateRows?: ImportGuestRowDto[];
+
+  /** Si true, elimina de la BD los invitados de la región que no aparezcan en el Excel (solo modo región). */
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  deleteAbsent?: boolean;
+
+  /** Si true, en los updateRows solo se patchean los campos cuya columna estaba presente en el Excel. */
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  partialUpdate?: boolean;
+
+  /** Columnas reconocidas del Excel, necesarias cuando partialUpdate es true. */
+  @ApiPropertyOptional({ example: ['guest_code', 'group_code', 'status'] })
+  @IsOptional()
+  @IsArray()
+  columns?: string[];
 }
 
 export class ImportCommitResponseDto {
@@ -33,6 +51,9 @@ export class ImportCommitResponseDto {
 
   @ApiProperty({ example: 150 })
   total: number;
+
+  @ApiPropertyOptional({ example: 3 })
+  deleted_guests?: number;
 
   @ApiPropertyOptional({ example: 3 })
   groups_not_found?: number;

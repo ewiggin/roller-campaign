@@ -7,8 +7,12 @@ export class ImportGuestRowDto {
   @ApiProperty({ example: 'GRP-001' })
   group_code: string;
 
-  @ApiProperty({ example: 'Juan García López' })
-  full_name: string;
+  @ApiProperty({
+    example: 'Juan García López',
+    required: false,
+    nullable: true,
+  })
+  full_name?: string | null;
 
   is_minor?: boolean;
   status?: string;
@@ -97,4 +101,8 @@ export class ImportParseResponseDto {
 
   @ApiProperty({ type: ImportSummaryDto })
   summary: ImportSummaryDto;
+
+  /** Columnas reconocidas presentes en el Excel (para actualización parcial). */
+  @ApiProperty({ example: ['guest_code', 'group_code', 'status'] })
+  columns: string[];
 }
