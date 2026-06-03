@@ -335,7 +335,9 @@ describe('Volunteers (e2e)', () => {
       const list = await request(server)
         .get('/api/volunteers')
         .set('Authorization', auth());
-      const codes = list.body.data.map((v: { volunteer_code: string }) => v.volunteer_code);
+      const codes = list.body.data.map(
+        (v: { volunteer_code: string }) => v.volunteer_code,
+      );
 
       expect(codes).not.toContain('V-GONE-1');
       expect(codes).not.toContain('V-GONE-2');

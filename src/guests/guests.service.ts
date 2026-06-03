@@ -894,6 +894,9 @@ export class GuestsService {
       'is_minor',
       'branch',
       'native_language',
+      'terms_accepted',
+      'terms_accepted_at',
+      'terms_version',
     ];
     const rows = guests.map((g) => [
       g.guest_code,
@@ -918,6 +921,9 @@ export class GuestsService {
       g.is_minor ? 'Sí' : 'No',
       g.branch ?? '',
       g.native_language ?? '',
+      g.terms_accepted ? 'Sí' : 'No',
+      g.terms_accepted_at ?? '',
+      g.terms_version ?? '',
     ]);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -944,6 +950,9 @@ export class GuestsService {
       { wch: 9 },
       { wch: 12 },
       { wch: 16 },
+      { wch: 14 },
+      { wch: 20 },
+      { wch: 14 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Invitados');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));

@@ -806,9 +806,21 @@ describe('Guests (e2e)', () => {
 
     it('parse returns toDelete = guests absent from the Excel', async () => {
       const xlsx = buildExcelBuffer([
-        { guest_code: 'G-KEEP-1', group_code: grp.group_code, full_name: 'Keep One' },
-        { guest_code: 'G-KEEP-2', group_code: grp.group_code, full_name: 'Keep Two' },
-        { guest_code: 'G-NEW-DA', group_code: grp.group_code, full_name: 'New DA' },
+        {
+          guest_code: 'G-KEEP-1',
+          group_code: grp.group_code,
+          full_name: 'Keep One',
+        },
+        {
+          guest_code: 'G-KEEP-2',
+          group_code: grp.group_code,
+          full_name: 'Keep Two',
+        },
+        {
+          guest_code: 'G-NEW-DA',
+          group_code: grp.group_code,
+          full_name: 'New DA',
+        },
       ]);
       const res = await request(server)
         .post(`/api/guests/import/parse?regionId=${regionId}`)
@@ -832,7 +844,13 @@ describe('Guests (e2e)', () => {
         .set('Authorization', auth())
         .send({
           regionId,
-          rows: [{ guest_code: 'G-NEW-DA', group_code: grp.group_code, full_name: 'New DA' }],
+          rows: [
+            {
+              guest_code: 'G-NEW-DA',
+              group_code: grp.group_code,
+              full_name: 'New DA',
+            },
+          ],
           deleteAbsent: true,
           toDeleteCodes: ['G-ABSENT-1', 'G-ABSENT-2'],
         })

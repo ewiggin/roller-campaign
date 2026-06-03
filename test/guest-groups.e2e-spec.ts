@@ -342,11 +342,21 @@ describe('GuestGroups (e2e)', () => {
       await request(server)
         .post('/api/guests')
         .set('Authorization', auth())
-        .send({ guest_code: 'G-DA-KEEP', group_id: keep.id, region_id: regionId, full_name: 'Keep Guest' });
+        .send({
+          guest_code: 'G-DA-KEEP',
+          group_id: keep.id,
+          region_id: regionId,
+          full_name: 'Keep Guest',
+        });
       await request(server)
         .post('/api/guests')
         .set('Authorization', auth())
-        .send({ guest_code: 'G-DA-GONE', group_id: gone.id, region_id: regionId, full_name: 'Gone Guest' });
+        .send({
+          guest_code: 'G-DA-GONE',
+          group_id: gone.id,
+          region_id: regionId,
+          full_name: 'Gone Guest',
+        });
 
       // Build Excel with ALL existing groups except GRP-DA-GONE so exactly 1 is absent
       const allGroups = (
@@ -373,7 +383,9 @@ describe('GuestGroups (e2e)', () => {
           .get(`/api/guest-groups?regionId=${regionId}`)
           .set('Authorization', auth())
       ).body;
-      const codes = groups.data.map((g: { group_code: string }) => g.group_code);
+      const codes = groups.data.map(
+        (g: { group_code: string }) => g.group_code,
+      );
       expect(codes).toContain('GRP-DA-KEEP');
       expect(codes).not.toContain('GRP-DA-GONE');
 
@@ -395,7 +407,9 @@ describe('GuestGroups (e2e)', () => {
           .get('/api/guest-groups?limit=500')
           .set('Authorization', auth())
       ).body.data as { group_code: string }[];
-      const file = buildExcelBuffer(allGroups.map((g) => ({ group_code: g.group_code })));
+      const file = buildExcelBuffer(
+        allGroups.map((g) => ({ group_code: g.group_code })),
+      );
 
       const res = await request(server)
         .post(`/api/guest-groups/import?regionId=${regionId}&deleteAbsent=true`)
