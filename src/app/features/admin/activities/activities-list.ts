@@ -209,6 +209,7 @@ export class ActivitiesListComponent implements OnInit {
     end_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     description: ['', Validators.maxLength(500)],
     host_id: [null as string | null],
+    required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
   });
 
   readonly createDescLen = signal(0);
@@ -236,6 +237,7 @@ export class ActivitiesListComponent implements OnInit {
     end_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     description: ['', Validators.maxLength(500)],
     host_id: [null as string | null],
+    required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
   });
 
   readonly editDescLen = signal(0);
@@ -526,6 +528,7 @@ export class ActivitiesListComponent implements OnInit {
       icon: this.createIconValue() || null,
       description: v.description || null,
       host_id: v.host_id || null,
+      required_volunteers: v.required_volunteers || null,
       date: v.date!,
       start_time: v.start_time!,
       end_time: v.end_time!,
@@ -596,6 +599,7 @@ export class ActivitiesListComponent implements OnInit {
       end_time: activity.end_time,
       description: activity.description ?? '',
       host_id: activity.host_id,
+      required_volunteers: activity.required_volunteers,
     });
     this.editDescLen.set(activity.description?.length ?? 0);
     this.editActivityLocation.set(
@@ -721,6 +725,7 @@ export class ActivitiesListComponent implements OnInit {
       end_time: v.end_time!,
       description: v.description || null,
       host_id: v.host_id || null,
+      required_volunteers: v.required_volunteers || null,
       activity_address: al?.address ?? null,
       activity_lat: al?.lat ?? null,
       activity_lng: al?.lng ?? null,

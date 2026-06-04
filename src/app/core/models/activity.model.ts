@@ -33,6 +33,7 @@ export interface Activity {
   departure_lng: number | null;
   volunteers: ActivityVolunteer[];
   volunteer_count: number;
+  required_volunteers: number | null;
   guest_groups: ActivityGuestGroup[];
   total_guests_assigned: number;
   created_at: string;
@@ -88,6 +89,7 @@ export interface CreateActivityPayload {
   icon?: string | null;
   description?: string | null;
   host_id?: string | null;
+  required_volunteers?: number | null;
   date: string;
   start_time: string;
   end_time: string;
