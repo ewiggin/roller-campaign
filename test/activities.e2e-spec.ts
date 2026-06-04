@@ -825,6 +825,12 @@ describe('Activities (e2e)', () => {
     let conflictingId: string;
 
     beforeAll(async () => {
+      // 2024-10-01 is a Tuesday — enable tuesday_morning so the volunteer passes the shift filter
+      await request(server)
+        .patch(`/api/volunteers/${volunteerId}`)
+        .set('Authorization', auth())
+        .send({ tuesday_morning: true });
+
       activityId = (
         await request(server)
           .post('/api/activities')
