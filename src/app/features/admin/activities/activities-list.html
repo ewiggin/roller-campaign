@@ -985,6 +985,37 @@
         <!-- Volunteers tab -->
         @if (detailTab() === 'volunteers') {
           <div class="space-y-4">
+            <!-- Role filter -->
+            @if (availableVolunteerRoles().length > 0) {
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  (click)="filterVolunteerRole.set('')"
+                  class="rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 transition-colors"
+                  [class]="
+                    filterVolunteerRole() === ''
+                      ? 'bg-blue-500 text-white ring-blue-500'
+                      : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-300 ring-gray-200 dark:ring-zinc-700 hover:ring-blue-300'
+                  "
+                >
+                  All
+                </button>
+                @for (role of availableVolunteerRoles(); track role.id) {
+                  <button
+                    type="button"
+                    (click)="filterVolunteerRole.set(role.id)"
+                    class="rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 transition-colors"
+                    [class]="
+                      filterVolunteerRole() === role.id
+                        ? 'bg-blue-500 text-white ring-blue-500'
+                        : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-300 ring-gray-200 dark:ring-zinc-700 hover:ring-blue-300'
+                    "
+                  >
+                    {{ role.name }}
+                  </button>
+                }
+              </div>
+            }
             <!-- Add volunteer -->
             <div class="flex gap-2">
               @if (volunteersLoading()) {

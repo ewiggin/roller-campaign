@@ -15,6 +15,7 @@ import type { Region } from '../../../core/models/region.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
+import { VolunteersService } from '../../../core/services/volunteers.service';
 import { CalendarComponent } from '../../../shared/components/calendar/calendar';
 import { EmojiPickerComponent } from '../../../shared/components/emoji-picker/emoji-picker';
 import {
@@ -43,6 +44,7 @@ export class ActivitiesListComponent implements OnInit {
   private readonly svc = inject(ActivitiesService);
   private readonly regionsSvc = inject(RegionsService);
   private readonly hostsSvc = inject(HostsService);
+  private readonly volunteersSvc = inject(VolunteersService);
 
   // filter hosts (separate from modal hosts)
   readonly filterHosts = signal<Host[]>([]);
@@ -272,6 +274,8 @@ export class ActivitiesListComponent implements OnInit {
   readonly availableVolunteersList = signal<AvailableVolunteerForActivity[]>([]);
   readonly volunteersLoading = signal(false);
   readonly selectedVolunteerIds = signal<string[]>([]);
+  readonly filterVolunteerRole = signal('');
+  readonly allVolunteerRoles = signal<{ id: string; name: string }[]>([]);
 
   // ── Groups tab ────────────────────────────────────────────────────────────
 
@@ -279,8 +283,16 @@ export class ActivitiesListComponent implements OnInit {
   readonly groupsLoading = signal(false);
   readonly selectedGroupIds = signal<string[]>([]);
 
+  readonly availableVolunteerRoles = computed(() => this.allVolunteerRoles());
+
+  readonly filteredVolunteersList = computed(() => {
+    const role = this.filterVolunteerRole();
+    if (!role) return this.availableVolunteersList();
+    return this.availableVolunteersList().filter((v) => v.roles?.some((r) => r.id === role));
+  });
+
   readonly availableVolunteerItems = computed(() =>
-    this.availableVolunteersList().map((v) => ({
+    this.filteredVolunteersList().map((v) => ({
       value: v.id,
       label: v.full_name,
       disabled: v.already_in_activity,
@@ -313,6 +325,10 @@ export class ActivitiesListComponent implements OnInit {
         this.regions.set(r);
         this.load();
       },
+    });
+
+    this.volunteersSvc.getRoles().subscribe({
+      next: (roles) => this.allVolunteerRoles.set(roles),
     });
 
     this.createForm.get('date')!.valueChanges.subscribe((d) => this.createDate.set(d ?? ''));
@@ -607,6 +623,7 @@ export class ActivitiesListComponent implements OnInit {
     this.editHostId.set(activity.host_id);
     this.selectedVolunteerIds.set([]);
     this.selectedGroupIds.set([]);
+    this.filterVolunteerRole.set('');
     this.activeModal.set('detail');
     this.loadHostsForRegion(activity.region_id);
     this.loadRegionData(activity);

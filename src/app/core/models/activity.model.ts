@@ -43,6 +43,7 @@ export interface AvailableVolunteerForActivity {
   id: string;
   volunteer_code: string;
   full_name: string;
+  roles: { id: string; name: string }[];
   already_in_activity: boolean;
 }
 
