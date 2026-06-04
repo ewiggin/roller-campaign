@@ -27,6 +27,12 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 type ActiveModal = 'create' | 'detail' | null;
 type DetailTab = 'info' | 'volunteers' | 'groups';
 
+interface LocationSlot {
+  id: string;
+  value: PlaceResult | null;
+  description: string;
+}
+
 @Component({
   selector: 'app-activities-list',
   imports: [
@@ -215,10 +221,10 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly createDescLen = signal(0);
 
-  readonly createActivityLocation = signal<PlaceResult | null>(null);
+  readonly createActivitySlots = signal<LocationSlot[]>([
+    { id: crypto.randomUUID(), value: null, description: '' },
+  ]);
   readonly createActivityFromHost = signal(false);
-  readonly createDepartureLocation = signal<PlaceResult | null>(null);
-  readonly createDepartureFromHost = signal(false);
   readonly createHostId = signal<string | null>(null);
 
   // ── Detail modal ──────────────────────────────────────────────────────────
@@ -244,10 +250,10 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly editDescLen = signal(0);
 
-  readonly editActivityLocation = signal<PlaceResult | null>(null);
+  readonly editActivitySlots = signal<LocationSlot[]>([
+    { id: crypto.randomUUID(), value: null, description: '' },
+  ]);
   readonly editActivityFromHost = signal(false);
-  readonly editDepartureLocation = signal<PlaceResult | null>(null);
-  readonly editDepartureFromHost = signal(false);
   readonly editHostId = signal<string | null>(null);
 
   // ── Hosts (shared for both modals) ────────────────────────────────────────
@@ -347,19 +353,17 @@ export class ActivitiesListComponent implements OnInit {
       else this.modalHosts.set([]);
       this.createForm.patchValue({ host_id: null }, { emitEvent: false });
       this.createHostId.set(null);
-      this.createDepartureFromHost.set(false);
+      this.createActivityFromHost.set(false);
     });
 
     this.createForm.get('host_id')!.valueChanges.subscribe((hostId) => {
       this.createHostId.set(hostId ?? null);
-      if (this.createDepartureFromHost()) this.applyHostToLocation('create', 'departure');
-      if (this.createActivityFromHost()) this.applyHostToLocation('create', 'activity');
+      if (this.createActivityFromHost()) this.applyHostToLocation('create');
     });
 
     this.editForm.get('host_id')!.valueChanges.subscribe((hostId) => {
       this.editHostId.set(hostId ?? null);
-      if (this.editDepartureFromHost()) this.applyHostToLocation('edit', 'departure');
-      if (this.editActivityFromHost()) this.applyHostToLocation('edit', 'activity');
+      if (this.editActivityFromHost()) this.applyHostToLocation('edit');
     });
   }
 
@@ -417,40 +421,54 @@ export class ActivitiesListComponent implements OnInit {
     }
   }
 
-  toggleLocationFromHost(
-    form: 'create' | 'edit',
-    field: 'departure' | 'activity',
-    checked: boolean,
-  ) {
-    if (field === 'departure') {
-      if (form === 'create') this.createDepartureFromHost.set(checked);
-      else this.editDepartureFromHost.set(checked);
-      if (!checked) {
-        if (form === 'create') this.createDepartureLocation.set(null);
-        else this.editDepartureLocation.set(null);
-      }
+  toggleLocationFromHost(form: 'create' | 'edit', checked: boolean) {
+    if (form === 'create') this.createActivityFromHost.set(checked);
+    else this.editActivityFromHost.set(checked);
+
+    if (checked) {
+      this.applyHostToLocation(form);
     } else {
-      if (form === 'create') this.createActivityFromHost.set(checked);
-      else this.editActivityFromHost.set(checked);
-      if (!checked) {
-        if (form === 'create') this.createActivityLocation.set(null);
-        else this.editActivityLocation.set(null);
-      }
+      this.getActivitySlots(form).update((slots) =>
+        slots.map((s, i) => (i === 0 ? { ...s, value: null } : s)),
+      );
     }
-    if (checked) this.applyHostToLocation(form, field);
   }
 
-  private applyHostToLocation(form: 'create' | 'edit', field: 'departure' | 'activity') {
+  private applyHostToLocation(form: 'create' | 'edit') {
     const host = form === 'create' ? this.selectedCreateHost() : this.selectedEditHost();
     if (!host?.address || host.lat === null || host.lng === null) return;
     const loc: PlaceResult = { address: host.address, lat: host.lat, lng: host.lng };
-    if (field === 'departure') {
-      if (form === 'create') this.createDepartureLocation.set(loc);
-      else this.editDepartureLocation.set(loc);
-    } else {
-      if (form === 'create') this.createActivityLocation.set(loc);
-      else this.editActivityLocation.set(loc);
-    }
+    this.getActivitySlots(form).update((slots) => {
+      if (slots.length === 0) return [{ id: crypto.randomUUID(), value: loc, description: '' }];
+      return slots.map((s, i) => (i === 0 ? { ...s, value: loc } : s));
+    });
+  }
+
+  private getActivitySlots(form: 'create' | 'edit') {
+    return form === 'create' ? this.createActivitySlots : this.editActivitySlots;
+  }
+
+  addLocationSlot(form: 'create' | 'edit') {
+    this.getActivitySlots(form).update((slots) => [
+      ...slots,
+      { id: crypto.randomUUID(), value: null, description: '' },
+    ]);
+  }
+
+  removeLocationSlot(form: 'create' | 'edit', index: number) {
+    this.getActivitySlots(form).update((slots) => slots.filter((_, i) => i !== index));
+  }
+
+  onLocationSlotChange(form: 'create' | 'edit', index: number, result: PlaceResult | null) {
+    this.getActivitySlots(form).update((slots) =>
+      slots.map((s, i) => (i === index ? { ...s, value: result } : s)),
+    );
+  }
+
+  onLocationDescriptionChange(form: 'create' | 'edit', index: number, desc: string) {
+    this.getActivitySlots(form).update((slots) =>
+      slots.map((s, i) => (i === index ? { ...s, description: desc } : s)),
+    );
   }
 
   // ── Calendar ──────────────────────────────────────────────────────────────
@@ -505,10 +523,8 @@ export class ActivitiesListComponent implements OnInit {
     this.repeatType.set('daily');
     this.repeatCount.set(3);
     this.createDate.set('');
-    this.createActivityLocation.set(null);
+    this.createActivitySlots.set([{ id: crypto.randomUUID(), value: null, description: '' }]);
     this.createActivityFromHost.set(false);
-    this.createDepartureLocation.set(null);
-    this.createDepartureFromHost.set(false);
     this.createHostId.set(null);
     this.formError.set('');
     if (regionId) this.loadHostsForRegion(regionId);
@@ -521,8 +537,9 @@ export class ActivitiesListComponent implements OnInit {
     this.saving.set(true);
     this.formError.set('');
     const v = this.createForm.getRawValue();
-    const al = this.createActivityLocation();
-    const dl = this.createDepartureLocation();
+    const activityLocs = this.createActivitySlots()
+      .filter((s) => s.value !== null)
+      .map((s) => ({ ...s.value!, description: s.description || null }));
 
     const basePayload = {
       region_id: v.region_id!,
@@ -535,12 +552,7 @@ export class ActivitiesListComponent implements OnInit {
       date: v.date!,
       start_time: v.start_time!,
       end_time: v.end_time!,
-      activity_address: al?.address ?? null,
-      activity_lat: al?.lat ?? null,
-      activity_lng: al?.lng ?? null,
-      departure_address: dl?.address ?? null,
-      departure_lat: dl?.lat ?? null,
-      departure_lng: dl?.lng ?? null,
+      activity_locations: activityLocs.length > 0 ? activityLocs : null,
     };
 
     if (this.repeatEnabled()) {
@@ -606,28 +618,14 @@ export class ActivitiesListComponent implements OnInit {
       max_guests: activity.max_guests,
     });
     this.editDescLen.set(activity.description?.length ?? 0);
-    this.editActivityLocation.set(
-      activity.activity_address && activity.activity_lat !== null && activity.activity_lng !== null
-        ? {
-            address: activity.activity_address,
-            lat: activity.activity_lat,
-            lng: activity.activity_lng,
-          }
-        : null,
-    );
-    this.editDepartureLocation.set(
-      activity.departure_address &&
-        activity.departure_lat !== null &&
-        activity.departure_lng !== null
-        ? {
-            address: activity.departure_address,
-            lat: activity.departure_lat,
-            lng: activity.departure_lng,
-          }
-        : null,
+    this.editActivitySlots.set(
+      (activity.activity_locations?.length ? activity.activity_locations : [null]).map((v) => ({
+        id: crypto.randomUUID(),
+        value: v ? { address: v.address, lat: v.lat, lng: v.lng } : null,
+        description: v?.description ?? '',
+      })),
     );
     this.editActivityFromHost.set(false);
-    this.editDepartureFromHost.set(false);
     this.editHostId.set(activity.host_id);
     this.selectedVolunteerIds.set([]);
     this.selectedGroupIds.set([]);
@@ -719,8 +717,9 @@ export class ActivitiesListComponent implements OnInit {
 
   private buildSavePayload(): UpdateActivityPayload {
     const v = this.editForm.getRawValue();
-    const al = this.editActivityLocation();
-    const dl = this.editDepartureLocation();
+    const activityLocs = this.editActivitySlots()
+      .filter((s) => s.value !== null)
+      .map((s) => ({ ...s.value!, description: s.description || null }));
     return {
       name: v.name!,
       icon: this.editIconValue() || null,
@@ -731,12 +730,7 @@ export class ActivitiesListComponent implements OnInit {
       host_id: v.host_id || null,
       required_volunteers: v.required_volunteers || null,
       max_guests: v.max_guests || null,
-      activity_address: al?.address ?? null,
-      activity_lat: al?.lat ?? null,
-      activity_lng: al?.lng ?? null,
-      departure_address: dl?.address ?? null,
-      departure_lat: dl?.lat ?? null,
-      departure_lng: dl?.lng ?? null,
+      activity_locations: activityLocs.length > 0 ? activityLocs : null,
     };
   }
 

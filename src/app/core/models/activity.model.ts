@@ -1,5 +1,12 @@
 export type ActivityStatus = 'draft' | 'published';
 
+export interface LocationPoint {
+  address: string;
+  lat: number;
+  lng: number;
+  description?: string | null;
+}
+
 export interface ActivityVolunteer {
   id: string;
   volunteer_code: string;
@@ -28,12 +35,7 @@ export interface Activity {
   date: string;
   start_time: string;
   end_time: string;
-  activity_address: string | null;
-  activity_lat: number | null;
-  activity_lng: number | null;
-  departure_address: string | null;
-  departure_lat: number | null;
-  departure_lng: number | null;
+  activity_locations: LocationPoint[] | null;
   volunteers: ActivityVolunteer[];
   volunteer_count: number;
   required_volunteers: number | null;
@@ -98,10 +100,5 @@ export interface CreateActivityPayload {
   date: string;
   start_time: string;
   end_time: string;
-  activity_address?: string | null;
-  activity_lat?: number | null;
-  activity_lng?: number | null;
-  departure_address?: string | null;
-  departure_lat?: number | null;
-  departure_lng?: number | null;
+  activity_locations?: LocationPoint[] | null;
 }
