@@ -25,6 +25,7 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { ActivitiesService } from './activities.service';
 import { AssignGuestGroupDto } from './dto/assign-guest-group.dto';
 import { AssignVolunteerDto } from './dto/assign-volunteer.dto';
+import { SetVolunteerRoleDto } from './dto/set-volunteer-role.dto';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import {
   ActivityResponseDto,
@@ -130,7 +131,7 @@ export class ActivitiesController {
     @Body() dto: AssignVolunteerDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<ActivityResponseDto> {
-    return this.svc.assignVolunteer(id, dto.volunteerId, user);
+    return this.svc.assignVolunteer(id, dto.volunteerId, dto.role_id, user);
   }
 
   @Delete(':id/volunteers/:volunteerId')
@@ -142,6 +143,18 @@ export class ActivitiesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<ActivityResponseDto> {
     return this.svc.unassignVolunteer(id, volunteerId, user);
+  }
+
+  @Patch(':id/volunteers/:volunteerId/role')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  setVolunteerRole(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('volunteerId', ParseUUIDPipe) volunteerId: string,
+    @Body() dto: SetVolunteerRoleDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.setVolunteerRole(id, volunteerId, dto.role_id, user);
   }
 
   // ── Available volunteers ──────────────────────────────────────────────────

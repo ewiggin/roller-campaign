@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class VolunteerAvailableRoleDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: 'Driver' })
+  name: string;
+}
+
 export class ActivityVolunteerDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
@@ -9,6 +17,18 @@ export class ActivityVolunteerDto {
 
   @ApiProperty({ example: 'Carlos López' })
   full_name: string;
+
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    nullable: true,
+  })
+  role_id: string | null;
+
+  @ApiPropertyOptional({ example: 'Driver', nullable: true })
+  role_name: string | null;
+
+  @ApiProperty({ type: [VolunteerAvailableRoleDto] })
+  available_roles: VolunteerAvailableRoleDto[];
 }
 
 export class ActivityGuestGroupDto {

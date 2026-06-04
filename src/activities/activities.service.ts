@@ -12,6 +12,7 @@ import { Guest } from '../guests/entities/guest.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
+import { ActivityVolunteerRole } from './entities/activity-volunteer-role.entity';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import {
   ActivityResponseDto,
@@ -40,6 +41,8 @@ export class ActivitiesService {
     @InjectRepository(Guest) private readonly guestsRepo: Repository<Guest>,
     @InjectRepository(Region) private readonly regionsRepo: Repository<Region>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
+    @InjectRepository(ActivityVolunteerRole)
+    private readonly actVolRoleRepo: Repository<ActivityVolunteerRole>,
   ) {}
 
   async create(
@@ -353,6 +356,7 @@ export class ActivitiesService {
   async assignVolunteer(
     id: string,
     volunteerId: string,
+    roleId: string | null | undefined,
     currentUser: JwtPayload,
   ): Promise<ActivityResponseDto> {
     const activity = await this.activitiesRepo.findOne({
@@ -378,6 +382,25 @@ export class ActivitiesService {
       activity.volunteers.push(volunteer);
       await this.activitiesRepo.save(activity);
     }
+
+    if (roleId) {
+      const existing = await this.actVolRoleRepo.findOne({
+        where: { activity_id: id, volunteer_id: volunteerId },
+      });
+      if (existing) {
+        existing.role_id = roleId;
+        await this.actVolRoleRepo.save(existing);
+      } else {
+        await this.actVolRoleRepo.save(
+          this.actVolRoleRepo.create({
+            activity_id: id,
+            volunteer_id: volunteerId,
+            role_id: roleId,
+          }),
+        );
+      }
+    }
+
     return this.toDtoWithCounts(activity);
   }
 
@@ -397,6 +420,53 @@ export class ActivitiesService {
       (v) => v.id !== volunteerId,
     );
     await this.activitiesRepo.save(activity);
+    await this.actVolRoleRepo.delete({
+      activity_id: id,
+      volunteer_id: volunteerId,
+    });
+    return this.toDtoWithCounts(activity);
+  }
+
+  async setVolunteerRole(
+    id: string,
+    volunteerId: string,
+    roleId: string | null,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({
+      where: { id },
+      relations: ACTIVITY_RELATIONS,
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    if (!activity.volunteers.some((v) => v.id === volunteerId)) {
+      throw new BadRequestException('Volunteer not assigned to this activity');
+    }
+
+    if (!roleId) {
+      await this.actVolRoleRepo.delete({
+        activity_id: id,
+        volunteer_id: volunteerId,
+      });
+    } else {
+      const existing = await this.actVolRoleRepo.findOne({
+        where: { activity_id: id, volunteer_id: volunteerId },
+      });
+      if (existing) {
+        existing.role_id = roleId;
+        await this.actVolRoleRepo.save(existing);
+      } else {
+        await this.actVolRoleRepo.save(
+          this.actVolRoleRepo.create({
+            activity_id: id,
+            volunteer_id: volunteerId,
+            role_id: roleId,
+          }),
+        );
+      }
+    }
+
     return this.toDtoWithCounts(activity);
   }
 
@@ -781,8 +851,80 @@ export class ActivitiesService {
     activity: Activity,
   ): Promise<ActivityResponseDto> {
     const groupIds = (activity.guestGroups ?? []).map((g) => g.id);
-    const counts = await this.getGroupGuestCounts(groupIds);
-    return this.toDto(activity, counts);
+    const [counts, volunteerRoles] = await Promise.all([
+      this.getGroupGuestCounts(groupIds),
+      this.getVolunteerRoles(activity.id, activity.volunteers ?? []),
+    ]);
+    return this.toDto(activity, counts, volunteerRoles);
+  }
+
+  private async getVolunteerRoles(
+    activityId: string,
+    volunteers: { id: string }[],
+  ): Promise<
+    Map<
+      string,
+      {
+        role_id: string | null;
+        role_name: string | null;
+        available_roles: { id: string; name: string }[];
+      }
+    >
+  > {
+    if (volunteers.length === 0) return new Map();
+    const volunteerIds = volunteers.map((v) => v.id);
+
+    const [assignments, rawRoles] = await Promise.all([
+      this.actVolRoleRepo.find({ where: { activity_id: activityId } }),
+      this.volunteersRepo
+        .createQueryBuilder('v')
+        .innerJoin('v.roles', 'r')
+        .select('v.id', 'volunteerId')
+        .addSelect('r.id', 'roleId')
+        .addSelect('r.name', 'roleName')
+        .where('v.id IN (:...ids)', { ids: volunteerIds })
+        .getRawMany<{
+          volunteerId: string;
+          roleId: string;
+          roleName: string;
+        }>(),
+    ]);
+
+    const assignedRoleId = new Map(
+      assignments
+        .filter((a) => volunteerIds.includes(a.volunteer_id))
+        .map((a) => [a.volunteer_id, a.role_id]),
+    );
+
+    const availableRoles = new Map<string, { id: string; name: string }[]>();
+    for (const row of rawRoles) {
+      if (!availableRoles.has(row.volunteerId))
+        availableRoles.set(row.volunteerId, []);
+      availableRoles
+        .get(row.volunteerId)!
+        .push({ id: row.roleId, name: row.roleName });
+    }
+
+    const result = new Map<
+      string,
+      {
+        role_id: string | null;
+        role_name: string | null;
+        available_roles: { id: string; name: string }[];
+      }
+    >();
+    for (const v of volunteers) {
+      const roleId = assignedRoleId.get(v.id) ?? null;
+      const volRoles = availableRoles.get(v.id) ?? [];
+      result.set(v.id, {
+        role_id: roleId,
+        role_name: roleId
+          ? (volRoles.find((r) => r.id === roleId)?.name ?? null)
+          : null,
+        available_roles: volRoles,
+      });
+    }
+    return result;
   }
 
   private hasHostScheduleConflict(
@@ -854,6 +996,14 @@ export class ActivitiesService {
   private toDto = (
     activity: Activity,
     groupCounts: Map<string, number> = new Map(),
+    volunteerRoles: Map<
+      string,
+      {
+        role_id: string | null;
+        role_name: string | null;
+        available_roles: { id: string; name: string }[];
+      }
+    > = new Map(),
   ): ActivityResponseDto => ({
     id: activity.id,
     region_id: activity.region_id,
@@ -873,11 +1023,17 @@ export class ActivitiesService {
     departure_address: activity.departure_address,
     departure_lat: activity.departure_lat,
     departure_lng: activity.departure_lng,
-    volunteers: (activity.volunteers ?? []).map((v) => ({
-      id: v.id,
-      volunteer_code: v.volunteer_code,
-      full_name: v.full_name,
-    })),
+    volunteers: (activity.volunteers ?? []).map((v) => {
+      const vr = volunteerRoles.get(v.id);
+      return {
+        id: v.id,
+        volunteer_code: v.volunteer_code,
+        full_name: v.full_name,
+        role_id: vr?.role_id ?? null,
+        role_name: vr?.role_name ?? null,
+        available_roles: vr?.available_roles ?? [],
+      };
+    }),
     volunteer_count: (activity.volunteers ?? []).length,
     required_volunteers: activity.required_volunteers,
     guest_groups: (activity.guestGroups ?? []).map((g) => ({
