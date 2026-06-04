@@ -408,7 +408,10 @@ export class ActivitiesService {
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
 
-    const group = await this.groupsRepo.findOne({ where: { id: groupId } });
+    const group = await this.groupsRepo.findOne({
+      where: { id: groupId },
+      relations: ['host'],
+    });
     if (!group) throw new NotFoundException('Grupo no encontrado');
 
     if (group.region_id !== activity.region_id) {
@@ -425,6 +428,19 @@ export class ActivitiesService {
     if (group.available_to && activity.date > group.available_to) {
       throw new BadRequestException(
         'La fecha de la actividad es posterior al fin de disponibilidad del grupo',
+      );
+    }
+
+    if (
+      this.hasHostScheduleConflict(
+        activity.date,
+        activity.start_time,
+        activity.end_time,
+        (group as any).host ?? null,
+      )
+    ) {
+      throw new BadRequestException(
+        'La actividad coincide con el horario de reunión del anfitrión del grupo',
       );
     }
 
@@ -640,6 +656,10 @@ export class ActivitiesService {
         lat: number | null;
         lng: number | null;
         name: string;
+        weekday_meeting_day: number | null;
+        weekday_meeting_time: string | null;
+        weekend_meeting_day: number | null;
+        weekend_meeting_time: string | null;
       } | null;
       const distance_km =
         activity.activity_lat && activity.activity_lng && host?.lat && host?.lng
@@ -662,6 +682,12 @@ export class ActivitiesService {
           distance_km !== null ? Math.round(distance_km * 10) / 10 : null,
         guest_count: groupGuests.length,
         already_in_activity: conflictingGroupIds.has(group.id),
+        host_schedule_conflict: this.hasHostScheduleConflict(
+          activity.date,
+          activity.start_time,
+          activity.end_time,
+          host,
+        ),
       });
     }
 
@@ -693,6 +719,41 @@ export class ActivitiesService {
     const groupIds = (activity.guestGroups ?? []).map((g) => g.id);
     const counts = await this.getGroupGuestCounts(groupIds);
     return this.toDto(activity, counts);
+  }
+
+  private hasHostScheduleConflict(
+    activityDate: string,
+    startTime: string,
+    endTime: string,
+    host: {
+      weekday_meeting_day: number | null;
+      weekday_meeting_time: string | null;
+      weekend_meeting_day: number | null;
+      weekend_meeting_time: string | null;
+    } | null,
+  ): boolean {
+    if (!host) return false;
+
+    const jsDay = new Date(activityDate + 'T00:00:00').getDay();
+    const dayOfWeek = jsDay === 0 ? 7 : jsDay; // convert JS 0=Sun to 1=Mon…7=Sun
+
+    const inRange = (t: string) => t >= startTime && t < endTime;
+
+    if (
+      host.weekday_meeting_day === dayOfWeek &&
+      host.weekday_meeting_time !== null &&
+      inRange(host.weekday_meeting_time)
+    )
+      return true;
+
+    if (
+      host.weekend_meeting_day === dayOfWeek &&
+      host.weekend_meeting_time !== null &&
+      inRange(host.weekend_meeting_time)
+    )
+      return true;
+
+    return false;
   }
 
   private haversineKm(
