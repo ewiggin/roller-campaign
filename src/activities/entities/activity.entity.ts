@@ -13,6 +13,7 @@ import { Region } from '../../regions/entities/region.entity';
 import { Host } from '../../hosts/entities/host.entity';
 import { Volunteer } from '../../volunteers/entities/volunteer.entity';
 import { GuestGroup } from '../../guest-groups/entities/guest-group.entity';
+import { LocationPoint } from '../dto/location-point.dto';
 
 export type ActivityStatus = 'draft' | 'published';
 
@@ -65,23 +66,8 @@ export class Activity {
   @Column({ type: 'varchar' })
   end_time: string;
 
-  @Column({ type: 'varchar', nullable: true, default: null })
-  activity_address: string | null;
-
-  @Column({ type: 'float', nullable: true, default: null })
-  activity_lat: number | null;
-
-  @Column({ type: 'float', nullable: true, default: null })
-  activity_lng: number | null;
-
-  @Column({ type: 'varchar', nullable: true, default: null })
-  departure_address: string | null;
-
-  @Column({ type: 'float', nullable: true, default: null })
-  departure_lat: number | null;
-
-  @Column({ type: 'float', nullable: true, default: null })
-  departure_lng: number | null;
+  @Column({ type: 'simple-json', nullable: true, default: null })
+  activity_locations: LocationPoint[] | null;
 
   @ManyToMany(() => Volunteer, (v) => v.activities, { eager: false })
   @JoinTable({ name: 'activity_volunteers' })

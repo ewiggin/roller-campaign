@@ -1,4 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  LocationPoint,
+  LocationPointDto,
+} from '../../activities/dto/location-point.dto';
 
 export class GuestActivityVolunteerDto {
   @ApiProperty({ example: 'Carlos López' })
@@ -36,26 +40,8 @@ export class GuestActivityResponseDto {
   @ApiProperty({ example: '13:00' })
   end_time: string;
 
-  @ApiPropertyOptional({ example: 'Calle Gran Vía 1, Madrid', nullable: true })
-  departure_address: string | null;
-
-  @ApiPropertyOptional({ example: 40.4168, nullable: true })
-  departure_lat: number | null;
-
-  @ApiPropertyOptional({ example: -3.7038, nullable: true })
-  departure_lng: number | null;
-
-  @ApiPropertyOptional({
-    example: 'Aeropuerto Adolfo Suárez, Madrid',
-    nullable: true,
-  })
-  activity_address: string | null;
-
-  @ApiPropertyOptional({ example: 40.4936, nullable: true })
-  activity_lat: number | null;
-
-  @ApiPropertyOptional({ example: -3.5668, nullable: true })
-  activity_lng: number | null;
+  @ApiPropertyOptional({ type: [LocationPointDto], nullable: true })
+  activity_locations: LocationPoint[] | null;
 
   @ApiProperty({ type: [GuestActivityVolunteerDto] })
   volunteers: GuestActivityVolunteerDto[];

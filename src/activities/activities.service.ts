@@ -66,12 +66,7 @@ export class ActivitiesService {
       date: dto.date,
       start_time: dto.start_time,
       end_time: dto.end_time,
-      activity_address: dto.activity_address ?? null,
-      activity_lat: dto.activity_lat ?? null,
-      activity_lng: dto.activity_lng ?? null,
-      departure_address: dto.departure_address ?? null,
-      departure_lat: dto.departure_lat ?? null,
-      departure_lng: dto.departure_lng ?? null,
+      activity_locations: dto.activity_locations ?? null,
       status: 'draft',
       volunteers: [],
       guestGroups: [],
@@ -107,12 +102,7 @@ export class ActivitiesService {
             date,
             start_time: dto.start_time,
             end_time: dto.end_time,
-            activity_address: dto.activity_address ?? null,
-            activity_lat: dto.activity_lat ?? null,
-            activity_lng: dto.activity_lng ?? null,
-            departure_address: dto.departure_address ?? null,
-            departure_lat: dto.departure_lat ?? null,
-            departure_lng: dto.departure_lng ?? null,
+            activity_locations: dto.activity_locations ?? null,
             status: 'draft',
             volunteers: [],
             guestGroups: [],
@@ -795,11 +785,12 @@ export class ActivitiesService {
         weekend_meeting_day: number | null;
         weekend_meeting_time: string | null;
       } | null;
+      const activityLoc = activity.activity_locations?.[0] ?? null;
       const distance_km =
-        activity.activity_lat && activity.activity_lng && host?.lat && host?.lng
+        activityLoc && host?.lat && host?.lng
           ? this.haversineKm(
-              activity.activity_lat,
-              activity.activity_lng,
+              activityLoc.lat,
+              activityLoc.lng,
               host.lat,
               host.lng,
             )
@@ -1017,12 +1008,7 @@ export class ActivitiesService {
     date: activity.date,
     start_time: activity.start_time,
     end_time: activity.end_time,
-    activity_address: activity.activity_address,
-    activity_lat: activity.activity_lat,
-    activity_lng: activity.activity_lng,
-    departure_address: activity.departure_address,
-    departure_lat: activity.departure_lat,
-    departure_lng: activity.departure_lng,
+    activity_locations: activity.activity_locations ?? null,
     volunteers: (activity.volunteers ?? []).map((v) => {
       const vr = volunteerRoles.get(v.id);
       return {
