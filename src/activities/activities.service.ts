@@ -59,6 +59,7 @@ export class ActivitiesService {
       description: dto.description ?? null,
       host_id: dto.host_id ?? null,
       required_volunteers: dto.required_volunteers ?? null,
+      max_guests: dto.max_guests ?? null,
       date: dto.date,
       start_time: dto.start_time,
       end_time: dto.end_time,
@@ -99,6 +100,7 @@ export class ActivitiesService {
             description: dto.description ?? null,
             host_id: dto.host_id ?? null,
             required_volunteers: dto.required_volunteers ?? null,
+            max_guests: dto.max_guests ?? null,
             date,
             start_time: dto.start_time,
             end_time: dto.end_time,
@@ -887,6 +889,7 @@ export class ActivitiesService {
       (sum, g) => sum + (groupCounts.get(g.id) ?? 0),
       0,
     ),
+    max_guests: activity.max_guests,
     created_at: activity.created_at,
     updated_at: activity.updated_at,
   });

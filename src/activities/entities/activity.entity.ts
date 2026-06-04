@@ -46,6 +46,9 @@ export class Activity {
   @Column({ type: 'int', nullable: true, default: null })
   required_volunteers: number | null;
 
+  @Column({ type: 'int', nullable: true, default: null })
+  max_guests: number | null;
+
   @ManyToOne(() => Host, { nullable: true, onDelete: 'SET NULL', eager: false })
   @JoinColumn({ name: 'host_id' })
   host: Host | null;

@@ -53,6 +53,12 @@ export class CreateActivityDto {
   @IsPositive()
   required_volunteers?: number | null;
 
+  @ApiPropertyOptional({ example: 50, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  max_guests?: number | null;
+
   @ApiProperty({ example: '2024-06-15' })
   @IsISO8601({ strict: true })
   date: string;

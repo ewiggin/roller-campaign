@@ -177,6 +177,9 @@ export class ActivityResponseDto {
   @ApiProperty({ example: 48 })
   total_guests_assigned: number;
 
+  @ApiPropertyOptional({ example: 50, nullable: true })
+  max_guests: number | null;
+
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })
   created_at: Date;
 
