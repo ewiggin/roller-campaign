@@ -43,6 +43,9 @@ export class Activity {
   @Column({ type: 'varchar', default: 'draft' })
   status: ActivityStatus;
 
+  @Column({ type: 'int', nullable: true, default: null })
+  required_volunteers: number | null;
+
   @ManyToOne(() => Host, { nullable: true, onDelete: 'SET NULL', eager: false })
   @JoinColumn({ name: 'host_id' })
   host: Host | null;

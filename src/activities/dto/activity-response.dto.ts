@@ -168,6 +168,9 @@ export class ActivityResponseDto {
   @ApiProperty({ example: 2 })
   volunteer_count: number;
 
+  @ApiPropertyOptional({ example: 3, nullable: true })
+  required_volunteers: number | null;
+
   @ApiProperty({ type: [ActivityGuestGroupDto] })
   guest_groups: ActivityGuestGroupDto[];
 

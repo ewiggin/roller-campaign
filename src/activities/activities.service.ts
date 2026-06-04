@@ -58,6 +58,7 @@ export class ActivitiesService {
       icon: dto.icon ?? null,
       description: dto.description ?? null,
       host_id: dto.host_id ?? null,
+      required_volunteers: dto.required_volunteers ?? null,
       date: dto.date,
       start_time: dto.start_time,
       end_time: dto.end_time,
@@ -97,6 +98,7 @@ export class ActivitiesService {
             icon: dto.icon ?? null,
             description: dto.description ?? null,
             host_id: dto.host_id ?? null,
+            required_volunteers: dto.required_volunteers ?? null,
             date,
             start_time: dto.start_time,
             end_time: dto.end_time,
@@ -875,6 +877,7 @@ export class ActivitiesService {
       full_name: v.full_name,
     })),
     volunteer_count: (activity.volunteers ?? []).length,
+    required_volunteers: activity.required_volunteers,
     guest_groups: (activity.guestGroups ?? []).map((g) => ({
       id: g.id,
       group_code: g.group_code,

@@ -1,9 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsISO8601,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
   IsUUID,
   Matches,
@@ -44,6 +46,12 @@ export class CreateActivityDto {
   @IsOptional()
   @IsUUID()
   host_id?: string | null;
+
+  @ApiPropertyOptional({ example: 3, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  required_volunteers?: number | null;
 
   @ApiProperty({ example: '2024-06-15' })
   @IsISO8601({ strict: true })
