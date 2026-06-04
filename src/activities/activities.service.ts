@@ -541,11 +541,29 @@ export class ActivitiesService {
       .getRawMany<{ volunteerId: string }>();
     const conflictingIds = new Set(conflictRows.map((r) => r.volunteerId));
 
+    const region = await this.regionsRepo.findOne({
+      where: { id: activity.region_id },
+    });
+    const dayLabel = this.getAvailabilityDayLabel(
+      activity.date,
+      region?.event_start_date ?? null,
+      region?.event_end_date ?? null,
+    );
+    const hasMorning = activity.start_time < '13:30';
+    const hasAfternoon = activity.end_time > '13:30';
+    const shiftCondition =
+      hasMorning && !hasAfternoon
+        ? `v.${dayLabel}_morning = true`
+        : !hasMorning && hasAfternoon
+          ? `v.${dayLabel}_afternoon = true`
+          : `(v.${dayLabel}_morning = true OR v.${dayLabel}_afternoon = true)`;
+
     const volunteers = await this.volunteersRepo
       .createQueryBuilder('v')
       .innerJoin('v.regions', 'r', 'r.id = :regionId', {
         regionId: activity.region_id,
       })
+      .leftJoinAndSelect('v.roles', 'roles')
       .where('v.is_active = true')
       .andWhere(
         `(NOT EXISTS (
@@ -557,6 +575,7 @@ export class ActivitiesService {
         ))`,
         { avRegion: activity.region_id, avDate: activity.date },
       )
+      .andWhere(shiftCondition)
       .orderBy('v.full_name', 'ASC')
       .getMany();
 
@@ -566,8 +585,49 @@ export class ActivitiesService {
         id: v.id,
         volunteer_code: v.volunteer_code,
         full_name: v.full_name,
+        roles: (v.roles ?? []).map((role) => ({
+          id: role.id,
+          name: role.name,
+        })),
         already_in_activity: conflictingIds.has(v.id),
       }));
+  }
+
+  private getAvailabilityDayLabel(
+    date: string,
+    eventStartDate: string | null,
+    eventEndDate: string | null,
+  ): string {
+    if (eventStartDate) {
+      const startJsDay = new Date(eventStartDate + 'T00:00:00').getDay();
+      const daysBack = (startJsDay - 6 + 7) % 7 || 7;
+      const satPrev = this.shiftDays(eventStartDate, -daysBack);
+      const sunPrev = this.shiftDays(eventStartDate, -daysBack + 1);
+      if (date === satPrev) return 'saturday_prev';
+      if (date === sunPrev) return 'sunday_prev';
+    }
+    if (eventEndDate) {
+      const endJsDay = new Date(eventEndDate + 'T00:00:00').getDay();
+      const daysForward = (8 - endJsDay) % 7 || 7;
+      const monNext = this.shiftDays(eventEndDate, daysForward);
+      if (date === monNext) return 'monday_next';
+    }
+    const days = [
+      'sunday',
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+    ];
+    return days[new Date(date + 'T00:00:00').getDay()];
+  }
+
+  private shiftDays(dateStr: string, days: number): string {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   async getAvailableGroups(

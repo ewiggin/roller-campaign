@@ -198,7 +198,10 @@ export class HostsService {
       if (!val) return [];
       if (Array.isArray(val)) return val;
       // TypeORM simple-array stores as plain comma-separated string (no braces)
-      return val.split(',').filter(Boolean).map((s) => s.trim());
+      return val
+        .split(',')
+        .filter(Boolean)
+        .map((s) => s.trim());
     };
 
     const languagesByGroup = new Map<string, Set<string>>();

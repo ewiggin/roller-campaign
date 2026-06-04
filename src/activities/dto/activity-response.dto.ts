@@ -22,6 +22,14 @@ export class ActivityGuestGroupDto {
   guest_count: number;
 }
 
+export class VolunteerRoleRefDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: 'Driver' })
+  name: string;
+}
+
 export class AvailableVolunteerForActivityDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
@@ -31,6 +39,9 @@ export class AvailableVolunteerForActivityDto {
 
   @ApiProperty({ example: 'Carlos López' })
   full_name: string;
+
+  @ApiProperty({ type: [VolunteerRoleRefDto] })
+  roles: VolunteerRoleRefDto[];
 
   @ApiProperty({
     example: false,
