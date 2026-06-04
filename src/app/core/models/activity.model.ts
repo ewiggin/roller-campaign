@@ -4,6 +4,9 @@ export interface ActivityVolunteer {
   id: string;
   volunteer_code: string;
   full_name: string;
+  role_id: string | null;
+  role_name: string | null;
+  available_roles: { id: string; name: string }[];
 }
 
 export interface ActivityGuestGroup {

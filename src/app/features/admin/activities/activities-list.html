@@ -721,7 +721,7 @@
     (click)="closeModal()"
   >
     <div
-      class="w-full max-w-2xl h-[85vh] bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden flex flex-col"
+      class="w-[80%] h-[85vh] bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden flex flex-col"
       (click)="$event.stopPropagation()"
     >
       <!-- Header -->
@@ -1152,17 +1152,36 @@
                 class="divide-y divide-gray-100 dark:divide-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden"
               >
                 @for (v of selectedActivity()!.volunteers ?? []; track v.id) {
-                  <li class="flex items-center justify-between px-4 py-2.5">
-                    <div>
-                      <p class="text-sm font-medium text-gray-900 dark:text-zinc-100">
+                  <li class="flex items-center gap-3 px-4 py-2.5">
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate">
                         {{ v.full_name }}
                       </p>
                       <p class="text-xs text-gray-400 dark:text-zinc-500">{{ v.volunteer_code }}</p>
                     </div>
+                    @if (v.available_roles.length > 0) {
+                      <select
+                        [ngModel]="v.role_id ?? ''"
+                        (ngModelChange)="setVolunteerRole(v.id, $event)"
+                        [disabled]="detailSaving()"
+                        class="rounded-md border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-700 dark:text-zinc-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 max-w-[160px]"
+                      >
+                        <option value="">— no role —</option>
+                        @for (r of v.available_roles; track r.id) {
+                          <option [value]="r.id">{{ r.name }}</option>
+                        }
+                      </select>
+                    } @else if (v.role_name) {
+                      <span
+                        class="rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 ring-1 ring-blue-200 dark:ring-blue-800 shrink-0"
+                      >
+                        {{ v.role_name }}
+                      </span>
+                    }
                     <button
                       (click)="removeVolunteer(v.id)"
                       [disabled]="detailSaving()"
-                      class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-50"
+                      class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-50 shrink-0"
                     >
                       <svg
                         class="w-4 h-4"

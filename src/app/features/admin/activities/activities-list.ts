@@ -808,9 +808,10 @@ export class ActivitiesListComponent implements OnInit {
     const activity = this.selectedActivity();
     if (!ids.length || !activity) return;
     this.detailSaving.set(true);
+    const roleId = this.filterVolunteerRole() || null;
     from(ids)
       .pipe(
-        concatMap((id) => this.svc.assignVolunteer(activity.id, id)),
+        concatMap((id) => this.svc.assignVolunteer(activity.id, id, roleId)),
         last(),
       )
       .subscribe({
@@ -826,6 +827,22 @@ export class ActivitiesListComponent implements OnInit {
           this.detailSaving.set(false);
         },
       });
+  }
+
+  setVolunteerRole(volunteerId: string, roleId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.setVolunteerRole(activity.id, volunteerId, roleId || null).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+      },
+      error: () => {
+        this.detailError.set('Error setting role.');
+        this.detailSaving.set(false);
+      },
+    });
   }
 
   removeVolunteer(volunteerId: string) {
