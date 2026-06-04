@@ -292,16 +292,18 @@ export class ActivitiesListComponent implements OnInit {
     this.availableGroups().map((g) => ({
       value: g.id,
       label: g.group_code,
-      disabled: g.already_in_activity,
+      disabled: g.already_in_activity || g.host_schedule_conflict,
       meta: g.already_in_activity
         ? 'Already in another activity'
-        : [
-            g.distance_km !== null ? `${g.distance_km} km` : null,
-            g.host_name ?? null,
-            `${g.guest_count} guests`,
-          ]
-            .filter(Boolean)
-            .join(' · '),
+        : g.host_schedule_conflict
+          ? 'Host meeting conflict'
+          : [
+              g.distance_km !== null ? `${g.distance_km} km` : null,
+              g.host_name ?? null,
+              `${g.guest_count} guests`,
+            ]
+              .filter(Boolean)
+              .join(' · '),
     })),
   );
 
