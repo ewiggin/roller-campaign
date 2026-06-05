@@ -14,6 +14,12 @@ export class VolunteerRegionDto {
 
   @ApiProperty({ example: 'Madrid Norte' })
   name: string;
+
+  @ApiPropertyOptional({ example: '2024-06-14', nullable: true })
+  event_start_date: string | null;
+
+  @ApiPropertyOptional({ example: '2024-06-16', nullable: true })
+  event_end_date: string | null;
 }
 
 export class VolunteerResponseDto {
@@ -149,6 +155,14 @@ export class AvailabilityEntryDto {
   note: string | null;
 }
 
+export class VolunteerActivityVolunteerDto {
+  @ApiProperty({ example: 'Carlos López' })
+  full_name: string;
+
+  @ApiPropertyOptional({ example: '+34 600 000 000', nullable: true })
+  phone: string | null;
+}
+
 export class VolunteerActivityDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
@@ -158,6 +172,9 @@ export class VolunteerActivityDto {
 
   @ApiProperty({ example: 'Recogida en aeropuerto' })
   name: string;
+
+  @ApiPropertyOptional({ example: '✈️', nullable: true })
+  icon: string | null;
 
   @ApiPropertyOptional({ example: 'Recogida vuelo IB1234', nullable: true })
   description: string | null;
@@ -171,6 +188,27 @@ export class VolunteerActivityDto {
   @ApiProperty({ example: '11:00' })
   end_time: string;
 
-  @ApiProperty({ example: 3 })
-  volunteer_count: number;
+  @ApiPropertyOptional({ example: 'Calle Gran Vía 1, Madrid', nullable: true })
+  departure_address: string | null;
+
+  @ApiPropertyOptional({ example: 40.4168, nullable: true })
+  departure_lat: number | null;
+
+  @ApiPropertyOptional({ example: -3.7038, nullable: true })
+  departure_lng: number | null;
+
+  @ApiPropertyOptional({
+    example: 'Aeropuerto Adolfo Suárez, Madrid',
+    nullable: true,
+  })
+  activity_address: string | null;
+
+  @ApiPropertyOptional({ example: 40.4936, nullable: true })
+  activity_lat: number | null;
+
+  @ApiPropertyOptional({ example: -3.5668, nullable: true })
+  activity_lng: number | null;
+
+  @ApiProperty({ type: [VolunteerActivityVolunteerDto] })
+  volunteers: VolunteerActivityVolunteerDto[];
 }

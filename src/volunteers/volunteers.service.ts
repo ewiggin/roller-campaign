@@ -884,7 +884,12 @@ export class VolunteersService {
     is_active: v.is_active,
     user_id: v.user_id,
     roles: (v.roles ?? []).map((r) => ({ id: r.id, name: r.name })),
-    regions: (v.regions ?? []).map((r) => ({ id: r.id, name: r.name })),
+    regions: (v.regions ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      event_start_date: r.event_start_date ?? null,
+      event_end_date: r.event_end_date ?? null,
+    })),
     hosting_address: v.hosting_address,
     lat: v.lat,
     lng: v.lng,
@@ -962,7 +967,12 @@ export class VolunteersService {
       sunday_prev_afternoon: v.sunday_prev_afternoon,
       monday_next_morning: v.monday_next_morning,
       monday_next_afternoon: v.monday_next_afternoon,
-      regions: (v.regions ?? []).map((r) => ({ id: r.id, name: r.name })),
+      regions: (v.regions ?? []).map((r) => ({
+        id: r.id,
+        name: r.name,
+        event_start_date: r.event_start_date ?? null,
+        event_end_date: r.event_end_date ?? null,
+      })),
       terms_accepted: v.terms_accepted,
       terms_accepted_at: v.terms_accepted_at,
     };
@@ -1130,36 +1140,88 @@ export class VolunteersService {
     });
     if (!v) throw new NotFoundException('Voluntario no encontrado');
 
+    const isSqlite = this.dataSource.options.type === 'better-sqlite3';
+    const p1 = isSqlite ? '?' : '$1';
+
     const rows = await this.dataSource.query<
       Array<{
         id: string;
         region_id: string;
         name: string;
+        icon: string | null;
         description: string | null;
         date: string;
         start_time: string;
         end_time: string;
-        volunteer_count: string;
+        departure_address: string | null;
+        departure_lat: number | null;
+        departure_lng: number | null;
+        activity_address: string | null;
+        activity_lat: number | null;
+        activity_lng: number | null;
       }>
     >(
-      `SELECT a.id, a.region_id, a.name, a.description, a.date, a.start_time, a.end_time,
-        (SELECT COUNT(*) FROM activity_volunteers av2 WHERE av2."activitiesId" = a.id) AS volunteer_count
+      `SELECT a.id, a.region_id, a.name, a.icon, a.description, a.date, a.start_time, a.end_time,
+              a.departure_address, a.departure_lat, a.departure_lng,
+              a.activity_address, a.activity_lat, a.activity_lng
        FROM activities a
-       INNER JOIN activity_volunteers av ON av."activitiesId" = a.id AND av."volunteersId" = $1
+       INNER JOIN activity_volunteers av ON av."activitiesId" = a.id AND av."volunteersId" = ${p1}
        WHERE a.status = 'published'
        ORDER BY a.date ASC, a.start_time ASC`,
       [v.id],
     );
 
+    const activityIds = rows.map((r) => r.id);
+    const volunteerRows =
+      activityIds.length > 0
+        ? await this.dataSource.query<
+            Array<{
+              activity_id: string;
+              full_name: string;
+              phone: string | null;
+            }>
+          >(
+            isSqlite
+              ? `SELECT av."activitiesId" AS activity_id, vol.full_name, vol.phone
+                 FROM activity_volunteers av
+                 INNER JOIN volunteers vol ON vol.id = av."volunteersId"
+                 WHERE av."activitiesId" IN (${activityIds.map(() => '?').join(',')})
+                 ORDER BY vol.full_name ASC`
+              : `SELECT av."activitiesId" AS activity_id, vol.full_name, vol.phone
+                 FROM activity_volunteers av
+                 INNER JOIN volunteers vol ON vol.id = av."volunteersId"
+                 WHERE av."activitiesId" = ANY($1)
+                 ORDER BY vol.full_name ASC`,
+            isSqlite ? activityIds : [activityIds],
+          )
+        : [];
+
+    const volunteersByActivity = new Map<
+      string,
+      { full_name: string; phone: string | null }[]
+    >();
+    for (const vr of volunteerRows) {
+      const list = volunteersByActivity.get(vr.activity_id) ?? [];
+      list.push({ full_name: vr.full_name, phone: vr.phone });
+      volunteersByActivity.set(vr.activity_id, list);
+    }
+
     return rows.map((r) => ({
       id: r.id,
       region_id: r.region_id,
       name: r.name,
+      icon: r.icon,
       description: r.description,
       date: r.date,
       start_time: r.start_time,
       end_time: r.end_time,
-      volunteer_count: Number(r.volunteer_count),
+      departure_address: r.departure_address,
+      departure_lat: r.departure_lat,
+      departure_lng: r.departure_lng,
+      activity_address: r.activity_address,
+      activity_lat: r.activity_lat,
+      activity_lng: r.activity_lng,
+      volunteers: volunteersByActivity.get(r.id) ?? [],
     }));
   }
 
