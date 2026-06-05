@@ -39,6 +39,7 @@ import {
   ImportVolunteerCommitResponseDto,
 } from './dto/set-availability.dto';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import type { LocationPoint } from '../activities/dto/location-point.dto';
 
 const VOLUNTEER_TOKEN_TYPE = 'volunteer_access';
 
@@ -1153,17 +1154,11 @@ export class VolunteersService {
         date: string;
         start_time: string;
         end_time: string;
-        departure_address: string | null;
-        departure_lat: number | null;
-        departure_lng: number | null;
-        activity_address: string | null;
-        activity_lat: number | null;
-        activity_lng: number | null;
+        activity_locations: string | null;
       }>
     >(
       `SELECT a.id, a.region_id, a.name, a.icon, a.description, a.date, a.start_time, a.end_time,
-              a.departure_address, a.departure_lat, a.departure_lng,
-              a.activity_address, a.activity_lat, a.activity_lng
+              a.activity_locations
        FROM activities a
        INNER JOIN activity_volunteers av ON av."activitiesId" = a.id AND av."volunteersId" = ${p1}
        WHERE a.status = 'published'
@@ -1179,17 +1174,22 @@ export class VolunteersService {
               activity_id: string;
               full_name: string;
               phone: string | null;
+              role_name: string | null;
             }>
           >(
             isSqlite
-              ? `SELECT av."activitiesId" AS activity_id, vol.full_name, vol.phone
+              ? `SELECT av."activitiesId" AS activity_id, vol.full_name, vol.phone, vr.name AS role_name
                  FROM activity_volunteers av
                  INNER JOIN volunteers vol ON vol.id = av."volunteersId"
+                 LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = av."activitiesId" AND avr.volunteer_id = av."volunteersId"
+                 LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
                  WHERE av."activitiesId" IN (${activityIds.map(() => '?').join(',')})
                  ORDER BY vol.full_name ASC`
-              : `SELECT av."activitiesId" AS activity_id, vol.full_name, vol.phone
+              : `SELECT av."activitiesId" AS activity_id, vol.full_name, vol.phone, vr.name AS role_name
                  FROM activity_volunteers av
                  INNER JOIN volunteers vol ON vol.id = av."volunteersId"
+                 LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = av."activitiesId" AND avr.volunteer_id = av."volunteersId"
+                 LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
                  WHERE av."activitiesId" = ANY($1)
                  ORDER BY vol.full_name ASC`,
             isSqlite ? activityIds : [activityIds],
@@ -1198,11 +1198,15 @@ export class VolunteersService {
 
     const volunteersByActivity = new Map<
       string,
-      { full_name: string; phone: string | null }[]
+      { full_name: string; phone: string | null; role_name: string | null }[]
     >();
     for (const vr of volunteerRows) {
       const list = volunteersByActivity.get(vr.activity_id) ?? [];
-      list.push({ full_name: vr.full_name, phone: vr.phone });
+      list.push({
+        full_name: vr.full_name,
+        phone: vr.phone,
+        role_name: vr.role_name,
+      });
       volunteersByActivity.set(vr.activity_id, list);
     }
 
@@ -1215,12 +1219,9 @@ export class VolunteersService {
       date: r.date,
       start_time: r.start_time,
       end_time: r.end_time,
-      departure_address: r.departure_address,
-      departure_lat: r.departure_lat,
-      departure_lng: r.departure_lng,
-      activity_address: r.activity_address,
-      activity_lat: r.activity_lat,
-      activity_lng: r.activity_lng,
+      activity_locations: r.activity_locations
+        ? (JSON.parse(r.activity_locations) as LocationPoint[])
+        : null,
       volunteers: volunteersByActivity.get(r.id) ?? [],
     }));
   }
