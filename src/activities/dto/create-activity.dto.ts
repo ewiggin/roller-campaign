@@ -1,14 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
+  IsArray,
+  IsBoolean,
   IsISO8601,
+  IsInt,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
   IsUUID,
   Matches,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
+import { LocationPointDto } from './location-point.dto';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -45,6 +51,18 @@ export class CreateActivityDto {
   @IsUUID()
   host_id?: string | null;
 
+  @ApiPropertyOptional({ example: 3, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  required_volunteers?: number | null;
+
+  @ApiPropertyOptional({ example: 50, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  max_guests?: number | null;
+
   @ApiProperty({ example: '2024-06-15' })
   @IsISO8601({ strict: true })
   date: string;
@@ -57,36 +75,15 @@ export class CreateActivityDto {
   @Matches(TIME_REGEX, { message: 'end_time debe tener formato HH:MM' })
   end_time: string;
 
-  @ApiPropertyOptional({
-    example: 'Aeropuerto Adolfo Suárez, Madrid',
-    nullable: true,
-  })
+  @ApiPropertyOptional({ type: [LocationPointDto], nullable: true })
   @IsOptional()
-  @IsString()
-  activity_address?: string | null;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LocationPointDto)
+  activity_locations?: LocationPointDto[] | null;
 
-  @ApiPropertyOptional({ example: 40.4936, nullable: true })
+  @ApiPropertyOptional({ example: false })
   @IsOptional()
-  @IsNumber()
-  activity_lat?: number | null;
-
-  @ApiPropertyOptional({ example: -3.5668, nullable: true })
-  @IsOptional()
-  @IsNumber()
-  activity_lng?: number | null;
-
-  @ApiPropertyOptional({ example: 'Calle Gran Vía 1, Madrid', nullable: true })
-  @IsOptional()
-  @IsString()
-  departure_address?: string | null;
-
-  @ApiPropertyOptional({ example: 40.4168, nullable: true })
-  @IsOptional()
-  @IsNumber()
-  departure_lat?: number | null;
-
-  @ApiPropertyOptional({ example: -3.7038, nullable: true })
-  @IsOptional()
-  @IsNumber()
-  departure_lng?: number | null;
+  @IsBoolean()
+  is_preaching_shift?: boolean;
 }

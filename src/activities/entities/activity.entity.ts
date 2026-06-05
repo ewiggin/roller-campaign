@@ -13,6 +13,7 @@ import { Region } from '../../regions/entities/region.entity';
 import { Host } from '../../hosts/entities/host.entity';
 import { Volunteer } from '../../volunteers/entities/volunteer.entity';
 import { GuestGroup } from '../../guest-groups/entities/guest-group.entity';
+import { LocationPoint } from '../dto/location-point.dto';
 
 export type ActivityStatus = 'draft' | 'published';
 
@@ -43,6 +44,12 @@ export class Activity {
   @Column({ type: 'varchar', default: 'draft' })
   status: ActivityStatus;
 
+  @Column({ type: 'int', nullable: true, default: null })
+  required_volunteers: number | null;
+
+  @Column({ type: 'int', nullable: true, default: null })
+  max_guests: number | null;
+
   @ManyToOne(() => Host, { nullable: true, onDelete: 'SET NULL', eager: false })
   @JoinColumn({ name: 'host_id' })
   host: Host | null;
@@ -59,23 +66,11 @@ export class Activity {
   @Column({ type: 'varchar' })
   end_time: string;
 
-  @Column({ type: 'varchar', nullable: true, default: null })
-  activity_address: string | null;
+  @Column({ type: 'simple-json', nullable: true, default: null })
+  activity_locations: LocationPoint[] | null;
 
-  @Column({ type: 'float', nullable: true, default: null })
-  activity_lat: number | null;
-
-  @Column({ type: 'float', nullable: true, default: null })
-  activity_lng: number | null;
-
-  @Column({ type: 'varchar', nullable: true, default: null })
-  departure_address: string | null;
-
-  @Column({ type: 'float', nullable: true, default: null })
-  departure_lat: number | null;
-
-  @Column({ type: 'float', nullable: true, default: null })
-  departure_lng: number | null;
+  @Column({ type: 'boolean', default: false })
+  is_preaching_shift: boolean;
 
   @ManyToMany(() => Volunteer, (v) => v.activities, { eager: false })
   @JoinTable({ name: 'activity_volunteers' })
