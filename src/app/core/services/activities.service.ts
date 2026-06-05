@@ -64,8 +64,17 @@ export class ActivitiesService {
     return this.http.delete<void>(`/api/activities/${id}/series-from-here`);
   }
 
-  assignVolunteer(id: string, volunteerId: string) {
-    return this.http.post<Activity>(`/api/activities/${id}/volunteers`, { volunteerId });
+  assignVolunteer(id: string, volunteerId: string, roleId?: string | null) {
+    return this.http.post<Activity>(`/api/activities/${id}/volunteers`, {
+      volunteerId,
+      role_id: roleId ?? null,
+    });
+  }
+
+  setVolunteerRole(id: string, volunteerId: string, roleId: string | null) {
+    return this.http.patch<Activity>(`/api/activities/${id}/volunteers/${volunteerId}/role`, {
+      role_id: roleId,
+    });
   }
 
   unassignVolunteer(id: string, volunteerId: string) {

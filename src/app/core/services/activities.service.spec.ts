@@ -71,7 +71,7 @@ describe('ActivitiesService', () => {
     service.assignVolunteer('a1', 'v1').subscribe();
     const req = http.expectOne('/api/activities/a1/volunteers');
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ volunteerId: 'v1' });
+    expect(req.request.body).toEqual({ volunteerId: 'v1', role_id: null });
     req.flush({});
   });
 
