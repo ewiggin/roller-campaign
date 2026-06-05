@@ -72,6 +72,9 @@ export class Activity {
   @Column({ type: 'boolean', default: false })
   is_preaching_shift: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  request_attendance: boolean;
+
   @ManyToMany(() => Volunteer, (v) => v.activities, { eager: false })
   @JoinTable({ name: 'activity_volunteers' })
   volunteers: Volunteer[];

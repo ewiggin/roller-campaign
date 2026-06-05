@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from './activities/activities.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
+import { GroupAccessModule } from './group-access/group-access.module';
 import { AuthModule } from './auth/auth.module';
 import { GuestGroupsModule } from './guest-groups/guest-groups.module';
 import { GuestsModule } from './guests/guests.module';
@@ -50,6 +51,7 @@ import { VolunteersModule } from './volunteers/volunteers.module';
     HostsModule,
     AuditLogsModule,
     SettingsModule,
+    GroupAccessModule,
   ],
 })
 export class AppModule {}

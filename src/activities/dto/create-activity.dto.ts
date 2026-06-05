@@ -86,4 +86,9 @@ export class CreateActivityDto {
   @IsOptional()
   @IsBoolean()
   is_preaching_shift?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  request_attendance?: boolean;
 }

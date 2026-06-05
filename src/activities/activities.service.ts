@@ -68,6 +68,7 @@ export class ActivitiesService {
       end_time: dto.end_time,
       activity_locations: dto.activity_locations ?? null,
       is_preaching_shift: dto.is_preaching_shift ?? false,
+      request_attendance: dto.request_attendance ?? false,
       status: 'draft',
       volunteers: [],
       guestGroups: [],
@@ -105,6 +106,7 @@ export class ActivitiesService {
             end_time: dto.end_time,
             activity_locations: dto.activity_locations ?? null,
             is_preaching_shift: dto.is_preaching_shift ?? false,
+            request_attendance: dto.request_attendance ?? false,
             status: 'draft',
             volunteers: [],
             guestGroups: [],
@@ -1050,6 +1052,7 @@ export class ActivitiesService {
     end_time: activity.end_time,
     activity_locations: activity.activity_locations ?? null,
     is_preaching_shift: activity.is_preaching_shift,
+    request_attendance: activity.request_attendance,
     volunteers: (activity.volunteers ?? []).map((v) => {
       const vr = volunteerRoles.get(v.id);
       return {

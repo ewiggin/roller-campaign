@@ -175,6 +175,9 @@ export class ActivityResponseDto {
   @ApiProperty({ example: false })
   is_preaching_shift: boolean;
 
+  @ApiProperty({ example: false })
+  request_attendance: boolean;
+
   @ApiProperty({ type: [ActivityVolunteerDto] })
   volunteers: ActivityVolunteerDto[];
 
