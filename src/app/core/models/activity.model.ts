@@ -36,6 +36,7 @@ export interface Activity {
   start_time: string;
   end_time: string;
   activity_locations: LocationPoint[] | null;
+  is_preaching_shift: boolean;
   volunteers: ActivityVolunteer[];
   volunteer_count: number;
   required_volunteers: number | null;
@@ -65,6 +66,7 @@ export interface AvailableGroupForActivity {
   guest_count: number;
   already_in_activity: boolean;
   host_schedule_conflict: boolean;
+  preaching_shifts_count: number;
 }
 
 export interface ActivityListResponse {
@@ -101,4 +103,5 @@ export interface CreateActivityPayload {
   start_time: string;
   end_time: string;
   activity_locations?: LocationPoint[] | null;
+  is_preaching_shift?: boolean;
 }

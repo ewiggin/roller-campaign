@@ -346,6 +346,15 @@
                   </div>
                 </div>
 
+                <!-- Preaching shift chip -->
+                @if (activity.is_preaching_shift) {
+                  <span
+                    class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 ring-blue-300 bg-blue-50 text-blue-600 dark:ring-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                  >
+                    Preaching
+                  </span>
+                }
+
                 <!-- Status badge -->
                 <span
                   class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1"
@@ -414,7 +423,7 @@
     (click)="closeModal()"
   >
     <div
-      class="w-full max-w-lg h-[85vh] flex flex-col bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+      class="w-[80%] h-[85vh] flex flex-col bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
       (click)="$event.stopPropagation()"
     >
       <div
@@ -570,6 +579,24 @@
               </div>
             </div>
           </div>
+
+          <!-- Preaching shift -->
+          <label
+            class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
+          >
+            <div>
+              <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Preaching shift</p>
+              <p class="text-xs text-gray-400 dark:text-zinc-500">
+                Mark this activity as a preaching shift
+              </p>
+            </div>
+            <div class="relative inline-flex items-center shrink-0 ml-4">
+              <input type="checkbox" formControlName="is_preaching_shift" class="sr-only peer" />
+              <div
+                class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
+              ></div>
+            </div>
+          </label>
 
           <!-- Activity locations -->
           <div>
@@ -973,6 +1000,25 @@
                 </div>
               </div>
             </div>
+
+            <!-- Preaching shift -->
+            <label
+              class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
+            >
+              <div>
+                <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Preaching shift</p>
+                <p class="text-xs text-gray-400 dark:text-zinc-500">
+                  Mark this activity as a preaching shift
+                </p>
+              </div>
+              <div class="relative inline-flex items-center shrink-0 ml-4">
+                <input type="checkbox" formControlName="is_preaching_shift" class="sr-only peer" />
+                <div
+                  class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
+                ></div>
+              </div>
+            </label>
+
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"

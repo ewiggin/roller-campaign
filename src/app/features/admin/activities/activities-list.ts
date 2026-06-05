@@ -217,6 +217,7 @@ export class ActivitiesListComponent implements OnInit {
     host_id: [null as string | null],
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
+    is_preaching_shift: [false],
   });
 
   readonly createDescLen = signal(0);
@@ -246,6 +247,7 @@ export class ActivitiesListComponent implements OnInit {
     host_id: [null as string | null],
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
+    is_preaching_shift: [false],
   });
 
   readonly editDescLen = signal(0);
@@ -310,24 +312,30 @@ export class ActivitiesListComponent implements OnInit {
     })),
   );
 
-  readonly availableGroupItems = computed(() =>
-    this.availableGroups().map((g) => ({
-      value: g.id,
-      label: g.group_code,
-      disabled: g.already_in_activity || g.host_schedule_conflict,
-      meta: g.already_in_activity
-        ? 'Already in another activity'
-        : g.host_schedule_conflict
-          ? 'Host meeting conflict'
-          : [
-              g.distance_km !== null ? `${g.distance_km} km` : null,
-              g.host_name ?? null,
-              `${g.guest_count} guests`,
-            ]
-              .filter(Boolean)
-              .join(' · '),
-    })),
-  );
+  readonly availableGroupItems = computed(() => {
+    const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
+    return this.availableGroups().map((g) => {
+      const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= 3;
+      return {
+        value: g.id,
+        label: g.group_code,
+        disabled: g.already_in_activity || g.host_schedule_conflict || preachingLimitReached,
+        meta: g.already_in_activity
+          ? 'Already in another activity'
+          : g.host_schedule_conflict
+            ? 'Host meeting conflict'
+            : preachingLimitReached
+              ? `Max preaching shifts (${g.preaching_shifts_count}/3)`
+              : [
+                  g.distance_km !== null ? `${g.distance_km} km` : null,
+                  g.host_name ?? null,
+                  `${g.guest_count} guests`,
+                ]
+                  .filter(Boolean)
+                  .join(' · '),
+      };
+    });
+  });
 
   ngOnInit() {
     this.regionsSvc.getAll().subscribe({
@@ -553,6 +561,7 @@ export class ActivitiesListComponent implements OnInit {
       start_time: v.start_time!,
       end_time: v.end_time!,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
+      is_preaching_shift: v.is_preaching_shift ?? false,
     };
 
     if (this.repeatEnabled()) {
@@ -616,6 +625,7 @@ export class ActivitiesListComponent implements OnInit {
       host_id: activity.host_id,
       required_volunteers: activity.required_volunteers,
       max_guests: activity.max_guests,
+      is_preaching_shift: activity.is_preaching_shift,
     });
     this.editDescLen.set(activity.description?.length ?? 0);
     this.editActivitySlots.set(
@@ -731,6 +741,7 @@ export class ActivitiesListComponent implements OnInit {
       required_volunteers: v.required_volunteers || null,
       max_guests: v.max_guests || null,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
+      is_preaching_shift: v.is_preaching_shift ?? false,
     };
   }
 
