@@ -148,3 +148,29 @@ export class AvailabilityEntryDto {
   @ApiPropertyOptional({ example: 'Morning only', nullable: true })
   note: string | null;
 }
+
+export class VolunteerActivityDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  region_id: string;
+
+  @ApiProperty({ example: 'Recogida en aeropuerto' })
+  name: string;
+
+  @ApiPropertyOptional({ example: 'Recogida vuelo IB1234', nullable: true })
+  description: string | null;
+
+  @ApiProperty({ example: '2024-06-15' })
+  date: string;
+
+  @ApiProperty({ example: '09:00' })
+  start_time: string;
+
+  @ApiProperty({ example: '11:00' })
+  end_time: string;
+
+  @ApiProperty({ example: 3 })
+  volunteer_count: number;
+}

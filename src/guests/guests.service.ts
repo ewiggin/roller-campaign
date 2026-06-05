@@ -19,7 +19,10 @@ import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateGuestDto } from './dto/create-guest.dto';
 import { GuestActivityResponseDto } from './dto/guest-activity-response.dto';
-import { GuestFormLookupResponseDto } from './dto/guest-form-lookup.dto';
+import {
+  GuestCodeTokenResponseDto,
+  GuestFormLookupResponseDto,
+} from './dto/guest-form-lookup.dto';
 import { GuestFormSubmitDto } from './dto/guest-form-submit.dto';
 import { GuestListQueryDto } from './dto/guest-list-query.dto';
 import {
@@ -970,6 +973,28 @@ export class GuestsService {
       guest_code: guest.guest_code,
       region_name: region?.name ?? '',
     };
+  }
+
+  async getTokenByCode(code: string): Promise<GuestCodeTokenResponseDto> {
+    const upper = code.trim().toUpperCase();
+    const normalized = upper.includes('-')
+      ? upper
+      : (upper.match(/.{1,4}/g) ?? []).join('-');
+    const candidates = Array.from(new Set([upper, normalized]));
+
+    const guest = await this.guestsRepository.findOne({
+      select: ['guest_code'],
+      where: candidates.map((c) => ({ guest_code: c })),
+    });
+
+    if (!guest) throw new NotFoundException('Código de invitado no encontrado');
+
+    const token = this.jwtService.sign(
+      { sub: guest.guest_code, type: GUEST_TOKEN_TYPE },
+      { expiresIn: '365d' },
+    );
+
+    return { token };
   }
 
   async submitForm(code: string, dto: GuestFormSubmitDto): Promise<void> {

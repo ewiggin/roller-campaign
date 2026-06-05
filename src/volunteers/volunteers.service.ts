@@ -3,7 +3,9 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { DataSource, In, Repository } from 'typeorm';
@@ -17,12 +19,16 @@ import { CreateVolunteerDto } from './dto/create-volunteer.dto';
 import { UpdateVolunteerDto } from './dto/update-volunteer.dto';
 import { VolunteerListQueryDto } from './dto/volunteer-list-query.dto';
 import {
+  VolunteerActivityDto,
   VolunteerResponseDto,
   VolunteerRoleDto,
   VolunteerRegionDto,
   AvailabilityEntryDto,
 } from './dto/volunteer-response.dto';
-import { VolunteerFormLookupResponseDto } from './dto/volunteer-form-lookup.dto';
+import {
+  VolunteerCodeTokenResponseDto,
+  VolunteerFormLookupResponseDto,
+} from './dto/volunteer-form-lookup.dto';
 import { VolunteerFormSubmitDto } from './dto/volunteer-form-submit.dto';
 import {
   SetAvailabilityDto,
@@ -33,6 +39,8 @@ import {
   ImportVolunteerCommitResponseDto,
 } from './dto/set-availability.dto';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+
+const VOLUNTEER_TOKEN_TYPE = 'volunteer_access';
 
 @Injectable()
 export class VolunteersService {
@@ -46,6 +54,7 @@ export class VolunteersService {
     @InjectRepository(Region) private readonly regionsRepo: Repository<Region>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly jwtService: JwtService,
   ) {}
 
   private buildSearchCondition(alias: string): string {
@@ -1016,6 +1025,142 @@ export class VolunteersService {
     }
 
     await this.volunteersRepo.save(v);
+  }
+
+  // ── Volunteer-access token endpoints ──────────────────────────────────────
+
+  private verifyVolunteerToken(token: string): string {
+    try {
+      const payload = this.jwtService.verify<{ sub: string; type: string }>(
+        token,
+      );
+      if (payload.type !== VOLUNTEER_TOKEN_TYPE) throw new Error('wrong type');
+      return payload.sub;
+    } catch {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
+  }
+
+  async getTokenByCode(code: string): Promise<VolunteerCodeTokenResponseDto> {
+    const normalized = code.trim().toUpperCase();
+    const v = await this.volunteersRepo.findOne({
+      select: ['volunteer_code'],
+      where: { volunteer_code: normalized },
+    });
+    if (!v) throw new NotFoundException('Código de voluntario no encontrado');
+
+    const token = this.jwtService.sign(
+      { sub: v.volunteer_code, type: VOLUNTEER_TOKEN_TYPE },
+      { expiresIn: '365d' },
+    );
+    return { token };
+  }
+
+  async getVolunteerByToken(token: string): Promise<VolunteerResponseDto> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      where: { volunteer_code: volunteerCode },
+      relations: { roles: true, regions: true },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+    return this.toDto(v);
+  }
+
+  async getAvailabilityByToken(token: string): Promise<AvailabilityEntryDto[]> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      where: { volunteer_code: volunteerCode },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+
+    const entries = await this.availRepo.find({
+      where: { volunteer_id: v.id },
+      order: { date: 'ASC' },
+    });
+    return entries.map((e) => ({
+      date: e.date,
+      region_id: e.region_id,
+      note: e.note,
+    }));
+  }
+
+  async setAvailabilityByToken(
+    token: string,
+    dto: SetAvailabilityDto,
+  ): Promise<AvailabilityEntryDto[]> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      where: { volunteer_code: volunteerCode },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+
+    await this.availRepo.delete({
+      volunteer_id: v.id,
+      region_id: dto.region_id,
+    });
+
+    if (dto.dates.length > 0) {
+      const entries = dto.dates.map((date) =>
+        this.availRepo.create({
+          volunteer_id: v.id,
+          region_id: dto.region_id,
+          date,
+          note: null,
+        }),
+      );
+      await this.availRepo.save(entries);
+    }
+
+    const updated = await this.availRepo.find({
+      where: { volunteer_id: v.id },
+      order: { date: 'ASC' },
+    });
+    return updated.map((e) => ({
+      date: e.date,
+      region_id: e.region_id,
+      note: e.note,
+    }));
+  }
+
+  async getActivitiesByToken(token: string): Promise<VolunteerActivityDto[]> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      select: ['id'],
+      where: { volunteer_code: volunteerCode },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+
+    const rows = await this.dataSource.query<
+      Array<{
+        id: string;
+        region_id: string;
+        name: string;
+        description: string | null;
+        date: string;
+        start_time: string;
+        end_time: string;
+        volunteer_count: string;
+      }>
+    >(
+      `SELECT a.id, a.region_id, a.name, a.description, a.date, a.start_time, a.end_time,
+        (SELECT COUNT(*) FROM activity_volunteers av2 WHERE av2."activitiesId" = a.id) AS volunteer_count
+       FROM activities a
+       INNER JOIN activity_volunteers av ON av."activitiesId" = a.id AND av."volunteersId" = $1
+       WHERE a.status = 'published'
+       ORDER BY a.date ASC, a.start_time ASC`,
+      [v.id],
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      region_id: r.region_id,
+      name: r.name,
+      description: r.description,
+      date: r.date,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      volunteer_count: Number(r.volunteer_count),
+    }));
   }
 
   private str(val: unknown): string | null {
