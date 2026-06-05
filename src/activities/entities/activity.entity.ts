@@ -69,6 +69,9 @@ export class Activity {
   @Column({ type: 'simple-json', nullable: true, default: null })
   activity_locations: LocationPoint[] | null;
 
+  @Column({ type: 'boolean', default: false })
+  is_preaching_shift: boolean;
+
   @ManyToMany(() => Volunteer, (v) => v.activities, { eager: false })
   @JoinTable({ name: 'activity_volunteers' })
   volunteers: Volunteer[];

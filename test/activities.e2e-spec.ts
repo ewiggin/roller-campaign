@@ -982,4 +982,295 @@ describe('Activities (e2e)', () => {
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  // ── is_preaching_shift ────────────────────────────────────────────────────
+
+  describe('is_preaching_shift field', () => {
+    it('defaults to false when not provided', async () => {
+      const res = await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send(baseTurn())
+        .expect(201);
+      expect(res.body.is_preaching_shift).toBe(false);
+    });
+
+    it('persists true when provided', async () => {
+      const res = await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), is_preaching_shift: true })
+        .expect(201);
+      expect(res.body.is_preaching_shift).toBe(true);
+    });
+
+    it('can be toggled via PATCH', async () => {
+      const created = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(baseTurn())
+      ).body;
+
+      const updated = (
+        await request(server)
+          .patch(`/api/activities/${created.id}`)
+          .set('Authorization', auth())
+          .send({ is_preaching_shift: true })
+          .expect(200)
+      ).body;
+      expect(updated.is_preaching_shift).toBe(true);
+
+      const reverted = (
+        await request(server)
+          .patch(`/api/activities/${created.id}`)
+          .set('Authorization', auth())
+          .send({ is_preaching_shift: false })
+          .expect(200)
+      ).body;
+      expect(reverted.is_preaching_shift).toBe(false);
+    });
+
+    it('is included in batch create', async () => {
+      const res = await request(server)
+        .post('/api/activities/batch')
+        .set('Authorization', auth())
+        .send({
+          ...baseTurn(),
+          date: '2024-12-01',
+          is_preaching_shift: true,
+          repetition: { type: 'daily', count: 2 },
+        })
+        .expect(201);
+      expect(
+        res.body.every(
+          (a: { is_preaching_shift: boolean }) => a.is_preaching_shift === true,
+        ),
+      ).toBe(true);
+    });
+  });
+
+  // ── Preaching shift group limit ───────────────────────────────────────────
+
+  describe('Preaching shift group limit', () => {
+    let groupId: string;
+    let preachingActivityIds: string[];
+
+    const preachingTurn = (date: string) => ({
+      region_id: regionId,
+      name: 'Preaching shift',
+      date,
+      start_time: '09:00',
+      end_time: '11:00',
+      is_preaching_shift: true,
+    });
+
+    beforeAll(async () => {
+      groupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `PS-GRP-${Date.now()}`, region_id: regionId })
+      ).body.id;
+
+      // Create 3 preaching shifts and assign the group to all three
+      preachingActivityIds = await Promise.all(
+        ['2025-01-10', '2025-01-11', '2025-01-12'].map(async (date) => {
+          const act = (
+            await request(server)
+              .post('/api/activities')
+              .set('Authorization', auth())
+              .send(preachingTurn(date))
+          ).body;
+          await request(server)
+            .post(`/api/activities/${act.id}/guest-groups`)
+            .set('Authorization', auth())
+            .send({ groupId });
+          return act.id as string;
+        }),
+      );
+    });
+
+    it('available-groups includes preaching_shifts_count on every item', async () => {
+      const activity = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(preachingTurn('2025-01-20'))
+      ).body;
+
+      const res = await request(server)
+        .get(`/api/activities/${activity.id}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(
+        res.body.every(
+          (g: { preaching_shifts_count: number }) =>
+            typeof g.preaching_shifts_count === 'number',
+        ),
+      ).toBe(true);
+    });
+
+    it('reflects correct count for a group with 3 shifts', async () => {
+      const activity = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(preachingTurn('2025-01-21'))
+      ).body;
+
+      const res = await request(server)
+        .get(`/api/activities/${activity.id}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const item = res.body.find((g: { id: string }) => g.id === groupId);
+      expect(item).toBeDefined();
+      expect(item.preaching_shifts_count).toBe(3);
+    });
+
+    it('returns 0 for a group with no preaching shifts', async () => {
+      const freshGroup = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `PS-FRESH-${Date.now()}`, region_id: regionId })
+      ).body;
+
+      const activity = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(preachingTurn('2025-01-22'))
+      ).body;
+
+      const res = await request(server)
+        .get(`/api/activities/${activity.id}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const item = res.body.find((g: { id: string }) => g.id === freshGroup.id);
+      expect(item).toBeDefined();
+      expect(item.preaching_shifts_count).toBe(0);
+    });
+
+    it('does not count non-preaching-shift activities', async () => {
+      const regularGroup = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `PS-REG-${Date.now()}`, region_id: regionId })
+      ).body;
+
+      // Assign the group to 3 regular (non-preaching) activities
+      await Promise.all(
+        ['2025-02-01', '2025-02-02', '2025-02-03'].map(async (date) => {
+          const act = (
+            await request(server)
+              .post('/api/activities')
+              .set('Authorization', auth())
+              .send({
+                region_id: regionId,
+                name: 'Regular activity',
+                date,
+                start_time: '09:00',
+                end_time: '11:00',
+                is_preaching_shift: false,
+              })
+          ).body;
+          await request(server)
+            .post(`/api/activities/${act.id}/guest-groups`)
+            .set('Authorization', auth())
+            .send({ groupId: regularGroup.id });
+        }),
+      );
+
+      const preachingActivity = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(preachingTurn('2025-02-10'))
+      ).body;
+
+      const res = await request(server)
+        .get(`/api/activities/${preachingActivity.id}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const item = res.body.find(
+        (g: { id: string }) => g.id === regularGroup.id,
+      );
+      expect(item).toBeDefined();
+      expect(item.preaching_shifts_count).toBe(0);
+    });
+
+    it('blocks assigning a group that already has 3 preaching shifts', async () => {
+      const blocked = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(preachingTurn('2025-01-23'))
+      ).body;
+
+      await request(server)
+        .post(`/api/activities/${blocked.id}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId })
+        .expect(400);
+    });
+
+    it('allows assigning to a non-preaching-shift activity regardless of preaching count', async () => {
+      const regular = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Regular',
+            date: '2025-01-24',
+            start_time: '14:00',
+            end_time: '16:00',
+            is_preaching_shift: false,
+          })
+      ).body;
+
+      const res = await request(server)
+        .post(`/api/activities/${regular.id}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId })
+        .expect(200);
+
+      expect(
+        res.body.guest_groups.some((g: { id: string }) => g.id === groupId),
+      ).toBe(true);
+    });
+
+    it('allows a 4th preaching shift after one is unassigned', async () => {
+      // Unassign the group from the first of the 3 preaching shifts
+      await request(server)
+        .delete(
+          `/api/activities/${preachingActivityIds[0]}/guest-groups/${groupId}`,
+        )
+        .set('Authorization', auth())
+        .expect(200);
+
+      const newShift = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(preachingTurn('2025-01-25'))
+      ).body;
+
+      const res = await request(server)
+        .post(`/api/activities/${newShift.id}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId })
+        .expect(200);
+
+      expect(
+        res.body.guest_groups.some((g: { id: string }) => g.id === groupId),
+      ).toBe(true);
+    });
+  });
 });

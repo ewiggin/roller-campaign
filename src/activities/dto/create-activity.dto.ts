@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsISO8601,
   IsInt,
   IsNotEmpty,
@@ -80,4 +81,9 @@ export class CreateActivityDto {
   @ValidateNested({ each: true })
   @Type(() => LocationPointDto)
   activity_locations?: LocationPointDto[] | null;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  is_preaching_shift?: boolean;
 }

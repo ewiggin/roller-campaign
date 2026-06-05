@@ -117,6 +117,13 @@ export class AvailableGroupForActivityDto {
       "True if the activity time overlaps with the host congregation's meeting schedule",
   })
   host_schedule_conflict: boolean;
+
+  @ApiProperty({
+    example: 1,
+    description:
+      'Number of preaching shift activities this group is already assigned to (excluding this activity)',
+  })
+  preaching_shifts_count: number;
 }
 
 export class ActivityResponseDto {
@@ -164,6 +171,9 @@ export class ActivityResponseDto {
 
   @ApiPropertyOptional({ type: [LocationPointDto], nullable: true })
   activity_locations: LocationPoint[] | null;
+
+  @ApiProperty({ example: false })
+  is_preaching_shift: boolean;
 
   @ApiProperty({ type: [ActivityVolunteerDto] })
   volunteers: ActivityVolunteerDto[];

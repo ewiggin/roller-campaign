@@ -750,6 +750,7 @@ export class GuestsService {
       start_time: a.start_time,
       end_time: a.end_time,
       activity_locations: a.activity_locations ?? null,
+      is_preaching_shift: a.is_preaching_shift,
       volunteers: (a.volunteers ?? []).map((v) => ({
         full_name: v.full_name,
         phone: v.phone,

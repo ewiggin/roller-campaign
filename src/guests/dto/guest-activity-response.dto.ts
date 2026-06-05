@@ -43,6 +43,9 @@ export class GuestActivityResponseDto {
   @ApiPropertyOptional({ type: [LocationPointDto], nullable: true })
   activity_locations: LocationPoint[] | null;
 
+  @ApiProperty({ example: false })
+  is_preaching_shift: boolean;
+
   @ApiProperty({ type: [GuestActivityVolunteerDto] })
   volunteers: GuestActivityVolunteerDto[];
 }

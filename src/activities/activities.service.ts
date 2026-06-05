@@ -67,6 +67,7 @@ export class ActivitiesService {
       start_time: dto.start_time,
       end_time: dto.end_time,
       activity_locations: dto.activity_locations ?? null,
+      is_preaching_shift: dto.is_preaching_shift ?? false,
       status: 'draft',
       volunteers: [],
       guestGroups: [],
@@ -103,6 +104,7 @@ export class ActivitiesService {
             start_time: dto.start_time,
             end_time: dto.end_time,
             activity_locations: dto.activity_locations ?? null,
+            is_preaching_shift: dto.is_preaching_shift ?? false,
             status: 'draft',
             volunteers: [],
             guestGroups: [],
@@ -524,6 +526,21 @@ export class ActivitiesService {
       );
     }
 
+    if (activity.is_preaching_shift) {
+      const preachingCount = await this.activitiesRepo
+        .createQueryBuilder('a')
+        .innerJoin('a.guestGroups', 'g')
+        .where('g.id = :groupId', { groupId })
+        .andWhere('a.id != :actId', { actId: activity.id })
+        .andWhere('a.is_preaching_shift = :yes', { yes: true })
+        .getCount();
+      if (preachingCount >= 3) {
+        throw new BadRequestException(
+          'El grupo ya tiene 3 turnos de predicación asignados',
+        );
+      }
+    }
+
     if (!activity.guestGroups.some((g) => g.id === groupId)) {
       activity.guestGroups.push(group);
       await this.activitiesRepo.save(activity);
@@ -748,6 +765,20 @@ export class ActivitiesService {
       });
     }
 
+    const preachingCountRows = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'gg')
+      .select('gg.id', 'groupId')
+      .addSelect('COUNT(a.id)', 'count')
+      .where('a.is_preaching_shift = :yes', { yes: true })
+      .andWhere('a.id != :actId', { actId: activity.id })
+      .andWhere('gg.region_id = :regionId', { regionId: activity.region_id })
+      .groupBy('gg.id')
+      .getRawMany<{ groupId: string; count: string }>();
+    const preachingCountMap = new Map(
+      preachingCountRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
+    );
+
     const result: AvailableGroupForActivityDto[] = [];
 
     for (const group of groups) {
@@ -813,6 +844,7 @@ export class ActivitiesService {
           activity.end_time,
           host,
         ),
+        preaching_shifts_count: preachingCountMap.get(group.id) ?? 0,
       });
     }
 
@@ -1009,6 +1041,7 @@ export class ActivitiesService {
     start_time: activity.start_time,
     end_time: activity.end_time,
     activity_locations: activity.activity_locations ?? null,
+    is_preaching_shift: activity.is_preaching_shift,
     volunteers: (activity.volunteers ?? []).map((v) => {
       const vr = volunteerRoles.get(v.id);
       return {
