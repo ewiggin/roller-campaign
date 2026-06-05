@@ -1273,4 +1273,143 @@ describe('Activities (e2e)', () => {
       ).toBe(true);
     });
   });
+
+  // ── Host-scoped group filter ───────────────────────────────────────────────
+
+  describe('Host-scoped group filter', () => {
+    let hostId: string;
+    let groupWithHostId: string;
+    let groupOtherHostId: string;
+    let groupNoHostId: string;
+    let activityWithHostId: string;
+    let activityNoHostId: string;
+
+    beforeAll(async () => {
+      const host = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send({ name: `Host-scope-${Date.now()}`, region_id: regionId })
+      ).body;
+      hostId = host.id;
+
+      const otherHost = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send({ name: `Host-other-${Date.now()}`, region_id: regionId })
+      ).body;
+
+      groupWithHostId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `HS-A-${Date.now()}`, region_id: regionId })
+      ).body.id;
+      await request(server)
+        .patch(`/api/guest-groups/${groupWithHostId}/host`)
+        .set('Authorization', auth())
+        .send({ hostId });
+
+      groupOtherHostId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `HS-B-${Date.now()}`, region_id: regionId })
+      ).body.id;
+      await request(server)
+        .patch(`/api/guest-groups/${groupOtherHostId}/host`)
+        .set('Authorization', auth())
+        .send({ hostId: otherHost.id });
+
+      groupNoHostId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `HS-C-${Date.now()}`, region_id: regionId })
+      ).body.id;
+
+      activityWithHostId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({ ...baseTurn(), date: '2025-03-01', host_id: hostId })
+      ).body.id;
+
+      activityNoHostId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({ ...baseTurn(), date: '2025-03-02' })
+      ).body.id;
+    });
+
+    it('only shows groups belonging to the activity host', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${activityWithHostId}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const ids = res.body.map((g: { id: string }) => g.id);
+      expect(ids).toContain(groupWithHostId);
+      expect(ids).not.toContain(groupOtherHostId);
+      expect(ids).not.toContain(groupNoHostId);
+    });
+
+    it('shows all region groups when activity has no host', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${activityNoHostId}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const ids = res.body.map((g: { id: string }) => g.id);
+      expect(ids).toContain(groupWithHostId);
+      expect(ids).toContain(groupOtherHostId);
+      expect(ids).toContain(groupNoHostId);
+    });
+
+    it('blocks assigning a group not belonging to the activity host', async () => {
+      await request(server)
+        .post(`/api/activities/${activityWithHostId}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: groupOtherHostId })
+        .expect(400);
+    });
+
+    it('blocks assigning a group with no host to an activity with a host', async () => {
+      await request(server)
+        .post(`/api/activities/${activityWithHostId}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: groupNoHostId })
+        .expect(400);
+    });
+
+    it('allows assigning a group belonging to the activity host', async () => {
+      const res = await request(server)
+        .post(`/api/activities/${activityWithHostId}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: groupWithHostId })
+        .expect(200);
+
+      expect(
+        res.body.guest_groups.some(
+          (g: { id: string }) => g.id === groupWithHostId,
+        ),
+      ).toBe(true);
+    });
+
+    it('allows assigning any group when activity has no host', async () => {
+      const res = await request(server)
+        .post(`/api/activities/${activityNoHostId}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: groupNoHostId })
+        .expect(200);
+
+      expect(
+        res.body.guest_groups.some(
+          (g: { id: string }) => g.id === groupNoHostId,
+        ),
+      ).toBe(true);
+    });
+  });
 });

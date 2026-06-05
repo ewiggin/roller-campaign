@@ -486,6 +486,12 @@ export class ActivitiesService {
       );
     }
 
+    if (activity.host_id && group.host_id !== activity.host_id) {
+      throw new BadRequestException(
+        'El grupo no pertenece al anfitrión de esta actividad',
+      );
+    }
+
     if (group.available_from && activity.date < group.available_from) {
       throw new BadRequestException(
         'La fecha de la actividad es anterior al inicio de disponibilidad del grupo',
@@ -739,7 +745,9 @@ export class ActivitiesService {
 
     const [groups, guests] = await Promise.all([
       this.groupsRepo.find({
-        where: { region_id: activity.region_id },
+        where: activity.host_id
+          ? { region_id: activity.region_id, host_id: activity.host_id }
+          : { region_id: activity.region_id },
         relations: ['host'],
       }),
       this.guestsRepo.find({
