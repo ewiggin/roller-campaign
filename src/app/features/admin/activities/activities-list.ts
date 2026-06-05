@@ -218,6 +218,7 @@ export class ActivitiesListComponent implements OnInit {
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
     is_preaching_shift: [false],
+    request_attendance: [false],
   });
 
   readonly createDescLen = signal(0);
@@ -248,6 +249,7 @@ export class ActivitiesListComponent implements OnInit {
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
     is_preaching_shift: [false],
+    request_attendance: [false],
   });
 
   readonly editDescLen = signal(0);
@@ -562,6 +564,7 @@ export class ActivitiesListComponent implements OnInit {
       end_time: v.end_time!,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
       is_preaching_shift: v.is_preaching_shift ?? false,
+      request_attendance: v.request_attendance ?? false,
     };
 
     if (this.repeatEnabled()) {
@@ -626,6 +629,7 @@ export class ActivitiesListComponent implements OnInit {
       required_volunteers: activity.required_volunteers,
       max_guests: activity.max_guests,
       is_preaching_shift: activity.is_preaching_shift,
+      request_attendance: activity.request_attendance,
     });
     this.editDescLen.set(activity.description?.length ?? 0);
     this.editActivitySlots.set(
@@ -742,6 +746,7 @@ export class ActivitiesListComponent implements OnInit {
       max_guests: v.max_guests || null,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
       is_preaching_shift: v.is_preaching_shift ?? false,
+      request_attendance: v.request_attendance ?? false,
     };
   }
 
