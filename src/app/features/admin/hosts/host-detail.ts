@@ -44,21 +44,30 @@ export class HostDetailComponent implements OnInit {
 
   readonly selectedLanguages = signal<string[]>([]);
   readonly langDropdownOpen = signal(false);
+  readonly hasCars = signal<boolean | undefined>(undefined);
 
   readonly availableLanguages = computed(() =>
     Array.from(new Set(this.available().flatMap((g) => g.languages))).sort(),
   );
 
   readonly filteredAvailable = computed(() => {
+    let list = this.available();
     const langs = this.selectedLanguages();
-    if (langs.length === 0) return this.available();
-    return this.available().filter((g) => langs.every((l) => g.languages.includes(l)));
+    if (langs.length > 0) list = list.filter((g) => langs.every((l) => g.languages.includes(l)));
+    const cars = this.hasCars();
+    if (cars === true) list = list.filter((g) => g.car_count !== null && g.car_count > 0);
+    if (cars === false) list = list.filter((g) => g.car_count === null || g.car_count === 0);
+    return list;
   });
 
   toggleLanguage(lang: string) {
     this.selectedLanguages.update((ls) =>
       ls.includes(lang) ? ls.filter((l) => l !== lang) : [...ls, lang],
     );
+  }
+
+  onHasCarsChange(value: string) {
+    this.hasCars.set(value === 'true' ? true : value === 'false' ? false : undefined);
   }
 
   @ViewChild('langDropdown') private readonly langDropdownRef?: ElementRef<HTMLElement>;
