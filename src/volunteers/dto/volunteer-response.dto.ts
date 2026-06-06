@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { LocationPointDto } from '../../activities/dto/location-point.dto';
 
 export class VolunteerRoleDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -14,6 +15,12 @@ export class VolunteerRegionDto {
 
   @ApiProperty({ example: 'Madrid Norte' })
   name: string;
+
+  @ApiPropertyOptional({ example: '2024-06-14', nullable: true })
+  event_start_date: string | null;
+
+  @ApiPropertyOptional({ example: '2024-06-16', nullable: true })
+  event_end_date: string | null;
 }
 
 export class VolunteerResponseDto {
@@ -147,4 +154,47 @@ export class AvailabilityEntryDto {
 
   @ApiPropertyOptional({ example: 'Morning only', nullable: true })
   note: string | null;
+}
+
+export class VolunteerActivityVolunteerDto {
+  @ApiProperty({ example: 'Carlos López' })
+  full_name: string;
+
+  @ApiPropertyOptional({ example: '+34 600 000 000', nullable: true })
+  phone: string | null;
+
+  @ApiPropertyOptional({ example: 'Conductor', nullable: true })
+  role_name: string | null;
+}
+
+export class VolunteerActivityDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  region_id: string;
+
+  @ApiProperty({ example: 'Recogida en aeropuerto' })
+  name: string;
+
+  @ApiPropertyOptional({ example: '✈️', nullable: true })
+  icon: string | null;
+
+  @ApiPropertyOptional({ example: 'Recogida vuelo IB1234', nullable: true })
+  description: string | null;
+
+  @ApiProperty({ example: '2024-06-15' })
+  date: string;
+
+  @ApiProperty({ example: '09:00' })
+  start_time: string;
+
+  @ApiProperty({ example: '11:00' })
+  end_time: string;
+
+  @ApiPropertyOptional({ type: [LocationPointDto], nullable: true })
+  activity_locations: LocationPointDto[] | null;
+
+  @ApiProperty({ type: [VolunteerActivityVolunteerDto] })
+  volunteers: VolunteerActivityVolunteerDto[];
 }

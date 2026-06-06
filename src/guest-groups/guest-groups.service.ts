@@ -67,6 +67,7 @@ export class GuestGroupsService {
     minCarSeats?: number,
     languages: string[] = [],
     compositions: string[] = [],
+    hasCars?: boolean,
   ): Promise<{
     data: GuestGroupResponseDto[];
     total: number;
@@ -136,6 +137,12 @@ export class GuestGroupsService {
         `(SELECT COALESCE(SUM(g_cs.car_seats), 0) FROM guests g_cs WHERE g_cs.group_id = gg.id) >= :minCarSeats`,
         { minCarSeats },
       );
+    }
+
+    if (hasCars === true) {
+      query.andWhere('gg.car_count IS NOT NULL AND gg.car_count > 0');
+    } else if (hasCars === false) {
+      query.andWhere('(gg.car_count IS NULL OR gg.car_count = 0)');
     }
 
     const [total, availableLanguages] = await Promise.all([
@@ -466,11 +473,17 @@ export class GuestGroupsService {
   private parseAvailability(
     row: Record<string, unknown>,
   ): Partial<
-    Pick<GuestGroup, 'available_from' | 'available_to' | 'composition'>
+    Pick<
+      GuestGroup,
+      'available_from' | 'available_to' | 'composition' | 'car_count'
+    >
   > {
     const validCompositions = ['men_only', 'mixed', 'women_only'];
     const result: Partial<
-      Pick<GuestGroup, 'available_from' | 'available_to' | 'composition'>
+      Pick<
+        GuestGroup,
+        'available_from' | 'available_to' | 'composition' | 'car_count'
+      >
     > = {};
 
     const fromKey =
@@ -501,6 +514,12 @@ export class GuestGroupsService {
       result.composition = validCompositions.includes(comp)
         ? (comp as 'men_only' | 'mixed' | 'women_only')
         : null;
+    }
+
+    if ('car_count' in row) {
+      const raw = row['car_count'];
+      const n = typeof raw === 'number' ? raw : parseInt(String(raw ?? ''), 10);
+      result.car_count = isNaN(n) || n < 0 ? null : n;
     }
 
     return result;
@@ -571,6 +590,7 @@ export class GuestGroupsService {
       'region_name',
       'host_name',
       'guest_count',
+      'car_count',
       'available_from',
       'available_to',
       'composition',
@@ -580,6 +600,7 @@ export class GuestGroupsService {
       regionMap.get(g.region_id) ?? '',
       g.host_id ? (hostMap.get(g.host_id) ?? '') : '',
       g.guest_count ?? 0,
+      g.car_count ?? '',
       g.available_from ?? '',
       g.available_to ?? '',
       g.composition ?? '',
@@ -590,6 +611,7 @@ export class GuestGroupsService {
       { wch: 16 },
       { wch: 24 },
       { wch: 28 },
+      { wch: 12 },
       { wch: 12 },
       { wch: 14 },
       { wch: 14 },
@@ -603,19 +625,21 @@ export class GuestGroupsService {
     const headers = [
       'group_code',
       'region_name',
+      'car_count',
       'available_from',
       'available_to',
       'composition',
     ];
     const examples = [
-      ['GRP-001', 'Madrid', '2024-06-14', '2024-06-21', 'mixed'],
-      ['GRP-002', 'Barcelona', '', '', 'men_only'],
+      ['GRP-001', 'Madrid', 2, '2024-06-14', '2024-06-21', 'mixed'],
+      ['GRP-002', 'Barcelona', 1, '', '', 'men_only'],
     ];
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...examples]);
     ws['!cols'] = [
       { wch: 16 },
       { wch: 24 },
+      { wch: 12 },
       { wch: 14 },
       { wch: 14 },
       { wch: 14 },
@@ -772,6 +796,7 @@ export class GuestGroupsService {
     dto.available_from = group.available_from ?? null;
     dto.available_to = group.available_to ?? null;
     dto.composition = group.composition ?? null;
+    dto.car_count = group.car_count ?? null;
     dto.created_at = group.created_at;
     dto.updated_at = group.updated_at;
     return dto;

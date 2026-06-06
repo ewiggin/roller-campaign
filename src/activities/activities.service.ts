@@ -12,6 +12,7 @@ import { Guest } from '../guests/entities/guest.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
+import { ActivityVolunteerRole } from './entities/activity-volunteer-role.entity';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import {
   ActivityResponseDto,
@@ -40,6 +41,8 @@ export class ActivitiesService {
     @InjectRepository(Guest) private readonly guestsRepo: Repository<Guest>,
     @InjectRepository(Region) private readonly regionsRepo: Repository<Region>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
+    @InjectRepository(ActivityVolunteerRole)
+    private readonly actVolRoleRepo: Repository<ActivityVolunteerRole>,
   ) {}
 
   async create(
@@ -58,15 +61,13 @@ export class ActivitiesService {
       icon: dto.icon ?? null,
       description: dto.description ?? null,
       host_id: dto.host_id ?? null,
+      required_volunteers: dto.required_volunteers ?? null,
+      max_guests: dto.max_guests ?? null,
       date: dto.date,
       start_time: dto.start_time,
       end_time: dto.end_time,
-      activity_address: dto.activity_address ?? null,
-      activity_lat: dto.activity_lat ?? null,
-      activity_lng: dto.activity_lng ?? null,
-      departure_address: dto.departure_address ?? null,
-      departure_lat: dto.departure_lat ?? null,
-      departure_lng: dto.departure_lng ?? null,
+      activity_locations: dto.activity_locations ?? null,
+      is_preaching_shift: dto.is_preaching_shift ?? false,
       status: 'draft',
       volunteers: [],
       guestGroups: [],
@@ -97,15 +98,13 @@ export class ActivitiesService {
             icon: dto.icon ?? null,
             description: dto.description ?? null,
             host_id: dto.host_id ?? null,
+            required_volunteers: dto.required_volunteers ?? null,
+            max_guests: dto.max_guests ?? null,
             date,
             start_time: dto.start_time,
             end_time: dto.end_time,
-            activity_address: dto.activity_address ?? null,
-            activity_lat: dto.activity_lat ?? null,
-            activity_lng: dto.activity_lng ?? null,
-            departure_address: dto.departure_address ?? null,
-            departure_lat: dto.departure_lat ?? null,
-            departure_lng: dto.departure_lng ?? null,
+            activity_locations: dto.activity_locations ?? null,
+            is_preaching_shift: dto.is_preaching_shift ?? false,
             status: 'draft',
             volunteers: [],
             guestGroups: [],
@@ -349,6 +348,7 @@ export class ActivitiesService {
   async assignVolunteer(
     id: string,
     volunteerId: string,
+    roleId: string | null | undefined,
     currentUser: JwtPayload,
   ): Promise<ActivityResponseDto> {
     const activity = await this.activitiesRepo.findOne({
@@ -374,6 +374,25 @@ export class ActivitiesService {
       activity.volunteers.push(volunteer);
       await this.activitiesRepo.save(activity);
     }
+
+    if (roleId) {
+      const existing = await this.actVolRoleRepo.findOne({
+        where: { activity_id: id, volunteer_id: volunteerId },
+      });
+      if (existing) {
+        existing.role_id = roleId;
+        await this.actVolRoleRepo.save(existing);
+      } else {
+        await this.actVolRoleRepo.save(
+          this.actVolRoleRepo.create({
+            activity_id: id,
+            volunteer_id: volunteerId,
+            role_id: roleId,
+          }),
+        );
+      }
+    }
+
     return this.toDtoWithCounts(activity);
   }
 
@@ -393,6 +412,53 @@ export class ActivitiesService {
       (v) => v.id !== volunteerId,
     );
     await this.activitiesRepo.save(activity);
+    await this.actVolRoleRepo.delete({
+      activity_id: id,
+      volunteer_id: volunteerId,
+    });
+    return this.toDtoWithCounts(activity);
+  }
+
+  async setVolunteerRole(
+    id: string,
+    volunteerId: string,
+    roleId: string | null,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({
+      where: { id },
+      relations: ACTIVITY_RELATIONS,
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    if (!activity.volunteers.some((v) => v.id === volunteerId)) {
+      throw new BadRequestException('Volunteer not assigned to this activity');
+    }
+
+    if (!roleId) {
+      await this.actVolRoleRepo.delete({
+        activity_id: id,
+        volunteer_id: volunteerId,
+      });
+    } else {
+      const existing = await this.actVolRoleRepo.findOne({
+        where: { activity_id: id, volunteer_id: volunteerId },
+      });
+      if (existing) {
+        existing.role_id = roleId;
+        await this.actVolRoleRepo.save(existing);
+      } else {
+        await this.actVolRoleRepo.save(
+          this.actVolRoleRepo.create({
+            activity_id: id,
+            volunteer_id: volunteerId,
+            role_id: roleId,
+          }),
+        );
+      }
+    }
+
     return this.toDtoWithCounts(activity);
   }
 
@@ -408,12 +474,21 @@ export class ActivitiesService {
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
 
-    const group = await this.groupsRepo.findOne({ where: { id: groupId } });
+    const group = await this.groupsRepo.findOne({
+      where: { id: groupId },
+      relations: ['host'],
+    });
     if (!group) throw new NotFoundException('Grupo no encontrado');
 
     if (group.region_id !== activity.region_id) {
       throw new BadRequestException(
         'El grupo no pertenece a la región de esta actividad',
+      );
+    }
+
+    if (activity.host_id && group.host_id !== activity.host_id) {
+      throw new BadRequestException(
+        'El grupo no pertenece al anfitrión de esta actividad',
       );
     }
 
@@ -425,6 +500,19 @@ export class ActivitiesService {
     if (group.available_to && activity.date > group.available_to) {
       throw new BadRequestException(
         'La fecha de la actividad es posterior al fin de disponibilidad del grupo',
+      );
+    }
+
+    if (
+      this.hasHostScheduleConflict(
+        activity.date,
+        activity.start_time,
+        activity.end_time,
+        (group as any).host ?? null,
+      )
+    ) {
+      throw new BadRequestException(
+        'La actividad coincide con el horario de reunión del anfitrión del grupo',
       );
     }
 
@@ -442,6 +530,21 @@ export class ActivitiesService {
       throw new BadRequestException(
         'El grupo ya está asignado a otra actividad que se solapa en fecha y hora',
       );
+    }
+
+    if (activity.is_preaching_shift) {
+      const preachingCount = await this.activitiesRepo
+        .createQueryBuilder('a')
+        .innerJoin('a.guestGroups', 'g')
+        .where('g.id = :groupId', { groupId })
+        .andWhere('a.id != :actId', { actId: activity.id })
+        .andWhere('a.is_preaching_shift = :yes', { yes: true })
+        .getCount();
+      if (preachingCount >= 3) {
+        throw new BadRequestException(
+          'El grupo ya tiene 3 turnos de predicación asignados',
+        );
+      }
     }
 
     if (!activity.guestGroups.some((g) => g.id === groupId)) {
@@ -525,11 +628,29 @@ export class ActivitiesService {
       .getRawMany<{ volunteerId: string }>();
     const conflictingIds = new Set(conflictRows.map((r) => r.volunteerId));
 
+    const region = await this.regionsRepo.findOne({
+      where: { id: activity.region_id },
+    });
+    const dayLabel = this.getAvailabilityDayLabel(
+      activity.date,
+      region?.event_start_date ?? null,
+      region?.event_end_date ?? null,
+    );
+    const hasMorning = activity.start_time < '13:30';
+    const hasAfternoon = activity.end_time > '13:30';
+    const shiftCondition =
+      hasMorning && !hasAfternoon
+        ? `v.${dayLabel}_morning = true`
+        : !hasMorning && hasAfternoon
+          ? `v.${dayLabel}_afternoon = true`
+          : `(v.${dayLabel}_morning = true OR v.${dayLabel}_afternoon = true)`;
+
     const volunteers = await this.volunteersRepo
       .createQueryBuilder('v')
       .innerJoin('v.regions', 'r', 'r.id = :regionId', {
         regionId: activity.region_id,
       })
+      .leftJoinAndSelect('v.roles', 'roles')
       .where('v.is_active = true')
       .andWhere(
         `(NOT EXISTS (
@@ -541,6 +662,7 @@ export class ActivitiesService {
         ))`,
         { avRegion: activity.region_id, avDate: activity.date },
       )
+      .andWhere(shiftCondition)
       .orderBy('v.full_name', 'ASC')
       .getMany();
 
@@ -550,8 +672,49 @@ export class ActivitiesService {
         id: v.id,
         volunteer_code: v.volunteer_code,
         full_name: v.full_name,
+        roles: (v.roles ?? []).map((role) => ({
+          id: role.id,
+          name: role.name,
+        })),
         already_in_activity: conflictingIds.has(v.id),
       }));
+  }
+
+  private getAvailabilityDayLabel(
+    date: string,
+    eventStartDate: string | null,
+    eventEndDate: string | null,
+  ): string {
+    if (eventStartDate) {
+      const startJsDay = new Date(eventStartDate + 'T00:00:00').getDay();
+      const daysBack = (startJsDay - 6 + 7) % 7 || 7;
+      const satPrev = this.shiftDays(eventStartDate, -daysBack);
+      const sunPrev = this.shiftDays(eventStartDate, -daysBack + 1);
+      if (date === satPrev) return 'saturday_prev';
+      if (date === sunPrev) return 'sunday_prev';
+    }
+    if (eventEndDate) {
+      const endJsDay = new Date(eventEndDate + 'T00:00:00').getDay();
+      const daysForward = (8 - endJsDay) % 7 || 7;
+      const monNext = this.shiftDays(eventEndDate, daysForward);
+      if (date === monNext) return 'monday_next';
+    }
+    const days = [
+      'sunday',
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+    ];
+    return days[new Date(date + 'T00:00:00').getDay()];
+  }
+
+  private shiftDays(dateStr: string, days: number): string {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   async getAvailableGroups(
@@ -582,7 +745,9 @@ export class ActivitiesService {
 
     const [groups, guests] = await Promise.all([
       this.groupsRepo.find({
-        where: { region_id: activity.region_id },
+        where: activity.host_id
+          ? { region_id: activity.region_id, host_id: activity.host_id }
+          : { region_id: activity.region_id },
         relations: ['host'],
       }),
       this.guestsRepo.find({
@@ -607,6 +772,20 @@ export class ActivitiesService {
         available_to: g.available_to,
       });
     }
+
+    const preachingCountRows = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'gg')
+      .select('gg.id', 'groupId')
+      .addSelect('COUNT(a.id)', 'count')
+      .where('a.is_preaching_shift = :yes', { yes: true })
+      .andWhere('a.id != :actId', { actId: activity.id })
+      .andWhere('gg.region_id = :regionId', { regionId: activity.region_id })
+      .groupBy('gg.id')
+      .getRawMany<{ groupId: string; count: string }>();
+    const preachingCountMap = new Map(
+      preachingCountRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
+    );
 
     const result: AvailableGroupForActivityDto[] = [];
 
@@ -640,12 +819,17 @@ export class ActivitiesService {
         lat: number | null;
         lng: number | null;
         name: string;
+        weekday_meeting_day: number | null;
+        weekday_meeting_time: string | null;
+        weekend_meeting_day: number | null;
+        weekend_meeting_time: string | null;
       } | null;
+      const activityLoc = activity.activity_locations?.[0] ?? null;
       const distance_km =
-        activity.activity_lat && activity.activity_lng && host?.lat && host?.lng
+        activityLoc && host?.lat && host?.lng
           ? this.haversineKm(
-              activity.activity_lat,
-              activity.activity_lng,
+              activityLoc.lat,
+              activityLoc.lng,
               host.lat,
               host.lng,
             )
@@ -662,6 +846,13 @@ export class ActivitiesService {
           distance_km !== null ? Math.round(distance_km * 10) / 10 : null,
         guest_count: groupGuests.length,
         already_in_activity: conflictingGroupIds.has(group.id),
+        host_schedule_conflict: this.hasHostScheduleConflict(
+          activity.date,
+          activity.start_time,
+          activity.end_time,
+          host,
+        ),
+        preaching_shifts_count: preachingCountMap.get(group.id) ?? 0,
       });
     }
 
@@ -691,8 +882,115 @@ export class ActivitiesService {
     activity: Activity,
   ): Promise<ActivityResponseDto> {
     const groupIds = (activity.guestGroups ?? []).map((g) => g.id);
-    const counts = await this.getGroupGuestCounts(groupIds);
-    return this.toDto(activity, counts);
+    const [counts, volunteerRoles] = await Promise.all([
+      this.getGroupGuestCounts(groupIds),
+      this.getVolunteerRoles(activity.id, activity.volunteers ?? []),
+    ]);
+    return this.toDto(activity, counts, volunteerRoles);
+  }
+
+  private async getVolunteerRoles(
+    activityId: string,
+    volunteers: { id: string }[],
+  ): Promise<
+    Map<
+      string,
+      {
+        role_id: string | null;
+        role_name: string | null;
+        available_roles: { id: string; name: string }[];
+      }
+    >
+  > {
+    if (volunteers.length === 0) return new Map();
+    const volunteerIds = volunteers.map((v) => v.id);
+
+    const [assignments, rawRoles] = await Promise.all([
+      this.actVolRoleRepo.find({ where: { activity_id: activityId } }),
+      this.volunteersRepo
+        .createQueryBuilder('v')
+        .innerJoin('v.roles', 'r')
+        .select('v.id', 'volunteerId')
+        .addSelect('r.id', 'roleId')
+        .addSelect('r.name', 'roleName')
+        .where('v.id IN (:...ids)', { ids: volunteerIds })
+        .getRawMany<{
+          volunteerId: string;
+          roleId: string;
+          roleName: string;
+        }>(),
+    ]);
+
+    const assignedRoleId = new Map(
+      assignments
+        .filter((a) => volunteerIds.includes(a.volunteer_id))
+        .map((a) => [a.volunteer_id, a.role_id]),
+    );
+
+    const availableRoles = new Map<string, { id: string; name: string }[]>();
+    for (const row of rawRoles) {
+      if (!availableRoles.has(row.volunteerId))
+        availableRoles.set(row.volunteerId, []);
+      availableRoles
+        .get(row.volunteerId)!
+        .push({ id: row.roleId, name: row.roleName });
+    }
+
+    const result = new Map<
+      string,
+      {
+        role_id: string | null;
+        role_name: string | null;
+        available_roles: { id: string; name: string }[];
+      }
+    >();
+    for (const v of volunteers) {
+      const roleId = assignedRoleId.get(v.id) ?? null;
+      const volRoles = availableRoles.get(v.id) ?? [];
+      result.set(v.id, {
+        role_id: roleId,
+        role_name: roleId
+          ? (volRoles.find((r) => r.id === roleId)?.name ?? null)
+          : null,
+        available_roles: volRoles,
+      });
+    }
+    return result;
+  }
+
+  private hasHostScheduleConflict(
+    activityDate: string,
+    startTime: string,
+    endTime: string,
+    host: {
+      weekday_meeting_day: number | null;
+      weekday_meeting_time: string | null;
+      weekend_meeting_day: number | null;
+      weekend_meeting_time: string | null;
+    } | null,
+  ): boolean {
+    if (!host) return false;
+
+    const jsDay = new Date(activityDate + 'T00:00:00').getDay();
+    const dayOfWeek = jsDay === 0 ? 7 : jsDay; // convert JS 0=Sun to 1=Mon…7=Sun
+
+    const inRange = (t: string) => t >= startTime && t < endTime;
+
+    if (
+      host.weekday_meeting_day === dayOfWeek &&
+      host.weekday_meeting_time !== null &&
+      inRange(host.weekday_meeting_time)
+    )
+      return true;
+
+    if (
+      host.weekend_meeting_day === dayOfWeek &&
+      host.weekend_meeting_time !== null &&
+      inRange(host.weekend_meeting_time)
+    )
+      return true;
+
+    return false;
   }
 
   private haversineKm(
@@ -729,6 +1027,14 @@ export class ActivitiesService {
   private toDto = (
     activity: Activity,
     groupCounts: Map<string, number> = new Map(),
+    volunteerRoles: Map<
+      string,
+      {
+        role_id: string | null;
+        role_name: string | null;
+        available_roles: { id: string; name: string }[];
+      }
+    > = new Map(),
   ): ActivityResponseDto => ({
     id: activity.id,
     region_id: activity.region_id,
@@ -742,18 +1048,21 @@ export class ActivitiesService {
     date: activity.date,
     start_time: activity.start_time,
     end_time: activity.end_time,
-    activity_address: activity.activity_address,
-    activity_lat: activity.activity_lat,
-    activity_lng: activity.activity_lng,
-    departure_address: activity.departure_address,
-    departure_lat: activity.departure_lat,
-    departure_lng: activity.departure_lng,
-    volunteers: (activity.volunteers ?? []).map((v) => ({
-      id: v.id,
-      volunteer_code: v.volunteer_code,
-      full_name: v.full_name,
-    })),
+    activity_locations: activity.activity_locations ?? null,
+    is_preaching_shift: activity.is_preaching_shift,
+    volunteers: (activity.volunteers ?? []).map((v) => {
+      const vr = volunteerRoles.get(v.id);
+      return {
+        id: v.id,
+        volunteer_code: v.volunteer_code,
+        full_name: v.full_name,
+        role_id: vr?.role_id ?? null,
+        role_name: vr?.role_name ?? null,
+        available_roles: vr?.available_roles ?? [],
+      };
+    }),
     volunteer_count: (activity.volunteers ?? []).length,
+    required_volunteers: activity.required_volunteers,
     guest_groups: (activity.guestGroups ?? []).map((g) => ({
       id: g.id,
       group_code: g.group_code,
@@ -763,6 +1072,7 @@ export class ActivitiesService {
       (sum, g) => sum + (groupCounts.get(g.id) ?? 0),
       0,
     ),
+    max_guests: activity.max_guests,
     created_at: activity.created_at,
     updated_at: activity.updated_at,
   });

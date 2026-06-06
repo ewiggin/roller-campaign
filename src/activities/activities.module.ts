@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Activity } from './entities/activity.entity';
+import { ActivityVolunteerRole } from './entities/activity-volunteer-role.entity';
 import { Guest } from '../guests/entities/guest.entity';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { Host } from '../hosts/entities/host.entity';
@@ -14,6 +15,7 @@ import { ActivitiesController } from './activities.controller';
   imports: [
     TypeOrmModule.forFeature([
       Activity,
+      ActivityVolunteerRole,
       Guest,
       GuestGroup,
       Host,

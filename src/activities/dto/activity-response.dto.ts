@@ -1,4 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { LocationPoint, LocationPointDto } from './location-point.dto';
+
+export class VolunteerAvailableRoleDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: 'Driver' })
+  name: string;
+}
 
 export class ActivityVolunteerDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -9,6 +18,18 @@ export class ActivityVolunteerDto {
 
   @ApiProperty({ example: 'Carlos López' })
   full_name: string;
+
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    nullable: true,
+  })
+  role_id: string | null;
+
+  @ApiPropertyOptional({ example: 'Driver', nullable: true })
+  role_name: string | null;
+
+  @ApiProperty({ type: [VolunteerAvailableRoleDto] })
+  available_roles: VolunteerAvailableRoleDto[];
 }
 
 export class ActivityGuestGroupDto {
@@ -22,6 +43,14 @@ export class ActivityGuestGroupDto {
   guest_count: number;
 }
 
+export class VolunteerRoleRefDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: 'Driver' })
+  name: string;
+}
+
 export class AvailableVolunteerForActivityDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
@@ -31,6 +60,9 @@ export class AvailableVolunteerForActivityDto {
 
   @ApiProperty({ example: 'Carlos López' })
   full_name: string;
+
+  @ApiProperty({ type: [VolunteerRoleRefDto] })
+  roles: VolunteerRoleRefDto[];
 
   @ApiProperty({
     example: false,
@@ -78,6 +110,20 @@ export class AvailableGroupForActivityDto {
       'True if assigned to another activity overlapping in date+time',
   })
   already_in_activity: boolean;
+
+  @ApiProperty({
+    example: false,
+    description:
+      "True if the activity time overlaps with the host congregation's meeting schedule",
+  })
+  host_schedule_conflict: boolean;
+
+  @ApiProperty({
+    example: 1,
+    description:
+      'Number of preaching shift activities this group is already assigned to (excluding this activity)',
+  })
+  preaching_shifts_count: number;
 }
 
 export class ActivityResponseDto {
@@ -123,26 +169,11 @@ export class ActivityResponseDto {
   @ApiProperty({ example: '13:00' })
   end_time: string;
 
-  @ApiPropertyOptional({
-    example: 'Aeropuerto Adolfo Suárez, Madrid',
-    nullable: true,
-  })
-  activity_address: string | null;
+  @ApiPropertyOptional({ type: [LocationPointDto], nullable: true })
+  activity_locations: LocationPoint[] | null;
 
-  @ApiPropertyOptional({ example: 40.4936, nullable: true })
-  activity_lat: number | null;
-
-  @ApiPropertyOptional({ example: -3.5668, nullable: true })
-  activity_lng: number | null;
-
-  @ApiPropertyOptional({ example: 'Calle Gran Vía 1, Madrid', nullable: true })
-  departure_address: string | null;
-
-  @ApiPropertyOptional({ example: 40.4168, nullable: true })
-  departure_lat: number | null;
-
-  @ApiPropertyOptional({ example: -3.7038, nullable: true })
-  departure_lng: number | null;
+  @ApiProperty({ example: false })
+  is_preaching_shift: boolean;
 
   @ApiProperty({ type: [ActivityVolunteerDto] })
   volunteers: ActivityVolunteerDto[];
@@ -150,11 +181,17 @@ export class ActivityResponseDto {
   @ApiProperty({ example: 2 })
   volunteer_count: number;
 
+  @ApiPropertyOptional({ example: 3, nullable: true })
+  required_volunteers: number | null;
+
   @ApiProperty({ type: [ActivityGuestGroupDto] })
   guest_groups: ActivityGuestGroupDto[];
 
   @ApiProperty({ example: 48 })
   total_guests_assigned: number;
+
+  @ApiPropertyOptional({ example: 50, nullable: true })
+  max_guests: number | null;
 
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })
   created_at: Date;

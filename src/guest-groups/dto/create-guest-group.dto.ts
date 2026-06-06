@@ -1,10 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsIn,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Min,
 } from 'class-validator';
 
 export class CreateGuestGroupDto {
@@ -35,4 +37,10 @@ export class CreateGuestGroupDto {
   @IsOptional()
   @IsIn(['men_only', 'mixed', 'women_only'])
   composition?: 'men_only' | 'mixed' | 'women_only' | null;
+
+  @ApiPropertyOptional({ example: 3, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  car_count?: number | null;
 }
