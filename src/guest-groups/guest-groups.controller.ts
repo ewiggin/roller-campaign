@@ -120,6 +120,7 @@ export class GuestGroupsController {
     minCarSeats: number | undefined,
     @Query('languages') languagesRaw: string | undefined,
     @Query('compositions') compositionsRaw: string | undefined,
+    @Query('hasCars') hasCarsRaw: string | undefined,
     @CurrentUser() user: JwtPayload,
   ) {
     const languages = languagesRaw
@@ -128,6 +129,8 @@ export class GuestGroupsController {
     const compositions = compositionsRaw
       ? compositionsRaw.split(',').filter(Boolean)
       : [];
+    const hasCars =
+      hasCarsRaw === 'true' ? true : hasCarsRaw === 'false' ? false : undefined;
     return this.service.findAll(
       regionId,
       user,
@@ -137,6 +140,7 @@ export class GuestGroupsController {
       minCarSeats,
       languages,
       compositions,
+      hasCars,
     );
   }
 

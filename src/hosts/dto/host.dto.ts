@@ -185,6 +185,12 @@ export class GroupSuggestionDto {
 
   @ApiProperty({ example: ['Spanish', 'English'], type: [String] })
   languages: string[];
+
+  @ApiPropertyOptional({ example: 2, nullable: true })
+  car_count: number | null;
+
+  @ApiProperty({ example: 5 })
+  total_car_seats: number;
 }
 
 export class GroupSuggestionsResponseDto {

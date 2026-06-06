@@ -43,6 +43,9 @@ export class GuestGroup {
   @Column({ type: 'varchar', nullable: true, default: null })
   composition: 'men_only' | 'mixed' | 'women_only' | null;
 
+  @Column({ type: 'int', nullable: true, default: null })
+  car_count: number | null;
+
   @OneToMany('Guest', (guest: Guest) => guest.group)
   guests: Guest[];
 
