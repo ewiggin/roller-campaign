@@ -176,6 +176,25 @@ export class HostsService {
       });
     }
 
+    const carSeatsRows =
+      groupIds.length > 0
+        ? await this.guestsRepo
+            .createQueryBuilder('g')
+            .select('g.group_id', 'group_id')
+            .addSelect('SUM(g.car_seats)', 'total')
+            .where('g.group_id IN (:...groupIds)', { groupIds })
+            .andWhere('g.car_seats IS NOT NULL')
+            .groupBy('g.group_id')
+            .getRawMany<{ group_id: string; total: string }>()
+        : [];
+
+    const carSeatsByGroup = new Map(
+      carSeatsRows.map((r) => [
+        r.group_id,
+        Math.round(parseFloat(r.total) || 0),
+      ]),
+    );
+
     const guestLanguages =
       groupIds.length > 0
         ? await this.guestsRepo
@@ -236,6 +255,8 @@ export class HostsService {
         guest_count: guestCount,
         distance_km,
         languages,
+        car_count: group.car_count ?? null,
+        total_car_seats: carSeatsByGroup.get(group.id) ?? 0,
       };
       return { dto, host_id: group.host_id };
     });
