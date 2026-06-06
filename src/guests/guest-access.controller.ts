@@ -18,7 +18,10 @@ import {
 } from '@nestjs/swagger';
 import { Audit } from '../audit-logs/decorators/audit.decorator';
 import { GuestActivityResponseDto } from './dto/guest-activity-response.dto';
-import { GuestFormLookupResponseDto } from './dto/guest-form-lookup.dto';
+import {
+  GuestCodeTokenResponseDto,
+  GuestFormLookupResponseDto,
+} from './dto/guest-form-lookup.dto';
 import { GuestFormSubmitDto } from './dto/guest-form-submit.dto';
 import { GuestMeResponseDto } from './dto/guest-me-response.dto';
 import { GuestsService } from './guests.service';
@@ -55,6 +58,16 @@ export class GuestAccessController {
   ): Promise<GuestFormLookupResponseDto> {
     if (!code) throw new NotFoundException('Código requerido');
     return this.guestsService.lookupByCode(code);
+  }
+
+  @Get('token')
+  @ApiOkResponse({ type: GuestCodeTokenResponseDto })
+  @ApiNotFoundResponse({ description: 'Código de invitado no encontrado' })
+  getTokenByCode(
+    @Query('code') code: string,
+  ): Promise<GuestCodeTokenResponseDto> {
+    if (!code) throw new NotFoundException('Código requerido');
+    return this.guestsService.getTokenByCode(code);
   }
 
   @Patch('submit')
