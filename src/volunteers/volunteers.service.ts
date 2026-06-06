@@ -3,7 +3,9 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { DataSource, In, Repository } from 'typeorm';
@@ -17,12 +19,16 @@ import { CreateVolunteerDto } from './dto/create-volunteer.dto';
 import { UpdateVolunteerDto } from './dto/update-volunteer.dto';
 import { VolunteerListQueryDto } from './dto/volunteer-list-query.dto';
 import {
+  VolunteerActivityDto,
   VolunteerResponseDto,
   VolunteerRoleDto,
   VolunteerRegionDto,
   AvailabilityEntryDto,
 } from './dto/volunteer-response.dto';
-import { VolunteerFormLookupResponseDto } from './dto/volunteer-form-lookup.dto';
+import {
+  VolunteerCodeTokenResponseDto,
+  VolunteerFormLookupResponseDto,
+} from './dto/volunteer-form-lookup.dto';
 import { VolunteerFormSubmitDto } from './dto/volunteer-form-submit.dto';
 import {
   SetAvailabilityDto,
@@ -33,6 +39,9 @@ import {
   ImportVolunteerCommitResponseDto,
 } from './dto/set-availability.dto';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import type { LocationPoint } from '../activities/dto/location-point.dto';
+
+const VOLUNTEER_TOKEN_TYPE = 'volunteer_access';
 
 @Injectable()
 export class VolunteersService {
@@ -46,6 +55,7 @@ export class VolunteersService {
     @InjectRepository(Region) private readonly regionsRepo: Repository<Region>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly jwtService: JwtService,
   ) {}
 
   private buildSearchCondition(alias: string): string {
@@ -875,7 +885,12 @@ export class VolunteersService {
     is_active: v.is_active,
     user_id: v.user_id,
     roles: (v.roles ?? []).map((r) => ({ id: r.id, name: r.name })),
-    regions: (v.regions ?? []).map((r) => ({ id: r.id, name: r.name })),
+    regions: (v.regions ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      event_start_date: r.event_start_date ?? null,
+      event_end_date: r.event_end_date ?? null,
+    })),
     hosting_address: v.hosting_address,
     lat: v.lat,
     lng: v.lng,
@@ -953,7 +968,12 @@ export class VolunteersService {
       sunday_prev_afternoon: v.sunday_prev_afternoon,
       monday_next_morning: v.monday_next_morning,
       monday_next_afternoon: v.monday_next_afternoon,
-      regions: (v.regions ?? []).map((r) => ({ id: r.id, name: r.name })),
+      regions: (v.regions ?? []).map((r) => ({
+        id: r.id,
+        name: r.name,
+        event_start_date: r.event_start_date ?? null,
+        event_end_date: r.event_end_date ?? null,
+      })),
       terms_accepted: v.terms_accepted,
       terms_accepted_at: v.terms_accepted_at,
     };
@@ -1016,6 +1036,194 @@ export class VolunteersService {
     }
 
     await this.volunteersRepo.save(v);
+  }
+
+  // ── Volunteer-access token endpoints ──────────────────────────────────────
+
+  private verifyVolunteerToken(token: string): string {
+    try {
+      const payload = this.jwtService.verify<{ sub: string; type: string }>(
+        token,
+      );
+      if (payload.type !== VOLUNTEER_TOKEN_TYPE) throw new Error('wrong type');
+      return payload.sub;
+    } catch {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
+  }
+
+  async getTokenByCode(code: string): Promise<VolunteerCodeTokenResponseDto> {
+    const normalized = code.trim().toUpperCase();
+    const v = await this.volunteersRepo.findOne({
+      select: ['volunteer_code'],
+      where: { volunteer_code: normalized },
+    });
+    if (!v) throw new NotFoundException('Código de voluntario no encontrado');
+
+    const token = this.jwtService.sign(
+      { sub: v.volunteer_code, type: VOLUNTEER_TOKEN_TYPE },
+      { expiresIn: '365d' },
+    );
+    return { token };
+  }
+
+  async getVolunteerByToken(token: string): Promise<VolunteerResponseDto> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      where: { volunteer_code: volunteerCode },
+      relations: { roles: true, regions: true },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+    return this.toDto(v);
+  }
+
+  async getAvailabilityByToken(token: string): Promise<AvailabilityEntryDto[]> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      where: { volunteer_code: volunteerCode },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+
+    const entries = await this.availRepo.find({
+      where: { volunteer_id: v.id },
+      order: { date: 'ASC' },
+    });
+    return entries.map((e) => ({
+      date: e.date,
+      region_id: e.region_id,
+      note: e.note,
+    }));
+  }
+
+  async setAvailabilityByToken(
+    token: string,
+    dto: SetAvailabilityDto,
+  ): Promise<AvailabilityEntryDto[]> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      where: { volunteer_code: volunteerCode },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+
+    await this.availRepo.delete({
+      volunteer_id: v.id,
+      region_id: dto.region_id,
+    });
+
+    if (dto.dates.length > 0) {
+      const entries = dto.dates.map((date) =>
+        this.availRepo.create({
+          volunteer_id: v.id,
+          region_id: dto.region_id,
+          date,
+          note: null,
+        }),
+      );
+      await this.availRepo.save(entries);
+    }
+
+    const updated = await this.availRepo.find({
+      where: { volunteer_id: v.id },
+      order: { date: 'ASC' },
+    });
+    return updated.map((e) => ({
+      date: e.date,
+      region_id: e.region_id,
+      note: e.note,
+    }));
+  }
+
+  async getActivitiesByToken(token: string): Promise<VolunteerActivityDto[]> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      select: ['id'],
+      where: { volunteer_code: volunteerCode },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+
+    const isSqlite = this.dataSource.options.type === 'better-sqlite3';
+    const p1 = isSqlite ? '?' : '$1';
+
+    const rows = await this.dataSource.query<
+      Array<{
+        id: string;
+        region_id: string;
+        name: string;
+        icon: string | null;
+        description: string | null;
+        date: string;
+        start_time: string;
+        end_time: string;
+        activity_locations: string | null;
+      }>
+    >(
+      `SELECT a.id, a.region_id, a.name, a.icon, a.description, a.date, a.start_time, a.end_time,
+              a.activity_locations
+       FROM activities a
+       INNER JOIN activity_volunteers av ON av."activitiesId" = a.id AND av."volunteersId" = ${p1}
+       WHERE a.status = 'published'
+       ORDER BY a.date ASC, a.start_time ASC`,
+      [v.id],
+    );
+
+    const activityIds = rows.map((r) => r.id);
+    const volunteerRows =
+      activityIds.length > 0
+        ? await this.dataSource.query<
+            Array<{
+              activity_id: string;
+              full_name: string;
+              phone: string | null;
+              role_name: string | null;
+            }>
+          >(
+            isSqlite
+              ? `SELECT av."activitiesId" AS activity_id, vol.full_name, vol.phone, vr.name AS role_name
+                 FROM activity_volunteers av
+                 INNER JOIN volunteers vol ON vol.id = av."volunteersId"
+                 LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = av."activitiesId" AND avr.volunteer_id = av."volunteersId"
+                 LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
+                 WHERE av."activitiesId" IN (${activityIds.map(() => '?').join(',')})
+                 ORDER BY vol.full_name ASC`
+              : `SELECT av."activitiesId" AS activity_id, vol.full_name, vol.phone, vr.name AS role_name
+                 FROM activity_volunteers av
+                 INNER JOIN volunteers vol ON vol.id = av."volunteersId"
+                 LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = av."activitiesId" AND avr.volunteer_id = av."volunteersId"
+                 LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
+                 WHERE av."activitiesId" = ANY($1)
+                 ORDER BY vol.full_name ASC`,
+            isSqlite ? activityIds : [activityIds],
+          )
+        : [];
+
+    const volunteersByActivity = new Map<
+      string,
+      { full_name: string; phone: string | null; role_name: string | null }[]
+    >();
+    for (const vr of volunteerRows) {
+      const list = volunteersByActivity.get(vr.activity_id) ?? [];
+      list.push({
+        full_name: vr.full_name,
+        phone: vr.phone,
+        role_name: vr.role_name,
+      });
+      volunteersByActivity.set(vr.activity_id, list);
+    }
+
+    return rows.map((r) => ({
+      id: r.id,
+      region_id: r.region_id,
+      name: r.name,
+      icon: r.icon,
+      description: r.description,
+      date: r.date,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      activity_locations: r.activity_locations
+        ? (JSON.parse(r.activity_locations) as LocationPoint[])
+        : null,
+      volunteers: volunteersByActivity.get(r.id) ?? [],
+    }));
   }
 
   private str(val: unknown): string | null {
