@@ -1,9 +1,19 @@
 export type ActivityStatus = 'draft' | 'published';
 
+export interface LocationPoint {
+  address: string;
+  lat: number;
+  lng: number;
+  description?: string | null;
+}
+
 export interface ActivityVolunteer {
   id: string;
   volunteer_code: string;
   full_name: string;
+  role_id: string | null;
+  role_name: string | null;
+  available_roles: { id: string; name: string }[];
 }
 
 export interface ActivityGuestGroup {
@@ -25,16 +35,14 @@ export interface Activity {
   date: string;
   start_time: string;
   end_time: string;
-  activity_address: string | null;
-  activity_lat: number | null;
-  activity_lng: number | null;
-  departure_address: string | null;
-  departure_lat: number | null;
-  departure_lng: number | null;
+  activity_locations: LocationPoint[] | null;
+  is_preaching_shift: boolean;
   volunteers: ActivityVolunteer[];
   volunteer_count: number;
+  required_volunteers: number | null;
   guest_groups: ActivityGuestGroup[];
   total_guests_assigned: number;
+  max_guests: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +51,7 @@ export interface AvailableVolunteerForActivity {
   id: string;
   volunteer_code: string;
   full_name: string;
+  roles: { id: string; name: string }[];
   already_in_activity: boolean;
 }
 
@@ -57,6 +66,7 @@ export interface AvailableGroupForActivity {
   guest_count: number;
   already_in_activity: boolean;
   host_schedule_conflict: boolean;
+  preaching_shifts_count: number;
 }
 
 export interface ActivityListResponse {
@@ -87,13 +97,11 @@ export interface CreateActivityPayload {
   icon?: string | null;
   description?: string | null;
   host_id?: string | null;
+  required_volunteers?: number | null;
+  max_guests?: number | null;
   date: string;
   start_time: string;
   end_time: string;
-  activity_address?: string | null;
-  activity_lat?: number | null;
-  activity_lng?: number | null;
-  departure_address?: string | null;
-  departure_lat?: number | null;
-  departure_lng?: number | null;
+  activity_locations?: LocationPoint[] | null;
+  is_preaching_shift?: boolean;
 }

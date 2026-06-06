@@ -15,6 +15,7 @@ import type { Region } from '../../../core/models/region.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
+import { VolunteersService } from '../../../core/services/volunteers.service';
 import { CalendarComponent } from '../../../shared/components/calendar/calendar';
 import { EmojiPickerComponent } from '../../../shared/components/emoji-picker/emoji-picker';
 import {
@@ -25,6 +26,12 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 
 type ActiveModal = 'create' | 'detail' | null;
 type DetailTab = 'info' | 'volunteers' | 'groups';
+
+interface LocationSlot {
+  id: string;
+  value: PlaceResult | null;
+  description: string;
+}
 
 @Component({
   selector: 'app-activities-list',
@@ -43,6 +50,7 @@ export class ActivitiesListComponent implements OnInit {
   private readonly svc = inject(ActivitiesService);
   private readonly regionsSvc = inject(RegionsService);
   private readonly hostsSvc = inject(HostsService);
+  private readonly volunteersSvc = inject(VolunteersService);
 
   // filter hosts (separate from modal hosts)
   readonly filterHosts = signal<Host[]>([]);
@@ -207,14 +215,17 @@ export class ActivitiesListComponent implements OnInit {
     end_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     description: ['', Validators.maxLength(500)],
     host_id: [null as string | null],
+    required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
+    max_guests: [null as number | null, [Validators.min(1)]],
+    is_preaching_shift: [false],
   });
 
   readonly createDescLen = signal(0);
 
-  readonly createActivityLocation = signal<PlaceResult | null>(null);
+  readonly createActivitySlots = signal<LocationSlot[]>([
+    { id: crypto.randomUUID(), value: null, description: '' },
+  ]);
   readonly createActivityFromHost = signal(false);
-  readonly createDepartureLocation = signal<PlaceResult | null>(null);
-  readonly createDepartureFromHost = signal(false);
   readonly createHostId = signal<string | null>(null);
 
   // ── Detail modal ──────────────────────────────────────────────────────────
@@ -234,14 +245,17 @@ export class ActivitiesListComponent implements OnInit {
     end_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     description: ['', Validators.maxLength(500)],
     host_id: [null as string | null],
+    required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
+    max_guests: [null as number | null, [Validators.min(1)]],
+    is_preaching_shift: [false],
   });
 
   readonly editDescLen = signal(0);
 
-  readonly editActivityLocation = signal<PlaceResult | null>(null);
+  readonly editActivitySlots = signal<LocationSlot[]>([
+    { id: crypto.randomUUID(), value: null, description: '' },
+  ]);
   readonly editActivityFromHost = signal(false);
-  readonly editDepartureLocation = signal<PlaceResult | null>(null);
-  readonly editDepartureFromHost = signal(false);
   readonly editHostId = signal<string | null>(null);
 
   // ── Hosts (shared for both modals) ────────────────────────────────────────
@@ -272,6 +286,8 @@ export class ActivitiesListComponent implements OnInit {
   readonly availableVolunteersList = signal<AvailableVolunteerForActivity[]>([]);
   readonly volunteersLoading = signal(false);
   readonly selectedVolunteerIds = signal<string[]>([]);
+  readonly filterVolunteerRole = signal('');
+  readonly allVolunteerRoles = signal<{ id: string; name: string }[]>([]);
 
   // ── Groups tab ────────────────────────────────────────────────────────────
 
@@ -279,8 +295,16 @@ export class ActivitiesListComponent implements OnInit {
   readonly groupsLoading = signal(false);
   readonly selectedGroupIds = signal<string[]>([]);
 
+  readonly availableVolunteerRoles = computed(() => this.allVolunteerRoles());
+
+  readonly filteredVolunteersList = computed(() => {
+    const role = this.filterVolunteerRole();
+    if (!role) return this.availableVolunteersList();
+    return this.availableVolunteersList().filter((v) => v.roles?.some((r) => r.id === role));
+  });
+
   readonly availableVolunteerItems = computed(() =>
-    this.availableVolunteersList().map((v) => ({
+    this.filteredVolunteersList().map((v) => ({
       value: v.id,
       label: v.full_name,
       disabled: v.already_in_activity,
@@ -288,24 +312,30 @@ export class ActivitiesListComponent implements OnInit {
     })),
   );
 
-  readonly availableGroupItems = computed(() =>
-    this.availableGroups().map((g) => ({
-      value: g.id,
-      label: g.group_code,
-      disabled: g.already_in_activity || g.host_schedule_conflict,
-      meta: g.already_in_activity
-        ? 'Already in another activity'
-        : g.host_schedule_conflict
-          ? 'Host meeting conflict'
-          : [
-              g.distance_km !== null ? `${g.distance_km} km` : null,
-              g.host_name ?? null,
-              `${g.guest_count} guests`,
-            ]
-              .filter(Boolean)
-              .join(' · '),
-    })),
-  );
+  readonly availableGroupItems = computed(() => {
+    const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
+    return this.availableGroups().map((g) => {
+      const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= 3;
+      return {
+        value: g.id,
+        label: g.group_code,
+        disabled: g.already_in_activity || g.host_schedule_conflict || preachingLimitReached,
+        meta: g.already_in_activity
+          ? 'Already in another activity'
+          : g.host_schedule_conflict
+            ? 'Host meeting conflict'
+            : preachingLimitReached
+              ? `Max preaching shifts (${g.preaching_shifts_count}/3)`
+              : [
+                  g.distance_km !== null ? `${g.distance_km} km` : null,
+                  g.host_name ?? null,
+                  `${g.guest_count} guests`,
+                ]
+                  .filter(Boolean)
+                  .join(' · '),
+      };
+    });
+  });
 
   ngOnInit() {
     this.regionsSvc.getAll().subscribe({
@@ -313,6 +343,10 @@ export class ActivitiesListComponent implements OnInit {
         this.regions.set(r);
         this.load();
       },
+    });
+
+    this.volunteersSvc.getRoles().subscribe({
+      next: (roles) => this.allVolunteerRoles.set(roles),
     });
 
     this.createForm.get('date')!.valueChanges.subscribe((d) => this.createDate.set(d ?? ''));
@@ -327,19 +361,17 @@ export class ActivitiesListComponent implements OnInit {
       else this.modalHosts.set([]);
       this.createForm.patchValue({ host_id: null }, { emitEvent: false });
       this.createHostId.set(null);
-      this.createDepartureFromHost.set(false);
+      this.createActivityFromHost.set(false);
     });
 
     this.createForm.get('host_id')!.valueChanges.subscribe((hostId) => {
       this.createHostId.set(hostId ?? null);
-      if (this.createDepartureFromHost()) this.applyHostToLocation('create', 'departure');
-      if (this.createActivityFromHost()) this.applyHostToLocation('create', 'activity');
+      if (this.createActivityFromHost()) this.applyHostToLocation('create');
     });
 
     this.editForm.get('host_id')!.valueChanges.subscribe((hostId) => {
       this.editHostId.set(hostId ?? null);
-      if (this.editDepartureFromHost()) this.applyHostToLocation('edit', 'departure');
-      if (this.editActivityFromHost()) this.applyHostToLocation('edit', 'activity');
+      if (this.editActivityFromHost()) this.applyHostToLocation('edit');
     });
   }
 
@@ -397,40 +429,54 @@ export class ActivitiesListComponent implements OnInit {
     }
   }
 
-  toggleLocationFromHost(
-    form: 'create' | 'edit',
-    field: 'departure' | 'activity',
-    checked: boolean,
-  ) {
-    if (field === 'departure') {
-      if (form === 'create') this.createDepartureFromHost.set(checked);
-      else this.editDepartureFromHost.set(checked);
-      if (!checked) {
-        if (form === 'create') this.createDepartureLocation.set(null);
-        else this.editDepartureLocation.set(null);
-      }
+  toggleLocationFromHost(form: 'create' | 'edit', checked: boolean) {
+    if (form === 'create') this.createActivityFromHost.set(checked);
+    else this.editActivityFromHost.set(checked);
+
+    if (checked) {
+      this.applyHostToLocation(form);
     } else {
-      if (form === 'create') this.createActivityFromHost.set(checked);
-      else this.editActivityFromHost.set(checked);
-      if (!checked) {
-        if (form === 'create') this.createActivityLocation.set(null);
-        else this.editActivityLocation.set(null);
-      }
+      this.getActivitySlots(form).update((slots) =>
+        slots.map((s, i) => (i === 0 ? { ...s, value: null } : s)),
+      );
     }
-    if (checked) this.applyHostToLocation(form, field);
   }
 
-  private applyHostToLocation(form: 'create' | 'edit', field: 'departure' | 'activity') {
+  private applyHostToLocation(form: 'create' | 'edit') {
     const host = form === 'create' ? this.selectedCreateHost() : this.selectedEditHost();
     if (!host?.address || host.lat === null || host.lng === null) return;
     const loc: PlaceResult = { address: host.address, lat: host.lat, lng: host.lng };
-    if (field === 'departure') {
-      if (form === 'create') this.createDepartureLocation.set(loc);
-      else this.editDepartureLocation.set(loc);
-    } else {
-      if (form === 'create') this.createActivityLocation.set(loc);
-      else this.editActivityLocation.set(loc);
-    }
+    this.getActivitySlots(form).update((slots) => {
+      if (slots.length === 0) return [{ id: crypto.randomUUID(), value: loc, description: '' }];
+      return slots.map((s, i) => (i === 0 ? { ...s, value: loc } : s));
+    });
+  }
+
+  private getActivitySlots(form: 'create' | 'edit') {
+    return form === 'create' ? this.createActivitySlots : this.editActivitySlots;
+  }
+
+  addLocationSlot(form: 'create' | 'edit') {
+    this.getActivitySlots(form).update((slots) => [
+      ...slots,
+      { id: crypto.randomUUID(), value: null, description: '' },
+    ]);
+  }
+
+  removeLocationSlot(form: 'create' | 'edit', index: number) {
+    this.getActivitySlots(form).update((slots) => slots.filter((_, i) => i !== index));
+  }
+
+  onLocationSlotChange(form: 'create' | 'edit', index: number, result: PlaceResult | null) {
+    this.getActivitySlots(form).update((slots) =>
+      slots.map((s, i) => (i === index ? { ...s, value: result } : s)),
+    );
+  }
+
+  onLocationDescriptionChange(form: 'create' | 'edit', index: number, desc: string) {
+    this.getActivitySlots(form).update((slots) =>
+      slots.map((s, i) => (i === index ? { ...s, description: desc } : s)),
+    );
   }
 
   // ── Calendar ──────────────────────────────────────────────────────────────
@@ -485,10 +531,8 @@ export class ActivitiesListComponent implements OnInit {
     this.repeatType.set('daily');
     this.repeatCount.set(3);
     this.createDate.set('');
-    this.createActivityLocation.set(null);
+    this.createActivitySlots.set([{ id: crypto.randomUUID(), value: null, description: '' }]);
     this.createActivityFromHost.set(false);
-    this.createDepartureLocation.set(null);
-    this.createDepartureFromHost.set(false);
     this.createHostId.set(null);
     this.formError.set('');
     if (regionId) this.loadHostsForRegion(regionId);
@@ -501,8 +545,9 @@ export class ActivitiesListComponent implements OnInit {
     this.saving.set(true);
     this.formError.set('');
     const v = this.createForm.getRawValue();
-    const al = this.createActivityLocation();
-    const dl = this.createDepartureLocation();
+    const activityLocs = this.createActivitySlots()
+      .filter((s) => s.value !== null)
+      .map((s) => ({ ...s.value!, description: s.description || null }));
 
     const basePayload = {
       region_id: v.region_id!,
@@ -510,15 +555,13 @@ export class ActivitiesListComponent implements OnInit {
       icon: this.createIconValue() || null,
       description: v.description || null,
       host_id: v.host_id || null,
+      required_volunteers: v.required_volunteers || null,
+      max_guests: v.max_guests || null,
       date: v.date!,
       start_time: v.start_time!,
       end_time: v.end_time!,
-      activity_address: al?.address ?? null,
-      activity_lat: al?.lat ?? null,
-      activity_lng: al?.lng ?? null,
-      departure_address: dl?.address ?? null,
-      departure_lat: dl?.lat ?? null,
-      departure_lng: dl?.lng ?? null,
+      activity_locations: activityLocs.length > 0 ? activityLocs : null,
+      is_preaching_shift: v.is_preaching_shift ?? false,
     };
 
     if (this.repeatEnabled()) {
@@ -580,33 +623,23 @@ export class ActivitiesListComponent implements OnInit {
       end_time: activity.end_time,
       description: activity.description ?? '',
       host_id: activity.host_id,
+      required_volunteers: activity.required_volunteers,
+      max_guests: activity.max_guests,
+      is_preaching_shift: activity.is_preaching_shift,
     });
     this.editDescLen.set(activity.description?.length ?? 0);
-    this.editActivityLocation.set(
-      activity.activity_address && activity.activity_lat !== null && activity.activity_lng !== null
-        ? {
-            address: activity.activity_address,
-            lat: activity.activity_lat,
-            lng: activity.activity_lng,
-          }
-        : null,
-    );
-    this.editDepartureLocation.set(
-      activity.departure_address &&
-        activity.departure_lat !== null &&
-        activity.departure_lng !== null
-        ? {
-            address: activity.departure_address,
-            lat: activity.departure_lat,
-            lng: activity.departure_lng,
-          }
-        : null,
+    this.editActivitySlots.set(
+      (activity.activity_locations?.length ? activity.activity_locations : [null]).map((v) => ({
+        id: crypto.randomUUID(),
+        value: v ? { address: v.address, lat: v.lat, lng: v.lng } : null,
+        description: v?.description ?? '',
+      })),
     );
     this.editActivityFromHost.set(false);
-    this.editDepartureFromHost.set(false);
     this.editHostId.set(activity.host_id);
     this.selectedVolunteerIds.set([]);
     this.selectedGroupIds.set([]);
+    this.filterVolunteerRole.set('');
     this.activeModal.set('detail');
     this.loadHostsForRegion(activity.region_id);
     this.loadRegionData(activity);
@@ -694,8 +727,9 @@ export class ActivitiesListComponent implements OnInit {
 
   private buildSavePayload(): UpdateActivityPayload {
     const v = this.editForm.getRawValue();
-    const al = this.editActivityLocation();
-    const dl = this.editDepartureLocation();
+    const activityLocs = this.editActivitySlots()
+      .filter((s) => s.value !== null)
+      .map((s) => ({ ...s.value!, description: s.description || null }));
     return {
       name: v.name!,
       icon: this.editIconValue() || null,
@@ -704,12 +738,10 @@ export class ActivitiesListComponent implements OnInit {
       end_time: v.end_time!,
       description: v.description || null,
       host_id: v.host_id || null,
-      activity_address: al?.address ?? null,
-      activity_lat: al?.lat ?? null,
-      activity_lng: al?.lng ?? null,
-      departure_address: dl?.address ?? null,
-      departure_lat: dl?.lat ?? null,
-      departure_lng: dl?.lng ?? null,
+      required_volunteers: v.required_volunteers || null,
+      max_guests: v.max_guests || null,
+      activity_locations: activityLocs.length > 0 ? activityLocs : null,
+      is_preaching_shift: v.is_preaching_shift ?? false,
     };
   }
 
@@ -781,9 +813,10 @@ export class ActivitiesListComponent implements OnInit {
     const activity = this.selectedActivity();
     if (!ids.length || !activity) return;
     this.detailSaving.set(true);
+    const roleId = this.filterVolunteerRole() || null;
     from(ids)
       .pipe(
-        concatMap((id) => this.svc.assignVolunteer(activity.id, id)),
+        concatMap((id) => this.svc.assignVolunteer(activity.id, id, roleId)),
         last(),
       )
       .subscribe({
@@ -799,6 +832,22 @@ export class ActivitiesListComponent implements OnInit {
           this.detailSaving.set(false);
         },
       });
+  }
+
+  setVolunteerRole(volunteerId: string, roleId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.setVolunteerRole(activity.id, volunteerId, roleId || null).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+      },
+      error: () => {
+        this.detailError.set('Error setting role.');
+        this.detailSaving.set(false);
+      },
+    });
   }
 
   removeVolunteer(volunteerId: string) {
