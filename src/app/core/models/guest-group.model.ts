@@ -9,6 +9,7 @@ export interface GuestGroup {
   guest_count: number;
   languages: string[];
   total_car_seats: number;
+  car_count: number | null;
   available_from: string | null;
   available_to: string | null;
   composition: GroupComposition | null;
@@ -33,4 +34,5 @@ export interface UpdateGuestGroupPayload {
   available_from?: string | null;
   available_to?: string | null;
   composition?: GroupComposition | null;
+  car_count?: number | null;
 }

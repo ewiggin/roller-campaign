@@ -78,7 +78,7 @@
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4"
   >
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
       <!-- Region -->
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
@@ -108,10 +108,10 @@
         />
       </div>
 
-      <!-- Min car seats -->
+      <!-- Min shared car seats -->
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-          >Min car seats</label
+          >Shared car seats</label
         >
         <input
           type="number"
@@ -122,6 +122,20 @@
           (input)="onMinCarSeatsInput($any($event.target).value)"
           class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
         />
+      </div>
+
+      <!-- Cars filter -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Cars</label>
+        <select
+          [value]="hasCars() === true ? 'true' : hasCars() === false ? 'false' : ''"
+          (change)="onHasCarsChange($any($event.target).value)"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        >
+          <option value="">All</option>
+          <option value="true">With cars</option>
+          <option value="false">Without cars</option>
+        </select>
       </div>
 
       <!-- Languages multiselect -->
@@ -341,7 +355,7 @@
                   <span class="text-xs text-gray-400 dark:text-zinc-500">
                     {{ group.guest_count }} guest{{ group.guest_count !== 1 ? 's' : '' }}
                   </span>
-                  @if (group.total_car_seats > 0) {
+                  @if (group.car_count !== null) {
                     <span
                       class="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-zinc-500"
                     >
@@ -358,7 +372,12 @@
                           d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
                         />
                       </svg>
-                      {{ group.total_car_seats }}
+                      {{ group.car_count }} car{{ group.car_count !== 1 ? 's' : '' }}
+                    </span>
+                  }
+                  @if (group.total_car_seats > 0) {
+                    <span class="text-xs text-gray-400 dark:text-zinc-500">
+                      {{ group.total_car_seats }} avail. seats
                     </span>
                   }
                   @for (lang of group.languages; track lang) {
@@ -398,7 +417,7 @@
                 <button
                   (click)="openEdit(group)"
                   class="p-1.5 rounded-md text-gray-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-950 transition-colors"
-                  title="Edit availability"
+                  title="Edit group"
                 >
                   <svg
                     class="w-4 h-4"
@@ -410,7 +429,7 @@
                     <path
                       stroke-linecap="round"
                       stroke-linejoin="round"
-                      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                      d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
                     />
                   </svg>
                 </button>
@@ -1025,6 +1044,19 @@
           </button>
         </div>
         <form [formGroup]="editForm" (ngSubmit)="saveEdit()" class="p-5 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+              >Num cars</label
+            >
+            <input
+              formControlName="car_count"
+              type="number"
+              min="0"
+              step="1"
+              placeholder="—"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+            />
+          </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
               >Composition</label

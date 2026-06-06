@@ -47,6 +47,8 @@ export interface GroupSuggestion {
   guest_count: number;
   distance_km: number | null;
   languages: string[];
+  car_count: number | null;
+  total_car_seats: number;
 }
 
 export interface GroupSuggestionsResponse {

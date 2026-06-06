@@ -68,6 +68,37 @@ describe('GuestGroupsService', () => {
     req.flush({ created: 1, skipped: 0, total: 1 });
   });
 
+  it('getAll passes hasCars=true param', () => {
+    service.getAll({ hasCars: true }).subscribe();
+    const req = http.expectOne(
+      (r) => r.url === '/api/guest-groups' && r.params.get('hasCars') === 'true',
+    );
+    req.flush({ data: [], total: 0, page: 1, limit: 50 });
+  });
+
+  it('getAll passes hasCars=false param', () => {
+    service.getAll({ hasCars: false }).subscribe();
+    const req = http.expectOne(
+      (r) => r.url === '/api/guest-groups' && r.params.get('hasCars') === 'false',
+    );
+    req.flush({ data: [], total: 0, page: 1, limit: 50 });
+  });
+
+  it('getAll omits hasCars param when undefined', () => {
+    service.getAll({ hasCars: undefined }).subscribe();
+    const req = http.expectOne((r) => r.url === '/api/guest-groups');
+    expect(req.request.params.has('hasCars')).toBe(false);
+    req.flush({ data: [], total: 0, page: 1, limit: 50 });
+  });
+
+  it('update sends car_count', () => {
+    service.update('g1', { car_count: 3 }).subscribe();
+    const req = http.expectOne('/api/guest-groups/g1');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toMatchObject({ car_count: 3 });
+    req.flush({});
+  });
+
   it('exportExcel makes GET /api/guest-groups/export', () => {
     service.exportExcel().subscribe();
     http.expectOne((r) => r.url === '/api/guest-groups/export').flush(new Blob());

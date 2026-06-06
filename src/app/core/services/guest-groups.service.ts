@@ -32,6 +32,7 @@ export class GuestGroupsService {
       minCarSeats?: number;
       languages?: string[];
       compositions?: string[];
+      hasCars?: boolean;
     } = {},
   ) {
     let params = new HttpParams();
@@ -43,6 +44,7 @@ export class GuestGroupsService {
     if (query.languages?.length) params = params.set('languages', query.languages.join(','));
     if (query.compositions?.length)
       params = params.set('compositions', query.compositions.join(','));
+    if (query.hasCars !== undefined) params = params.set('hasCars', String(query.hasCars));
     return this.http.get<GuestGroupListResponse>('/api/guest-groups', { params });
   }
 
