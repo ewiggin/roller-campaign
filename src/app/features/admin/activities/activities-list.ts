@@ -25,7 +25,7 @@ import {
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 type ActiveModal = 'create' | 'detail' | null;
-type DetailTab = 'info' | 'volunteers' | 'groups';
+type DetailTab = 'info' | 'volunteers' | 'groups' | 'preaching-groups';
 
 interface LocationSlot {
   id: string;
@@ -337,6 +337,90 @@ export class ActivitiesListComponent implements OnInit {
     });
   });
 
+  // ── Preaching groups tab ──────────────────────────────────────────────────
+
+  readonly detailTabs = computed(() => {
+    const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
+    return isPreachingShift
+      ? ([['info', 'Info'] as const, ['preaching-groups', 'Preaching groups'] as const] as const)
+      : ([
+          ['info', 'Info'] as const,
+          ['volunteers', 'Volunteers'] as const,
+          ['groups', 'Groups'] as const,
+        ] as const);
+  });
+
+  readonly pickRoleByGroup = signal<Record<string, string>>({});
+
+  pickedRoleFor(groupId: string): string {
+    return this.pickRoleByGroup()[groupId] ?? '';
+  }
+
+  setPickedRoleFor(groupId: string, value: string) {
+    this.pickRoleByGroup.update((m) => ({ ...m, [groupId]: value }));
+    // The selected volunteer may no longer match the new role filter
+    this.setPickedVolunteerFor(groupId, '');
+  }
+
+  ungroupedVolunteerItemsFor(groupId: string) {
+    const role = this.pickedRoleFor(groupId);
+    return this.availableVolunteersList()
+      .filter((v) => !v.already_in_activity)
+      .filter((v) => !role || v.roles?.some((r) => r.id === role))
+      .map((v) => ({ value: v.id, label: v.full_name, meta: v.volunteer_code }));
+  }
+
+  readonly ungroupedGroupItems = computed(() => {
+    const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
+    return this.availableGroups()
+      .filter(
+        (g) =>
+          !g.already_in_activity &&
+          !g.host_schedule_conflict &&
+          !(isPreachingShift && g.preaching_shifts_count >= 3),
+      )
+      .map((g) => ({
+        value: g.id,
+        label: g.group_code,
+        meta: [
+          g.distance_km !== null ? `${g.distance_km} km` : null,
+          g.host_name ?? null,
+          `${g.guest_count} guests`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      }));
+  });
+
+  readonly pickVolunteerByGroup = signal<Record<string, string>>({});
+  readonly pickGuestGroupByGroup = signal<Record<string, string>>({});
+
+  pickedVolunteerFor(groupId: string): string {
+    return this.pickVolunteerByGroup()[groupId] ?? '';
+  }
+
+  setPickedVolunteerFor(groupId: string, value: string) {
+    this.pickVolunteerByGroup.update((m) => ({ ...m, [groupId]: value }));
+  }
+
+  pickedGuestGroupFor(groupId: string): string {
+    return this.pickGuestGroupByGroup()[groupId] ?? '';
+  }
+
+  setPickedGuestGroupFor(groupId: string, value: string) {
+    this.pickGuestGroupByGroup.update((m) => ({ ...m, [groupId]: value }));
+  }
+
+  readonly expandedGroupIds = signal<Record<string, boolean>>({});
+
+  isGroupExpanded(groupId: string): boolean {
+    return this.expandedGroupIds()[groupId] ?? false;
+  }
+
+  toggleGroupExpanded(groupId: string) {
+    this.expandedGroupIds.update((m) => ({ ...m, [groupId]: !this.isGroupExpanded(groupId) }));
+  }
+
   ngOnInit() {
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
@@ -640,6 +724,10 @@ export class ActivitiesListComponent implements OnInit {
     this.selectedVolunteerIds.set([]);
     this.selectedGroupIds.set([]);
     this.filterVolunteerRole.set('');
+    this.pickVolunteerByGroup.set({});
+    this.pickGuestGroupByGroup.set({});
+    this.pickRoleByGroup.set({});
+    this.expandedGroupIds.set({});
     this.activeModal.set('detail');
     this.loadHostsForRegion(activity.region_id);
     this.loadRegionData(activity);
@@ -899,6 +987,152 @@ export class ActivitiesListComponent implements OnInit {
     if (!activity) return;
     this.detailSaving.set(true);
     this.svc.unassignGuestGroup(activity.id, groupId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.reloadAvailableGroups();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error removing group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  // ── Preaching groups ──────────────────────────────────────────────────────
+
+  addPreachingGroup() {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    const previousIds = new Set((activity.preaching_groups ?? []).map((g) => g.id));
+    this.detailSaving.set(true);
+    this.svc.addPreachingGroup(activity.id).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        const created = (updated.preaching_groups ?? []).find((g) => !previousIds.has(g.id));
+        if (created) {
+          this.expandedGroupIds.update((m) => ({ ...m, [created.id]: true }));
+        }
+        this.detailSaving.set(false);
+      },
+      error: () => {
+        this.detailError.set('Error creating group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  renamePreachingGroup(groupId: string, name: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.svc.renamePreachingGroup(activity.id, groupId, name.trim() || null).subscribe({
+      next: (updated) => this.selectedActivity.set(updated),
+      error: () => this.detailError.set('Error renaming group.'),
+    });
+  }
+
+  removePreachingGroup(groupId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    if (!confirm('Delete this preaching group? Its members will be unassigned from the activity.'))
+      return;
+    this.detailSaving.set(true);
+    this.svc.removePreachingGroup(activity.id, groupId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.reloadAvailableVolunteers();
+        this.reloadAvailableGroups();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error deleting group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  addVolunteerToGroup(groupId: string) {
+    const activity = this.selectedActivity();
+    const volunteerId = this.pickedVolunteerFor(groupId);
+    if (!activity || !volunteerId) return;
+    const roleId = this.pickedRoleFor(groupId) || null;
+    this.detailSaving.set(true);
+    this.svc.assignVolunteerToGroup(activity.id, groupId, volunteerId, roleId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.setPickedVolunteerFor(groupId, '');
+        this.detailSaving.set(false);
+        this.reloadAvailableVolunteers();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error assigning volunteer.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  updateGroupVolunteerDescription(groupId: string, volunteerId: string, description: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.svc
+      .updateGroupVolunteerDescription(
+        activity.id,
+        groupId,
+        volunteerId,
+        description.trim() || null,
+      )
+      .subscribe({
+        next: (updated) => this.selectedActivity.set(updated),
+        error: () => this.detailError.set('Error updating description.'),
+      });
+  }
+
+  removeVolunteerFromGroup(groupId: string, volunteerId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.removeVolunteerFromGroup(activity.id, groupId, volunteerId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.reloadAvailableVolunteers();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error removing volunteer.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  addGuestGroupToGroup(groupId: string) {
+    const activity = this.selectedActivity();
+    const guestGroupId = this.pickedGuestGroupFor(groupId);
+    if (!activity || !guestGroupId) return;
+    this.detailSaving.set(true);
+    this.svc.assignGuestGroupToGroup(activity.id, groupId, guestGroupId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.setPickedGuestGroupFor(groupId, '');
+        this.detailSaving.set(false);
+        this.reloadAvailableGroups();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error assigning group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  removeGuestGroupFromGroup(groupId: string, guestGroupId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.removeGuestGroupFromGroup(activity.id, groupId, guestGroupId).subscribe({
       next: (updated) => {
         this.selectedActivity.set(updated);
         this.detailSaving.set(false);

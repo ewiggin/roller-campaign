@@ -22,6 +22,24 @@ export interface ActivityGuestGroup {
   guest_count: number;
 }
 
+export interface PreachingGroupVolunteer {
+  id: string;
+  volunteer_code: string;
+  full_name: string;
+  role_id: string | null;
+  role_name: string | null;
+  available_roles: { id: string; name: string }[];
+  description: string | null;
+}
+
+export interface PreachingGroup {
+  id: string;
+  name: string | null;
+  position: number;
+  volunteers: PreachingGroupVolunteer[];
+  guest_groups: ActivityGuestGroup[];
+}
+
 export interface Activity {
   id: string;
   region_id: string;
@@ -42,6 +60,7 @@ export interface Activity {
   required_volunteers: number | null;
   guest_groups: ActivityGuestGroup[];
   total_guests_assigned: number;
+  preaching_groups: PreachingGroup[];
   max_guests: number | null;
   created_at: string;
   updated_at: string;

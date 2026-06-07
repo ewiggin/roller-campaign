@@ -27,8 +27,7 @@ const providers = [
   {
     provide: HostsService,
     useValue: {
-      getOne: () =>
-        of({ id: 'h1', name: 'Test', region_id: 'r1', lat: null, lng: null }),
+      getOne: () => of({ id: 'h1', name: 'Test', region_id: 'r1', lat: null, lng: null }),
       getGroupSuggestions: () => of({ assigned: [], available: [] }),
     },
   },
