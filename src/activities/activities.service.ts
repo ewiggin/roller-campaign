@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { Guest } from '../guests/entities/guest.entity';
@@ -13,11 +13,15 @@ import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import { ActivityVolunteerRole } from './entities/activity-volunteer-role.entity';
+import { ActivityPreachingGroup } from './entities/activity-preaching-group.entity';
+import { ActivityPreachingGroupVolunteer } from './entities/activity-preaching-group-volunteer.entity';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import {
   ActivityResponseDto,
   AvailableGroupForActivityDto,
   AvailableVolunteerForActivityDto,
+  PreachingGroupDto,
+  PreachingGroupVolunteerDto,
 } from './dto/activity-response.dto';
 import {
   CreateActivityBatchDto,
@@ -25,6 +29,11 @@ import {
 } from './dto/create-activity-batch.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+import {
+  CreatePreachingGroupDto,
+  UpdatePreachingGroupDto,
+} from './dto/preaching-group.dto';
+import { AssignGroupVolunteerDto } from './dto/assign-group-volunteer.dto';
 import { Activity } from './entities/activity.entity';
 
 const ACTIVITY_RELATIONS = { volunteers: true, guestGroups: true, host: true };
@@ -43,6 +52,10 @@ export class ActivitiesService {
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
     @InjectRepository(ActivityVolunteerRole)
     private readonly actVolRoleRepo: Repository<ActivityVolunteerRole>,
+    @InjectRepository(ActivityPreachingGroup)
+    private readonly preachingGroupsRepo: Repository<ActivityPreachingGroup>,
+    @InjectRepository(ActivityPreachingGroupVolunteer)
+    private readonly pgVolunteersRepo: Repository<ActivityPreachingGroupVolunteer>,
   ) {}
 
   async create(
@@ -571,6 +584,254 @@ export class ActivitiesService {
     return this.toDtoWithCounts(activity);
   }
 
+  // ── Preaching groups ──────────────────────────────────────────────────────
+  // A preaching group organizes a subset of the volunteers and guest groups
+  // already assigned to the activity (region, schedule, host and availability
+  // checks always go through assignVolunteer/assignGuestGroup, the single
+  // source of truth for conflict detection). Belonging to a group is what
+  // makes someone "assigned" to a preaching shift: removing a member from its
+  // group also unassigns it from the activity, and vice versa.
+
+  async addPreachingGroup(
+    id: string,
+    dto: CreatePreachingGroupDto,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const position = await this.preachingGroupsRepo.count({
+      where: { activity_id: id },
+    });
+    await this.preachingGroupsRepo.save(
+      this.preachingGroupsRepo.create({
+        activity_id: id,
+        name: dto.name ?? `Grupo ${position + 1}`,
+        position,
+      }),
+    );
+    return this.findOne(id, currentUser);
+  }
+
+  async updatePreachingGroup(
+    id: string,
+    groupId: string,
+    dto: UpdatePreachingGroupDto,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const group = await this.findPreachingGroupOrFail(id, groupId);
+    if (dto.name !== undefined) group.name = dto.name;
+    if (dto.position !== undefined) group.position = dto.position;
+    await this.preachingGroupsRepo.save(group);
+    return this.findOne(id, currentUser);
+  }
+
+  async removePreachingGroup(
+    id: string,
+    groupId: string,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const group = await this.findPreachingGroupOrFail(id, groupId, {
+      guestGroups: true,
+    });
+    const members = await this.pgVolunteersRepo.find({
+      where: { preaching_group_id: groupId },
+    });
+
+    for (const member of members) {
+      await this.unassignVolunteer(id, member.volunteer_id, currentUser);
+    }
+    for (const guestGroup of group.guestGroups) {
+      await this.unassignGuestGroup(id, guestGroup.id, currentUser);
+    }
+
+    await this.preachingGroupsRepo.remove(group);
+    return this.findOne(id, currentUser);
+  }
+
+  async assignVolunteerToGroup(
+    id: string,
+    groupId: string,
+    dto: AssignGroupVolunteerDto,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    await this.findPreachingGroupOrFail(id, groupId);
+
+    // A volunteer can only belong to one preaching group per activity — move
+    // them here if they were already in another group of the same shift.
+    const groupIds = (
+      await this.preachingGroupsRepo.find({
+        where: { activity_id: id },
+        select: { id: true },
+      })
+    ).map((g) => g.id);
+    if (groupIds.length) {
+      await this.pgVolunteersRepo.delete({
+        preaching_group_id: In(groupIds),
+        volunteer_id: dto.volunteerId,
+      });
+    }
+
+    // Reuses the existing validated assignment (region, availability, schedule
+    // conflicts) so the flat activity_volunteers relation stays the single
+    // source of truth for conflict detection.
+    await this.assignVolunteer(id, dto.volunteerId, dto.role_id, currentUser);
+
+    await this.pgVolunteersRepo.save(
+      this.pgVolunteersRepo.create({
+        preaching_group_id: groupId,
+        volunteer_id: dto.volunteerId,
+        description: dto.description ?? null,
+      }),
+    );
+
+    return this.findOne(id, currentUser);
+  }
+
+  async updateGroupVolunteerDescription(
+    id: string,
+    groupId: string,
+    volunteerId: string,
+    description: string | null,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const member = await this.pgVolunteersRepo.findOne({
+      where: { preaching_group_id: groupId, volunteer_id: volunteerId },
+    });
+    if (!member)
+      throw new BadRequestException(
+        'El voluntario no pertenece a este grupo de predicación',
+      );
+
+    member.description = description;
+    await this.pgVolunteersRepo.save(member);
+    return this.findOne(id, currentUser);
+  }
+
+  async removeVolunteerFromGroup(
+    id: string,
+    groupId: string,
+    volunteerId: string,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    await this.findPreachingGroupOrFail(id, groupId);
+    await this.pgVolunteersRepo.delete({
+      preaching_group_id: groupId,
+      volunteer_id: volunteerId,
+    });
+    // Belonging to a group is what makes a volunteer "assigned" to a
+    // preaching shift, so leaving the group also unassigns it from the
+    // activity — keeping the flat relation in sync for conflict detection.
+    return this.unassignVolunteer(id, volunteerId, currentUser);
+  }
+
+  async assignGuestGroupToGroup(
+    id: string,
+    groupId: string,
+    guestGroupId: string,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const group = await this.findPreachingGroupOrFail(id, groupId, {
+      guestGroups: true,
+    });
+
+    // A guest group can only belong to one preaching group per activity —
+    // move it here if it was already in another group of the same shift.
+    const otherGroups = await this.preachingGroupsRepo.find({
+      where: { activity_id: id },
+      relations: { guestGroups: true },
+    });
+    for (const other of otherGroups) {
+      if (
+        other.id !== groupId &&
+        other.guestGroups.some((g) => g.id === guestGroupId)
+      ) {
+        other.guestGroups = other.guestGroups.filter(
+          (g) => g.id !== guestGroupId,
+        );
+        await this.preachingGroupsRepo.save(other);
+      }
+    }
+
+    // Reuses the existing validated assignment (region, host, availability,
+    // schedule conflicts, preaching shift limit) so the flat
+    // activity_guest_groups relation stays the single source of truth.
+    await this.assignGuestGroup(id, guestGroupId, currentUser);
+
+    if (!group.guestGroups.some((g) => g.id === guestGroupId)) {
+      const guestGroup = await this.groupsRepo.findOne({
+        where: { id: guestGroupId },
+      });
+      if (guestGroup) {
+        group.guestGroups.push(guestGroup);
+        await this.preachingGroupsRepo.save(group);
+      }
+    }
+
+    return this.findOne(id, currentUser);
+  }
+
+  async removeGuestGroupFromGroup(
+    id: string,
+    groupId: string,
+    guestGroupId: string,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const group = await this.findPreachingGroupOrFail(id, groupId, {
+      guestGroups: true,
+    });
+    group.guestGroups = group.guestGroups.filter((g) => g.id !== guestGroupId);
+    await this.preachingGroupsRepo.save(group);
+
+    // Belonging to a group is what makes a guest group "assigned" to a
+    // preaching shift, so leaving the group also unassigns it from the
+    // activity — keeping the flat relation in sync for conflict detection.
+    return this.unassignGuestGroup(id, guestGroupId, currentUser);
+  }
+
+  private async findPreachingGroupOrFail(
+    activityId: string,
+    groupId: string,
+    relations?: { guestGroups?: boolean },
+  ): Promise<ActivityPreachingGroup> {
+    const group = await this.preachingGroupsRepo.findOne({
+      where: { id: groupId, activity_id: activityId },
+      relations,
+    });
+    if (!group)
+      throw new NotFoundException('Grupo de predicación no encontrado');
+    return group;
+  }
+
   async publish(
     id: string,
     currentUser: JwtPayload,
@@ -886,7 +1147,76 @@ export class ActivitiesService {
       this.getGroupGuestCounts(groupIds),
       this.getVolunteerRoles(activity.id, activity.volunteers ?? []),
     ]);
-    return this.toDto(activity, counts, volunteerRoles);
+    const preachingGroups = await this.getPreachingGroupsDto(
+      activity.id,
+      counts,
+      volunteerRoles,
+    );
+    return this.toDto(activity, counts, volunteerRoles, preachingGroups);
+  }
+
+  private async getPreachingGroupsDto(
+    activityId: string,
+    groupCounts: Map<string, number>,
+    volunteerRoles: Map<
+      string,
+      {
+        role_id: string | null;
+        role_name: string | null;
+        available_roles: { id: string; name: string }[];
+      }
+    > = new Map(),
+  ): Promise<PreachingGroupDto[]> {
+    const groups = await this.preachingGroupsRepo.find({
+      where: { activity_id: activityId },
+      relations: { guestGroups: true },
+      order: { position: 'ASC' },
+    });
+    if (groups.length === 0) return [];
+
+    const groupIds = groups.map((g) => g.id);
+    const members = await this.pgVolunteersRepo.find({
+      where: { preaching_group_id: In(groupIds) },
+    });
+    const volunteerIds = [...new Set(members.map((m) => m.volunteer_id))];
+    const volunteers = volunteerIds.length
+      ? await this.volunteersRepo.find({ where: { id: In(volunteerIds) } })
+      : [];
+    const volunteerById = new Map(volunteers.map((v) => [v.id, v]));
+
+    const membersByGroup = new Map<string, ActivityPreachingGroupVolunteer[]>();
+    for (const member of members) {
+      if (!membersByGroup.has(member.preaching_group_id))
+        membersByGroup.set(member.preaching_group_id, []);
+      membersByGroup.get(member.preaching_group_id)!.push(member);
+    }
+
+    return groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      position: group.position,
+      volunteers: (membersByGroup.get(group.id) ?? [])
+        .map((member): PreachingGroupVolunteerDto | null => {
+          const volunteer = volunteerById.get(member.volunteer_id);
+          if (!volunteer) return null;
+          const vr = volunteerRoles.get(volunteer.id);
+          return {
+            id: volunteer.id,
+            volunteer_code: volunteer.volunteer_code,
+            full_name: volunteer.full_name,
+            role_id: vr?.role_id ?? null,
+            role_name: vr?.role_name ?? null,
+            available_roles: vr?.available_roles ?? [],
+            description: member.description,
+          };
+        })
+        .filter((v): v is PreachingGroupVolunteerDto => v !== null),
+      guest_groups: (group.guestGroups ?? []).map((g) => ({
+        id: g.id,
+        group_code: g.group_code,
+        guest_count: groupCounts.get(g.id) ?? 0,
+      })),
+    }));
   }
 
   private async getVolunteerRoles(
@@ -1035,6 +1365,7 @@ export class ActivitiesService {
         available_roles: { id: string; name: string }[];
       }
     > = new Map(),
+    preachingGroups: PreachingGroupDto[] = [],
   ): ActivityResponseDto => ({
     id: activity.id,
     region_id: activity.region_id,
@@ -1072,6 +1403,7 @@ export class ActivitiesService {
       (sum, g) => sum + (groupCounts.get(g.id) ?? 0),
       0,
     ),
+    preaching_groups: preachingGroups,
     max_guests: activity.max_guests,
     created_at: activity.created_at,
     updated_at: activity.updated_at,

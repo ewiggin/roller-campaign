@@ -6,6 +6,7 @@ import {
   JoinTable,
   ManyToMany,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -13,6 +14,7 @@ import { Region } from '../../regions/entities/region.entity';
 import { Host } from '../../hosts/entities/host.entity';
 import { Volunteer } from '../../volunteers/entities/volunteer.entity';
 import { GuestGroup } from '../../guest-groups/entities/guest-group.entity';
+import { ActivityPreachingGroup } from './activity-preaching-group.entity';
 import { LocationPoint } from '../dto/location-point.dto';
 
 export type ActivityStatus = 'draft' | 'published';
@@ -83,6 +85,11 @@ export class Activity {
     inverseJoinColumn: { name: 'guestGroupId' },
   })
   guestGroups: GuestGroup[];
+
+  @OneToMany(() => ActivityPreachingGroup, (pg) => pg.activity, {
+    eager: false,
+  })
+  preachingGroups: ActivityPreachingGroup[];
 
   @CreateDateColumn()
   created_at: Date;
