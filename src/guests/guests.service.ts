@@ -708,6 +708,7 @@ export class GuestsService {
           weekday_meeting_time: host.weekday_meeting_time,
           weekend_meeting_day: host.weekend_meeting_day,
           weekend_meeting_time: host.weekend_meeting_time,
+          note: host.note,
         }
       : null;
     return dto;
