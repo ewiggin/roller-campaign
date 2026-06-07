@@ -39,6 +39,11 @@
         @if (host()!.address) {
           <p class="text-sm text-gray-500 dark:text-zinc-400">{{ host()!.address }}</p>
         }
+        @if (host()!.note) {
+          <p class="text-sm text-gray-500 dark:text-zinc-400 whitespace-pre-line">
+            {{ host()!.note }}
+          </p>
+        }
         @if (host()!.lat && host()!.lng) {
           <div class="flex items-center gap-2">
             <span class="text-xs text-gray-400 dark:text-zinc-500"
