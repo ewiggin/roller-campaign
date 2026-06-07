@@ -50,6 +50,12 @@ export class GuestMeHostDto {
 
   @ApiPropertyOptional({ example: '10:00', nullable: true })
   weekend_meeting_time: string | null;
+
+  @ApiPropertyOptional({
+    example: 'El acceso es por la puerta trasera, llamar antes de llegar',
+    nullable: true,
+  })
+  note: string | null;
 }
 
 export class GuestTokenResponseDto {

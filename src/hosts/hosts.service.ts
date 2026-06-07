@@ -66,6 +66,7 @@ export class HostsService {
       weekend_meeting_day: dto.weekend_meeting_day ?? null,
       weekend_meeting_time: dto.weekend_meeting_time ?? null,
       capacity: dto.capacity ?? null,
+      note: dto.note ?? null,
     });
     const saved = await this.hostsRepo.save(host);
     await this.cache.clear();
@@ -683,6 +684,7 @@ export class HostsService {
     dto.weekend_meeting_day = host.weekend_meeting_day;
     dto.weekend_meeting_time = host.weekend_meeting_time;
     dto.capacity = host.capacity;
+    dto.note = host.note;
     dto.group_count = groupCount;
     dto.guest_count = guestCount;
     dto.created_at = host.created_at;
