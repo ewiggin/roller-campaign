@@ -52,6 +52,9 @@ export class Host {
   @Column({ type: 'int', nullable: true, default: null })
   capacity: number | null;
 
+  @Column({ type: 'varchar', nullable: true, default: null })
+  note: string | null;
+
   @OneToMany('GuestGroup', (g: GuestGroup) => g.host)
   groups: GuestGroup[];
 
