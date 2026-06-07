@@ -50,6 +50,7 @@ export class HostsListComponent implements OnInit {
     weekend_meeting_day: [null as number | null],
     weekend_meeting_time: [''],
     capacity: [null as number | null],
+    note: [''],
   });
 
   readonly regionItems = computed(() =>
@@ -120,6 +121,7 @@ export class HostsListComponent implements OnInit {
       weekend_meeting_day: null,
       weekend_meeting_time: '',
       capacity: null,
+      note: '',
     });
     this.formError.set('');
     this.modal.set('create');
@@ -138,6 +140,7 @@ export class HostsListComponent implements OnInit {
       weekend_meeting_day: host.weekend_meeting_day,
       weekend_meeting_time: host.weekend_meeting_time ?? '',
       capacity: host.capacity ?? null,
+      note: host.note ?? '',
     });
     this.formError.set('');
     this.modal.set('edit');
@@ -165,6 +168,7 @@ export class HostsListComponent implements OnInit {
       weekend_meeting_day: raw.weekend_meeting_day,
       weekend_meeting_time: raw.weekend_meeting_time || null,
       capacity: raw.capacity,
+      note: raw.note || null,
     };
 
     const req = id
