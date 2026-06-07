@@ -10,6 +10,7 @@ export interface Host {
   weekend_meeting_day: number | null;
   weekend_meeting_time: string | null;
   capacity: number | null;
+  note: string | null;
   group_count: number;
   guest_count: number;
   created_at: string;
@@ -27,6 +28,7 @@ export interface CreateHostPayload {
   weekend_meeting_day?: number | null;
   weekend_meeting_time?: string | null;
   capacity?: number | null;
+  note?: string | null;
 }
 
 export interface UpdateHostPayload {
@@ -39,6 +41,7 @@ export interface UpdateHostPayload {
   weekend_meeting_day?: number | null;
   weekend_meeting_time?: string | null;
   capacity?: number | null;
+  note?: string | null;
 }
 
 export interface GroupSuggestion {
