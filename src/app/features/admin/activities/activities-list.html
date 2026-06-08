@@ -1,7 +1,7 @@
 <div>
   <!-- Header -->
   <div class="flex items-center justify-between mb-5">
-    <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">Activities</h2>
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">{{ pageTitle }}</h2>
     <div class="flex items-center gap-2">
       <!-- View toggle -->
       <div class="flex rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
@@ -60,7 +60,7 @@
         (click)="openCreate()"
         class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
       >
-        New activity
+        {{ newActivityLabel }}
       </button>
     </div>
   </div>
@@ -176,6 +176,17 @@
             </button>
           }
           <button
+            (click)="bulkDelete()"
+            [disabled]="bulkSaving()"
+            class="rounded-lg bg-red-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+          >
+            @if (bulkSaving()) {
+              Deleting…
+            } @else {
+              Delete {{ selectedCount() > 1 ? selectedCount() + ' items' : '' }}
+            }
+          </button>
+          <button
             (click)="clearSelection()"
             class="text-sm text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
           >
@@ -250,7 +261,7 @@
 
         @if (filteredActivities().length === 0) {
           <div class="px-5 py-10 text-center">
-            <p class="text-sm text-gray-400 dark:text-zinc-500">No activities found.</p>
+            <p class="text-sm text-gray-400 dark:text-zinc-500">{{ emptyActivitiesLabel }}</p>
           </div>
         } @else {
           <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
@@ -347,7 +358,7 @@
                 </div>
 
                 <!-- Preaching shift chip -->
-                @if (activity.is_preaching_shift) {
+                @if (activity.is_preaching_shift && !preachingShiftsOnly) {
                   <span
                     class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1 ring-blue-300 bg-blue-50 text-blue-600 dark:ring-blue-700 dark:bg-blue-950 dark:text-blue-300"
                   >
@@ -430,7 +441,7 @@
         class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
       >
         <h3 class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
-          New activity
+          {{ newActivityLabel }}
         </h3>
         <button
           (click)="closeModal()"
@@ -453,23 +464,6 @@
         class="flex flex-col flex-1 min-h-0"
       >
         <div class="flex-1 overflow-y-auto p-5 space-y-4">
-          <!-- Preaching shift -->
-          <label
-            class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
-          >
-            <div>
-              <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Preaching shift</p>
-              <p class="text-xs text-gray-400 dark:text-zinc-500">
-                Mark this activity as a preaching shift
-              </p>
-            </div>
-            <div class="relative inline-flex items-center shrink-0 ml-4">
-              <input type="checkbox" formControlName="is_preaching_shift" class="sr-only peer" />
-              <div
-                class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
-              ></div>
-            </div>
-          </label>
           <div class="grid grid-cols-2 gap-3">
             <div class="col-span-2">
               <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
@@ -917,24 +911,6 @@
         <!-- Info tab -->
         @if (detailTab() === 'info') {
           <form [formGroup]="editForm" (ngSubmit)="saveInfo()" class="space-y-4">
-            <!-- Preaching shift -->
-            <label
-              class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
-            >
-              <div>
-                <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Preaching shift</p>
-                <p class="text-xs text-gray-400 dark:text-zinc-500">
-                  Mark this activity as a preaching shift
-                </p>
-              </div>
-              <div class="relative inline-flex items-center shrink-0 ml-4">
-                <input type="checkbox" formControlName="is_preaching_shift" class="sr-only peer" />
-                <div
-                  class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
-                ></div>
-              </div>
-            </label>
-
             <div>
               <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
                 >Name *</label
