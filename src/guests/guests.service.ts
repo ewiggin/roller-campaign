@@ -8,8 +8,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Activity } from '../activities/entities/activity.entity';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -18,7 +18,10 @@ import { Host } from '../hosts/entities/host.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateGuestDto } from './dto/create-guest.dto';
-import { GuestActivityResponseDto } from './dto/guest-activity-response.dto';
+import {
+  GuestActivityResponseDto,
+  GuestActivityVolunteerDto,
+} from './dto/guest-activity-response.dto';
 import {
   GuestCodeTokenResponseDto,
   GuestFormLookupResponseDto,
@@ -125,6 +128,7 @@ export class GuestsService {
     private readonly hostsRepository: Repository<Host>,
     @InjectRepository(Activity)
     private readonly activitiesRepository: Repository<Activity>,
+    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -745,22 +749,116 @@ export class GuestsService {
       .addOrderBy('a.start_time', 'ASC')
       .getMany();
 
-    return activities.map((a) => ({
-      id: a.id,
-      name: a.name,
-      icon: a.icon,
-      description: a.description,
-      date: a.date,
-      start_time: a.start_time,
-      end_time: a.end_time,
-      activity_locations: a.activity_locations ?? null,
-      is_preaching_shift: a.is_preaching_shift,
-      volunteers: (a.volunteers ?? []).map((v) => ({
-        full_name: v.full_name,
-        phone: v.phone,
-        email: v.email,
-      })),
-    }));
+    const isSqlite = this.dataSource.options.type === 'better-sqlite3';
+    const preachingShiftIds = activities
+      .filter((a) => a.is_preaching_shift)
+      .map((a) => a.id);
+    const scopedVolunteers = await this.getGuestPreachingGroupVolunteers(
+      guest.group_id,
+      preachingShiftIds,
+      isSqlite,
+    );
+
+    return activities.map((a) => {
+      const group = a.is_preaching_shift ? (scopedVolunteers.get(a.id) ?? null) : null;
+      return {
+        id: a.id,
+        name: a.name,
+        icon: a.icon,
+        description: a.description,
+        date: a.date,
+        start_time: a.start_time,
+        end_time: a.end_time,
+        activity_locations: a.activity_locations ?? null,
+        is_preaching_shift: a.is_preaching_shift,
+        preaching_group_name: group?.name ?? null,
+        volunteers: group
+          ? group.volunteers
+          : (a.volunteers ?? []).map((v) => ({
+              full_name: v.full_name,
+              phone: v.phone,
+              email: v.email,
+              role_name: null,
+              description: null,
+            })),
+      };
+    });
+  }
+
+  private async getGuestPreachingGroupVolunteers(
+    guestGroupId: string,
+    activityIds: string[],
+    isSqlite: boolean,
+  ): Promise<Map<string, { name: string | null; volunteers: GuestActivityVolunteerDto[] }>> {
+    const result = new Map<
+      string,
+      { name: string | null; volunteers: GuestActivityVolunteerDto[] }
+    >();
+    if (activityIds.length === 0) return result;
+
+    const activityFilter = isSqlite
+      ? `apg.activity_id IN (${activityIds.map(() => '?').join(',')})`
+      : `apg.activity_id = ANY($2)`;
+
+    const membership = await this.dataSource.query<
+      Array<{ group_id: string; activity_id: string; group_name: string | null }>
+    >(
+      `SELECT apggg."preachingGroupId" AS group_id, apg.activity_id, apg.name AS group_name
+       FROM activity_preaching_group_guest_groups apggg
+       INNER JOIN activity_preaching_groups apg ON apg.id = apggg."preachingGroupId"
+       WHERE apggg."guestGroupId" = ${isSqlite ? '?' : '$1'} AND ${activityFilter}`,
+      isSqlite ? [guestGroupId, ...activityIds] : [guestGroupId, activityIds],
+    );
+    if (membership.length === 0) return result;
+
+    const groupIds = membership.map((m) => m.group_id);
+    const groupFilter = isSqlite
+      ? `apgv.preaching_group_id IN (${groupIds.map(() => '?').join(',')})`
+      : `apgv.preaching_group_id = ANY($1)`;
+
+    const memberRows = await this.dataSource.query<
+      Array<{
+        group_id: string;
+        full_name: string;
+        phone: string | null;
+        email: string | null;
+        role_name: string | null;
+        description: string | null;
+      }>
+    >(
+      `SELECT apgv.preaching_group_id AS group_id, vol.full_name, vol.phone, vol.email,
+              vr.name AS role_name, apgv.description
+       FROM activity_preaching_group_volunteers apgv
+       INNER JOIN activity_preaching_groups apg ON apg.id = apgv.preaching_group_id
+       INNER JOIN volunteers vol ON vol.id = apgv.volunteer_id
+       LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = apg.activity_id AND avr.volunteer_id = apgv.volunteer_id
+       LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
+       WHERE ${groupFilter}
+       ORDER BY vol.full_name ASC`,
+      isSqlite ? groupIds : [groupIds],
+    );
+
+    const membersByGroup = new Map<string, GuestActivityVolunteerDto[]>();
+    for (const m of memberRows) {
+      const list = membersByGroup.get(m.group_id) ?? [];
+      list.push({
+        full_name: m.full_name,
+        phone: m.phone,
+        email: m.email,
+        role_name: m.role_name,
+        description: m.description,
+      });
+      membersByGroup.set(m.group_id, list);
+    }
+
+    for (const m of membership) {
+      result.set(m.activity_id, {
+        name: m.group_name,
+        volunteers: membersByGroup.get(m.group_id) ?? [],
+      });
+    }
+
+    return result;
   }
 
   generateTemplate(): Buffer {
