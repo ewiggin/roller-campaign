@@ -981,6 +981,40 @@ describe('Activities (e2e)', () => {
       ).toBe(true);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
     });
+
+    it('filters by is_preaching_shift=true', async () => {
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-11-20', is_preaching_shift: true });
+
+      const res = await request(server)
+        .get('/api/activities')
+        .query({ regionId, is_preaching_shift: true })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(
+        res.body.data.every(
+          (a: { is_preaching_shift: boolean }) => a.is_preaching_shift === true,
+        ),
+      ).toBe(true);
+    });
+
+    it('filters by is_preaching_shift=false', async () => {
+      const res = await request(server)
+        .get('/api/activities')
+        .query({ regionId, is_preaching_shift: false })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(
+        res.body.data.every(
+          (a: { is_preaching_shift: boolean }) =>
+            a.is_preaching_shift === false,
+        ),
+      ).toBe(true);
+    });
   });
 
   // ── is_preaching_shift ────────────────────────────────────────────────────
