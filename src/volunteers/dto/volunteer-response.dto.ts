@@ -167,6 +167,53 @@ export class VolunteerActivityVolunteerDto {
   role_name: string | null;
 }
 
+export class VolunteerPreachingGroupVolunteerDto {
+  @ApiProperty({ example: 'Carlos López' })
+  full_name: string;
+
+  @ApiPropertyOptional({ example: '+34 600 000 000', nullable: true })
+  phone: string | null;
+
+  @ApiPropertyOptional({ example: 'Conductor', nullable: true })
+  role_name: string | null;
+
+  @ApiPropertyOptional({ example: 'Conduce la furgoneta', nullable: true })
+  description: string | null;
+}
+
+export class VolunteerPreachingGroupGuestDto {
+  @ApiProperty({ example: 'Mary Johnson' })
+  full_name: string;
+
+  @ApiProperty({ example: false })
+  is_minor: boolean;
+}
+
+export class VolunteerPreachingGroupGuestGroupDto {
+  @ApiProperty({ example: 'GRP-014' })
+  group_code: string;
+
+  @ApiProperty({ example: 8 })
+  guest_count: number;
+
+  @ApiProperty({ type: [VolunteerPreachingGroupGuestDto] })
+  guests: VolunteerPreachingGroupGuestDto[];
+}
+
+export class VolunteerPreachingGroupDto {
+  @ApiPropertyOptional({ example: 'Grupo Centro', nullable: true })
+  name: string | null;
+
+  @ApiPropertyOptional({ example: 'Conduce la furgoneta', nullable: true })
+  description: string | null;
+
+  @ApiProperty({ type: [VolunteerPreachingGroupVolunteerDto] })
+  volunteers: VolunteerPreachingGroupVolunteerDto[];
+
+  @ApiProperty({ type: [VolunteerPreachingGroupGuestGroupDto] })
+  guest_groups: VolunteerPreachingGroupGuestGroupDto[];
+}
+
 export class VolunteerActivityDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
@@ -195,6 +242,17 @@ export class VolunteerActivityDto {
   @ApiPropertyOptional({ type: [LocationPointDto], nullable: true })
   activity_locations: LocationPointDto[] | null;
 
+  @ApiProperty({ example: false })
+  is_preaching_shift: boolean;
+
   @ApiProperty({ type: [VolunteerActivityVolunteerDto] })
   volunteers: VolunteerActivityVolunteerDto[];
+
+  @ApiPropertyOptional({
+    type: VolunteerPreachingGroupDto,
+    nullable: true,
+    description:
+      'Grupo de predicación al que pertenece el voluntario en este turno (solo si is_preaching_shift es true y está asignado a un grupo)',
+  })
+  preaching_group: VolunteerPreachingGroupDto | null;
 }
