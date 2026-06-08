@@ -35,6 +35,7 @@ export interface PreachingGroupVolunteer {
 export interface PreachingGroup {
   id: string;
   name: string | null;
+  territory_key: string | null;
   position: number;
   volunteers: PreachingGroupVolunteer[];
   guest_groups: ActivityGuestGroup[];
@@ -54,6 +55,7 @@ export interface Activity {
   start_time: string;
   end_time: string;
   activity_locations: LocationPoint[] | null;
+  image_key: string | null;
   is_preaching_shift: boolean;
   volunteers: ActivityVolunteer[];
   volunteer_count: number;
@@ -122,5 +124,6 @@ export interface CreateActivityPayload {
   start_time: string;
   end_time: string;
   activity_locations?: LocationPoint[] | null;
+  image_key?: string | null;
   is_preaching_shift?: boolean;
 }

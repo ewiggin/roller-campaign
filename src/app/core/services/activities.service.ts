@@ -116,6 +116,12 @@ export class ActivitiesService {
     });
   }
 
+  updatePreachingGroupTerritory(id: string, groupId: string, territory_key: string | null) {
+    return this.http.patch<Activity>(`/api/activities/${id}/preaching-groups/${groupId}`, {
+      territory_key,
+    });
+  }
+
   removePreachingGroup(id: string, groupId: string) {
     return this.http.delete<Activity>(`/api/activities/${id}/preaching-groups/${groupId}`);
   }
