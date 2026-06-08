@@ -16,6 +16,15 @@ export class UpdatePreachingGroupDto {
   @MaxLength(100)
   name?: string | null;
 
+  @ApiPropertyOptional({
+    example: 'territories/activityId-groupId-1749480000000-territory.pdf',
+    nullable: true,
+    description: 'Storage object key for the territory file',
+  })
+  @IsOptional()
+  @IsString()
+  territory_key?: string | null;
+
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsInt()

@@ -71,6 +71,9 @@ export class Activity {
   @Column({ type: 'simple-json', nullable: true, default: null })
   activity_locations: LocationPoint[] | null;
 
+  @Column({ type: 'varchar', nullable: true, default: null })
+  image_key: string | null;
+
   @Column({ type: 'boolean', default: false })
   is_preaching_shift: boolean;
 
