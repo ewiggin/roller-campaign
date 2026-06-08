@@ -775,6 +775,132 @@ describe('Guests (e2e)', () => {
     });
   });
 
+  describe('Import deleteAbsent sync', () => {
+    // Scenario:  DB has G-KEEP-1, G-KEEP-2, G-ABSENT-1, G-ABSENT-2
+    //            Excel has G-KEEP-1 (dup/skip), G-KEEP-2 (dup/skip), G-NEW-DA
+    //            toDelete = [G-ABSENT-1, G-ABSENT-2]
+    //            After commit: G-ABSENT-* deleted, G-KEEP-* and G-NEW-DA survive
+
+    let grp: { id: string; group_code: string };
+
+    beforeAll(async () => {
+      grp = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `GRP-DA-${Date.now()}`, region_id: regionId })
+      ).body;
+
+      for (const code of ['G-KEEP-1', 'G-KEEP-2', 'G-ABSENT-1', 'G-ABSENT-2']) {
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: code,
+            group_id: grp.id,
+            region_id: regionId,
+            full_name: code,
+          });
+      }
+    });
+
+    it('parse returns toDelete = guests absent from the Excel', async () => {
+      const xlsx = buildExcelBuffer([
+        {
+          guest_code: 'G-KEEP-1',
+          group_code: grp.group_code,
+          full_name: 'Keep One',
+        },
+        {
+          guest_code: 'G-KEEP-2',
+          group_code: grp.group_code,
+          full_name: 'Keep Two',
+        },
+        {
+          guest_code: 'G-NEW-DA',
+          group_code: grp.group_code,
+          full_name: 'New DA',
+        },
+      ]);
+      const res = await request(server)
+        .post(`/api/guests/import/parse?regionId=${regionId}`)
+        .set('Authorization', auth())
+        .attach('file', xlsx, 'test.xlsx')
+        .expect(200);
+
+      const toDeleteCodes = res.body.toDelete.map(
+        (g: { guest_code: string }) => g.guest_code,
+      );
+      expect(toDeleteCodes).toContain('G-ABSENT-1');
+      expect(toDeleteCodes).toContain('G-ABSENT-2');
+      expect(toDeleteCodes).not.toContain('G-KEEP-1');
+      expect(toDeleteCodes).not.toContain('G-KEEP-2');
+      expect(res.body.summary.to_delete).toBe(toDeleteCodes.length);
+    });
+
+    it('commit with deleteAbsent deletes only absent guests, not skipped duplicates', async () => {
+      const res = await request(server)
+        .post('/api/guests/import/commit')
+        .set('Authorization', auth())
+        .send({
+          regionId,
+          rows: [
+            {
+              guest_code: 'G-NEW-DA',
+              group_code: grp.group_code,
+              full_name: 'New DA',
+            },
+          ],
+          deleteAbsent: true,
+          toDeleteCodes: ['G-ABSENT-1', 'G-ABSENT-2'],
+        })
+        .expect(200);
+
+      expect(res.body.deleted_guests).toBe(2);
+
+      // Absent guests removed
+      const list = await request(server)
+        .get(`/api/guests?search=G-ABSENT`)
+        .set('Authorization', auth());
+      expect(list.body.total).toBe(0);
+
+      // Kept guests still present
+      const kept = await request(server)
+        .get(`/api/guests?search=G-KEEP`)
+        .set('Authorization', auth());
+      expect(kept.body.total).toBe(2);
+
+      // New guest created
+      const created = await request(server)
+        .get(`/api/guests?search=G-NEW-DA`)
+        .set('Authorization', auth());
+      expect(created.body.total).toBe(1);
+    });
+
+    it('commit with empty toDeleteCodes does not delete anything', async () => {
+      const beforeList = await request(server)
+        .get(`/api/guests?regionId=${regionId}`)
+        .set('Authorization', auth());
+      const before = beforeList.body.total as number;
+
+      await request(server)
+        .post('/api/guests/import/commit')
+        .set('Authorization', auth())
+        .send({
+          regionId,
+          rows: [],
+          deleteAbsent: true,
+          toDeleteCodes: [],
+        })
+        .expect(200);
+
+      const afterList = await request(server)
+        .get(`/api/guests?regionId=${regionId}`)
+        .set('Authorization', auth());
+      expect(afterList.body.total).toBe(before);
+    });
+  });
+
   describe('POST /api/guests/:id/migrate - edge cases', () => {
     it('returns 404 when target group does not exist', async () => {
       const guest = (

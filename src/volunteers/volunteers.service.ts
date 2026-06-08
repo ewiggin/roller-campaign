@@ -454,11 +454,13 @@ export class VolunteersService {
 
     const to_create: ImportVolunteerRowDto[] = [];
     const skipped: string[] = [];
+    const excelCodes = new Set<string>();
 
     for (const row of rows) {
       const rawCode = this.str(row['Número de identificación']);
       const code =
         rawCode ?? `GEN-${randomBytes(4).toString('hex').toUpperCase()}`;
+      if (rawCode) excelCodes.add(code);
       if (rawCode && existingSet.has(code)) {
         skipped.push(code);
         continue;
@@ -510,13 +512,23 @@ export class VolunteersService {
       });
     }
 
+    // Volunteers in DB absent from the Excel
+    const allDbVolunteers = await this.volunteersRepo.find({
+      select: { volunteer_code: true },
+    });
+    const to_delete = allDbVolunteers
+      .map((v) => v.volunteer_code)
+      .filter((c) => !excelCodes.has(c));
+
     return {
       to_create,
       skipped,
+      to_delete,
       summary: {
         total: to_create.length + skipped.length,
         to_create: to_create.length,
         skipped: skipped.length,
+        to_delete: to_delete.length,
       },
     };
   }
@@ -591,7 +603,27 @@ export class VolunteersService {
       created++;
     }
 
-    return { created, skipped, total: dto.rows.length };
+    // ── Delete absent (global) ────────────────────────────────────────────
+    let deleted = 0;
+    if (dto.deleteAbsent) {
+      const codesToDelete = dto.toDeleteCodes ?? [];
+      if (codesToDelete.length > 0) {
+        // DB has ON DELETE CASCADE on all volunteer join tables and availability
+        for (let i = 0; i < codesToDelete.length; i += 200) {
+          await this.volunteersRepo.delete({
+            volunteer_code: In(codesToDelete.slice(i, i + 200)),
+          });
+        }
+        deleted = codesToDelete.length;
+      }
+    }
+
+    return {
+      created,
+      skipped,
+      total: dto.rows.length,
+      ...(deleted > 0 ? { deleted } : {}),
+    };
   }
 
   // ── Me (volunteer role) ────────────────────────────────────────────────────
@@ -651,15 +683,14 @@ export class VolunteersService {
     const headers = [
       'Número de identificación',
       'Nombre',
-      'Sexo',
-      'Estado civil',
-      'Congregación',
-      'Sucursal',
-      'Tiene asignado un turno',
-      'Grupos',
-      'Horas asignadas',
+      'Email',
+      'Teléfono',
+      'Región de participación',
       'Plazas de coche disponibles',
       'Dirección',
+      'Maps',
+      'Lat',
+      'Lon',
       'Lu M',
       'Lu T',
       'Ma M',
@@ -680,49 +711,38 @@ export class VolunteersService {
       'DoA T',
       'LuS M',
       'LuS T',
-      'Maps',
-      'Lat',
-      'Lon',
-      'Región de participación',
-      'Email',
     ];
     const example = [
       '5274026',
       'Martínez, Mario',
-      'Varón',
-      'Casado',
-      'Olot',
-      'Cataluña',
-      'No',
-      'grupo1',
-      '0',
+      'mario@example.com',
+      '+34 600 000 000',
+      'Costa Brava',
       '3',
       'Passatge Bernat Metge, 14, 17800 Olot',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'Sí',
-      'Sí',
-      'Sí',
-      'Sí',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
       'https://www.google.com/maps?q=42.18,2.47',
       '42,1836987',
       '2,4774935',
-      'Costa Brava',
-      'mario@example.com',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'Sí',
+      'Sí',
+      'Sí',
+      'Sí',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
     ];
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, example]);

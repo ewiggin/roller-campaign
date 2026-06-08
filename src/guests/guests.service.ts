@@ -41,6 +41,7 @@ import {
   ImportErrorDto,
   ImportGuestRowDto,
   ImportParseResponseDto,
+  ImportToDeleteGuestDto,
 } from './dto/import-parse-response.dto';
 import { UpdateGuestDto } from './dto/update-guest.dto';
 import { Guest } from './entities/guest.entity';
@@ -291,6 +292,12 @@ export class GuestsService {
   parseExcel(buffer: Buffer, regionId?: string): ImportParseResponseDto {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const sheetHeaders = (XLSX.utils.sheet_to_json<string[]>(sheet, {
+      header: 1,
+    })[0] ?? []) as string[];
+    const columns = sheetHeaders.filter(
+      (h) => typeof h === 'string' && h in EXCEL_COLUMNS,
+    );
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       raw: false,
       defval: null,
@@ -315,7 +322,6 @@ export class GuestsService {
 
       if (!guest_code) rowErrors.push('guest_code es obligatorio');
       if (!group_code) rowErrors.push('group_code es obligatorio');
-      if (!full_name) rowErrors.push('full_name es obligatorio');
 
       if (guest_code && seenCodes.has(guest_code)) {
         rowErrors.push('guest_code duplicado en el archivo');
@@ -355,7 +361,7 @@ export class GuestsService {
       valid.push({
         guest_code: guest_code!,
         group_code: group_code!,
-        full_name: full_name!,
+        full_name: full_name ?? null,
         is_minor: this.parseBool(row['is_minor']),
         status: (status as ImportGuestRowDto['status']) || 'pending',
         branch: this.parseString(row['branch']),
@@ -418,12 +424,15 @@ export class GuestsService {
       errors,
       duplicates: [],
       duplicateRows: [],
+      toDelete: [],
       summary: {
         total: rows.length,
         valid: valid.length,
         errors: errors.length,
         duplicates: 0,
+        to_delete: 0,
       },
+      columns,
     };
   }
 
@@ -432,6 +441,8 @@ export class GuestsService {
     regionId?: string,
   ): Promise<ImportParseResponseDto> {
     const preview = this.parseExcel(buffer, regionId);
+
+    const allExcelCodes = new Set(preview.valid.map((r) => r.guest_code));
 
     if (preview.valid.length > 0) {
       const codes = preview.valid.map((r) => r.guest_code);
@@ -454,6 +465,16 @@ export class GuestsService {
       preview.summary.valid = preview.valid.length;
     }
 
+    // Guests in DB that are absent from the Excel
+    const allDbGuests = await this.guestsRepository.find({
+      select: { guest_code: true, full_name: true },
+    });
+    const toDelete: ImportToDeleteGuestDto[] = allDbGuests.filter(
+      (g) => !allExcelCodes.has(g.guest_code),
+    );
+    preview.toDelete = toDelete;
+    preview.summary.to_delete = toDelete.length;
+
     return preview;
   }
 
@@ -465,6 +486,7 @@ export class GuestsService {
     let createdGroups = 0;
     let createdGuests = 0;
     let updatedGuests = 0;
+    let deletedGuests = 0;
     let groupsNotFound = 0;
     const notFoundRows: ImportGuestRowDto[] = [];
 
@@ -544,6 +566,9 @@ export class GuestsService {
     }
 
     // ── Updates (updateRows) ──────────────────────────────────────────────
+    const updateColumns =
+      dto.partialUpdate && dto.columns ? new Set(dto.columns) : null;
+
     for (const row of dto.updateRows ?? []) {
       const guest = await this.guestsRepository.findOne({
         where: { guest_code: row.guest_code },
@@ -567,11 +592,31 @@ export class GuestsService {
         if (group) newGroupId = group.id;
       }
 
-      Object.assign(guest, this.rowToGuestFields(row), {
-        group_id: newGroupId,
-      });
+      const allFields = this.rowToGuestFields(row);
+      const patch = updateColumns
+        ? Object.fromEntries(
+            Object.entries(allFields).filter(
+              ([k]) => k !== 'guest_code' && updateColumns.has(k),
+            ),
+          )
+        : allFields;
+
+      Object.assign(guest, patch, { group_id: newGroupId });
       await this.guestsRepository.save(guest);
       updatedGuests++;
+    }
+
+    // ── Delete absent (global) ────────────────────────────────────────────
+    if (dto.deleteAbsent) {
+      const codesToDelete = dto.toDeleteCodes ?? [];
+      if (codesToDelete.length > 0) {
+        for (let i = 0; i < codesToDelete.length; i += 200) {
+          await this.guestsRepository.delete({
+            guest_code: In(codesToDelete.slice(i, i + 200)),
+          });
+        }
+        deletedGuests = codesToDelete.length;
+      }
     }
 
     return {
@@ -579,6 +624,7 @@ export class GuestsService {
       updated_guests: updatedGuests,
       created_groups: createdGroups,
       total: dto.rows.length + (dto.updateRows?.length ?? 0),
+      ...(deletedGuests > 0 ? { deleted_guests: deletedGuests } : {}),
       ...(dto.regionId
         ? {}
         : {
@@ -591,7 +637,7 @@ export class GuestsService {
   private rowToGuestFields(row: ImportGuestRowDto) {
     return {
       guest_code: row.guest_code,
-      full_name: row.full_name,
+      full_name: row.full_name || `INVITADO - ${row.guest_code}`,
       is_minor: row.is_minor ?? false,
       status: (row.status as Guest['status']) ?? 'pending',
       branch: row.branch ?? null,
@@ -957,6 +1003,9 @@ export class GuestsService {
       'is_minor',
       'branch',
       'native_language',
+      'terms_accepted',
+      'terms_accepted_at',
+      'terms_version',
     ];
     const rows = guests.map((g) => [
       g.guest_code,
@@ -981,6 +1030,9 @@ export class GuestsService {
       g.is_minor ? 'Sí' : 'No',
       g.branch ?? '',
       g.native_language ?? '',
+      g.terms_accepted ? 'Sí' : 'No',
+      g.terms_accepted_at ?? '',
+      g.terms_version ?? '',
     ]);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -1007,6 +1059,9 @@ export class GuestsService {
       { wch: 9 },
       { wch: 12 },
       { wch: 16 },
+      { wch: 14 },
+      { wch: 20 },
+      { wch: 14 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Invitados');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
