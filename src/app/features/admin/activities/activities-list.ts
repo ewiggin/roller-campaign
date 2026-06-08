@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { catchError, concatMap, from, last, map, of, toArray } from 'rxjs';
+import { catchError, concatMap, from, last, map, of, switchMap, take, toArray } from 'rxjs';
 import type {
   Activity,
   ActivityStatus,
@@ -16,6 +16,7 @@ import type { Region } from '../../../core/models/region.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
+import { StorageService } from '../../../core/services/storage.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 import { CalendarComponent } from '../../../shared/components/calendar/calendar';
 import { EmojiPickerComponent } from '../../../shared/components/emoji-picker/emoji-picker';
@@ -52,6 +53,7 @@ export class ActivitiesListComponent implements OnInit {
   private readonly regionsSvc = inject(RegionsService);
   private readonly hostsSvc = inject(HostsService);
   private readonly volunteersSvc = inject(VolunteersService);
+  private readonly storageSvc = inject(StorageService);
   private readonly route = inject(ActivatedRoute);
 
   // When opened from the "Preaching Shifts" menu entry, the list is
@@ -307,6 +309,26 @@ export class ActivitiesListComponent implements OnInit {
   ]);
   readonly editActivityFromHost = signal(false);
   readonly editHostId = signal<string | null>(null);
+
+  // ── Image upload ──────────────────────────────────────────────────────────
+  readonly imageUrl = signal<string | null>(null);
+  readonly imageUploading = signal(false);
+  readonly imageUploadPercent = signal(0);
+
+  // ── Territory upload (per preaching group) ────────────────────────────────
+  readonly territoryUrls = signal<Record<string, string>>({});
+  readonly territoryUploading = signal<Record<string, boolean>>({});
+  readonly territoryPercent = signal<Record<string, number>>({});
+
+  territoryUrlFor(groupId: string): string | null {
+    return this.territoryUrls()[groupId] ?? null;
+  }
+  territoryUploadingFor(groupId: string): boolean {
+    return this.territoryUploading()[groupId] ?? false;
+  }
+  territoryPercentFor(groupId: string): number {
+    return this.territoryPercent()[groupId] ?? 0;
+  }
 
   // ── Hosts (shared for both modals) ────────────────────────────────────────
 
@@ -751,6 +773,19 @@ export class ActivitiesListComponent implements OnInit {
     this.selectedActivity.set(activity);
     this.detailTab.set('info');
     this.detailError.set('');
+    this.imageUrl.set(null);
+    this.imageUploading.set(false);
+    this.imageUploadPercent.set(0);
+    if (activity.image_key) {
+      this.storageSvc
+        .getDownloadPresignedUrl(activity.image_key, 3600)
+        .pipe(take(1))
+        .subscribe({ next: ({ url }) => this.imageUrl.set(url) });
+    }
+    this.territoryUrls.set({});
+    this.territoryUploading.set({});
+    this.territoryPercent.set({});
+    this.loadTerritoryUrls(activity);
     this.editIconValue.set(activity.icon ?? '');
     this.editForm.patchValue({
       name: activity.name,
@@ -882,6 +917,125 @@ export class ActivitiesListComponent implements OnInit {
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
       is_preaching_shift: this.selectedActivity()?.is_preaching_shift ?? false,
     };
+  }
+
+  onImageSelected(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    const activity = this.selectedActivity();
+    if (!file || !activity) return;
+
+    const key = this.storageSvc.buildKey('activities', file.name);
+    this.imageUploading.set(true);
+    this.imageUploadPercent.set(0);
+
+    this.storageSvc.uploadFile(key, file).subscribe({
+      next: ({ progress }) => this.imageUploadPercent.set(progress.percent),
+      error: () => {
+        this.imageUploading.set(false);
+        this.detailError.set('Error uploading image.');
+      },
+      complete: () => {
+        this.svc
+          .update(activity.id, { image_key: key })
+          .pipe(
+            switchMap((updated) => {
+              this.selectedActivity.set(updated);
+              return this.storageSvc.getDownloadPresignedUrl(key, 3600);
+            }),
+          )
+          .subscribe({
+            next: ({ url }) => {
+              this.imageUrl.set(url);
+              this.imageUploading.set(false);
+              this.load();
+            },
+            error: () => {
+              this.imageUploading.set(false);
+              this.detailError.set('Error saving image.');
+            },
+          });
+      },
+    });
+  }
+
+  removeImage() {
+    const activity = this.selectedActivity();
+    if (!activity?.image_key) return;
+    this.svc.update(activity.id, { image_key: null }).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.imageUrl.set(null);
+        this.load();
+      },
+      error: () => this.detailError.set('Error removing image.'),
+    });
+  }
+
+  private loadTerritoryUrls(activity: Activity) {
+    for (const group of activity.preaching_groups ?? []) {
+      if (!group.territory_key) continue;
+      this.storageSvc
+        .getDownloadPresignedUrl(group.territory_key, 3600)
+        .pipe(take(1))
+        .subscribe({
+          next: ({ url }) => this.territoryUrls.update((prev) => ({ ...prev, [group.id]: url })),
+        });
+    }
+  }
+
+  onTerritorySelected(groupId: string, event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    const activity = this.selectedActivity();
+    if (!file || !activity) return;
+
+    const key = this.storageSvc.buildKey('territories', file.name);
+    this.territoryUploading.update((prev) => ({ ...prev, [groupId]: true }));
+    this.territoryPercent.update((prev) => ({ ...prev, [groupId]: 0 }));
+
+    this.storageSvc.uploadFile(key, file).subscribe({
+      next: ({ progress }) =>
+        this.territoryPercent.update((prev) => ({ ...prev, [groupId]: progress.percent })),
+      error: () => {
+        this.territoryUploading.update((prev) => ({ ...prev, [groupId]: false }));
+        this.detailError.set('Error uploading territory.');
+      },
+      complete: () => {
+        this.svc
+          .updatePreachingGroupTerritory(activity.id, groupId, key)
+          .pipe(
+            switchMap((updated) => {
+              this.selectedActivity.set(updated);
+              return this.storageSvc.getDownloadPresignedUrl(key, 3600);
+            }),
+          )
+          .subscribe({
+            next: ({ url }) => {
+              this.territoryUrls.update((prev) => ({ ...prev, [groupId]: url }));
+              this.territoryUploading.update((prev) => ({ ...prev, [groupId]: false }));
+            },
+            error: () => {
+              this.territoryUploading.update((prev) => ({ ...prev, [groupId]: false }));
+              this.detailError.set('Error saving territory.');
+            },
+          });
+      },
+    });
+  }
+
+  removeTerritory(groupId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.svc.updatePreachingGroupTerritory(activity.id, groupId, null).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.territoryUrls.update((prev) => {
+          const next = { ...prev };
+          delete next[groupId];
+          return next;
+        });
+      },
+      error: () => this.detailError.set('Error removing territory.'),
+    });
   }
 
   private executeSave(payload: UpdateActivityPayload) {
