@@ -27,6 +27,9 @@ export class ActivityPreachingGroup {
   @Column({ type: 'varchar', nullable: true, default: null })
   name: string | null;
 
+  @Column({ type: 'varchar', nullable: true, default: null })
+  territory_key: string | null;
+
   @Column({ type: 'int', default: 0 })
   position: number;
 
