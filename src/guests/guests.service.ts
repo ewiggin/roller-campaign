@@ -760,7 +760,9 @@ export class GuestsService {
     );
 
     return activities.map((a) => {
-      const group = a.is_preaching_shift ? (scopedVolunteers.get(a.id) ?? null) : null;
+      const group = a.is_preaching_shift
+        ? (scopedVolunteers.get(a.id) ?? null)
+        : null;
       return {
         id: a.id,
         name: a.name,
@@ -789,7 +791,12 @@ export class GuestsService {
     guestGroupId: string,
     activityIds: string[],
     isSqlite: boolean,
-  ): Promise<Map<string, { name: string | null; volunteers: GuestActivityVolunteerDto[] }>> {
+  ): Promise<
+    Map<
+      string,
+      { name: string | null; volunteers: GuestActivityVolunteerDto[] }
+    >
+  > {
     const result = new Map<
       string,
       { name: string | null; volunteers: GuestActivityVolunteerDto[] }
@@ -801,7 +808,11 @@ export class GuestsService {
       : `apg.activity_id = ANY($2)`;
 
     const membership = await this.dataSource.query<
-      Array<{ group_id: string; activity_id: string; group_name: string | null }>
+      Array<{
+        group_id: string;
+        activity_id: string;
+        group_name: string | null;
+      }>
     >(
       `SELECT apggg."preachingGroupId" AS group_id, apg.activity_id, apg.name AS group_name
        FROM activity_preaching_group_guest_groups apggg

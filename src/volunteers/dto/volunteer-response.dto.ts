@@ -187,6 +187,9 @@ export class VolunteerPreachingGroupGuestDto {
 
   @ApiProperty({ example: false })
   is_minor: boolean;
+
+  @ApiProperty({ example: false })
+  is_group_contact: boolean;
 }
 
 export class VolunteerPreachingGroupGuestGroupDto {

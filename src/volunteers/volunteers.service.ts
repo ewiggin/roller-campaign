@@ -1336,12 +1336,13 @@ export class VolunteersService {
             group_id: string;
             full_name: string;
             is_minor: boolean | number;
+            is_group_contact: boolean | number;
           }>
         >(
-          `SELECT g.group_id, g.full_name, g.is_minor
+          `SELECT g.group_id, g.full_name, g.is_minor, g.is_group_contact
            FROM guests g
            WHERE ${guestFilter.clause}
-           ORDER BY g.full_name ASC`,
+           ORDER BY g.is_group_contact DESC, g.full_name ASC`,
           guestFilter.params,
         )
       : [];
@@ -1349,7 +1350,11 @@ export class VolunteersService {
     const guestsByGroup = new Map<string, VolunteerPreachingGroupGuestDto[]>();
     for (const g of guestRows) {
       const list = guestsByGroup.get(g.group_id) ?? [];
-      list.push({ full_name: g.full_name, is_minor: Boolean(g.is_minor) });
+      list.push({
+        full_name: g.full_name,
+        is_minor: Boolean(g.is_minor),
+        is_group_contact: Boolean(g.is_group_contact),
+      });
       guestsByGroup.set(g.group_id, list);
     }
 
