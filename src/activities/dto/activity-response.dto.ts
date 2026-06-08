@@ -126,6 +126,49 @@ export class AvailableGroupForActivityDto {
   preaching_shifts_count: number;
 }
 
+export class PreachingGroupVolunteerDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: 'V-001' })
+  volunteer_code: string;
+
+  @ApiProperty({ example: 'Carlos López' })
+  full_name: string;
+
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    nullable: true,
+  })
+  role_id: string | null;
+
+  @ApiPropertyOptional({ example: 'Driver', nullable: true })
+  role_name: string | null;
+
+  @ApiProperty({ type: [VolunteerAvailableRoleDto] })
+  available_roles: VolunteerAvailableRoleDto[];
+
+  @ApiPropertyOptional({ example: 'Conduce la furgoneta', nullable: true })
+  description: string | null;
+}
+
+export class PreachingGroupDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiPropertyOptional({ example: 'Grupo Centro', nullable: true })
+  name: string | null;
+
+  @ApiProperty({ example: 0 })
+  position: number;
+
+  @ApiProperty({ type: [PreachingGroupVolunteerDto] })
+  volunteers: PreachingGroupVolunteerDto[];
+
+  @ApiProperty({ type: [ActivityGuestGroupDto] })
+  guest_groups: ActivityGuestGroupDto[];
+}
+
 export class ActivityResponseDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
@@ -189,6 +232,13 @@ export class ActivityResponseDto {
 
   @ApiProperty({ example: 48 })
   total_guests_assigned: number;
+
+  @ApiProperty({
+    type: [PreachingGroupDto],
+    description:
+      'Grupos de predicación de la actividad (solo aplica cuando is_preaching_shift es true)',
+  })
+  preaching_groups: PreachingGroupDto[];
 
   @ApiPropertyOptional({ example: 50, nullable: true })
   max_guests: number | null;

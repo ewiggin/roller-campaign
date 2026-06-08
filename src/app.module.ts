@@ -11,6 +11,7 @@ import { HostsModule } from './hosts/hosts.module';
 import { RegionsModule } from './regions/regions.module';
 import { SettingsModule } from './settings/settings.module';
 import { UsersModule } from './users/users.module';
+import { VersionModule } from './version/version.module';
 import { VolunteersModule } from './volunteers/volunteers.module';
 
 @Module({
@@ -50,6 +51,7 @@ import { VolunteersModule } from './volunteers/volunteers.module';
     HostsModule,
     AuditLogsModule,
     SettingsModule,
+    VersionModule,
   ],
 })
 export class AppModule {}
