@@ -45,6 +45,18 @@ export class VolunteersService {
     return this.http.get<Volunteer>(`/api/volunteers/${id}`);
   }
 
+  create(dto: {
+    volunteer_code: string;
+    full_name: string;
+    email?: string | null;
+    phone?: string | null;
+    is_active?: boolean;
+    role_ids?: string[];
+    region_ids?: string[];
+  }) {
+    return this.http.post<Volunteer>('/api/volunteers', dto);
+  }
+
   update(id: string, dto: Partial<Volunteer> & { role_ids?: string[]; region_ids?: string[] }) {
     return this.http.patch<Volunteer>(`/api/volunteers/${id}`, dto);
   }
