@@ -1,6 +1,6 @@
 {
   "name": "roller-admin",
-  "version": "0.24.1",
+  "version": "0.24.3",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --proxy-config proxy.config.json --port 4201",

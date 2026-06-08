@@ -108,6 +108,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'preaching-shifts',
+        data: { screen: 'activities', preachingShiftsOnly: true },
+        canActivate: [permissionsGuard],
+        loadComponent: () =>
+          import('./features/admin/activities/activities-list').then(
+            (m) => m.ActivitiesListComponent,
+          ),
+      },
+      {
         path: 'audit-logs',
         loadComponent: () =>
           import('./features/admin/audit-logs/audit-logs-list').then(

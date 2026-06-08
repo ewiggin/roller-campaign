@@ -1,7 +1,8 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { concatMap, from, last } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+import { catchError, concatMap, from, last, map, of, toArray } from 'rxjs';
 import type {
   Activity,
   ActivityStatus,
@@ -51,6 +52,18 @@ export class ActivitiesListComponent implements OnInit {
   private readonly regionsSvc = inject(RegionsService);
   private readonly hostsSvc = inject(HostsService);
   private readonly volunteersSvc = inject(VolunteersService);
+  private readonly route = inject(ActivatedRoute);
+
+  // When opened from the "Preaching Shifts" menu entry, the list is
+  // pre-filtered to is_preaching_shift = true and new activities created
+  // here are implicitly preaching shifts (no need for a manual toggle).
+  readonly preachingShiftsOnly = this.route.snapshot.data['preachingShiftsOnly'] === true;
+
+  readonly pageTitle = this.preachingShiftsOnly ? 'Preaching Shifts' : 'Activities';
+  readonly newActivityLabel = this.preachingShiftsOnly ? 'New preaching shift' : 'New activity';
+  readonly emptyActivitiesLabel = this.preachingShiftsOnly
+    ? 'No preaching shifts found.'
+    : 'No activities found.';
 
   // filter hosts (separate from modal hosts)
   readonly filterHosts = signal<Host[]>([]);
@@ -156,6 +169,45 @@ export class ActivitiesListComponent implements OnInit {
       });
   }
 
+  bulkDelete() {
+    const ids = [...this.selectedIds()];
+    if (!ids.length) return;
+    const label = this.preachingShiftsOnly
+      ? ids.length > 1
+        ? `${ids.length} preaching shifts`
+        : 'this preaching shift'
+      : ids.length > 1
+        ? `${ids.length} activities`
+        : 'this activity';
+    if (!confirm(`Delete ${label}? This cannot be undone.`)) return;
+    this.bulkSaving.set(true);
+    from(ids)
+      .pipe(
+        concatMap((id) =>
+          this.svc.remove(id).pipe(
+            map(() => ({ id, ok: true as const })),
+            catchError(() => of({ id, ok: false as const })),
+          ),
+        ),
+        toArray(),
+      )
+      .subscribe((results) => {
+        this.bulkSaving.set(false);
+        const deletedIds = results.filter((r) => r.ok).map((r) => r.id);
+        const failedCount = results.length - deletedIds.length;
+        if (deletedIds.includes(this.selectedActivity()?.id ?? '')) this.activeModal.set(null);
+        this.clearSelection();
+        this.load();
+        if (this.viewMode() === 'calendar')
+          if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+        if (failedCount > 0) {
+          alert(
+            `${failedCount} of ${ids.length} could not be deleted (published activities must be unpublished first).`,
+          );
+        }
+      });
+  }
+
   readonly filterRegion = signal('');
   readonly filterStatus = signal<ActivityStatus | ''>('');
   readonly filterDate = signal('');
@@ -217,7 +269,6 @@ export class ActivitiesListComponent implements OnInit {
     host_id: [null as string | null],
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
-    is_preaching_shift: [false],
   });
 
   readonly createDescLen = signal(0);
@@ -247,7 +298,6 @@ export class ActivitiesListComponent implements OnInit {
     host_id: [null as string | null],
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
-    is_preaching_shift: [false],
   });
 
   readonly editDescLen = signal(0);
@@ -466,6 +516,7 @@ export class ActivitiesListComponent implements OnInit {
         regionId: this.filterRegion() || undefined,
         date: this.filterDate() || undefined,
         hostId: this.filterHost() || undefined,
+        is_preaching_shift: this.preachingShiftsOnly,
         page: this.page(),
         limit: this.limit,
       })
@@ -580,6 +631,7 @@ export class ActivitiesListComponent implements OnInit {
       .getAll({
         regionId: this.filterRegion() || undefined,
         hostId: this.filterHost() || undefined,
+        is_preaching_shift: this.preachingShiftsOnly,
         dateFrom: period.dateFrom,
         dateTo: period.dateTo,
         limit: 500,
@@ -645,7 +697,7 @@ export class ActivitiesListComponent implements OnInit {
       start_time: v.start_time!,
       end_time: v.end_time!,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
-      is_preaching_shift: v.is_preaching_shift ?? false,
+      is_preaching_shift: this.preachingShiftsOnly,
     };
 
     if (this.repeatEnabled()) {
@@ -709,7 +761,6 @@ export class ActivitiesListComponent implements OnInit {
       host_id: activity.host_id,
       required_volunteers: activity.required_volunteers,
       max_guests: activity.max_guests,
-      is_preaching_shift: activity.is_preaching_shift,
     });
     this.editDescLen.set(activity.description?.length ?? 0);
     this.editActivitySlots.set(
@@ -829,7 +880,7 @@ export class ActivitiesListComponent implements OnInit {
       required_volunteers: v.required_volunteers || null,
       max_guests: v.max_guests || null,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
-      is_preaching_shift: v.is_preaching_shift ?? false,
+      is_preaching_shift: this.selectedActivity()?.is_preaching_shift ?? false,
     };
   }
 
