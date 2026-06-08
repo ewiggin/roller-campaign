@@ -874,14 +874,7 @@
 
       <!-- Tabs -->
       <div class="flex border-b border-gray-200 dark:border-zinc-700 shrink-0">
-        @for (
-          tab of [
-            ['info', 'Info'],
-            ['volunteers', 'Volunteers'],
-            ['groups', 'Groups'],
-          ];
-          track tab[0]
-        ) {
+        @for (tab of detailTabs(); track tab[0]) {
           <button
             (click)="setDetailTab(tab[0])"
             class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors"
@@ -900,6 +893,11 @@
             @if (tab[0] === 'groups') {
               <span class="ml-1 text-xs text-gray-400 dark:text-zinc-500"
                 >({{ selectedActivity()!.guest_groups?.length ?? 0 }})</span
+              >
+            }
+            @if (tab[0] === 'preaching-groups') {
+              <span class="ml-1 text-xs text-gray-400 dark:text-zinc-500"
+                >({{ selectedActivity()!.preaching_groups?.length ?? 0 }})</span
               >
             }
           </button>
@@ -1389,6 +1387,328 @@
                   </li>
                 }
               </ul>
+            }
+          </div>
+        }
+
+        <!-- Preaching groups tab -->
+        @if (detailTab() === 'preaching-groups') {
+          <div class="space-y-4">
+            <div class="flex justify-end">
+              <button
+                type="button"
+                (click)="addPreachingGroup()"
+                [disabled]="detailSaving()"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Group
+              </button>
+            </div>
+
+            @if ((selectedActivity()!.preaching_groups?.length ?? 0) === 0) {
+              <p class="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
+                No preaching groups yet.
+              </p>
+            } @else {
+              @for (group of selectedActivity()!.preaching_groups; track group.id) {
+                <div
+                  class="rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+                >
+                  <div
+                    class="flex items-center gap-2 px-5 py-3 bg-gray-50 dark:bg-zinc-800/40 border-b border-gray-200 dark:border-zinc-700"
+                  >
+                    <button
+                      type="button"
+                      (click)="toggleGroupExpanded(group.id)"
+                      [attr.aria-label]="
+                        isGroupExpanded(group.id) ? 'Collapse group' : 'Expand group'
+                      "
+                      class="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors shrink-0"
+                    >
+                      <svg
+                        class="w-4 h-4 transition-transform"
+                        [class.rotate-90]="isGroupExpanded(group.id)"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                        />
+                      </svg>
+                    </button>
+                    @if (isGroupExpanded(group.id)) {
+                      <input
+                        type="text"
+                        [value]="group.name ?? ''"
+                        (change)="renamePreachingGroup(group.id, $any($event.target).value)"
+                        [disabled]="detailSaving()"
+                        placeholder="Group name…"
+                        class="flex-1 min-w-0 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-3 py-1.5 text-sm font-semibold text-gray-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+                      />
+                    } @else {
+                      <p
+                        class="flex-1 min-w-0 truncate text-sm font-semibold text-gray-700 dark:text-zinc-200"
+                      >
+                        {{ group.name || 'Group ' + (group.position + 1) }}
+                      </p>
+                    }
+                    <button
+                      type="button"
+                      (click)="removePreachingGroup(group.id)"
+                      [disabled]="detailSaving()"
+                      class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-50 shrink-0"
+                    >
+                      <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  @if (!isGroupExpanded(group.id)) {
+                    <div class="px-5 py-3 space-y-2">
+                      @if (group.volunteers.length === 0 && group.guest_groups.length === 0) {
+                        <p class="text-xs text-gray-400 dark:text-zinc-500">Empty group.</p>
+                      } @else {
+                        @if (group.volunteers.length > 0) {
+                          <div class="flex flex-wrap gap-1.5">
+                            @for (v of group.volunteers; track v.id) {
+                              <span
+                                class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-zinc-300 ring-1 ring-gray-200 dark:ring-zinc-700"
+                              >
+                                {{ v.full_name }}
+                                @if (v.role_name) {
+                                  <span class="text-gray-400 dark:text-zinc-500"
+                                    >· {{ v.role_name }}</span
+                                  >
+                                }
+                              </span>
+                            }
+                          </div>
+                        }
+                        @if (group.guest_groups.length > 0) {
+                          <div class="flex flex-wrap gap-1.5">
+                            @for (g of group.guest_groups; track g.id) {
+                              <span
+                                class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 ring-1 ring-blue-200 dark:ring-blue-800"
+                              >
+                                {{ g.group_code }}
+                                <span class="text-blue-400 dark:text-blue-500"
+                                  >· {{ g.guest_count }}</span
+                                >
+                              </span>
+                            }
+                          </div>
+                        }
+                      }
+                    </div>
+                  }
+
+                  @if (isGroupExpanded(group.id)) {
+                    <div class="p-4 space-y-4">
+                      <!-- Volunteers -->
+                      <div class="space-y-2">
+                        <p
+                          class="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide"
+                        >
+                          Volunteers ({{ group.volunteers.length }})
+                        </p>
+                        @if (group.volunteers.length > 0) {
+                          <ul
+                            class="divide-y divide-gray-100 dark:divide-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden"
+                          >
+                            @for (v of group.volunteers; track v.id) {
+                              <li class="flex items-center gap-3 px-3 py-2">
+                                <div class="min-w-0 shrink-0">
+                                  <p
+                                    class="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate"
+                                  >
+                                    {{ v.full_name }}
+                                  </p>
+                                  <p class="text-xs text-gray-400 dark:text-zinc-500">
+                                    {{ v.volunteer_code }}
+                                  </p>
+                                </div>
+                                @if (v.available_roles.length > 0) {
+                                  <select
+                                    [ngModel]="v.role_id ?? ''"
+                                    (ngModelChange)="setVolunteerRole(v.id, $event)"
+                                    [disabled]="detailSaving()"
+                                    class="rounded-md border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-700 dark:text-zinc-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 max-w-[140px] shrink-0"
+                                  >
+                                    <option value="">— no role —</option>
+                                    @for (r of v.available_roles; track r.id) {
+                                      <option [value]="r.id">{{ r.name }}</option>
+                                    }
+                                  </select>
+                                } @else if (v.role_name) {
+                                  <span
+                                    class="rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 ring-1 ring-blue-200 dark:ring-blue-800 shrink-0"
+                                  >
+                                    {{ v.role_name }}
+                                  </span>
+                                }
+                                <input
+                                  type="text"
+                                  [value]="v.description ?? ''"
+                                  (change)="
+                                    updateGroupVolunteerDescription(
+                                      group.id,
+                                      v.id,
+                                      $any($event.target).value
+                                    )
+                                  "
+                                  [disabled]="detailSaving()"
+                                  placeholder="Description…"
+                                  class="flex-1 min-w-0 rounded-md border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-2 py-1 text-xs text-gray-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+                                />
+                                <button
+                                  type="button"
+                                  (click)="removeVolunteerFromGroup(group.id, v.id)"
+                                  [disabled]="detailSaving()"
+                                  class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-50 shrink-0"
+                                >
+                                  <svg
+                                    class="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                  >
+                                    <path
+                                      stroke-linecap="round"
+                                      stroke-linejoin="round"
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              </li>
+                            }
+                          </ul>
+                        }
+                        <div class="flex gap-2">
+                          @if (availableVolunteerRoles().length > 0) {
+                            <select
+                              [ngModel]="pickedRoleFor(group.id)"
+                              (ngModelChange)="setPickedRoleFor(group.id, $event)"
+                              [disabled]="detailSaving()"
+                              class="rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-700 dark:text-zinc-300 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 max-w-[140px] shrink-0"
+                            >
+                              <option value="">All roles</option>
+                              @for (role of availableVolunteerRoles(); track role.id) {
+                                <option [value]="role.id">{{ role.name }}</option>
+                              }
+                            </select>
+                          }
+                          <app-searchable-select
+                            class="flex-1"
+                            [items]="ungroupedVolunteerItemsFor(group.id)"
+                            placeholder="Select volunteer…"
+                            [compact]="true"
+                            [selected]="pickedVolunteerFor(group.id)"
+                            (selectedChange)="setPickedVolunteerFor(group.id, $event)"
+                          />
+                          <button
+                            type="button"
+                            (click)="addVolunteerToGroup(group.id)"
+                            [disabled]="!pickedVolunteerFor(group.id) || detailSaving()"
+                            class="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Guest groups -->
+                      <div class="space-y-2">
+                        <p
+                          class="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide"
+                        >
+                          Guest groups ({{ group.guest_groups.length }})
+                        </p>
+                        @if (group.guest_groups.length > 0) {
+                          <ul
+                            class="divide-y divide-gray-100 dark:divide-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden"
+                          >
+                            @for (g of group.guest_groups; track g.id) {
+                              <li class="flex items-center justify-between px-3 py-2">
+                                <div>
+                                  <p class="text-sm font-medium text-gray-900 dark:text-zinc-100">
+                                    {{ g.group_code }}
+                                  </p>
+                                  <p class="text-xs text-gray-400 dark:text-zinc-500">
+                                    {{ g.guest_count }} guest{{ g.guest_count !== 1 ? 's' : '' }}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  (click)="removeGuestGroupFromGroup(group.id, g.id)"
+                                  [disabled]="detailSaving()"
+                                  class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-50"
+                                >
+                                  <svg
+                                    class="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                  >
+                                    <path
+                                      stroke-linecap="round"
+                                      stroke-linejoin="round"
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              </li>
+                            }
+                          </ul>
+                        }
+                        <div class="flex gap-2">
+                          <app-searchable-select
+                            class="flex-1"
+                            [items]="ungroupedGroupItems()"
+                            placeholder="Select guest group…"
+                            [compact]="true"
+                            [selected]="pickedGuestGroupFor(group.id)"
+                            (selectedChange)="setPickedGuestGroupFor(group.id, $event)"
+                          />
+                          <button
+                            type="button"
+                            (click)="addGuestGroupToGroup(group.id)"
+                            [disabled]="!pickedGuestGroupFor(group.id) || detailSaving()"
+                            class="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
             }
           </div>
         }

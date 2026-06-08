@@ -99,6 +99,68 @@ export class ActivitiesService {
     return this.http.delete<Activity>(`/api/activities/${id}/guest-groups/${groupId}`);
   }
 
+  // ── Preaching groups ──────────────────────────────────────────────────────
+
+  addPreachingGroup(id: string, name?: string | null) {
+    return this.http.post<Activity>(`/api/activities/${id}/preaching-groups`, {
+      name: name ?? null,
+    });
+  }
+
+  renamePreachingGroup(id: string, groupId: string, name: string | null) {
+    return this.http.patch<Activity>(`/api/activities/${id}/preaching-groups/${groupId}`, {
+      name,
+    });
+  }
+
+  removePreachingGroup(id: string, groupId: string) {
+    return this.http.delete<Activity>(`/api/activities/${id}/preaching-groups/${groupId}`);
+  }
+
+  assignVolunteerToGroup(
+    id: string,
+    groupId: string,
+    volunteerId: string,
+    roleId?: string | null,
+    description?: string | null,
+  ) {
+    return this.http.post<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/volunteers`,
+      { volunteerId, role_id: roleId ?? null, description: description ?? null },
+    );
+  }
+
+  updateGroupVolunteerDescription(
+    id: string,
+    groupId: string,
+    volunteerId: string,
+    description: string | null,
+  ) {
+    return this.http.patch<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/volunteers/${volunteerId}`,
+      { description },
+    );
+  }
+
+  removeVolunteerFromGroup(id: string, groupId: string, volunteerId: string) {
+    return this.http.delete<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/volunteers/${volunteerId}`,
+    );
+  }
+
+  assignGuestGroupToGroup(id: string, groupId: string, guestGroupId: string) {
+    return this.http.post<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/guest-groups`,
+      { groupId: guestGroupId },
+    );
+  }
+
+  removeGuestGroupFromGroup(id: string, groupId: string, guestGroupId: string) {
+    return this.http.delete<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/guest-groups/${guestGroupId}`,
+    );
+  }
+
   publish(id: string) {
     return this.http.post<Activity>(`/api/activities/${id}/publish`, {});
   }
