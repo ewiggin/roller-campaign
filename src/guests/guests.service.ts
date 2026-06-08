@@ -8,8 +8,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Activity } from '../activities/entities/activity.entity';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -18,7 +18,10 @@ import { Host } from '../hosts/entities/host.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateGuestDto } from './dto/create-guest.dto';
-import { GuestActivityResponseDto } from './dto/guest-activity-response.dto';
+import {
+  GuestActivityResponseDto,
+  GuestActivityVolunteerDto,
+} from './dto/guest-activity-response.dto';
 import {
   GuestCodeTokenResponseDto,
   GuestFormLookupResponseDto,
@@ -38,6 +41,7 @@ import {
   ImportErrorDto,
   ImportGuestRowDto,
   ImportParseResponseDto,
+  ImportToDeleteGuestDto,
 } from './dto/import-parse-response.dto';
 import { UpdateGuestDto } from './dto/update-guest.dto';
 import { Guest } from './entities/guest.entity';
@@ -125,6 +129,7 @@ export class GuestsService {
     private readonly hostsRepository: Repository<Host>,
     @InjectRepository(Activity)
     private readonly activitiesRepository: Repository<Activity>,
+    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -287,6 +292,12 @@ export class GuestsService {
   parseExcel(buffer: Buffer, regionId?: string): ImportParseResponseDto {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const sheetHeaders = (XLSX.utils.sheet_to_json<string[]>(sheet, {
+      header: 1,
+    })[0] ?? []) as string[];
+    const columns = sheetHeaders.filter(
+      (h) => typeof h === 'string' && h in EXCEL_COLUMNS,
+    );
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       raw: false,
       defval: null,
@@ -311,7 +322,6 @@ export class GuestsService {
 
       if (!guest_code) rowErrors.push('guest_code es obligatorio');
       if (!group_code) rowErrors.push('group_code es obligatorio');
-      if (!full_name) rowErrors.push('full_name es obligatorio');
 
       if (guest_code && seenCodes.has(guest_code)) {
         rowErrors.push('guest_code duplicado en el archivo');
@@ -351,7 +361,7 @@ export class GuestsService {
       valid.push({
         guest_code: guest_code!,
         group_code: group_code!,
-        full_name: full_name!,
+        full_name: full_name ?? null,
         is_minor: this.parseBool(row['is_minor']),
         status: (status as ImportGuestRowDto['status']) || 'pending',
         branch: this.parseString(row['branch']),
@@ -414,12 +424,15 @@ export class GuestsService {
       errors,
       duplicates: [],
       duplicateRows: [],
+      toDelete: [],
       summary: {
         total: rows.length,
         valid: valid.length,
         errors: errors.length,
         duplicates: 0,
+        to_delete: 0,
       },
+      columns,
     };
   }
 
@@ -428,6 +441,8 @@ export class GuestsService {
     regionId?: string,
   ): Promise<ImportParseResponseDto> {
     const preview = this.parseExcel(buffer, regionId);
+
+    const allExcelCodes = new Set(preview.valid.map((r) => r.guest_code));
 
     if (preview.valid.length > 0) {
       const codes = preview.valid.map((r) => r.guest_code);
@@ -450,6 +465,16 @@ export class GuestsService {
       preview.summary.valid = preview.valid.length;
     }
 
+    // Guests in DB that are absent from the Excel
+    const allDbGuests = await this.guestsRepository.find({
+      select: { guest_code: true, full_name: true },
+    });
+    const toDelete: ImportToDeleteGuestDto[] = allDbGuests.filter(
+      (g) => !allExcelCodes.has(g.guest_code),
+    );
+    preview.toDelete = toDelete;
+    preview.summary.to_delete = toDelete.length;
+
     return preview;
   }
 
@@ -461,6 +486,7 @@ export class GuestsService {
     let createdGroups = 0;
     let createdGuests = 0;
     let updatedGuests = 0;
+    let deletedGuests = 0;
     let groupsNotFound = 0;
     const notFoundRows: ImportGuestRowDto[] = [];
 
@@ -540,6 +566,9 @@ export class GuestsService {
     }
 
     // ── Updates (updateRows) ──────────────────────────────────────────────
+    const updateColumns =
+      dto.partialUpdate && dto.columns ? new Set(dto.columns) : null;
+
     for (const row of dto.updateRows ?? []) {
       const guest = await this.guestsRepository.findOne({
         where: { guest_code: row.guest_code },
@@ -563,11 +592,31 @@ export class GuestsService {
         if (group) newGroupId = group.id;
       }
 
-      Object.assign(guest, this.rowToGuestFields(row), {
-        group_id: newGroupId,
-      });
+      const allFields = this.rowToGuestFields(row);
+      const patch = updateColumns
+        ? Object.fromEntries(
+            Object.entries(allFields).filter(
+              ([k]) => k !== 'guest_code' && updateColumns.has(k),
+            ),
+          )
+        : allFields;
+
+      Object.assign(guest, patch, { group_id: newGroupId });
       await this.guestsRepository.save(guest);
       updatedGuests++;
+    }
+
+    // ── Delete absent (global) ────────────────────────────────────────────
+    if (dto.deleteAbsent) {
+      const codesToDelete = dto.toDeleteCodes ?? [];
+      if (codesToDelete.length > 0) {
+        for (let i = 0; i < codesToDelete.length; i += 200) {
+          await this.guestsRepository.delete({
+            guest_code: In(codesToDelete.slice(i, i + 200)),
+          });
+        }
+        deletedGuests = codesToDelete.length;
+      }
     }
 
     return {
@@ -575,6 +624,7 @@ export class GuestsService {
       updated_guests: updatedGuests,
       created_groups: createdGroups,
       total: dto.rows.length + (dto.updateRows?.length ?? 0),
+      ...(deletedGuests > 0 ? { deleted_guests: deletedGuests } : {}),
       ...(dto.regionId
         ? {}
         : {
@@ -587,7 +637,7 @@ export class GuestsService {
   private rowToGuestFields(row: ImportGuestRowDto) {
     return {
       guest_code: row.guest_code,
-      full_name: row.full_name,
+      full_name: row.full_name || `INVITADO - ${row.guest_code}`,
       is_minor: row.is_minor ?? false,
       status: (row.status as Guest['status']) ?? 'pending',
       branch: row.branch ?? null,
@@ -745,22 +795,127 @@ export class GuestsService {
       .addOrderBy('a.start_time', 'ASC')
       .getMany();
 
-    return activities.map((a) => ({
-      id: a.id,
-      name: a.name,
-      icon: a.icon,
-      description: a.description,
-      date: a.date,
-      start_time: a.start_time,
-      end_time: a.end_time,
-      activity_locations: a.activity_locations ?? null,
-      is_preaching_shift: a.is_preaching_shift,
-      volunteers: (a.volunteers ?? []).map((v) => ({
-        full_name: v.full_name,
-        phone: v.phone,
-        email: v.email,
-      })),
-    }));
+    const isSqlite = this.dataSource.options.type === 'better-sqlite3';
+    const preachingShiftIds = activities
+      .filter((a) => a.is_preaching_shift)
+      .map((a) => a.id);
+    const scopedVolunteers = await this.getGuestPreachingGroupVolunteers(
+      guest.group_id,
+      preachingShiftIds,
+      isSqlite,
+    );
+
+    return activities.map((a) => {
+      const group = a.is_preaching_shift
+        ? (scopedVolunteers.get(a.id) ?? null)
+        : null;
+      return {
+        id: a.id,
+        name: a.name,
+        icon: a.icon,
+        description: a.description,
+        date: a.date,
+        start_time: a.start_time,
+        end_time: a.end_time,
+        activity_locations: a.activity_locations ?? null,
+        is_preaching_shift: a.is_preaching_shift,
+        preaching_group_name: group?.name ?? null,
+        volunteers: group
+          ? group.volunteers
+          : (a.volunteers ?? []).map((v) => ({
+              full_name: v.full_name,
+              phone: v.phone,
+              email: v.email,
+              role_name: null,
+              description: null,
+            })),
+      };
+    });
+  }
+
+  private async getGuestPreachingGroupVolunteers(
+    guestGroupId: string,
+    activityIds: string[],
+    isSqlite: boolean,
+  ): Promise<
+    Map<
+      string,
+      { name: string | null; volunteers: GuestActivityVolunteerDto[] }
+    >
+  > {
+    const result = new Map<
+      string,
+      { name: string | null; volunteers: GuestActivityVolunteerDto[] }
+    >();
+    if (activityIds.length === 0) return result;
+
+    const activityFilter = isSqlite
+      ? `apg.activity_id IN (${activityIds.map(() => '?').join(',')})`
+      : `apg.activity_id = ANY($2)`;
+
+    const membership = await this.dataSource.query<
+      Array<{
+        group_id: string;
+        activity_id: string;
+        group_name: string | null;
+      }>
+    >(
+      `SELECT apggg."preachingGroupId" AS group_id, apg.activity_id, apg.name AS group_name
+       FROM activity_preaching_group_guest_groups apggg
+       INNER JOIN activity_preaching_groups apg ON apg.id = apggg."preachingGroupId"
+       WHERE apggg."guestGroupId" = ${isSqlite ? '?' : '$1'} AND ${activityFilter}`,
+      isSqlite ? [guestGroupId, ...activityIds] : [guestGroupId, activityIds],
+    );
+    if (membership.length === 0) return result;
+
+    const groupIds = membership.map((m) => m.group_id);
+    const groupFilter = isSqlite
+      ? `apgv.preaching_group_id IN (${groupIds.map(() => '?').join(',')})`
+      : `apgv.preaching_group_id = ANY($1)`;
+
+    const memberRows = await this.dataSource.query<
+      Array<{
+        group_id: string;
+        full_name: string;
+        phone: string | null;
+        email: string | null;
+        role_name: string | null;
+        description: string | null;
+      }>
+    >(
+      `SELECT apgv.preaching_group_id AS group_id, vol.full_name, vol.phone, vol.email,
+              vr.name AS role_name, apgv.description
+       FROM activity_preaching_group_volunteers apgv
+       INNER JOIN activity_preaching_groups apg ON apg.id = apgv.preaching_group_id
+       INNER JOIN volunteers vol ON vol.id = apgv.volunteer_id
+       LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = apg.activity_id AND avr.volunteer_id = apgv.volunteer_id
+       LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
+       WHERE ${groupFilter}
+       ORDER BY vol.full_name ASC`,
+      isSqlite ? groupIds : [groupIds],
+    );
+
+    const membersByGroup = new Map<string, GuestActivityVolunteerDto[]>();
+    for (const m of memberRows) {
+      const list = membersByGroup.get(m.group_id) ?? [];
+      list.push({
+        full_name: m.full_name,
+        phone: m.phone,
+        email: m.email,
+        role_name: m.role_name,
+        description: m.description,
+      });
+      membersByGroup.set(m.group_id, list);
+    }
+
+    for (const m of membership) {
+      result.set(m.activity_id, {
+        name: m.group_name,
+        volunteers: membersByGroup.get(m.group_id) ?? [],
+      });
+    }
+
+    return result;
   }
 
   generateTemplate(): Buffer {
@@ -848,6 +1003,9 @@ export class GuestsService {
       'is_minor',
       'branch',
       'native_language',
+      'terms_accepted',
+      'terms_accepted_at',
+      'terms_version',
     ];
     const rows = guests.map((g) => [
       g.guest_code,
@@ -872,6 +1030,9 @@ export class GuestsService {
       g.is_minor ? 'Sí' : 'No',
       g.branch ?? '',
       g.native_language ?? '',
+      g.terms_accepted ? 'Sí' : 'No',
+      g.terms_accepted_at ?? '',
+      g.terms_version ?? '',
     ]);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -898,6 +1059,9 @@ export class GuestsService {
       { wch: 9 },
       { wch: 12 },
       { wch: 16 },
+      { wch: 14 },
+      { wch: 20 },
+      { wch: 14 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Invitados');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));

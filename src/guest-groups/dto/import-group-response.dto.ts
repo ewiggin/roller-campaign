@@ -12,4 +12,7 @@ export class ImportGroupResponseDto {
 
   @ApiPropertyOptional({ example: 1 })
   regions_not_found?: number;
+
+  @ApiPropertyOptional({ example: 4 })
+  deleted?: number;
 }

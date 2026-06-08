@@ -635,6 +635,8 @@ export class ActivitiesService {
 
     const group = await this.findPreachingGroupOrFail(id, groupId);
     if (dto.name !== undefined) group.name = dto.name;
+    if (dto.territory_key !== undefined)
+      group.territory_key = dto.territory_key;
     if (dto.position !== undefined) group.position = dto.position;
     await this.preachingGroupsRepo.save(group);
     return this.findOne(id, currentUser);
@@ -1203,6 +1205,7 @@ export class ActivitiesService {
     return groups.map((group) => ({
       id: group.id,
       name: group.name,
+      territory_key: group.territory_key ?? null,
       position: group.position,
       volunteers: (membersByGroup.get(group.id) ?? [])
         .map((member): PreachingGroupVolunteerDto | null => {
@@ -1389,6 +1392,7 @@ export class ActivitiesService {
     start_time: activity.start_time,
     end_time: activity.end_time,
     activity_locations: activity.activity_locations ?? null,
+    image_key: activity.image_key ?? null,
     is_preaching_shift: activity.is_preaching_shift,
     volunteers: (activity.volunteers ?? []).map((v) => {
       const vr = volunteerRoles.get(v.id);

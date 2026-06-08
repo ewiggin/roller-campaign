@@ -159,6 +159,12 @@ export class PreachingGroupDto {
   @ApiPropertyOptional({ example: 'Grupo Centro', nullable: true })
   name: string | null;
 
+  @ApiPropertyOptional({
+    example: 'territories/activityId-groupId-1749480000000-territory.pdf',
+    nullable: true,
+  })
+  territory_key: string | null;
+
   @ApiProperty({ example: 0 })
   position: number;
 
@@ -214,6 +220,12 @@ export class ActivityResponseDto {
 
   @ApiPropertyOptional({ type: [LocationPointDto], nullable: true })
   activity_locations: LocationPoint[] | null;
+
+  @ApiPropertyOptional({
+    example: 'activities/uuid-1749480000000-photo.jpg',
+    nullable: true,
+  })
+  image_key: string | null;
 
   @ApiProperty({ example: false })
   is_preaching_shift: boolean;

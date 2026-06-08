@@ -32,4 +32,9 @@ jobs:
           JWT_EXPIRES_IN: 6h
           ADMIN_EMAIL: admin@test.com
           ADMIN_PASSWORD: adminpass123
+          RAILWAY_BUCKET_NAME: ci-dummy-bucket
+          RAILWAY_BUCKET_ENDPOINT: https://dummy.storage.example.com
+          RAILWAY_BUCKET_REGION: us-east-1
+          RAILWAY_ACCESS_KEY_ID: ci-dummy-key
+          RAILWAY_SECRET_ACCESS_KEY: ci-dummy-secret
         run: npm test

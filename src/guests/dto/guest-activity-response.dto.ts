@@ -13,6 +13,12 @@ export class GuestActivityVolunteerDto {
 
   @ApiPropertyOptional({ example: 'carlos@example.com', nullable: true })
   email: string | null;
+
+  @ApiPropertyOptional({ example: 'Conductor', nullable: true })
+  role_name: string | null;
+
+  @ApiPropertyOptional({ example: 'Conduce la furgoneta', nullable: true })
+  description: string | null;
 }
 
 export class GuestActivityResponseDto {
@@ -45,6 +51,9 @@ export class GuestActivityResponseDto {
 
   @ApiProperty({ example: false })
   is_preaching_shift: boolean;
+
+  @ApiPropertyOptional({ example: 'Grupo Centro', nullable: true })
+  preaching_group_name: string | null;
 
   @ApiProperty({ type: [GuestActivityVolunteerDto] })
   volunteers: GuestActivityVolunteerDto[];
