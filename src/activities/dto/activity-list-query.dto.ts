@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsISO8601,
   IsInt,
   IsOptional,
@@ -7,7 +8,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class ActivityListQueryDto {
   @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -39,6 +40,12 @@ export class ActivityListQueryDto {
   @IsOptional()
   @IsUUID()
   volunteerId?: string;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  is_preaching_shift?: boolean;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()

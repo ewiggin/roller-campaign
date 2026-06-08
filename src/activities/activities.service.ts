@@ -156,6 +156,7 @@ export class ActivitiesService {
       dateTo,
       hostId,
       volunteerId,
+      is_preaching_shift,
       page = 1,
       limit = 50,
     } = query;
@@ -174,6 +175,10 @@ export class ActivitiesService {
         myVolId: v.id,
       });
       if (date) qb.andWhere('a.date = :date', { date });
+      if (is_preaching_shift !== undefined)
+        qb.andWhere('a.is_preaching_shift = :isPreachingShift', {
+          isPreachingShift: is_preaching_shift,
+        });
       const total = await qb.getCount();
       const activities = await qb
         .skip((page - 1) * limit)
@@ -216,6 +221,10 @@ export class ActivitiesService {
     if (hostId) qb.andWhere('a.host_id = :hostId', { hostId });
     if (volunteerId)
       qb.andWhere('volunteers.id = :volunteerId', { volunteerId });
+    if (is_preaching_shift !== undefined)
+      qb.andWhere('a.is_preaching_shift = :isPreachingShift', {
+        isPreachingShift: is_preaching_shift,
+      });
 
     const total = await qb.getCount();
     const activities = await qb
