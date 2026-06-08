@@ -24,6 +24,10 @@ import {
   VolunteerRoleDto,
   VolunteerRegionDto,
   AvailabilityEntryDto,
+  VolunteerPreachingGroupDto,
+  VolunteerPreachingGroupVolunteerDto,
+  VolunteerPreachingGroupGuestDto,
+  VolunteerPreachingGroupGuestGroupDto,
 } from './dto/volunteer-response.dto';
 import {
   VolunteerCodeTokenResponseDto,
@@ -1155,10 +1159,11 @@ export class VolunteersService {
         start_time: string;
         end_time: string;
         activity_locations: string | null;
+        is_preaching_shift: boolean | number;
       }>
     >(
       `SELECT a.id, a.region_id, a.name, a.icon, a.description, a.date, a.start_time, a.end_time,
-              a.activity_locations
+              a.activity_locations, a.is_preaching_shift
        FROM activities a
        INNER JOIN activity_volunteers av ON av."activitiesId" = a.id AND av."volunteersId" = ${p1}
        WHERE a.status = 'published'
@@ -1210,6 +1215,15 @@ export class VolunteersService {
       volunteersByActivity.set(vr.activity_id, list);
     }
 
+    const preachingShiftIds = rows
+      .filter((r) => Boolean(r.is_preaching_shift))
+      .map((r) => r.id);
+    const preachingGroupByActivity = await this.getVolunteerPreachingGroups(
+      v.id,
+      preachingShiftIds,
+      isSqlite,
+    );
+
     return rows.map((r) => ({
       id: r.id,
       region_id: r.region_id,
@@ -1222,8 +1236,183 @@ export class VolunteersService {
       activity_locations: r.activity_locations
         ? (JSON.parse(r.activity_locations) as LocationPoint[])
         : null,
+      is_preaching_shift: Boolean(r.is_preaching_shift),
       volunteers: volunteersByActivity.get(r.id) ?? [],
+      preaching_group: preachingGroupByActivity.get(r.id) ?? null,
     }));
+  }
+
+  /**
+   * For preaching-shift activities, finds the preaching group the volunteer
+   * belongs to in each one, along with its members and assigned guest groups.
+   */
+  private async getVolunteerPreachingGroups(
+    volunteerId: string,
+    activityIds: string[],
+    isSqlite: boolean,
+  ): Promise<Map<string, VolunteerPreachingGroupDto>> {
+    const result = new Map<string, VolunteerPreachingGroupDto>();
+    if (activityIds.length === 0) return result;
+
+    const activityFilter = this.buildIdFilter(
+      'apg.activity_id',
+      activityIds,
+      isSqlite,
+      2,
+    );
+    const membership = await this.dataSource.query<
+      Array<{
+        group_id: string;
+        activity_id: string;
+        group_name: string | null;
+        my_description: string | null;
+      }>
+    >(
+      `SELECT apg.id AS group_id, apg.activity_id, apg.name AS group_name, apgv.description AS my_description
+       FROM activity_preaching_group_volunteers apgv
+       INNER JOIN activity_preaching_groups apg ON apg.id = apgv.preaching_group_id
+       WHERE apgv.volunteer_id = ${isSqlite ? '?' : '$1'} AND ${activityFilter.clause}`,
+      isSqlite ? [volunteerId, ...activityIds] : [volunteerId, activityIds],
+    );
+    if (membership.length === 0) return result;
+
+    const groupIds = membership.map((m) => m.group_id);
+
+    const groupFilter = this.buildIdFilter(
+      'apgv.preaching_group_id',
+      groupIds,
+      isSqlite,
+      1,
+    );
+    const memberRows = await this.dataSource.query<
+      Array<{
+        group_id: string;
+        full_name: string;
+        phone: string | null;
+        role_name: string | null;
+        description: string | null;
+      }>
+    >(
+      `SELECT apgv.preaching_group_id AS group_id, vol.full_name, vol.phone, vr.name AS role_name, apgv.description
+       FROM activity_preaching_group_volunteers apgv
+       INNER JOIN activity_preaching_groups apg ON apg.id = apgv.preaching_group_id
+       INNER JOIN volunteers vol ON vol.id = apgv.volunteer_id
+       LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = apg.activity_id AND avr.volunteer_id = apgv.volunteer_id
+       LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
+       WHERE ${groupFilter.clause}
+       ORDER BY vol.full_name ASC`,
+      groupFilter.params,
+    );
+
+    const guestGroupFilter = this.buildIdFilter(
+      'apggg."preachingGroupId"',
+      groupIds,
+      isSqlite,
+      1,
+    );
+    const guestGroupRows = await this.dataSource.query<
+      Array<{ group_id: string; guest_group_id: string; group_code: string }>
+    >(
+      `SELECT apggg."preachingGroupId" AS group_id, gg.id AS guest_group_id, gg.group_code
+       FROM activity_preaching_group_guest_groups apggg
+       INNER JOIN guest_groups gg ON gg.id = apggg."guestGroupId"
+       WHERE ${guestGroupFilter.clause}
+       ORDER BY gg.group_code ASC`,
+      guestGroupFilter.params,
+    );
+
+    const guestGroupIds = [
+      ...new Set(guestGroupRows.map((g) => g.guest_group_id)),
+    ];
+    const guestFilter = this.buildIdFilter(
+      'g.group_id',
+      guestGroupIds,
+      isSqlite,
+      1,
+    );
+    const guestRows = guestGroupIds.length
+      ? await this.dataSource.query<
+          Array<{
+            group_id: string;
+            full_name: string;
+            is_minor: boolean | number;
+            is_group_contact: boolean | number;
+          }>
+        >(
+          `SELECT g.group_id, g.full_name, g.is_minor, g.is_group_contact
+           FROM guests g
+           WHERE ${guestFilter.clause}
+           ORDER BY g.is_group_contact DESC, g.full_name ASC`,
+          guestFilter.params,
+        )
+      : [];
+
+    const guestsByGroup = new Map<string, VolunteerPreachingGroupGuestDto[]>();
+    for (const g of guestRows) {
+      const list = guestsByGroup.get(g.group_id) ?? [];
+      list.push({
+        full_name: g.full_name,
+        is_minor: Boolean(g.is_minor),
+        is_group_contact: Boolean(g.is_group_contact),
+      });
+      guestsByGroup.set(g.group_id, list);
+    }
+
+    const guestGroupsByPreachingGroup = new Map<
+      string,
+      VolunteerPreachingGroupGuestGroupDto[]
+    >();
+    for (const gg of guestGroupRows) {
+      const guests = guestsByGroup.get(gg.guest_group_id) ?? [];
+      const list = guestGroupsByPreachingGroup.get(gg.group_id) ?? [];
+      list.push({
+        group_code: gg.group_code,
+        guest_count: guests.length,
+        guests,
+      });
+      guestGroupsByPreachingGroup.set(gg.group_id, list);
+    }
+
+    const membersByGroup = new Map<
+      string,
+      VolunteerPreachingGroupVolunteerDto[]
+    >();
+    for (const m of memberRows) {
+      const list = membersByGroup.get(m.group_id) ?? [];
+      list.push({
+        full_name: m.full_name,
+        phone: m.phone,
+        role_name: m.role_name,
+        description: m.description,
+      });
+      membersByGroup.set(m.group_id, list);
+    }
+
+    for (const m of membership) {
+      result.set(m.activity_id, {
+        name: m.group_name,
+        description: m.my_description,
+        volunteers: membersByGroup.get(m.group_id) ?? [],
+        guest_groups: guestGroupsByPreachingGroup.get(m.group_id) ?? [],
+      });
+    }
+
+    return result;
+  }
+
+  private buildIdFilter(
+    column: string,
+    ids: string[],
+    isSqlite: boolean,
+    paramIndex: number,
+  ): { clause: string; params: unknown[] } {
+    if (isSqlite) {
+      return {
+        clause: `${column} IN (${ids.map(() => '?').join(',')})`,
+        params: ids,
+      };
+    }
+    return { clause: `${column} = ANY($${paramIndex})`, params: [ids] };
   }
 
   private str(val: unknown): string | null {
