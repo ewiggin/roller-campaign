@@ -58,11 +58,22 @@ export class GuestsService {
     return this.http.post<ImportParseResponse>(`/api/guests/import/parse${qs}`, form);
   }
 
-  commitImport(rows: ImportGuestRow[], updateRows?: ImportGuestRow[], regionId?: string) {
+  commitImport(
+    rows: ImportGuestRow[],
+    updateRows?: ImportGuestRow[],
+    regionId?: string,
+    deleteAbsent?: boolean,
+    partialUpdate?: boolean,
+    columns?: string[],
+    toDeleteCodes?: string[],
+  ) {
     return this.http.post<ImportCommitResponse>('/api/guests/import/commit', {
       ...(regionId ? { regionId } : {}),
       rows,
       ...(updateRows?.length ? { updateRows } : {}),
+      ...(deleteAbsent ? { deleteAbsent: true } : {}),
+      ...(toDeleteCodes?.length ? { toDeleteCodes } : {}),
+      ...(partialUpdate && columns?.length ? { partialUpdate: true, columns } : {}),
     });
   }
 
