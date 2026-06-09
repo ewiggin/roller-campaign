@@ -1210,12 +1210,12 @@ export class VolunteersService {
                  LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
                  WHERE av."activitiesId" IN (${activityIds.map(() => '?').join(',')})
                  ORDER BY vol.full_name ASC`
-              : `SELECT av."activitiesId" AS activity_id, vol.full_name, vol.phone, vr.name AS role_name
+              : `SELECT av."activitiesId"::varchar AS activity_id, vol.full_name, vol.phone, vr.name AS role_name
                  FROM activity_volunteers av
                  INNER JOIN volunteers vol ON vol.id = av."volunteersId"
-                 LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = av."activitiesId" AND avr.volunteer_id = av."volunteersId"
+                 LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = av."activitiesId"::varchar AND avr.volunteer_id = av."volunteersId"::varchar
                  LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
-                 WHERE av."activitiesId" = ANY($1)
+                 WHERE av."activitiesId"::varchar = ANY($1)
                  ORDER BY vol.full_name ASC`,
             isSqlite ? activityIds : [activityIds],
           )
