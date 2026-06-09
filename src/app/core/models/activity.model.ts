@@ -22,6 +22,14 @@ export interface ActivityGuestGroup {
   guest_count: number;
 }
 
+export interface ActivityAttendanceRequest {
+  request_id: string;
+  group_id: string;
+  group_code: string;
+  guest_count: number;
+  preference: number;
+}
+
 export interface PreachingGroupVolunteer {
   id: string;
   volunteer_code: string;
@@ -64,6 +72,7 @@ export interface Activity {
   guest_groups: ActivityGuestGroup[];
   total_guests_assigned: number;
   preaching_groups: PreachingGroup[];
+  requests: ActivityAttendanceRequest[];
   max_guests: number | null;
   created_at: string;
   updated_at: string;

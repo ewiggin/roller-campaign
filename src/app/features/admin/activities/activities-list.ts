@@ -1213,6 +1213,40 @@ export class ActivitiesListComponent implements OnInit {
     });
   }
 
+  assignFromRequest(groupId: string, requestId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.assignGuestGroup(activity.id, groupId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.reloadAvailableGroups();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error assigning group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  deleteRequest(requestId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.deleteAttendanceRequest(activity.id, requestId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+      },
+      error: () => {
+        this.detailError.set('Error deleting request.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
   // ── Preaching groups ──────────────────────────────────────────────────────
 
   addPreachingGroup() {
