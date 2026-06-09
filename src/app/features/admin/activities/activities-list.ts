@@ -723,7 +723,6 @@ export class ActivitiesListComponent implements OnInit {
       start_time: v.start_time!,
       end_time: v.end_time!,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
-      is_preaching_shift: v.is_preaching_shift ?? false,
       request_attendance: v.request_attendance ?? false,
       is_preaching_shift: this.preachingShiftsOnly,
     };
@@ -923,7 +922,6 @@ export class ActivitiesListComponent implements OnInit {
       required_volunteers: v.required_volunteers || null,
       max_guests: v.max_guests || null,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
-      is_preaching_shift: v.is_preaching_shift ?? false,
       request_attendance: v.request_attendance ?? false,
       is_preaching_shift: this.selectedActivity()?.is_preaching_shift ?? false,
     };

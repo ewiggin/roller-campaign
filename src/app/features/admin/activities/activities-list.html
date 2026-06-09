@@ -447,166 +447,6 @@
           (click)="closeModal()"
           class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
         >
-          <div>
-            <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Preaching shift</p>
-            <p class="text-xs text-gray-400 dark:text-zinc-500">
-              Mark this activity as a preaching shift
-            </p>
-          </div>
-          <div class="relative inline-flex items-center shrink-0 ml-4">
-            <input type="checkbox" formControlName="is_preaching_shift" class="sr-only peer" />
-            <div
-              class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
-            ></div>
-          </div>
-        </label>
-        <!-- Request attendance -->
-        <label
-          class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
-        >
-          <div>
-            <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Request attendance</p>
-            <p class="text-xs text-gray-400 dark:text-zinc-500">
-              Group captains can sign up for this activity from the enrollment form
-            </p>
-          </div>
-          <div class="relative inline-flex items-center shrink-0 ml-4">
-            <input type="checkbox" formControlName="request_attendance" class="sr-only peer" />
-            <div
-              class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
-            ></div>
-          </div>
-        </label>
-        <div class="grid grid-cols-2 gap-3">
-          <div class="col-span-2">
-            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-              >Region *</label
-            >
-            <app-searchable-select
-              formControlName="region_id"
-              [items]="regionItems()"
-              placeholder="Select region…"
-              [invalid]="isInvalid('create', 'region_id')"
-            />
-          </div>
-          <div class="col-span-2">
-            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-              >Name *</label
-            >
-            <div class="flex gap-2">
-              <app-emoji-picker [(value)]="createIconValue" class="shrink-0" />
-              <input
-                type="text"
-                formControlName="name"
-                placeholder="e.g. Airport pickup"
-                class="flex-1 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
-                [class.border-red-400]="isInvalid('create', 'name')"
-              />
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-              >Date *</label
-            >
-            <input
-              type="date"
-              formControlName="date"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              [class.border-red-400]="isInvalid('create', 'date')"
-            />
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-                >Start *</label
-              >
-              <input
-                type="time"
-                formControlName="start_time"
-                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                [class.border-red-400]="isInvalid('create', 'start_time')"
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-                >End *</label
-              >
-              <input
-                type="time"
-                formControlName="end_time"
-                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                [class.border-red-400]="isInvalid('create', 'end_time')"
-              />
-            </div>
-          </div>
-          <div class="col-span-2">
-            <div class="flex items-center justify-between mb-1">
-              <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400"
-                >Description</label
-              >
-              <span class="text-xs text-gray-400 dark:text-zinc-500"
-                >{{ createDescLen() }}/500</span
-              >
-            </div>
-            <textarea
-              formControlName="description"
-              rows="3"
-              maxlength="500"
-              placeholder="Optional description"
-              (input)="createDescLen.set($any($event.target).value.length)"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500 resize-none"
-            ></textarea>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-              >Host congregation
-              <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label
-            >
-            <app-searchable-select
-              formControlName="host_id"
-              [items]="modalHostItems()"
-              placeholder="— None —"
-              emptyLabel="— None —"
-            />
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-                >Volunteers needed
-                <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label
-              >
-              <input
-                type="number"
-                formControlName="required_volunteers"
-                min="1"
-                max="999"
-                placeholder="—"
-                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-                >Max guests
-                <span class="font-normal text-gray-400 dark:text-zinc-600">(optional)</span></label
-              >
-              <input
-                type="number"
-                formControlName="max_guests"
-                min="1"
-                placeholder="—"
-                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        <!-- Activity locations -->
-        <div>
-          <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-2"
-            >Locations
-            <span class="font-normal text-gray-400 dark:text-zinc-600"
-              >(optional — first used to sort groups by distance)</span
-            ></label
           <svg
             class="w-4 h-4"
             fill="none"
@@ -750,6 +590,24 @@
               </div>
             </div>
           </div>
+
+          <!-- Request attendance -->
+          <label
+            class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
+          >
+            <div>
+              <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Request attendance</p>
+              <p class="text-xs text-gray-400 dark:text-zinc-500">
+                Group captains can sign up for this activity from the enrollment form
+              </p>
+            </div>
+            <div class="relative inline-flex items-center shrink-0 ml-4">
+              <input type="checkbox" formControlName="request_attendance" class="sr-only peer" />
+              <div
+                class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
+              ></div>
+            </div>
+          </label>
 
           <!-- Activity locations -->
           <div>
@@ -1066,30 +924,6 @@
           >
             {{ detailError() }}
           </div>
-          <div class="relative inline-flex items-center shrink-0 ml-4">
-            <input type="checkbox" formControlName="is_preaching_shift" class="sr-only peer" />
-            <div
-              class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
-            ></div>
-          </div>
-        </label>
-        <!-- Request attendance -->
-        <label
-          class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
-        >
-          <div>
-            <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Request attendance</p>
-            <p class="text-xs text-gray-400 dark:text-zinc-500">
-              Group captains can sign up for this activity from the enrollment form
-            </p>
-          </div>
-          <div class="relative inline-flex items-center shrink-0 ml-4">
-            <input type="checkbox" formControlName="request_attendance" class="sr-only peer" />
-            <div
-              class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
-            ></div>
-          </div>
-        </label>
         }
 
         <!-- Info tab -->
@@ -1175,6 +1009,25 @@
                 </div>
               </div>
             </div>
+
+            <!-- Request attendance -->
+            <label
+              class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
+            >
+              <div>
+                <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Request attendance</p>
+                <p class="text-xs text-gray-400 dark:text-zinc-500">
+                  Group captains can sign up for this activity from the enrollment form
+                </p>
+              </div>
+              <div class="relative inline-flex items-center shrink-0 ml-4">
+                <input type="checkbox" formControlName="request_attendance" class="sr-only peer" />
+                <div
+                  class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
+                ></div>
+              </div>
+            </label>
+
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
