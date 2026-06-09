@@ -26,12 +26,9 @@ export class CaptainActivityResponseDto {
   @ApiPropertyOptional({ nullable: true })
   activity_locations: LocationPoint[] | null;
 
-  @ApiPropertyOptional({ example: 50, nullable: true })
-  max_guests: number | null;
-
-  @ApiProperty({ example: 12 })
-  enrolled_count: number;
-
   @ApiProperty({ example: false })
-  is_enrolled: boolean;
+  is_requested: boolean;
+
+  @ApiPropertyOptional({ example: 1, nullable: true })
+  preference: number | null;
 }

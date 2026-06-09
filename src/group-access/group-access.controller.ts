@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -16,9 +17,17 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { IsInt, Max, Min } from 'class-validator';
 import { CaptainActivityResponseDto } from './dto/captain-activity-response.dto';
 import { GroupLookupResponseDto } from './dto/group-lookup-response.dto';
 import { GroupAccessService } from './group-access.service';
+
+class EnrollBodyDto {
+  @IsInt()
+  @Min(1)
+  @Max(3)
+  preference: number;
+}
 
 @ApiTags('group-access')
 @Controller('group-access')
@@ -51,9 +60,10 @@ export class GroupAccessController {
   enroll(
     @Param('id') activityId: string,
     @Query('code') code: string,
+    @Body() body: EnrollBodyDto,
   ): Promise<void> {
     if (!code) throw new NotFoundException('Código requerido');
-    return this.service.enroll(code, activityId);
+    return this.service.enroll(code, activityId, body.preference ?? 1);
   }
 
   @Delete('activities/:id/enroll')

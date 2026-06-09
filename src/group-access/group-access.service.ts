@@ -11,6 +11,7 @@ import { Guest } from '../guests/entities/guest.entity';
 import { Region } from '../regions/entities/region.entity';
 import { CaptainActivityResponseDto } from './dto/captain-activity-response.dto';
 import { GroupLookupResponseDto } from './dto/group-lookup-response.dto';
+import { GroupActivityRequest } from './entities/group-activity-request.entity';
 
 @Injectable()
 export class GroupAccessService {
@@ -23,6 +24,8 @@ export class GroupAccessService {
     private readonly activitiesRepo: Repository<Activity>,
     @InjectRepository(Region)
     private readonly regionsRepo: Repository<Region>,
+    @InjectRepository(GroupActivityRequest)
+    private readonly requestsRepo: Repository<GroupActivityRequest>,
   ) {}
 
   async lookup(code: string): Promise<GroupLookupResponseDto> {
@@ -68,35 +71,49 @@ export class GroupAccessService {
     ];
     const groupCounts = await this.getGroupGuestCounts(allGroupIds);
 
+    const activityIds = activities.map((a) => a.id);
+    const existingRequests = activityIds.length
+      ? await this.requestsRepo
+          .createQueryBuilder('r')
+          .where('r.group_id = :groupId', { groupId: group.id })
+          .andWhere('r.activity_id IN (:...activityIds)', { activityIds })
+          .getMany()
+      : [];
+    const requestByActivity = new Map(
+      existingRequests.map((r) => [r.activity_id, r]),
+    );
+
     return activities
-      .map((a) => {
+      .filter((a) => {
+        if (a.max_guests === null) return true;
         const enrolledCount = (a.guestGroups ?? []).reduce(
           (sum, g) => sum + (groupCounts.get(g.id) ?? 0),
           0,
         );
-        const isEnrolled = (a.guestGroups ?? []).some((g) => g.id === group.id);
-        return { activity: a, enrolledCount, isEnrolled };
+        return enrolledCount < a.max_guests;
       })
-      .filter(
-        ({ activity, enrolledCount }) =>
-          activity.max_guests === null || enrolledCount < activity.max_guests,
-      )
-      .map(({ activity, enrolledCount, isEnrolled }) => ({
-        id: activity.id,
-        name: activity.name,
-        icon: activity.icon,
-        description: activity.description,
-        date: activity.date,
-        start_time: activity.start_time,
-        end_time: activity.end_time,
-        activity_locations: activity.activity_locations ?? null,
-        max_guests: activity.max_guests,
-        enrolled_count: enrolledCount,
-        is_enrolled: isEnrolled,
-      }));
+      .map((a) => {
+        const req = requestByActivity.get(a.id);
+        return {
+          id: a.id,
+          name: a.name,
+          icon: a.icon,
+          description: a.description,
+          date: a.date,
+          start_time: a.start_time,
+          end_time: a.end_time,
+          activity_locations: a.activity_locations ?? null,
+          is_requested: req !== undefined,
+          preference: req?.preference ?? null,
+        };
+      });
   }
 
-  async enroll(code: string, activityId: string): Promise<void> {
+  async enroll(
+    code: string,
+    activityId: string,
+    preference: number,
+  ): Promise<void> {
     const group = await this.groupsRepo.findOne({
       where: { group_code: code },
     });
@@ -114,11 +131,6 @@ export class GroupAccessService {
       throw new NotFoundException('Actividad no disponible');
     }
 
-    const alreadyEnrolled = (activity.guestGroups ?? []).some(
-      (g) => g.id === group.id,
-    );
-    if (alreadyEnrolled) return;
-
     if (activity.max_guests !== null) {
       const allGroupIds = (activity.guestGroups ?? []).map((g) => g.id);
       const counts = await this.getGroupGuestCounts(allGroupIds);
@@ -128,8 +140,7 @@ export class GroupAccessService {
       );
       const groupSizeCounts = await this.getGroupGuestCounts([group.id]);
       const groupSize = groupSizeCounts.get(group.id) ?? 0;
-      const newTotal = currentTotal + groupSize;
-      if (newTotal > activity.max_guests) {
+      if (currentTotal + groupSize > activity.max_guests) {
         const remaining = activity.max_guests - currentTotal;
         throw new ConflictException(
           `Tu grupo tiene ${groupSize} ${groupSize === 1 ? 'persona' : 'personas'} y solo quedan ${remaining} ${remaining === 1 ? 'plaza disponible' : 'plazas disponibles'} en esta actividad`,
@@ -137,8 +148,21 @@ export class GroupAccessService {
       }
     }
 
-    activity.guestGroups = [...(activity.guestGroups ?? []), group];
-    await this.activitiesRepo.save(activity);
+    const existing = await this.requestsRepo.findOne({
+      where: { group_id: group.id, activity_id: activityId },
+    });
+
+    if (existing) {
+      await this.requestsRepo.update(existing.id, { preference });
+    } else {
+      await this.requestsRepo.save(
+        this.requestsRepo.create({
+          group_id: group.id,
+          activity_id: activityId,
+          preference,
+        }),
+      );
+    }
   }
 
   async unenroll(code: string, activityId: string): Promise<void> {
@@ -147,16 +171,45 @@ export class GroupAccessService {
     });
     if (!group) throw new NotFoundException('Código de grupo no encontrado');
 
-    const activity = await this.activitiesRepo.findOne({
-      where: { id: activityId },
-      relations: ['guestGroups'],
+    await this.requestsRepo.delete({
+      group_id: group.id,
+      activity_id: activityId,
     });
-    if (!activity) throw new NotFoundException('Actividad no encontrada');
+  }
 
-    activity.guestGroups = (activity.guestGroups ?? []).filter(
-      (g) => g.id !== group.id,
-    );
-    await this.activitiesRepo.save(activity);
+  async deleteRequest(requestId: string): Promise<void> {
+    await this.requestsRepo.delete({ id: requestId });
+  }
+
+  async getRequestsForActivity(
+    activityId: string,
+  ): Promise<
+    {
+      request_id: string;
+      group_id: string;
+      group_code: string;
+      guest_count: number;
+      preference: number;
+    }[]
+  > {
+    const requests = await this.requestsRepo.find({
+      where: { activity_id: activityId },
+      relations: ['group'],
+      order: { preference: 'ASC', created_at: 'ASC' },
+    });
+
+    if (requests.length === 0) return [];
+
+    const groupIds = requests.map((r) => r.group_id);
+    const counts = await this.getGroupGuestCounts(groupIds);
+
+    return requests.map((r) => ({
+      request_id: r.id,
+      group_id: r.group_id,
+      group_code: r.group?.group_code ?? '',
+      guest_count: counts.get(r.group_id) ?? 0,
+      preference: r.preference,
+    }));
   }
 
   private async getGroupGuestCounts(

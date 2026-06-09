@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
+import { GroupActivityRequest } from '../group-access/entities/group-activity-request.entity';
 import { Guest } from '../guests/entities/guest.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
@@ -17,6 +18,7 @@ import { ActivityPreachingGroup } from './entities/activity-preaching-group.enti
 import { ActivityPreachingGroupVolunteer } from './entities/activity-preaching-group-volunteer.entity';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import {
+  ActivityAttendanceRequestDto,
   ActivityResponseDto,
   AvailableGroupForActivityDto,
   AvailableVolunteerForActivityDto,
@@ -56,6 +58,8 @@ export class ActivitiesService {
     private readonly preachingGroupsRepo: Repository<ActivityPreachingGroup>,
     @InjectRepository(ActivityPreachingGroupVolunteer)
     private readonly pgVolunteersRepo: Repository<ActivityPreachingGroupVolunteer>,
+    @InjectRepository(GroupActivityRequest)
+    private readonly requestsRepo: Repository<GroupActivityRequest>,
   ) {}
 
   async create(
@@ -1156,16 +1160,32 @@ export class ActivitiesService {
     activity: Activity,
   ): Promise<ActivityResponseDto> {
     const groupIds = (activity.guestGroups ?? []).map((g) => g.id);
-    const [counts, volunteerRoles] = await Promise.all([
+    const [counts, volunteerRoles, rawRequests] = await Promise.all([
       this.getGroupGuestCounts(groupIds),
       this.getVolunteerRoles(activity.id, activity.volunteers ?? []),
+      this.requestsRepo.find({
+        where: { activity_id: activity.id },
+        relations: ['group'],
+        order: { preference: 'ASC', created_at: 'ASC' },
+      }),
     ]);
     const preachingGroups = await this.getPreachingGroupsDto(
       activity.id,
       counts,
       volunteerRoles,
     );
-    return this.toDto(activity, counts, volunteerRoles, preachingGroups);
+    const requestGroupIds = rawRequests.map((r) => r.group_id);
+    const requestCounts = requestGroupIds.length
+      ? await this.getGroupGuestCounts(requestGroupIds)
+      : new Map<string, number>();
+    const requests: ActivityAttendanceRequestDto[] = rawRequests.map((r) => ({
+      request_id: r.id,
+      group_id: r.group_id,
+      group_code: r.group?.group_code ?? '',
+      guest_count: requestCounts.get(r.group_id) ?? 0,
+      preference: r.preference,
+    }));
+    return this.toDto(activity, counts, volunteerRoles, preachingGroups, requests);
   }
 
   private async getPreachingGroupsDto(
@@ -1368,6 +1388,19 @@ export class ActivitiesService {
     throw new ForbiddenException();
   }
 
+  async deleteAttendanceRequest(
+    activityId: string,
+    requestId: string,
+  ): Promise<ActivityResponseDto> {
+    await this.requestsRepo.delete({ id: requestId, activity_id: activityId });
+    const activity = await this.activitiesRepo.findOne({
+      where: { id: activityId },
+      relations: ACTIVITY_RELATIONS,
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    return this.toDtoWithCounts(activity);
+  }
+
   private toDto = (
     activity: Activity,
     groupCounts: Map<string, number> = new Map(),
@@ -1380,6 +1413,7 @@ export class ActivitiesService {
       }
     > = new Map(),
     preachingGroups: PreachingGroupDto[] = [],
+    requests: ActivityAttendanceRequestDto[] = [],
   ): ActivityResponseDto => ({
     id: activity.id,
     region_id: activity.region_id,
@@ -1420,6 +1454,7 @@ export class ActivitiesService {
       0,
     ),
     preaching_groups: preachingGroups,
+    requests,
     max_guests: activity.max_guests,
     created_at: activity.created_at,
     updated_at: activity.updated_at,
