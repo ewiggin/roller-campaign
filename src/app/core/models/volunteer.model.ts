@@ -97,10 +97,12 @@ export interface ImportVolunteerRow {
 export interface ImportVolunteerParseResponse {
   to_create: ImportVolunteerRow[];
   skipped: string[];
-  summary: { total: number; to_create: number; skipped: number };
+  to_delete: string[];
+  summary: { total: number; to_create: number; skipped: number; to_delete: number };
 }
 
 export interface ImportVolunteerCommitResponse {
   created: number;
   skipped: number;
+  deleted?: number;
 }

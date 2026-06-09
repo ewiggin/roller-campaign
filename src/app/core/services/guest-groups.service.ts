@@ -13,6 +13,7 @@ export interface ImportGroupResult {
   updated: number;
   total: number;
   regions_not_found?: number;
+  deleted?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -32,6 +33,7 @@ export class GuestGroupsService {
       minCarSeats?: number;
       languages?: string[];
       compositions?: string[];
+      hasCars?: boolean;
     } = {},
   ) {
     let params = new HttpParams();
@@ -43,6 +45,7 @@ export class GuestGroupsService {
     if (query.languages?.length) params = params.set('languages', query.languages.join(','));
     if (query.compositions?.length)
       params = params.set('compositions', query.compositions.join(','));
+    if (query.hasCars !== undefined) params = params.set('hasCars', String(query.hasCars));
     return this.http.get<GuestGroupListResponse>('/api/guest-groups', { params });
   }
 
@@ -66,10 +69,13 @@ export class GuestGroupsService {
     return this.http.patch<GuestGroup>(`/api/guest-groups/${groupId}/host`, { hostId });
   }
 
-  importFromExcel(file: File, regionId?: string) {
+  importFromExcel(file: File, regionId?: string, deleteAbsent?: boolean) {
     const form = new FormData();
     form.append('file', file);
-    const qs = regionId ? `?regionId=${regionId}` : '';
+    const parts: string[] = [];
+    if (regionId) parts.push(`regionId=${regionId}`);
+    if (deleteAbsent) parts.push('deleteAbsent=true');
+    const qs = parts.length ? '?' + parts.join('&') : '';
     return this.http.post<ImportGroupResult>(`/api/guest-groups/import${qs}`, form);
   }
 

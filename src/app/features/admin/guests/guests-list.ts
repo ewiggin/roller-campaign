@@ -172,7 +172,88 @@ export class GuestsListComponent implements OnInit {
   readonly parseResult = signal<ImportParseResponse | null>(null);
   readonly commitResult = signal<ImportCommitResponse | null>(null);
   readonly importUpdateExisting = signal(false);
+  readonly importDeleteAbsent = signal(false);
+  readonly importSelectedColumns = signal<string[]>([]);
   isDragging = false;
+
+  private readonly REQUIRED_COLUMNS = new Set(['guest_code', 'group_code']);
+
+  private readonly COLUMN_LABELS: Record<string, string> = {
+    guest_code: 'Guest code',
+    group_code: 'Group',
+    full_name: 'Full name',
+    is_minor: 'Minor',
+    status: 'Status',
+    branch: 'Branch',
+    is_group_contact: 'Group contact',
+    native_language: 'Language',
+    other_languages: 'Other languages',
+    speaks_english: 'Speaks English',
+    is_special_servant: 'Special servant',
+    origin_city: 'Origin city',
+    email: 'Email',
+    available_from: 'Available from',
+    available_to: 'Available to',
+    arrival_transport: 'Arrival transport',
+    arrival_other_transport: 'Arrival other',
+    arrival_date: 'Arrival date',
+    arrival_time: 'Arrival time',
+    arrival_place: 'Arrival place',
+    arrival_airport: 'Arrival airport',
+    arrival_airline: 'Arrival airline',
+    arrival_flight: 'Arrival flight',
+    real_arrival: 'Real arrival',
+    real_arrival_time: 'Real arrival time',
+    needs_airport_transfer: 'Airport transfer',
+    departure_transport: 'Dep. transport',
+    departure_other_transport: 'Dep. other',
+    departure_date: 'Departure date',
+    departure_time: 'Departure time',
+    departure_place: 'Departure place',
+    departure_airport: 'Dep. airport',
+    departure_airline: 'Dep. airline',
+    departure_flight: 'Dep. flight',
+    real_departure: 'Real departure',
+    real_departure_time: 'Real dep. time',
+    accommodation: 'Accommodation',
+    checkin_date: 'Check-in',
+    checkout_date: 'Check-out',
+    needs_special_accommodation: 'Special acc.',
+    hosting_address: 'Hosting address',
+    maps_link: 'Maps link',
+    lat: 'Lat',
+    lng: 'Lng',
+    transport_mode: 'Transport mode',
+    car_seats: 'Car seats',
+  };
+
+  isRequiredColumn(col: string): boolean {
+    return this.REQUIRED_COLUMNS.has(col);
+  }
+
+  columnLabel(col: string): string {
+    return this.COLUMN_LABELS[col] ?? col;
+  }
+
+  toggleColumn(col: string) {
+    if (this.isRequiredColumn(col)) return;
+    const current = this.importSelectedColumns();
+    this.importSelectedColumns.set(
+      current.includes(col) ? current.filter((c) => c !== col) : [...current, col],
+    );
+  }
+
+  selectAllColumns() {
+    this.importSelectedColumns.set([...(this.parseResult()?.columns ?? [])]);
+  }
+
+  selectNoColumns() {
+    this.importSelectedColumns.set([...this.REQUIRED_COLUMNS]);
+  }
+
+  isColumnSelected(col: string): boolean {
+    return this.importSelectedColumns().includes(col);
+  }
 
   // Token modal
   readonly tokenModal = signal(false);
@@ -310,6 +391,8 @@ export class GuestsListComponent implements OnInit {
     this.parseResult.set(null);
     this.commitResult.set(null);
     this.importUpdateExisting.set(false);
+    this.importDeleteAbsent.set(false);
+    this.importSelectedColumns.set([]);
     this.importModal.set(true);
   }
 
@@ -350,6 +433,7 @@ export class GuestsListComponent implements OnInit {
     this.svc.parseImport(file, regionId).subscribe({
       next: (result) => {
         this.parseResult.set(result);
+        this.importSelectedColumns.set([...(result.columns ?? [])]);
         this.importStep.set('preview');
         this.importing.set(false);
       },
@@ -378,7 +462,8 @@ export class GuestsListComponent implements OnInit {
     if (!result) return false;
     return (
       result.valid.length > 0 ||
-      (this.importUpdateExisting() && (result.duplicateRows?.length ?? 0) > 0)
+      (this.importUpdateExisting() && (result.duplicateRows?.length ?? 0) > 0) ||
+      (this.importDeleteAbsent() && (result.toDelete?.length ?? 0) > 0)
     );
   }
 
@@ -387,9 +472,16 @@ export class GuestsListComponent implements OnInit {
     if (!result) return 'Import';
     const creates = result.valid.length;
     const updates = this.importUpdateExisting() ? (result.duplicateRows?.length ?? 0) : 0;
+    const allCols = result.columns?.length ?? 0;
+    const selCols = this.importSelectedColumns().length;
     const parts: string[] = [];
     if (creates > 0) parts.push(`Import ${creates} new`);
-    if (updates > 0) parts.push(`update ${updates} existing`);
+    if (updates > 0) {
+      const colNote = selCols < allCols ? ` (${selCols} cols)` : '';
+      parts.push(`update ${updates} existing${colNote}`);
+    }
+    if (this.importDeleteAbsent() && (result.toDelete?.length ?? 0) > 0)
+      parts.push(`delete ${result.toDelete.length} absent`);
     return parts.join(' + ') || 'Import';
   }
 
@@ -400,17 +492,32 @@ export class GuestsListComponent implements OnInit {
     this.importError.set('');
     const regionId = this.importMode() === 'region' ? this.importRegionId() : undefined;
     const updateRows = this.importUpdateExisting() ? (result.duplicateRows ?? []) : undefined;
-    this.svc.commitImport(result.valid as ImportGuestRow[], updateRows, regionId).subscribe({
-      next: (res) => {
-        this.commitResult.set(res);
-        this.importStep.set('done');
-        this.importing.set(false);
-      },
-      error: () => {
-        this.importError.set('Error committing import.');
-        this.importing.set(false);
-      },
-    });
+    const deleteAbsent = this.importDeleteAbsent() ? true : undefined;
+    const toDeleteCodes = deleteAbsent ? result.toDelete?.map((g) => g.guest_code) : undefined;
+    const selectedCols = this.importSelectedColumns();
+    const allCols = result.columns ?? [];
+    const isPartial = selectedCols.length < allCols.length;
+    this.svc
+      .commitImport(
+        result.valid as ImportGuestRow[],
+        updateRows,
+        regionId,
+        deleteAbsent,
+        isPartial ? true : undefined,
+        isPartial ? selectedCols : undefined,
+        toDeleteCodes,
+      )
+      .subscribe({
+        next: (res) => {
+          this.commitResult.set(res);
+          this.importStep.set('done');
+          this.importing.set(false);
+        },
+        error: () => {
+          this.importError.set('Error committing import.');
+          this.importing.set(false);
+        },
+      });
   }
 
   statusBadgeClass(status: GuestStatus): string {

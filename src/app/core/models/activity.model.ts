@@ -22,6 +22,25 @@ export interface ActivityGuestGroup {
   guest_count: number;
 }
 
+export interface PreachingGroupVolunteer {
+  id: string;
+  volunteer_code: string;
+  full_name: string;
+  role_id: string | null;
+  role_name: string | null;
+  available_roles: { id: string; name: string }[];
+  description: string | null;
+}
+
+export interface PreachingGroup {
+  id: string;
+  name: string | null;
+  territory_key: string | null;
+  position: number;
+  volunteers: PreachingGroupVolunteer[];
+  guest_groups: ActivityGuestGroup[];
+}
+
 export interface Activity {
   id: string;
   region_id: string;
@@ -36,6 +55,7 @@ export interface Activity {
   start_time: string;
   end_time: string;
   activity_locations: LocationPoint[] | null;
+  image_key: string | null;
   is_preaching_shift: boolean;
   request_attendance: boolean;
   volunteers: ActivityVolunteer[];
@@ -43,6 +63,7 @@ export interface Activity {
   required_volunteers: number | null;
   guest_groups: ActivityGuestGroup[];
   total_guests_assigned: number;
+  preaching_groups: PreachingGroup[];
   max_guests: number | null;
   created_at: string;
   updated_at: string;
@@ -104,6 +125,7 @@ export interface CreateActivityPayload {
   start_time: string;
   end_time: string;
   activity_locations?: LocationPoint[] | null;
+  image_key?: string | null;
   is_preaching_shift?: boolean;
   request_attendance?: boolean;
 }

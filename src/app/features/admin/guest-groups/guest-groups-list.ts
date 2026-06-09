@@ -89,6 +89,7 @@ export class GuestGroupsListComponent implements OnInit {
   readonly importing = signal(false);
   readonly importError = signal('');
   readonly importResult = signal<ImportGroupResult | null>(null);
+  readonly importDeleteAbsent = signal(false);
   isDragging = false;
 
   // Guests modal
@@ -103,6 +104,7 @@ export class GuestGroupsListComponent implements OnInit {
     available_from: ['' as string],
     available_to: ['' as string],
     composition: ['' as string],
+    car_count: [null as number | null],
   });
 
   readonly groupContact = computed(
@@ -119,6 +121,7 @@ export class GuestGroupsListComponent implements OnInit {
   readonly minCarSeats = signal(0);
   readonly selectedLanguages = signal<string[]>([]);
   readonly selectedCompositions = signal<string[]>([]);
+  readonly hasCars = signal<boolean | undefined>(undefined);
   readonly availableLanguages = signal<string[]>([]);
   readonly langDropdownOpen = signal(false);
   readonly compDropdownOpen = signal(false);
@@ -126,7 +129,8 @@ export class GuestGroupsListComponent implements OnInit {
     () =>
       this.minCarSeats() > 0 ||
       this.selectedLanguages().length > 0 ||
-      this.selectedCompositions().length > 0,
+      this.selectedCompositions().length > 0 ||
+      this.hasCars() !== undefined,
   );
 
   @ViewChild('langDropdown') private readonly langDropdownRef?: ElementRef<HTMLElement>;
@@ -190,6 +194,7 @@ export class GuestGroupsListComponent implements OnInit {
         languages: this.selectedLanguages().length > 0 ? this.selectedLanguages() : undefined,
         compositions:
           this.selectedCompositions().length > 0 ? this.selectedCompositions() : undefined,
+        hasCars: this.hasCars(),
       })
       .subscribe({
         next: (res) => {
@@ -241,10 +246,17 @@ export class GuestGroupsListComponent implements OnInit {
     }, 300);
   }
 
+  onHasCarsChange(value: string) {
+    this.hasCars.set(value === 'true' ? true : value === 'false' ? false : undefined);
+    this.page.set(1);
+    this.loadGroups();
+  }
+
   clearFilters() {
     this.minCarSeats.set(0);
     this.selectedLanguages.set([]);
     this.selectedCompositions.set([]);
+    this.hasCars.set(undefined);
     this.page.set(1);
     this.loadGroups();
   }
@@ -306,6 +318,7 @@ export class GuestGroupsListComponent implements OnInit {
       available_from: group.available_from ?? '',
       available_to: group.available_to ?? '',
       composition: group.composition ?? '',
+      car_count: group.car_count ?? null,
     });
     this.activeModal.set('edit');
   }
@@ -321,6 +334,7 @@ export class GuestGroupsListComponent implements OnInit {
         available_from: v.available_from || null,
         available_to: v.available_to || null,
         composition: (v.composition as GroupComposition) || null,
+        car_count: v.car_count ?? null,
       })
       .subscribe({
         next: (updated) => {
@@ -339,6 +353,7 @@ export class GuestGroupsListComponent implements OnInit {
     this.importRegionId.set(this.selectedRegionId() || this.regions()[0]?.id || '');
     this.importError.set('');
     this.importResult.set(null);
+    this.importDeleteAbsent.set(false);
     this.activeModal.set('import');
   }
 
@@ -367,17 +382,23 @@ export class GuestGroupsListComponent implements OnInit {
     this.importing.set(true);
     this.importError.set('');
     this.importResult.set(null);
-    this.svc.importFromExcel(file, this.importRegionId() || undefined).subscribe({
-      next: (result) => {
-        this.importResult.set(result);
-        this.importing.set(false);
-        this.loadGroups();
-      },
-      error: () => {
-        this.importError.set('Error importing file. Check the format.');
-        this.importing.set(false);
-      },
-    });
+    this.svc
+      .importFromExcel(
+        file,
+        this.importRegionId() || undefined,
+        this.importDeleteAbsent() || undefined,
+      )
+      .subscribe({
+        next: (result) => {
+          this.importResult.set(result);
+          this.importing.set(false);
+          this.loadGroups();
+        },
+        error: () => {
+          this.importError.set('Error importing file. Check the format.');
+          this.importing.set(false);
+        },
+      });
   }
 
   downloadExcel() {

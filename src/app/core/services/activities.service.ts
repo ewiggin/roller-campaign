@@ -21,6 +21,7 @@ export class ActivitiesService {
       dateFrom?: string;
       dateTo?: string;
       hostId?: string;
+      is_preaching_shift?: boolean;
       page?: number;
       limit?: number;
     } = {},
@@ -31,6 +32,8 @@ export class ActivitiesService {
     if (query.dateFrom) params = params.set('dateFrom', query.dateFrom);
     if (query.dateTo) params = params.set('dateTo', query.dateTo);
     if (query.hostId) params = params.set('hostId', query.hostId);
+    if (query.is_preaching_shift !== undefined)
+      params = params.set('is_preaching_shift', String(query.is_preaching_shift));
     if (query.page) params = params.set('page', String(query.page));
     if (query.limit) params = params.set('limit', String(query.limit));
     return this.http.get<ActivityListResponse>('/api/activities', { params });
@@ -97,6 +100,74 @@ export class ActivitiesService {
 
   unassignGuestGroup(id: string, groupId: string) {
     return this.http.delete<Activity>(`/api/activities/${id}/guest-groups/${groupId}`);
+  }
+
+  // ── Preaching groups ──────────────────────────────────────────────────────
+
+  addPreachingGroup(id: string, name?: string | null) {
+    return this.http.post<Activity>(`/api/activities/${id}/preaching-groups`, {
+      name: name ?? null,
+    });
+  }
+
+  renamePreachingGroup(id: string, groupId: string, name: string | null) {
+    return this.http.patch<Activity>(`/api/activities/${id}/preaching-groups/${groupId}`, {
+      name,
+    });
+  }
+
+  updatePreachingGroupTerritory(id: string, groupId: string, territory_key: string | null) {
+    return this.http.patch<Activity>(`/api/activities/${id}/preaching-groups/${groupId}`, {
+      territory_key,
+    });
+  }
+
+  removePreachingGroup(id: string, groupId: string) {
+    return this.http.delete<Activity>(`/api/activities/${id}/preaching-groups/${groupId}`);
+  }
+
+  assignVolunteerToGroup(
+    id: string,
+    groupId: string,
+    volunteerId: string,
+    roleId?: string | null,
+    description?: string | null,
+  ) {
+    return this.http.post<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/volunteers`,
+      { volunteerId, role_id: roleId ?? null, description: description ?? null },
+    );
+  }
+
+  updateGroupVolunteerDescription(
+    id: string,
+    groupId: string,
+    volunteerId: string,
+    description: string | null,
+  ) {
+    return this.http.patch<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/volunteers/${volunteerId}`,
+      { description },
+    );
+  }
+
+  removeVolunteerFromGroup(id: string, groupId: string, volunteerId: string) {
+    return this.http.delete<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/volunteers/${volunteerId}`,
+    );
+  }
+
+  assignGuestGroupToGroup(id: string, groupId: string, guestGroupId: string) {
+    return this.http.post<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/guest-groups`,
+      { groupId: guestGroupId },
+    );
+  }
+
+  removeGuestGroupFromGroup(id: string, groupId: string, guestGroupId: string) {
+    return this.http.delete<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/guest-groups/${guestGroupId}`,
+    );
   }
 
   publish(id: string) {

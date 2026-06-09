@@ -1,5 +1,5 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import type { Region } from '../../../core/models/region.model';
 import type {
@@ -38,12 +38,13 @@ const AVAILABILITY_OPTIONS = [
 
 @Component({
   selector: 'app-volunteers-list',
-  imports: [FormsModule, RouterLink, SearchableSelectComponent],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, SearchableSelectComponent],
   templateUrl: './volunteers-list.html',
 })
 export class VolunteersListComponent implements OnInit {
   private readonly svc = inject(VolunteersService);
   private readonly regionsSvc = inject(RegionsService);
+  private readonly fb = inject(FormBuilder);
 
   readonly regions = signal<Region[]>([]);
   readonly roles = signal<VolunteerRole[]>([]);
@@ -71,6 +72,21 @@ export class VolunteersListComponent implements OnInit {
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 
+  // Create modal
+  readonly createModal = signal(false);
+  readonly creating = signal(false);
+  readonly createError = signal('');
+  readonly selectedCreateRoleIds = signal<string[]>([]);
+  readonly selectedCreateRegionIds = signal<string[]>([]);
+
+  readonly createForm = this.fb.nonNullable.group({
+    volunteer_code: ['', Validators.required],
+    full_name: ['', Validators.required],
+    email: [''],
+    phone: [''],
+    is_active: [true],
+  });
+
   // Import modal
   readonly importModal = signal(false);
   readonly importStep = signal<'upload' | 'preview' | 'done'>('upload');
@@ -78,6 +94,7 @@ export class VolunteersListComponent implements OnInit {
   readonly importError = signal('');
   readonly parseResult = signal<ImportVolunteerParseResponse | null>(null);
   readonly commitResult = signal<ImportVolunteerCommitResponse | null>(null);
+  readonly importDeleteAbsent = signal(false);
   isDragging = false;
 
   ngOnInit() {
@@ -154,6 +171,77 @@ export class VolunteersListComponent implements OnInit {
     }
   }
 
+  openCreate() {
+    this.createForm.reset({
+      volunteer_code: '',
+      full_name: '',
+      email: '',
+      phone: '',
+      is_active: true,
+    });
+    this.selectedCreateRoleIds.set([]);
+    this.selectedCreateRegionIds.set([]);
+    this.createError.set('');
+    this.createModal.set(true);
+  }
+
+  closeCreate() {
+    this.createModal.set(false);
+  }
+
+  isCreateRoleSelected(roleId: string): boolean {
+    return this.selectedCreateRoleIds().includes(roleId);
+  }
+
+  toggleCreateRole(roleId: string) {
+    const current = this.selectedCreateRoleIds();
+    this.selectedCreateRoleIds.set(
+      current.includes(roleId) ? current.filter((id) => id !== roleId) : [...current, roleId],
+    );
+  }
+
+  isCreateRegionSelected(regionId: string): boolean {
+    return this.selectedCreateRegionIds().includes(regionId);
+  }
+
+  toggleCreateRegion(regionId: string) {
+    const current = this.selectedCreateRegionIds();
+    this.selectedCreateRegionIds.set(
+      current.includes(regionId) ? current.filter((id) => id !== regionId) : [...current, regionId],
+    );
+  }
+
+  createVolunteer() {
+    if (this.createForm.invalid || this.creating()) return;
+    this.creating.set(true);
+    this.createError.set('');
+
+    const raw = this.createForm.getRawValue();
+    this.svc
+      .create({
+        volunteer_code: raw.volunteer_code.trim(),
+        full_name: raw.full_name.trim(),
+        email: raw.email.trim() || null,
+        phone: raw.phone.trim() || null,
+        is_active: raw.is_active,
+        role_ids: this.selectedCreateRoleIds(),
+        region_ids: this.selectedCreateRegionIds(),
+      })
+      .subscribe({
+        next: () => {
+          this.creating.set(false);
+          this.createModal.set(false);
+          this.applyFilters();
+        },
+        error: (err) => {
+          this.creating.set(false);
+          this.createError.set(
+            err.status === 409 ? 'Volunteer code already exists.' : 'Error creating volunteer.',
+          );
+        },
+      });
+  }
+
   downloadExcel() {
     this.svc.exportExcel(this.buildQuery()).subscribe((blob) => {
       const url = URL.createObjectURL(blob);
@@ -180,6 +268,7 @@ export class VolunteersListComponent implements OnInit {
     this.importStep.set('upload');
     this.importError.set('');
     this.parseResult.set(null);
+    this.importDeleteAbsent.set(false);
     this.commitResult.set(null);
     this.importModal.set(true);
   }
@@ -228,19 +317,27 @@ export class VolunteersListComponent implements OnInit {
 
   commitImport() {
     const result = this.parseResult();
-    if (!result || result.to_create.length === 0) return;
+    const canCommit =
+      result &&
+      (result.to_create.length > 0 ||
+        (this.importDeleteAbsent() && (result.to_delete?.length ?? 0) > 0));
+    if (!canCommit) return;
     this.importing.set(true);
     this.importError.set('');
-    this.svc.commitImport(result.to_create as ImportVolunteerRow[]).subscribe({
-      next: (res) => {
-        this.commitResult.set(res);
-        this.importStep.set('done');
-        this.importing.set(false);
-      },
-      error: () => {
-        this.importError.set('Error committing import.');
-        this.importing.set(false);
-      },
-    });
+    const deleteAbsent = this.importDeleteAbsent() ? true : undefined;
+    const toDeleteCodes = deleteAbsent ? (result!.to_delete ?? []) : undefined;
+    this.svc
+      .commitImport(result!.to_create as ImportVolunteerRow[], deleteAbsent, toDeleteCodes)
+      .subscribe({
+        next: (res) => {
+          this.commitResult.set(res);
+          this.importStep.set('done');
+          this.importing.set(false);
+        },
+        error: () => {
+          this.importError.set('Error committing import.');
+          this.importing.set(false);
+        },
+      });
   }
 }

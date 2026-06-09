@@ -45,6 +45,18 @@ export class VolunteersService {
     return this.http.get<Volunteer>(`/api/volunteers/${id}`);
   }
 
+  create(dto: {
+    volunteer_code: string;
+    full_name: string;
+    email?: string | null;
+    phone?: string | null;
+    is_active?: boolean;
+    role_ids?: string[];
+    region_ids?: string[];
+  }) {
+    return this.http.post<Volunteer>('/api/volunteers', dto);
+  }
+
   update(id: string, dto: Partial<Volunteer> & { role_ids?: string[]; region_ids?: string[] }) {
     return this.http.patch<Volunteer>(`/api/volunteers/${id}`, dto);
   }
@@ -93,7 +105,11 @@ export class VolunteersService {
     return this.http.post<ImportVolunteerParseResponse>('/api/volunteers/import/parse', form);
   }
 
-  commitImport(rows: ImportVolunteerRow[]) {
-    return this.http.post<ImportVolunteerCommitResponse>('/api/volunteers/import/commit', { rows });
+  commitImport(rows: ImportVolunteerRow[], deleteAbsent?: boolean, toDeleteCodes?: string[]) {
+    return this.http.post<ImportVolunteerCommitResponse>('/api/volunteers/import/commit', {
+      rows,
+      ...(deleteAbsent ? { deleteAbsent: true } : {}),
+      ...(toDeleteCodes?.length ? { toDeleteCodes } : {}),
+    });
   }
 }

@@ -1,7 +1,8 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { concatMap, from, last } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+import { catchError, concatMap, from, last, map, of, switchMap, take, toArray } from 'rxjs';
 import type {
   Activity,
   ActivityStatus,
@@ -15,6 +16,7 @@ import type { Region } from '../../../core/models/region.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
+import { StorageService } from '../../../core/services/storage.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 import { CalendarComponent } from '../../../shared/components/calendar/calendar';
 import { EmojiPickerComponent } from '../../../shared/components/emoji-picker/emoji-picker';
@@ -25,7 +27,7 @@ import {
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 type ActiveModal = 'create' | 'detail' | null;
-type DetailTab = 'info' | 'volunteers' | 'groups';
+type DetailTab = 'info' | 'volunteers' | 'groups' | 'preaching-groups';
 
 interface LocationSlot {
   id: string;
@@ -51,6 +53,19 @@ export class ActivitiesListComponent implements OnInit {
   private readonly regionsSvc = inject(RegionsService);
   private readonly hostsSvc = inject(HostsService);
   private readonly volunteersSvc = inject(VolunteersService);
+  private readonly storageSvc = inject(StorageService);
+  private readonly route = inject(ActivatedRoute);
+
+  // When opened from the "Preaching Shifts" menu entry, the list is
+  // pre-filtered to is_preaching_shift = true and new activities created
+  // here are implicitly preaching shifts (no need for a manual toggle).
+  readonly preachingShiftsOnly = this.route.snapshot.data['preachingShiftsOnly'] === true;
+
+  readonly pageTitle = this.preachingShiftsOnly ? 'Preaching Shifts' : 'Activities';
+  readonly newActivityLabel = this.preachingShiftsOnly ? 'New preaching shift' : 'New activity';
+  readonly emptyActivitiesLabel = this.preachingShiftsOnly
+    ? 'No preaching shifts found.'
+    : 'No activities found.';
 
   // filter hosts (separate from modal hosts)
   readonly filterHosts = signal<Host[]>([]);
@@ -153,6 +168,45 @@ export class ActivitiesListComponent implements OnInit {
           this.load();
         },
         error: () => this.bulkSaving.set(false),
+      });
+  }
+
+  bulkDelete() {
+    const ids = [...this.selectedIds()];
+    if (!ids.length) return;
+    const label = this.preachingShiftsOnly
+      ? ids.length > 1
+        ? `${ids.length} preaching shifts`
+        : 'this preaching shift'
+      : ids.length > 1
+        ? `${ids.length} activities`
+        : 'this activity';
+    if (!confirm(`Delete ${label}? This cannot be undone.`)) return;
+    this.bulkSaving.set(true);
+    from(ids)
+      .pipe(
+        concatMap((id) =>
+          this.svc.remove(id).pipe(
+            map(() => ({ id, ok: true as const })),
+            catchError(() => of({ id, ok: false as const })),
+          ),
+        ),
+        toArray(),
+      )
+      .subscribe((results) => {
+        this.bulkSaving.set(false);
+        const deletedIds = results.filter((r) => r.ok).map((r) => r.id);
+        const failedCount = results.length - deletedIds.length;
+        if (deletedIds.includes(this.selectedActivity()?.id ?? '')) this.activeModal.set(null);
+        this.clearSelection();
+        this.load();
+        if (this.viewMode() === 'calendar')
+          if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+        if (failedCount > 0) {
+          alert(
+            `${failedCount} of ${ids.length} could not be deleted (published activities must be unpublished first).`,
+          );
+        }
       });
   }
 
@@ -260,6 +314,26 @@ export class ActivitiesListComponent implements OnInit {
   readonly editActivityFromHost = signal(false);
   readonly editHostId = signal<string | null>(null);
 
+  // ── Image upload ──────────────────────────────────────────────────────────
+  readonly imageUrl = signal<string | null>(null);
+  readonly imageUploading = signal(false);
+  readonly imageUploadPercent = signal(0);
+
+  // ── Territory upload (per preaching group) ────────────────────────────────
+  readonly territoryUrls = signal<Record<string, string>>({});
+  readonly territoryUploading = signal<Record<string, boolean>>({});
+  readonly territoryPercent = signal<Record<string, number>>({});
+
+  territoryUrlFor(groupId: string): string | null {
+    return this.territoryUrls()[groupId] ?? null;
+  }
+  territoryUploadingFor(groupId: string): boolean {
+    return this.territoryUploading()[groupId] ?? false;
+  }
+  territoryPercentFor(groupId: string): number {
+    return this.territoryPercent()[groupId] ?? 0;
+  }
+
   // ── Hosts (shared for both modals) ────────────────────────────────────────
 
   readonly modalHosts = signal<Host[]>([]);
@@ -339,6 +413,90 @@ export class ActivitiesListComponent implements OnInit {
     });
   });
 
+  // ── Preaching groups tab ──────────────────────────────────────────────────
+
+  readonly detailTabs = computed(() => {
+    const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
+    return isPreachingShift
+      ? ([['info', 'Info'] as const, ['preaching-groups', 'Preaching groups'] as const] as const)
+      : ([
+          ['info', 'Info'] as const,
+          ['volunteers', 'Volunteers'] as const,
+          ['groups', 'Groups'] as const,
+        ] as const);
+  });
+
+  readonly pickRoleByGroup = signal<Record<string, string>>({});
+
+  pickedRoleFor(groupId: string): string {
+    return this.pickRoleByGroup()[groupId] ?? '';
+  }
+
+  setPickedRoleFor(groupId: string, value: string) {
+    this.pickRoleByGroup.update((m) => ({ ...m, [groupId]: value }));
+    // The selected volunteer may no longer match the new role filter
+    this.setPickedVolunteerFor(groupId, '');
+  }
+
+  ungroupedVolunteerItemsFor(groupId: string) {
+    const role = this.pickedRoleFor(groupId);
+    return this.availableVolunteersList()
+      .filter((v) => !v.already_in_activity)
+      .filter((v) => !role || v.roles?.some((r) => r.id === role))
+      .map((v) => ({ value: v.id, label: v.full_name, meta: v.volunteer_code }));
+  }
+
+  readonly ungroupedGroupItems = computed(() => {
+    const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
+    return this.availableGroups()
+      .filter(
+        (g) =>
+          !g.already_in_activity &&
+          !g.host_schedule_conflict &&
+          !(isPreachingShift && g.preaching_shifts_count >= 3),
+      )
+      .map((g) => ({
+        value: g.id,
+        label: g.group_code,
+        meta: [
+          g.distance_km !== null ? `${g.distance_km} km` : null,
+          g.host_name ?? null,
+          `${g.guest_count} guests`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      }));
+  });
+
+  readonly pickVolunteerByGroup = signal<Record<string, string>>({});
+  readonly pickGuestGroupByGroup = signal<Record<string, string>>({});
+
+  pickedVolunteerFor(groupId: string): string {
+    return this.pickVolunteerByGroup()[groupId] ?? '';
+  }
+
+  setPickedVolunteerFor(groupId: string, value: string) {
+    this.pickVolunteerByGroup.update((m) => ({ ...m, [groupId]: value }));
+  }
+
+  pickedGuestGroupFor(groupId: string): string {
+    return this.pickGuestGroupByGroup()[groupId] ?? '';
+  }
+
+  setPickedGuestGroupFor(groupId: string, value: string) {
+    this.pickGuestGroupByGroup.update((m) => ({ ...m, [groupId]: value }));
+  }
+
+  readonly expandedGroupIds = signal<Record<string, boolean>>({});
+
+  isGroupExpanded(groupId: string): boolean {
+    return this.expandedGroupIds()[groupId] ?? false;
+  }
+
+  toggleGroupExpanded(groupId: string) {
+    this.expandedGroupIds.update((m) => ({ ...m, [groupId]: !this.isGroupExpanded(groupId) }));
+  }
+
   ngOnInit() {
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
@@ -384,6 +542,7 @@ export class ActivitiesListComponent implements OnInit {
         regionId: this.filterRegion() || undefined,
         date: this.filterDate() || undefined,
         hostId: this.filterHost() || undefined,
+        is_preaching_shift: this.preachingShiftsOnly,
         page: this.page(),
         limit: this.limit,
       })
@@ -498,6 +657,7 @@ export class ActivitiesListComponent implements OnInit {
       .getAll({
         regionId: this.filterRegion() || undefined,
         hostId: this.filterHost() || undefined,
+        is_preaching_shift: this.preachingShiftsOnly,
         dateFrom: period.dateFrom,
         dateTo: period.dateTo,
         limit: 500,
@@ -565,6 +725,7 @@ export class ActivitiesListComponent implements OnInit {
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
       is_preaching_shift: v.is_preaching_shift ?? false,
       request_attendance: v.request_attendance ?? false,
+      is_preaching_shift: this.preachingShiftsOnly,
     };
 
     if (this.repeatEnabled()) {
@@ -618,6 +779,19 @@ export class ActivitiesListComponent implements OnInit {
     this.selectedActivity.set(activity);
     this.detailTab.set('info');
     this.detailError.set('');
+    this.imageUrl.set(null);
+    this.imageUploading.set(false);
+    this.imageUploadPercent.set(0);
+    if (activity.image_key) {
+      this.storageSvc
+        .getDownloadPresignedUrl(activity.image_key, 3600)
+        .pipe(take(1))
+        .subscribe({ next: ({ url }) => this.imageUrl.set(url) });
+    }
+    this.territoryUrls.set({});
+    this.territoryUploading.set({});
+    this.territoryPercent.set({});
+    this.loadTerritoryUrls(activity);
     this.editIconValue.set(activity.icon ?? '');
     this.editForm.patchValue({
       name: activity.name,
@@ -644,6 +818,10 @@ export class ActivitiesListComponent implements OnInit {
     this.selectedVolunteerIds.set([]);
     this.selectedGroupIds.set([]);
     this.filterVolunteerRole.set('');
+    this.pickVolunteerByGroup.set({});
+    this.pickGuestGroupByGroup.set({});
+    this.pickRoleByGroup.set({});
+    this.expandedGroupIds.set({});
     this.activeModal.set('detail');
     this.loadHostsForRegion(activity.region_id);
     this.loadRegionData(activity);
@@ -747,7 +925,127 @@ export class ActivitiesListComponent implements OnInit {
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
       is_preaching_shift: v.is_preaching_shift ?? false,
       request_attendance: v.request_attendance ?? false,
+      is_preaching_shift: this.selectedActivity()?.is_preaching_shift ?? false,
     };
+  }
+
+  onImageSelected(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    const activity = this.selectedActivity();
+    if (!file || !activity) return;
+
+    const key = this.storageSvc.buildKey('activities', file.name);
+    this.imageUploading.set(true);
+    this.imageUploadPercent.set(0);
+
+    this.storageSvc.uploadFile(key, file).subscribe({
+      next: ({ progress }) => this.imageUploadPercent.set(progress.percent),
+      error: () => {
+        this.imageUploading.set(false);
+        this.detailError.set('Error uploading image.');
+      },
+      complete: () => {
+        this.svc
+          .update(activity.id, { image_key: key })
+          .pipe(
+            switchMap((updated) => {
+              this.selectedActivity.set(updated);
+              return this.storageSvc.getDownloadPresignedUrl(key, 3600);
+            }),
+          )
+          .subscribe({
+            next: ({ url }) => {
+              this.imageUrl.set(url);
+              this.imageUploading.set(false);
+              this.load();
+            },
+            error: () => {
+              this.imageUploading.set(false);
+              this.detailError.set('Error saving image.');
+            },
+          });
+      },
+    });
+  }
+
+  removeImage() {
+    const activity = this.selectedActivity();
+    if (!activity?.image_key) return;
+    this.svc.update(activity.id, { image_key: null }).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.imageUrl.set(null);
+        this.load();
+      },
+      error: () => this.detailError.set('Error removing image.'),
+    });
+  }
+
+  private loadTerritoryUrls(activity: Activity) {
+    for (const group of activity.preaching_groups ?? []) {
+      if (!group.territory_key) continue;
+      this.storageSvc
+        .getDownloadPresignedUrl(group.territory_key, 3600)
+        .pipe(take(1))
+        .subscribe({
+          next: ({ url }) => this.territoryUrls.update((prev) => ({ ...prev, [group.id]: url })),
+        });
+    }
+  }
+
+  onTerritorySelected(groupId: string, event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    const activity = this.selectedActivity();
+    if (!file || !activity) return;
+
+    const key = this.storageSvc.buildKey('territories', file.name);
+    this.territoryUploading.update((prev) => ({ ...prev, [groupId]: true }));
+    this.territoryPercent.update((prev) => ({ ...prev, [groupId]: 0 }));
+
+    this.storageSvc.uploadFile(key, file).subscribe({
+      next: ({ progress }) =>
+        this.territoryPercent.update((prev) => ({ ...prev, [groupId]: progress.percent })),
+      error: () => {
+        this.territoryUploading.update((prev) => ({ ...prev, [groupId]: false }));
+        this.detailError.set('Error uploading territory.');
+      },
+      complete: () => {
+        this.svc
+          .updatePreachingGroupTerritory(activity.id, groupId, key)
+          .pipe(
+            switchMap((updated) => {
+              this.selectedActivity.set(updated);
+              return this.storageSvc.getDownloadPresignedUrl(key, 3600);
+            }),
+          )
+          .subscribe({
+            next: ({ url }) => {
+              this.territoryUrls.update((prev) => ({ ...prev, [groupId]: url }));
+              this.territoryUploading.update((prev) => ({ ...prev, [groupId]: false }));
+            },
+            error: () => {
+              this.territoryUploading.update((prev) => ({ ...prev, [groupId]: false }));
+              this.detailError.set('Error saving territory.');
+            },
+          });
+      },
+    });
+  }
+
+  removeTerritory(groupId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.svc.updatePreachingGroupTerritory(activity.id, groupId, null).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.territoryUrls.update((prev) => {
+          const next = { ...prev };
+          delete next[groupId];
+          return next;
+        });
+      },
+      error: () => this.detailError.set('Error removing territory.'),
+    });
   }
 
   private executeSave(payload: UpdateActivityPayload) {
@@ -904,6 +1202,152 @@ export class ActivitiesListComponent implements OnInit {
     if (!activity) return;
     this.detailSaving.set(true);
     this.svc.unassignGuestGroup(activity.id, groupId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.reloadAvailableGroups();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error removing group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  // ── Preaching groups ──────────────────────────────────────────────────────
+
+  addPreachingGroup() {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    const previousIds = new Set((activity.preaching_groups ?? []).map((g) => g.id));
+    this.detailSaving.set(true);
+    this.svc.addPreachingGroup(activity.id).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        const created = (updated.preaching_groups ?? []).find((g) => !previousIds.has(g.id));
+        if (created) {
+          this.expandedGroupIds.update((m) => ({ ...m, [created.id]: true }));
+        }
+        this.detailSaving.set(false);
+      },
+      error: () => {
+        this.detailError.set('Error creating group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  renamePreachingGroup(groupId: string, name: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.svc.renamePreachingGroup(activity.id, groupId, name.trim() || null).subscribe({
+      next: (updated) => this.selectedActivity.set(updated),
+      error: () => this.detailError.set('Error renaming group.'),
+    });
+  }
+
+  removePreachingGroup(groupId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    if (!confirm('Delete this preaching group? Its members will be unassigned from the activity.'))
+      return;
+    this.detailSaving.set(true);
+    this.svc.removePreachingGroup(activity.id, groupId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.reloadAvailableVolunteers();
+        this.reloadAvailableGroups();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error deleting group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  addVolunteerToGroup(groupId: string) {
+    const activity = this.selectedActivity();
+    const volunteerId = this.pickedVolunteerFor(groupId);
+    if (!activity || !volunteerId) return;
+    const roleId = this.pickedRoleFor(groupId) || null;
+    this.detailSaving.set(true);
+    this.svc.assignVolunteerToGroup(activity.id, groupId, volunteerId, roleId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.setPickedVolunteerFor(groupId, '');
+        this.detailSaving.set(false);
+        this.reloadAvailableVolunteers();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error assigning volunteer.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  updateGroupVolunteerDescription(groupId: string, volunteerId: string, description: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.svc
+      .updateGroupVolunteerDescription(
+        activity.id,
+        groupId,
+        volunteerId,
+        description.trim() || null,
+      )
+      .subscribe({
+        next: (updated) => this.selectedActivity.set(updated),
+        error: () => this.detailError.set('Error updating description.'),
+      });
+  }
+
+  removeVolunteerFromGroup(groupId: string, volunteerId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.removeVolunteerFromGroup(activity.id, groupId, volunteerId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.reloadAvailableVolunteers();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error removing volunteer.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  addGuestGroupToGroup(groupId: string) {
+    const activity = this.selectedActivity();
+    const guestGroupId = this.pickedGuestGroupFor(groupId);
+    if (!activity || !guestGroupId) return;
+    this.detailSaving.set(true);
+    this.svc.assignGuestGroupToGroup(activity.id, groupId, guestGroupId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.setPickedGuestGroupFor(groupId, '');
+        this.detailSaving.set(false);
+        this.reloadAvailableGroups();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error assigning group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  removeGuestGroupFromGroup(groupId: string, guestGroupId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.removeGuestGroupFromGroup(activity.id, groupId, guestGroupId).subscribe({
       next: (updated) => {
         this.selectedActivity.set(updated);
         this.detailSaving.set(false);
