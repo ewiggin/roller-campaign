@@ -1214,7 +1214,7 @@ export class VolunteersService {
                  FROM activity_volunteers av
                  INNER JOIN volunteers vol ON vol.id = av."volunteersId"
                  LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = av."activitiesId"::varchar AND avr.volunteer_id = av."volunteersId"::varchar
-                 LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
+                 LEFT JOIN volunteer_roles vr ON vr.id::varchar = avr.role_id
                  WHERE av."activitiesId"::varchar = ANY($1)
                  ORDER BY vol.full_name ASC`,
             isSqlite ? activityIds : [activityIds],
@@ -1290,7 +1290,7 @@ export class VolunteersService {
     >(
       `SELECT apg.id AS group_id, apg.activity_id, apg.name AS group_name, apgv.description AS my_description
        FROM activity_preaching_group_volunteers apgv
-       INNER JOIN activity_preaching_groups apg ON apg.id = apgv.preaching_group_id
+       INNER JOIN activity_preaching_groups apg ON CAST(apg.id AS TEXT) = apgv.preaching_group_id
        WHERE apgv.volunteer_id = ${isSqlite ? '?' : '$1'} AND ${activityFilter.clause}`,
       isSqlite ? [volunteerId, ...activityIds] : [volunteerId, activityIds],
     );
@@ -1315,10 +1315,10 @@ export class VolunteersService {
     >(
       `SELECT apgv.preaching_group_id AS group_id, vol.full_name, vol.phone, vr.name AS role_name, apgv.description
        FROM activity_preaching_group_volunteers apgv
-       INNER JOIN activity_preaching_groups apg ON apg.id = apgv.preaching_group_id
-       INNER JOIN volunteers vol ON vol.id = apgv.volunteer_id
+       INNER JOIN activity_preaching_groups apg ON CAST(apg.id AS TEXT) = apgv.preaching_group_id
+       INNER JOIN volunteers vol ON CAST(vol.id AS TEXT) = apgv.volunteer_id
        LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = apg.activity_id AND avr.volunteer_id = apgv.volunteer_id
-       LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
+       LEFT JOIN volunteer_roles vr ON CAST(vr.id AS TEXT) = avr.role_id
        WHERE ${groupFilter.clause}
        ORDER BY vol.full_name ASC`,
       groupFilter.params,
