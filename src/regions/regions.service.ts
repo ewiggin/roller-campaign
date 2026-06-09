@@ -195,7 +195,10 @@ export class RegionsService {
       .map((_, i) => (isPostgres ? `$${i + 1}` : '?'))
       .join(', ');
 
-    // Single query: counts per region using CTEs
+    // Counts per region aggregated independently per relation (via CTEs) and
+    // then joined 1:1 onto regions — joining the raw tables directly causes a
+    // Cartesian product (guests × volunteers × activities × assignments) that
+    // can exhaust disk space on large regions.
     const rows = await this.dataSource.query<
       Array<{
         region_id: string;
@@ -205,19 +208,35 @@ export class RegionsService {
         covered_activities: string;
       }>
     >(
-      `SELECT
+      `WITH guest_counts AS (
+        SELECT region_id, COUNT(*) AS guest_count
+        FROM guests
+        GROUP BY region_id
+      ),
+      volunteer_counts AS (
+        SELECT "regionsId" AS region_id, COUNT(DISTINCT "volunteersId") AS volunteer_count
+        FROM volunteer_regions
+        GROUP BY "regionsId"
+      ),
+      activity_counts AS (
+        SELECT a.region_id,
+          COUNT(DISTINCT a.id) AS activity_count,
+          COUNT(DISTINCT CASE WHEN av."activitiesId" IS NOT NULL THEN a.id END) AS covered_activities
+        FROM activities a
+        LEFT JOIN activity_volunteers av ON av."activitiesId" = a.id
+        GROUP BY a.region_id
+      )
+      SELECT
         r.id AS region_id,
-        COUNT(DISTINCT g.id) AS guest_count,
-        COUNT(DISTINCT vr."volunteersId") AS volunteer_count,
-        COUNT(DISTINCT a.id) AS activity_count,
-        COUNT(DISTINCT CASE WHEN av."activitiesId" IS NOT NULL THEN a.id END) AS covered_activities
+        COALESCE(gc.guest_count, 0) AS guest_count,
+        COALESCE(vc.volunteer_count, 0) AS volunteer_count,
+        COALESCE(ac.activity_count, 0) AS activity_count,
+        COALESCE(ac.covered_activities, 0) AS covered_activities
       FROM regions r
-      LEFT JOIN guests g ON g.region_id = r.id
-      LEFT JOIN volunteer_regions vr ON vr."regionsId" = r.id
-      LEFT JOIN activities a ON a.region_id = r.id
-      LEFT JOIN activity_volunteers av ON av."activitiesId" = a.id
-      WHERE r.id IN (${placeholders})
-      GROUP BY r.id`,
+      LEFT JOIN guest_counts gc ON gc.region_id = r.id
+      LEFT JOIN volunteer_counts vc ON vc.region_id = r.id
+      LEFT JOIN activity_counts ac ON ac.region_id = r.id
+      WHERE r.id IN (${placeholders})`,
       ids,
     );
 

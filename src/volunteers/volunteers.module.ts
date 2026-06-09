@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Volunteer } from './entities/volunteer.entity';
 import { VolunteerRole } from './entities/volunteer-role.entity';
@@ -18,6 +20,12 @@ import { VolunteerAccessController } from './volunteer-access.controller';
       Region,
       User,
     ]),
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.getOrThrow<string>('JWT_SECRET'),
+      }),
+    }),
   ],
   controllers: [VolunteersController, VolunteerAccessController],
   providers: [VolunteersService],

@@ -41,6 +41,9 @@ export class GuestGroupResponseDto {
   })
   composition: 'men_only' | 'mixed' | 'women_only' | null;
 
+  @ApiPropertyOptional({ example: 3, nullable: true })
+  car_count: number | null;
+
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })
   created_at: Date;
 

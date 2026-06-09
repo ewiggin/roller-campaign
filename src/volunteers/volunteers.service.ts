@@ -3,7 +3,9 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { DataSource, In, Repository } from 'typeorm';
@@ -17,12 +19,20 @@ import { CreateVolunteerDto } from './dto/create-volunteer.dto';
 import { UpdateVolunteerDto } from './dto/update-volunteer.dto';
 import { VolunteerListQueryDto } from './dto/volunteer-list-query.dto';
 import {
+  VolunteerActivityDto,
   VolunteerResponseDto,
   VolunteerRoleDto,
   VolunteerRegionDto,
   AvailabilityEntryDto,
+  VolunteerPreachingGroupDto,
+  VolunteerPreachingGroupVolunteerDto,
+  VolunteerPreachingGroupGuestDto,
+  VolunteerPreachingGroupGuestGroupDto,
 } from './dto/volunteer-response.dto';
-import { VolunteerFormLookupResponseDto } from './dto/volunteer-form-lookup.dto';
+import {
+  VolunteerCodeTokenResponseDto,
+  VolunteerFormLookupResponseDto,
+} from './dto/volunteer-form-lookup.dto';
 import { VolunteerFormSubmitDto } from './dto/volunteer-form-submit.dto';
 import {
   SetAvailabilityDto,
@@ -33,6 +43,9 @@ import {
   ImportVolunteerCommitResponseDto,
 } from './dto/set-availability.dto';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import type { LocationPoint } from '../activities/dto/location-point.dto';
+
+const VOLUNTEER_TOKEN_TYPE = 'volunteer_access';
 
 @Injectable()
 export class VolunteersService {
@@ -46,6 +59,7 @@ export class VolunteersService {
     @InjectRepository(Region) private readonly regionsRepo: Repository<Region>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly jwtService: JwtService,
   ) {}
 
   private buildSearchCondition(alias: string): string {
@@ -440,11 +454,13 @@ export class VolunteersService {
 
     const to_create: ImportVolunteerRowDto[] = [];
     const skipped: string[] = [];
+    const excelCodes = new Set<string>();
 
     for (const row of rows) {
       const rawCode = this.str(row['Número de identificación']);
       const code =
         rawCode ?? `GEN-${randomBytes(4).toString('hex').toUpperCase()}`;
+      if (rawCode) excelCodes.add(code);
       if (rawCode && existingSet.has(code)) {
         skipped.push(code);
         continue;
@@ -496,13 +512,23 @@ export class VolunteersService {
       });
     }
 
+    // Volunteers in DB absent from the Excel
+    const allDbVolunteers = await this.volunteersRepo.find({
+      select: { volunteer_code: true },
+    });
+    const to_delete = allDbVolunteers
+      .map((v) => v.volunteer_code)
+      .filter((c) => !excelCodes.has(c));
+
     return {
       to_create,
       skipped,
+      to_delete,
       summary: {
         total: to_create.length + skipped.length,
         to_create: to_create.length,
         skipped: skipped.length,
+        to_delete: to_delete.length,
       },
     };
   }
@@ -577,7 +603,27 @@ export class VolunteersService {
       created++;
     }
 
-    return { created, skipped, total: dto.rows.length };
+    // ── Delete absent (global) ────────────────────────────────────────────
+    let deleted = 0;
+    if (dto.deleteAbsent) {
+      const codesToDelete = dto.toDeleteCodes ?? [];
+      if (codesToDelete.length > 0) {
+        // DB has ON DELETE CASCADE on all volunteer join tables and availability
+        for (let i = 0; i < codesToDelete.length; i += 200) {
+          await this.volunteersRepo.delete({
+            volunteer_code: In(codesToDelete.slice(i, i + 200)),
+          });
+        }
+        deleted = codesToDelete.length;
+      }
+    }
+
+    return {
+      created,
+      skipped,
+      total: dto.rows.length,
+      ...(deleted > 0 ? { deleted } : {}),
+    };
   }
 
   // ── Me (volunteer role) ────────────────────────────────────────────────────
@@ -637,15 +683,14 @@ export class VolunteersService {
     const headers = [
       'Número de identificación',
       'Nombre',
-      'Sexo',
-      'Estado civil',
-      'Congregación',
-      'Sucursal',
-      'Tiene asignado un turno',
-      'Grupos',
-      'Horas asignadas',
+      'Email',
+      'Teléfono',
+      'Región de participación',
       'Plazas de coche disponibles',
       'Dirección',
+      'Maps',
+      'Lat',
+      'Lon',
       'Lu M',
       'Lu T',
       'Ma M',
@@ -666,49 +711,38 @@ export class VolunteersService {
       'DoA T',
       'LuS M',
       'LuS T',
-      'Maps',
-      'Lat',
-      'Lon',
-      'Región de participación',
-      'Email',
     ];
     const example = [
       '5274026',
       'Martínez, Mario',
-      'Varón',
-      'Casado',
-      'Olot',
-      'Cataluña',
-      'No',
-      'grupo1',
-      '0',
+      'mario@example.com',
+      '+34 600 000 000',
+      'Costa Brava',
       '3',
       'Passatge Bernat Metge, 14, 17800 Olot',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'Sí',
-      'Sí',
-      'Sí',
-      'Sí',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
-      'No',
       'https://www.google.com/maps?q=42.18,2.47',
       '42,1836987',
       '2,4774935',
-      'Costa Brava',
-      'mario@example.com',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'Sí',
+      'Sí',
+      'Sí',
+      'Sí',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
+      'No',
     ];
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, example]);
@@ -875,7 +909,12 @@ export class VolunteersService {
     is_active: v.is_active,
     user_id: v.user_id,
     roles: (v.roles ?? []).map((r) => ({ id: r.id, name: r.name })),
-    regions: (v.regions ?? []).map((r) => ({ id: r.id, name: r.name })),
+    regions: (v.regions ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      event_start_date: r.event_start_date ?? null,
+      event_end_date: r.event_end_date ?? null,
+    })),
     hosting_address: v.hosting_address,
     lat: v.lat,
     lng: v.lng,
@@ -953,7 +992,12 @@ export class VolunteersService {
       sunday_prev_afternoon: v.sunday_prev_afternoon,
       monday_next_morning: v.monday_next_morning,
       monday_next_afternoon: v.monday_next_afternoon,
-      regions: (v.regions ?? []).map((r) => ({ id: r.id, name: r.name })),
+      regions: (v.regions ?? []).map((r) => ({
+        id: r.id,
+        name: r.name,
+        event_start_date: r.event_start_date ?? null,
+        event_end_date: r.event_end_date ?? null,
+      })),
       terms_accepted: v.terms_accepted,
       terms_accepted_at: v.terms_accepted_at,
     };
@@ -1016,6 +1060,379 @@ export class VolunteersService {
     }
 
     await this.volunteersRepo.save(v);
+  }
+
+  // ── Volunteer-access token endpoints ──────────────────────────────────────
+
+  private verifyVolunteerToken(token: string): string {
+    try {
+      const payload = this.jwtService.verify<{ sub: string; type: string }>(
+        token,
+      );
+      if (payload.type !== VOLUNTEER_TOKEN_TYPE) throw new Error('wrong type');
+      return payload.sub;
+    } catch {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
+  }
+
+  async getTokenByCode(code: string): Promise<VolunteerCodeTokenResponseDto> {
+    const normalized = code.trim().toUpperCase();
+    const v = await this.volunteersRepo.findOne({
+      select: ['volunteer_code'],
+      where: { volunteer_code: normalized },
+    });
+    if (!v) throw new NotFoundException('Código de voluntario no encontrado');
+
+    const token = this.jwtService.sign(
+      { sub: v.volunteer_code, type: VOLUNTEER_TOKEN_TYPE },
+      { expiresIn: '365d' },
+    );
+    return { token };
+  }
+
+  async getVolunteerByToken(token: string): Promise<VolunteerResponseDto> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      where: { volunteer_code: volunteerCode },
+      relations: { roles: true, regions: true },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+    return this.toDto(v);
+  }
+
+  async getAvailabilityByToken(token: string): Promise<AvailabilityEntryDto[]> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      where: { volunteer_code: volunteerCode },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+
+    const entries = await this.availRepo.find({
+      where: { volunteer_id: v.id },
+      order: { date: 'ASC' },
+    });
+    return entries.map((e) => ({
+      date: e.date,
+      region_id: e.region_id,
+      note: e.note,
+    }));
+  }
+
+  async setAvailabilityByToken(
+    token: string,
+    dto: SetAvailabilityDto,
+  ): Promise<AvailabilityEntryDto[]> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      where: { volunteer_code: volunteerCode },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+
+    await this.availRepo.delete({
+      volunteer_id: v.id,
+      region_id: dto.region_id,
+    });
+
+    if (dto.dates.length > 0) {
+      const entries = dto.dates.map((date) =>
+        this.availRepo.create({
+          volunteer_id: v.id,
+          region_id: dto.region_id,
+          date,
+          note: null,
+        }),
+      );
+      await this.availRepo.save(entries);
+    }
+
+    const updated = await this.availRepo.find({
+      where: { volunteer_id: v.id },
+      order: { date: 'ASC' },
+    });
+    return updated.map((e) => ({
+      date: e.date,
+      region_id: e.region_id,
+      note: e.note,
+    }));
+  }
+
+  async getActivitiesByToken(token: string): Promise<VolunteerActivityDto[]> {
+    const volunteerCode = this.verifyVolunteerToken(token);
+    const v = await this.volunteersRepo.findOne({
+      select: ['id'],
+      where: { volunteer_code: volunteerCode },
+    });
+    if (!v) throw new NotFoundException('Voluntario no encontrado');
+
+    const isSqlite = this.dataSource.options.type === 'better-sqlite3';
+    const p1 = isSqlite ? '?' : '$1';
+
+    const rows = await this.dataSource.query<
+      Array<{
+        id: string;
+        region_id: string;
+        name: string;
+        icon: string | null;
+        description: string | null;
+        date: string;
+        start_time: string;
+        end_time: string;
+        activity_locations: string | null;
+        is_preaching_shift: boolean | number;
+      }>
+    >(
+      `SELECT a.id, a.region_id, a.name, a.icon, a.description, a.date, a.start_time, a.end_time,
+              a.activity_locations, a.is_preaching_shift
+       FROM activities a
+       INNER JOIN activity_volunteers av ON av."activitiesId" = a.id AND av."volunteersId" = ${p1}
+       WHERE a.status = 'published'
+       ORDER BY a.date ASC, a.start_time ASC`,
+      [v.id],
+    );
+
+    const activityIds = rows.map((r) => r.id);
+    const volunteerRows =
+      activityIds.length > 0
+        ? await this.dataSource.query<
+            Array<{
+              activity_id: string;
+              full_name: string;
+              phone: string | null;
+              role_name: string | null;
+            }>
+          >(
+            isSqlite
+              ? `SELECT av."activitiesId" AS activity_id, vol.full_name, vol.phone, vr.name AS role_name
+                 FROM activity_volunteers av
+                 INNER JOIN volunteers vol ON vol.id = av."volunteersId"
+                 LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = av."activitiesId" AND avr.volunteer_id = av."volunteersId"
+                 LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
+                 WHERE av."activitiesId" IN (${activityIds.map(() => '?').join(',')})
+                 ORDER BY vol.full_name ASC`
+              : `SELECT av."activitiesId"::varchar AS activity_id, vol.full_name, vol.phone, vr.name AS role_name
+                 FROM activity_volunteers av
+                 INNER JOIN volunteers vol ON vol.id = av."volunteersId"
+                 LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = av."activitiesId"::varchar AND avr.volunteer_id = av."volunteersId"::varchar
+                 LEFT JOIN volunteer_roles vr ON vr.id::varchar = avr.role_id
+                 WHERE av."activitiesId"::varchar = ANY($1)
+                 ORDER BY vol.full_name ASC`,
+            isSqlite ? activityIds : [activityIds],
+          )
+        : [];
+
+    const volunteersByActivity = new Map<
+      string,
+      { full_name: string; phone: string | null; role_name: string | null }[]
+    >();
+    for (const vr of volunteerRows) {
+      const list = volunteersByActivity.get(vr.activity_id) ?? [];
+      list.push({
+        full_name: vr.full_name,
+        phone: vr.phone,
+        role_name: vr.role_name,
+      });
+      volunteersByActivity.set(vr.activity_id, list);
+    }
+
+    const preachingShiftIds = rows
+      .filter((r) => Boolean(r.is_preaching_shift))
+      .map((r) => r.id);
+    const preachingGroupByActivity = await this.getVolunteerPreachingGroups(
+      v.id,
+      preachingShiftIds,
+      isSqlite,
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      region_id: r.region_id,
+      name: r.name,
+      icon: r.icon,
+      description: r.description,
+      date: r.date,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      activity_locations: r.activity_locations
+        ? (JSON.parse(r.activity_locations) as LocationPoint[])
+        : null,
+      is_preaching_shift: Boolean(r.is_preaching_shift),
+      volunteers: volunteersByActivity.get(r.id) ?? [],
+      preaching_group: preachingGroupByActivity.get(r.id) ?? null,
+    }));
+  }
+
+  /**
+   * For preaching-shift activities, finds the preaching group the volunteer
+   * belongs to in each one, along with its members and assigned guest groups.
+   */
+  private async getVolunteerPreachingGroups(
+    volunteerId: string,
+    activityIds: string[],
+    isSqlite: boolean,
+  ): Promise<Map<string, VolunteerPreachingGroupDto>> {
+    const result = new Map<string, VolunteerPreachingGroupDto>();
+    if (activityIds.length === 0) return result;
+
+    const activityFilter = this.buildIdFilter(
+      'apg.activity_id',
+      activityIds,
+      isSqlite,
+      2,
+    );
+    const membership = await this.dataSource.query<
+      Array<{
+        group_id: string;
+        activity_id: string;
+        group_name: string | null;
+        my_description: string | null;
+      }>
+    >(
+      `SELECT apg.id AS group_id, apg.activity_id, apg.name AS group_name, apgv.description AS my_description
+       FROM activity_preaching_group_volunteers apgv
+       INNER JOIN activity_preaching_groups apg ON CAST(apg.id AS TEXT) = apgv.preaching_group_id
+       WHERE apgv.volunteer_id = ${isSqlite ? '?' : '$1'} AND ${activityFilter.clause}`,
+      isSqlite ? [volunteerId, ...activityIds] : [volunteerId, activityIds],
+    );
+    if (membership.length === 0) return result;
+
+    const groupIds = membership.map((m) => m.group_id);
+
+    const groupFilter = this.buildIdFilter(
+      'apgv.preaching_group_id',
+      groupIds,
+      isSqlite,
+      1,
+    );
+    const memberRows = await this.dataSource.query<
+      Array<{
+        group_id: string;
+        full_name: string;
+        phone: string | null;
+        role_name: string | null;
+        description: string | null;
+      }>
+    >(
+      `SELECT apgv.preaching_group_id AS group_id, vol.full_name, vol.phone, vr.name AS role_name, apgv.description
+       FROM activity_preaching_group_volunteers apgv
+       INNER JOIN activity_preaching_groups apg ON CAST(apg.id AS TEXT) = apgv.preaching_group_id
+       INNER JOIN volunteers vol ON CAST(vol.id AS TEXT) = apgv.volunteer_id
+       LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = apg.activity_id AND avr.volunteer_id = apgv.volunteer_id
+       LEFT JOIN volunteer_roles vr ON CAST(vr.id AS TEXT) = avr.role_id
+       WHERE ${groupFilter.clause}
+       ORDER BY vol.full_name ASC`,
+      groupFilter.params,
+    );
+
+    const guestGroupFilter = this.buildIdFilter(
+      'apggg."preachingGroupId"',
+      groupIds,
+      isSqlite,
+      1,
+    );
+    const guestGroupRows = await this.dataSource.query<
+      Array<{ group_id: string; guest_group_id: string; group_code: string }>
+    >(
+      `SELECT apggg."preachingGroupId" AS group_id, gg.id AS guest_group_id, gg.group_code
+       FROM activity_preaching_group_guest_groups apggg
+       INNER JOIN guest_groups gg ON gg.id = apggg."guestGroupId"
+       WHERE ${guestGroupFilter.clause}
+       ORDER BY gg.group_code ASC`,
+      guestGroupFilter.params,
+    );
+
+    const guestGroupIds = [
+      ...new Set(guestGroupRows.map((g) => g.guest_group_id)),
+    ];
+    const guestFilter = this.buildIdFilter(
+      'g.group_id',
+      guestGroupIds,
+      isSqlite,
+      1,
+    );
+    const guestRows = guestGroupIds.length
+      ? await this.dataSource.query<
+          Array<{
+            group_id: string;
+            full_name: string;
+            is_minor: boolean | number;
+            is_group_contact: boolean | number;
+          }>
+        >(
+          `SELECT g.group_id, g.full_name, g.is_minor, g.is_group_contact
+           FROM guests g
+           WHERE ${guestFilter.clause}
+           ORDER BY g.is_group_contact DESC, g.full_name ASC`,
+          guestFilter.params,
+        )
+      : [];
+
+    const guestsByGroup = new Map<string, VolunteerPreachingGroupGuestDto[]>();
+    for (const g of guestRows) {
+      const list = guestsByGroup.get(g.group_id) ?? [];
+      list.push({
+        full_name: g.full_name,
+        is_minor: Boolean(g.is_minor),
+        is_group_contact: Boolean(g.is_group_contact),
+      });
+      guestsByGroup.set(g.group_id, list);
+    }
+
+    const guestGroupsByPreachingGroup = new Map<
+      string,
+      VolunteerPreachingGroupGuestGroupDto[]
+    >();
+    for (const gg of guestGroupRows) {
+      const guests = guestsByGroup.get(gg.guest_group_id) ?? [];
+      const list = guestGroupsByPreachingGroup.get(gg.group_id) ?? [];
+      list.push({
+        group_code: gg.group_code,
+        guest_count: guests.length,
+        guests,
+      });
+      guestGroupsByPreachingGroup.set(gg.group_id, list);
+    }
+
+    const membersByGroup = new Map<
+      string,
+      VolunteerPreachingGroupVolunteerDto[]
+    >();
+    for (const m of memberRows) {
+      const list = membersByGroup.get(m.group_id) ?? [];
+      list.push({
+        full_name: m.full_name,
+        phone: m.phone,
+        role_name: m.role_name,
+        description: m.description,
+      });
+      membersByGroup.set(m.group_id, list);
+    }
+
+    for (const m of membership) {
+      result.set(m.activity_id, {
+        name: m.group_name,
+        description: m.my_description,
+        volunteers: membersByGroup.get(m.group_id) ?? [],
+        guest_groups: guestGroupsByPreachingGroup.get(m.group_id) ?? [],
+      });
+    }
+
+    return result;
+  }
+
+  private buildIdFilter(
+    column: string,
+    ids: string[],
+    isSqlite: boolean,
+    paramIndex: number,
+  ): { clause: string; params: unknown[] } {
+    if (isSqlite) {
+      return {
+        clause: `${column} IN (${ids.map(() => '?').join(',')})`,
+        params: ids,
+      };
+    }
+    return { clause: `${column} = ANY($${paramIndex})`, params: [ids] };
   }
 
   private str(val: unknown): string | null {

@@ -323,6 +323,102 @@ describe('GuestGroups (e2e)', () => {
         .attach('file', file, 'groups.xlsx')
         .expect(400);
     });
+
+    it('deleteAbsent=true removes groups absent from Excel and their guests', async () => {
+      // Seed GRP-DA-KEEP and GRP-DA-GONE, each with one guest
+      const keep = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: 'GRP-DA-KEEP', region_id: regionId })
+      ).body;
+      const gone = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: 'GRP-DA-GONE', region_id: regionId })
+      ).body;
+
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: 'G-DA-KEEP',
+          group_id: keep.id,
+          region_id: regionId,
+          full_name: 'Keep Guest',
+        });
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: 'G-DA-GONE',
+          group_id: gone.id,
+          region_id: regionId,
+          full_name: 'Gone Guest',
+        });
+
+      // Build Excel with ALL existing groups except GRP-DA-GONE so exactly 1 is absent
+      const allGroups = (
+        await request(server)
+          .get('/api/guest-groups?limit=500')
+          .set('Authorization', auth())
+      ).body.data as { group_code: string }[];
+      const excelRows = allGroups
+        .filter((g) => g.group_code !== 'GRP-DA-GONE')
+        .map((g) => ({ group_code: g.group_code }));
+
+      const file = buildExcelBuffer(excelRows);
+      const res = await request(server)
+        .post(`/api/guest-groups/import?regionId=${regionId}&deleteAbsent=true`)
+        .set('Authorization', auth())
+        .attach('file', file, 'groups.xlsx')
+        .expect(200);
+
+      expect(res.body.deleted).toBe(1);
+
+      // GRP-DA-GONE and its guest must be gone
+      const groups = (
+        await request(server)
+          .get(`/api/guest-groups?regionId=${regionId}`)
+          .set('Authorization', auth())
+      ).body;
+      const codes = groups.data.map(
+        (g: { group_code: string }) => g.group_code,
+      );
+      expect(codes).toContain('GRP-DA-KEEP');
+      expect(codes).not.toContain('GRP-DA-GONE');
+
+      const guestGone = await request(server)
+        .get('/api/guests?search=G-DA-GONE')
+        .set('Authorization', auth());
+      expect(guestGone.body.total).toBe(0);
+
+      const guestKept = await request(server)
+        .get('/api/guests?search=G-DA-KEEP')
+        .set('Authorization', auth());
+      expect(guestKept.body.total).toBe(1);
+    });
+
+    it('deleteAbsent=true with no absent groups omits deleted from response', async () => {
+      // Excel includes all groups currently in DB — nothing to delete
+      const allGroups = (
+        await request(server)
+          .get('/api/guest-groups?limit=500')
+          .set('Authorization', auth())
+      ).body.data as { group_code: string }[];
+      const file = buildExcelBuffer(
+        allGroups.map((g) => ({ group_code: g.group_code })),
+      );
+
+      const res = await request(server)
+        .post(`/api/guest-groups/import?regionId=${regionId}&deleteAbsent=true`)
+        .set('Authorization', auth())
+        .attach('file', file, 'groups.xlsx')
+        .expect(200);
+
+      expect(res.body.deleted).toBeUndefined();
+    });
   });
 
   describe('Export Excel', () => {

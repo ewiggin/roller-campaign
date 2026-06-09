@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
+  IsBoolean,
   IsISO8601,
   IsOptional,
   IsString,
@@ -150,12 +151,22 @@ export class ImportVolunteerParseResponseDto {
   @ApiProperty({ example: ['V-001', 'V-002'] })
   skipped: string[];
 
-  @ApiProperty({ example: { total: 10, to_create: 8, skipped: 2 } })
-  summary: { total: number; to_create: number; skipped: number };
+  @ApiProperty({ example: ['V-010', 'V-020'] })
+  to_delete: string[];
+
+  @ApiProperty({
+    example: { total: 10, to_create: 8, skipped: 2, to_delete: 3 },
+  })
+  summary: {
+    total: number;
+    to_create: number;
+    skipped: number;
+    to_delete: number;
+  };
 }
 
 export class ImportVolunteerCommitDto {
-  @ApiProperty({ example: ['123e4567-e89b-12d3-a456-426614174000'] })
+  @ApiPropertyOptional({ example: ['123e4567-e89b-12d3-a456-426614174000'] })
   @IsArray()
   @IsUUID(undefined, { each: true })
   @IsOptional()
@@ -164,6 +175,17 @@ export class ImportVolunteerCommitDto {
   @ApiProperty({ type: [ImportVolunteerRowDto] })
   @IsArray()
   rows: ImportVolunteerRowDto[];
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  deleteAbsent?: boolean;
+
+  /** Códigos exactos a borrar (calculados en el parse). */
+  @ApiPropertyOptional({ example: ['V-001', 'V-005'] })
+  @IsOptional()
+  @IsArray()
+  toDeleteCodes?: string[];
 }
 
 export class ImportVolunteerCommitResponseDto {
@@ -175,4 +197,7 @@ export class ImportVolunteerCommitResponseDto {
 
   @ApiProperty({ example: 10 })
   total: number;
+
+  @ApiPropertyOptional({ example: 3 })
+  deleted?: number;
 }

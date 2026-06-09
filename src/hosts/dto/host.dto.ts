@@ -64,6 +64,13 @@ export class CreateHostDto {
   @IsInt()
   @Min(1)
   capacity?: number | null;
+
+  @ApiPropertyOptional({
+    example: 'Prefiere recibir invitados con coche propio',
+  })
+  @IsOptional()
+  @IsString()
+  note?: string | null;
 }
 
 export class UpdateHostDto {
@@ -117,6 +124,13 @@ export class UpdateHostDto {
   @IsInt()
   @Min(1)
   capacity?: number | null;
+
+  @ApiPropertyOptional({
+    example: 'Prefiere recibir invitados con coche propio',
+  })
+  @IsOptional()
+  @IsString()
+  note?: string | null;
 }
 
 export class HostResponseDto {
@@ -153,6 +167,12 @@ export class HostResponseDto {
   @ApiPropertyOptional({ example: 150, nullable: true })
   capacity: number | null;
 
+  @ApiPropertyOptional({
+    example: 'Prefiere recibir invitados con coche propio',
+    nullable: true,
+  })
+  note: string | null;
+
   @ApiProperty({ example: 0 })
   group_count: number;
 
@@ -185,6 +205,12 @@ export class GroupSuggestionDto {
 
   @ApiProperty({ example: ['Spanish', 'English'], type: [String] })
   languages: string[];
+
+  @ApiPropertyOptional({ example: 2, nullable: true })
+  car_count: number | null;
+
+  @ApiProperty({ example: 5 })
+  total_car_seats: number;
 }
 
 export class GroupSuggestionsResponseDto {

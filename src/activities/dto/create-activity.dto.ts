@@ -82,6 +82,15 @@ export class CreateActivityDto {
   @Type(() => LocationPointDto)
   activity_locations?: LocationPointDto[] | null;
 
+  @ApiPropertyOptional({
+    example: 'activities/uuid-1749480000000-photo.jpg',
+    nullable: true,
+    description: 'Storage object key returned by the presign/upload endpoint',
+  })
+  @IsOptional()
+  @IsString()
+  image_key?: string | null;
+
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
