@@ -94,6 +94,7 @@ export class VolunteersListComponent implements OnInit {
   readonly importError = signal('');
   readonly parseResult = signal<ImportVolunteerParseResponse | null>(null);
   readonly commitResult = signal<ImportVolunteerCommitResponse | null>(null);
+  readonly importDeleteAbsent = signal(false);
   isDragging = false;
 
   ngOnInit() {
@@ -267,6 +268,7 @@ export class VolunteersListComponent implements OnInit {
     this.importStep.set('upload');
     this.importError.set('');
     this.parseResult.set(null);
+    this.importDeleteAbsent.set(false);
     this.commitResult.set(null);
     this.importModal.set(true);
   }
@@ -315,19 +317,27 @@ export class VolunteersListComponent implements OnInit {
 
   commitImport() {
     const result = this.parseResult();
-    if (!result || result.to_create.length === 0) return;
+    const canCommit =
+      result &&
+      (result.to_create.length > 0 ||
+        (this.importDeleteAbsent() && (result.to_delete?.length ?? 0) > 0));
+    if (!canCommit) return;
     this.importing.set(true);
     this.importError.set('');
-    this.svc.commitImport(result.to_create as ImportVolunteerRow[]).subscribe({
-      next: (res) => {
-        this.commitResult.set(res);
-        this.importStep.set('done');
-        this.importing.set(false);
-      },
-      error: () => {
-        this.importError.set('Error committing import.');
-        this.importing.set(false);
-      },
-    });
+    const deleteAbsent = this.importDeleteAbsent() ? true : undefined;
+    const toDeleteCodes = deleteAbsent ? (result!.to_delete ?? []) : undefined;
+    this.svc
+      .commitImport(result!.to_create as ImportVolunteerRow[], deleteAbsent, toDeleteCodes)
+      .subscribe({
+        next: (res) => {
+          this.commitResult.set(res);
+          this.importStep.set('done');
+          this.importing.set(false);
+        },
+        error: () => {
+          this.importError.set('Error committing import.');
+          this.importing.set(false);
+        },
+      });
   }
 }

@@ -91,7 +91,7 @@ export interface GuestListQuery {
 export interface ImportGuestRow {
   guest_code: string;
   group_code: string;
-  full_name: string;
+  full_name?: string | null;
   [key: string]: unknown;
 }
 
@@ -106,7 +106,9 @@ export interface ImportParseResponse {
   errors: ImportError[];
   duplicates: string[];
   duplicateRows: ImportGuestRow[];
-  summary: { total: number; valid: number; errors: number; duplicates: number };
+  toDelete: { guest_code: string; full_name: string | null }[];
+  summary: { total: number; valid: number; errors: number; duplicates: number; to_delete: number };
+  columns: string[];
 }
 
 export interface ImportCommitResponse {
@@ -114,6 +116,7 @@ export interface ImportCommitResponse {
   updated_guests: number;
   created_groups: number;
   total: number;
+  deleted_guests?: number;
   groups_not_found?: number;
   groups_not_found_rows?: ImportGuestRow[];
 }

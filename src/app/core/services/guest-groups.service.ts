@@ -13,6 +13,7 @@ export interface ImportGroupResult {
   updated: number;
   total: number;
   regions_not_found?: number;
+  deleted?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -68,10 +69,13 @@ export class GuestGroupsService {
     return this.http.patch<GuestGroup>(`/api/guest-groups/${groupId}/host`, { hostId });
   }
 
-  importFromExcel(file: File, regionId?: string) {
+  importFromExcel(file: File, regionId?: string, deleteAbsent?: boolean) {
     const form = new FormData();
     form.append('file', file);
-    const qs = regionId ? `?regionId=${regionId}` : '';
+    const parts: string[] = [];
+    if (regionId) parts.push(`regionId=${regionId}`);
+    if (deleteAbsent) parts.push('deleteAbsent=true');
+    const qs = parts.length ? '?' + parts.join('&') : '';
     return this.http.post<ImportGroupResult>(`/api/guest-groups/import${qs}`, form);
   }
 

@@ -105,7 +105,11 @@ export class VolunteersService {
     return this.http.post<ImportVolunteerParseResponse>('/api/volunteers/import/parse', form);
   }
 
-  commitImport(rows: ImportVolunteerRow[]) {
-    return this.http.post<ImportVolunteerCommitResponse>('/api/volunteers/import/commit', { rows });
+  commitImport(rows: ImportVolunteerRow[], deleteAbsent?: boolean, toDeleteCodes?: string[]) {
+    return this.http.post<ImportVolunteerCommitResponse>('/api/volunteers/import/commit', {
+      rows,
+      ...(deleteAbsent ? { deleteAbsent: true } : {}),
+      ...(toDeleteCodes?.length ? { toDeleteCodes } : {}),
+    });
   }
 }
