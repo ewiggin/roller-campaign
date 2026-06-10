@@ -35,9 +35,11 @@ import {
   UpdateGroupVolunteerDescriptionDto,
 } from './dto/assign-group-volunteer.dto';
 import { AssignGroupGuestGroupDto } from './dto/assign-group-guest-group.dto';
+import { AssignGroupCartDto } from './dto/assign-group-cart.dto';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import {
   ActivityResponseDto,
+  AvailableCartForActivityDto,
   AvailableGroupForActivityDto,
   AvailableVolunteerForActivityDto,
 } from './dto/activity-response.dto';
@@ -188,6 +190,17 @@ export class ActivitiesController {
     return this.svc.getAvailableGroups(id, user);
   }
 
+  // ── Available carts ───────────────────────────────────────────────────────
+
+  @Get(':id/available-carts')
+  @ApiOkResponse({ type: [AvailableCartForActivityDto] })
+  getAvailableCarts(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<AvailableCartForActivityDto[]> {
+    return this.svc.getAvailableCarts(id, user);
+  }
+
   // ── Guest groups ──────────────────────────────────────────────────────────
 
   @Post(':id/guest-groups')
@@ -323,6 +336,30 @@ export class ActivitiesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<ActivityResponseDto> {
     return this.svc.removeGuestGroupFromGroup(id, groupId, guestGroupId, user);
+  }
+
+  @Post(':id/preaching-groups/:groupId/carts')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  assignCartToGroup(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Body() dto: AssignGroupCartDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.assignCartToGroup(id, groupId, dto.cartId, user);
+  }
+
+  @Delete(':id/preaching-groups/:groupId/carts/:cartId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  removeCartFromGroup(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Param('cartId', ParseUUIDPipe) cartId: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.removeCartFromGroup(id, groupId, cartId, user);
   }
 
   // ── Publish ───────────────────────────────────────────────────────────────

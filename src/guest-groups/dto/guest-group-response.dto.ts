@@ -44,6 +44,50 @@ export class GuestGroupResponseDto {
   @ApiPropertyOptional({ example: 3, nullable: true })
   car_count: number | null;
 
+  @ApiPropertyOptional({ example: 3, nullable: true })
+  agg_guest_count: number | null;
+
+  @ApiPropertyOptional({ example: 1, nullable: true })
+  agg_minor_count: number | null;
+
+  @ApiPropertyOptional({
+    example: { confirmed: 2, arrived: 1 },
+    nullable: true,
+    type: 'object',
+    additionalProperties: { type: 'number' },
+  })
+  agg_status_counts: Record<string, number> | null;
+
+  @ApiPropertyOptional({ example: 40.417, nullable: true })
+  agg_avg_lat: number | null;
+
+  @ApiPropertyOptional({ example: -3.704, nullable: true })
+  agg_avg_lng: number | null;
+
+  @ApiPropertyOptional({
+    example: ['Spanish', 'English'],
+    type: [String],
+    nullable: true,
+  })
+  agg_languages: string[] | null;
+
+  @ApiPropertyOptional({ example: true, nullable: true })
+  agg_speaks_english: boolean | null;
+
+  @ApiPropertyOptional({ example: 5, nullable: true })
+  agg_car_seats: number | null;
+
+  @ApiPropertyOptional({ example: '2026-06-10T10:00:00.000Z', nullable: true })
+  agg_computed_at: string | null;
+
+  @ApiPropertyOptional({
+    example: false,
+    nullable: true,
+    description:
+      'true when the stored snapshot no longer matches the live guest data; null when there is no snapshot',
+  })
+  agg_stale: boolean | null;
+
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })
   created_at: Date;
 

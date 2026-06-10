@@ -589,4 +589,161 @@ describe('GuestGroups (e2e)', () => {
         .expect(400);
     });
   });
+
+  describe('POST /api/guest-groups/recompute-aggregates', () => {
+    let sharedLocationGroupId: string;
+    let spreadLocationGroupId: string;
+    let firstGuestId: string;
+
+    const createGuest = (body: Record<string, unknown>) =>
+      request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send(body)
+        .expect(201);
+
+    beforeAll(async () => {
+      sharedLocationGroupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: 'GRP-AGG-1', region_id: regionId })
+      ).body.id;
+      spreadLocationGroupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: 'GRP-AGG-2', region_id: regionId })
+      ).body.id;
+
+      // Group 1: everyone at the same coordinates (must be blurred to 3 decimals)
+      const firstGuest = await createGuest({
+        guest_code: 'G-AGG-1',
+        group_id: sharedLocationGroupId,
+        region_id: regionId,
+        full_name: 'Agg Guest One',
+        status: 'confirmed',
+        native_language: 'Spanish',
+        other_languages: ['French'],
+        speaks_english: true,
+        lat: 40.416801,
+        lng: -3.703712,
+        car_seats: 3,
+      });
+      firstGuestId = firstGuest.body.id;
+      await createGuest({
+        guest_code: 'G-AGG-2',
+        group_id: sharedLocationGroupId,
+        region_id: regionId,
+        full_name: 'Agg Guest Two',
+        status: 'arrived',
+        is_minor: true,
+        native_language: 'Spanish',
+        lat: 40.416801,
+        lng: -3.703712,
+        car_seats: 2,
+      });
+      // Cancelled: excluded from every aggregate except the status breakdown
+      await createGuest({
+        guest_code: 'G-AGG-3',
+        group_id: sharedLocationGroupId,
+        region_id: regionId,
+        full_name: 'Agg Guest Cancelled',
+        status: 'cancelled',
+        is_minor: true,
+        native_language: 'German',
+        car_seats: 5,
+      });
+
+      // Group 2: different coordinates (exact average is kept)
+      await createGuest({
+        guest_code: 'G-AGG-4',
+        group_id: spreadLocationGroupId,
+        region_id: regionId,
+        full_name: 'Agg Guest Four',
+        status: 'confirmed',
+        lat: 40.0,
+        lng: -3.0,
+      });
+      await createGuest({
+        guest_code: 'G-AGG-5',
+        group_id: spreadLocationGroupId,
+        region_id: regionId,
+        full_name: 'Agg Guest Five',
+        status: 'confirmed',
+        lat: 41.0,
+        lng: -4.0,
+      });
+    });
+
+    it('recomputes and stores aggregates on groups', async () => {
+      const res = await request(server)
+        .post('/api/guest-groups/recompute-aggregates')
+        .set('Authorization', auth())
+        .expect(200);
+      expect(res.body.groups_updated).toBeGreaterThanOrEqual(2);
+      expect(typeof res.body.computed_at).toBe('string');
+    });
+
+    it('blurs the location to 3 decimals when all guests share coordinates', async () => {
+      const res = await request(server)
+        .get(`/api/guest-groups/${sharedLocationGroupId}`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(res.body.agg_guest_count).toBe(2);
+      expect(res.body.agg_minor_count).toBe(1);
+      expect(res.body.agg_status_counts).toEqual({
+        confirmed: 1,
+        arrived: 1,
+        cancelled: 1,
+      });
+      expect(res.body.agg_avg_lat).toBe(40.417);
+      expect(res.body.agg_avg_lng).toBe(-3.704);
+      expect(res.body.agg_languages).toEqual(['French', 'Spanish']);
+      expect(res.body.agg_speaks_english).toBe(true);
+      expect(res.body.agg_car_seats).toBe(5);
+      expect(res.body.agg_computed_at).toBeTruthy();
+      expect(res.body.agg_stale).toBe(false);
+    });
+
+    it('flags the snapshot as stale when guest data changes afterwards', async () => {
+      await request(server)
+        .patch(`/api/guests/${firstGuestId}`)
+        .set('Authorization', auth())
+        .send({ car_seats: 4 })
+        .expect(200);
+
+      const res = await request(server)
+        .get(`/api/guest-groups/${sharedLocationGroupId}`)
+        .set('Authorization', auth())
+        .expect(200);
+      expect(res.body.agg_stale).toBe(true);
+
+      // Recomputing clears the stale flag again
+      await request(server)
+        .post('/api/guest-groups/recompute-aggregates')
+        .set('Authorization', auth())
+        .expect(200);
+      const after = await request(server)
+        .get(`/api/guest-groups/${sharedLocationGroupId}`)
+        .set('Authorization', auth())
+        .expect(200);
+      expect(after.body.agg_stale).toBe(false);
+      expect(after.body.agg_car_seats).toBe(6);
+    });
+
+    it('keeps the exact average when coordinates differ', async () => {
+      const res = await request(server)
+        .get(`/api/guest-groups/${spreadLocationGroupId}`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(res.body.agg_avg_lat).toBeCloseTo(40.5, 6);
+      expect(res.body.agg_avg_lng).toBeCloseTo(-3.5, 6);
+      expect(res.body.agg_speaks_english).toBe(false);
+      expect(res.body.agg_car_seats).toBe(0);
+      expect(res.body.agg_languages).toBeNull();
+    });
+  });
 });

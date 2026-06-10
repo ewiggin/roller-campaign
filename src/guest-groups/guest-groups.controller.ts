@@ -34,6 +34,7 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateGuestGroupDto } from './dto/create-guest-group.dto';
 import { GuestGroupResponseDto } from './dto/guest-group-response.dto';
 import { ImportGroupResponseDto } from './dto/import-group-response.dto';
+import { RecomputeAggregatesResponseDto } from './dto/recompute-aggregates-response.dto';
 import { SetContactDto } from './dto/set-contact.dto';
 import { UpdateGuestGroupDto } from './dto/update-guest-group.dto';
 import { GuestGroupsService } from './guest-groups.service';
@@ -167,6 +168,14 @@ export class GuestGroupsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<GuestGroupResponseDto> {
     return this.service.update(id, dto, user);
+  }
+
+  @Post('recompute-aggregates')
+  @Audit('update', 'guest_group')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: RecomputeAggregatesResponseDto })
+  recomputeAggregates(): Promise<RecomputeAggregatesResponseDto> {
+    return this.service.recomputeAggregates();
   }
 
   @Delete('truncate')

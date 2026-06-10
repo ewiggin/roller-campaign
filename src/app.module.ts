@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from './activities/activities.module';
+import { CartsModule } from './carts/carts.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { GroupAccessModule } from './group-access/group-access.module';
 import { AuthModule } from './auth/auth.module';
@@ -55,6 +56,7 @@ import { VolunteersModule } from './volunteers/volunteers.module';
     SettingsModule,
     GroupAccessModule,
     StorageModule,
+    CartsModule,
     VersionModule,
   ],
 })
