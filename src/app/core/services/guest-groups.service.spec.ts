@@ -99,6 +99,13 @@ describe('GuestGroupsService', () => {
     req.flush({});
   });
 
+  it('recomputeAggregates makes POST /api/guest-groups/recompute-aggregates', () => {
+    service.recomputeAggregates().subscribe();
+    const req = http.expectOne('/api/guest-groups/recompute-aggregates');
+    expect(req.request.method).toBe('POST');
+    req.flush({ groups_updated: 2, computed_at: '2026-06-10T10:00:00.000Z' });
+  });
+
   it('exportExcel makes GET /api/guest-groups/export', () => {
     service.exportExcel().subscribe();
     http.expectOne((r) => r.url === '/api/guest-groups/export').flush(new Blob());

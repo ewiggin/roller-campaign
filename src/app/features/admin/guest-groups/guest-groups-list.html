@@ -43,6 +43,28 @@
       </button>
       @if (isSuperAdmin()) {
         <button
+          (click)="recomputeAggregates()"
+          [disabled]="recomputing()"
+          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+          title="Recompute the aggregate snapshot stored on each group"
+        >
+          <svg
+            class="w-4 h-4"
+            [class.animate-spin]="recomputing()"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+            />
+          </svg>
+          {{ recomputing() ? 'Recomputing…' : 'Recompute snapshot' }}
+        </button>
+        <button
           (click)="openTruncate()"
           class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
         >
@@ -411,6 +433,43 @@
                     </span>
                   }
                 </div>
+                <!-- Aggregate snapshot (validation before guest data removal) -->
+                @if (group.agg_computed_at) {
+                  <div class="flex items-center gap-2 mt-1 flex-wrap">
+                    @if (group.agg_stale === false) {
+                      <span
+                        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
+                        title="Snapshot matches live guest data"
+                      >
+                        ✓ snapshot
+                      </span>
+                    } @else {
+                      <span
+                        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-800"
+                        title="Snapshot differs from live guest data — recompute"
+                      >
+                        ⚠ snapshot stale
+                      </span>
+                    }
+                    <span class="text-[11px] text-gray-400 dark:text-zinc-500">
+                      {{ group.agg_guest_count }} active ({{ aggStatusSummary(group) }})
+                      @if (group.agg_minor_count) {
+                        · {{ group.agg_minor_count }} minor{{
+                          group.agg_minor_count !== 1 ? 's' : ''
+                        }}
+                      }
+                      · {{ group.agg_car_seats }} seats
+                      @if (group.agg_languages?.length) {
+                        · {{ group.agg_languages!.join(', ') }}
+                      }
+                      @if (group.agg_avg_lat !== null) {
+                        · {{ group.agg_avg_lat | number: '1.0-4' }},
+                        {{ group.agg_avg_lng | number: '1.0-4' }}
+                      }
+                      · {{ group.agg_computed_at | date: 'd MMM HH:mm' }}
+                    </span>
+                  </div>
+                }
               </button>
 
               <div class="flex items-center gap-1 shrink-0">

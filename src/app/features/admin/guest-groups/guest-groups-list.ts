@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import {
   Component,
   computed,
@@ -32,7 +32,7 @@ export const COMPOSITION_LABELS: Record<GroupComposition, string> = {
 
 @Component({
   selector: 'app-guest-groups-list',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, SearchableSelectComponent],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, DecimalPipe, SearchableSelectComponent],
   templateUrl: './guest-groups-list.html',
 })
 export class GuestGroupsListComponent implements OnInit {
@@ -66,6 +66,7 @@ export class GuestGroupsListComponent implements OnInit {
   readonly formError = signal('');
   readonly truncating = signal(false);
   readonly truncateConfirmText = signal('');
+  readonly recomputing = signal(false);
 
   // Host assignment modal
   readonly hostAssignGroup = signal<GuestGroup | null>(null);
@@ -467,6 +468,28 @@ export class GuestGroupsListComponent implements OnInit {
       next: () => this.loadGroups(),
       error: () => alert('Cannot delete group. It may have guests assigned.'),
     });
+  }
+
+  recomputeAggregates() {
+    if (this.recomputing()) return;
+    this.recomputing.set(true);
+    this.svc.recomputeAggregates().subscribe({
+      next: () => {
+        this.recomputing.set(false);
+        this.loadGroups();
+      },
+      error: () => {
+        this.recomputing.set(false);
+        alert('Error recomputing aggregates.');
+      },
+    });
+  }
+
+  aggStatusSummary(group: GuestGroup): string {
+    const counts = group.agg_status_counts ?? {};
+    return Object.entries(counts)
+      .map(([status, count]) => `${count} ${status}`)
+      .join(' · ');
   }
 
   openTruncate() {
