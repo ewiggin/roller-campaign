@@ -167,7 +167,8 @@ export class ActivitiesService {
     const qb = this.activitiesRepo
       .createQueryBuilder('a')
       .leftJoinAndSelect('a.volunteers', 'volunteers')
-      .leftJoinAndSelect('a.guestGroups', 'guestGroups');
+      .leftJoinAndSelect('a.guestGroups', 'guestGroups')
+      .leftJoinAndSelect('a.host', 'host');
 
     if (currentUser.role === 'volunteer') {
       const v = await this.volunteersRepo.findOne({

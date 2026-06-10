@@ -20,6 +20,7 @@ const DEFAULT_REGION_ADMIN_SCREENS = [
   'guests',
   'activities',
   'volunteers',
+  'carts',
 ];
 
 @Injectable()
