@@ -214,6 +214,16 @@ export class ActivitiesController {
     return this.svc.assignGuestGroup(id, dto.groupId, user);
   }
 
+  @Delete(':id/requests/:requestId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  deleteAttendanceRequest(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.deleteAttendanceRequest(id, requestId);
+  }
+
   @Delete(':id/guest-groups/:groupId')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ActivityResponseDto })

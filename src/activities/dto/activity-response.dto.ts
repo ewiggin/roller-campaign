@@ -203,6 +203,23 @@ export class PreachingGroupDto {
   carts: ActivityCartDto[];
 }
 
+export class ActivityAttendanceRequestDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  request_id: string;
+
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  group_id: string;
+
+  @ApiProperty({ example: 'GRP-001' })
+  group_code: string;
+
+  @ApiProperty({ example: 12 })
+  guest_count: number;
+
+  @ApiProperty({ example: 1, description: '1=primera opción, 2=segunda, 3=si hace falta' })
+  preference: number;
+}
+
 export class ActivityResponseDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
@@ -258,6 +275,9 @@ export class ActivityResponseDto {
   @ApiProperty({ example: false })
   is_preaching_shift: boolean;
 
+  @ApiProperty({ example: false })
+  request_attendance: boolean;
+
   @ApiProperty({ type: [ActivityVolunteerDto] })
   volunteers: ActivityVolunteerDto[];
 
@@ -282,6 +302,9 @@ export class ActivityResponseDto {
 
   @ApiPropertyOptional({ example: 50, nullable: true })
   max_guests: number | null;
+
+  @ApiProperty({ type: [ActivityAttendanceRequestDto] })
+  requests: ActivityAttendanceRequestDto[];
 
   @ApiProperty({ example: '2024-01-15T10:00:00.000Z' })
   created_at: Date;

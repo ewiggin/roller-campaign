@@ -6,6 +6,7 @@ import { ActivityPreachingGroup } from './entities/activity-preaching-group.enti
 import { ActivityPreachingGroupVolunteer } from './entities/activity-preaching-group-volunteer.entity';
 import { Guest } from '../guests/entities/guest.entity';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
+import { GroupActivityRequest } from '../group-access/entities/group-activity-request.entity';
 import { Host } from '../hosts/entities/host.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import { Region } from '../regions/entities/region.entity';
@@ -23,6 +24,7 @@ import { ActivitiesController } from './activities.controller';
       ActivityPreachingGroupVolunteer,
       Guest,
       GuestGroup,
+      GroupActivityRequest,
       Host,
       Volunteer,
       Region,

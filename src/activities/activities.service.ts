@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
+import { GroupActivityRequest } from '../group-access/entities/group-activity-request.entity';
 import { Guest } from '../guests/entities/guest.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
@@ -18,6 +19,7 @@ import { ActivityPreachingGroupVolunteer } from './entities/activity-preaching-g
 import { Cart } from '../carts/entities/cart.entity';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import {
+  ActivityAttendanceRequestDto,
   ActivityResponseDto,
   AvailableCartForActivityDto,
   AvailableGroupForActivityDto,
@@ -58,8 +60,11 @@ export class ActivitiesService {
     private readonly preachingGroupsRepo: Repository<ActivityPreachingGroup>,
     @InjectRepository(ActivityPreachingGroupVolunteer)
     private readonly pgVolunteersRepo: Repository<ActivityPreachingGroupVolunteer>,
-    @InjectRepository(Cart) private readonly cartsRepo: Repository<Cart>,
-  ) {}
+    @InjectRepository(GroupActivityRequest)
+    private readonly requestsRepo: Repository<GroupActivityRequest>,
+    @InjectRepository(Cart)
+    private readonly cartsRepo: Repository<Cart>,
+  ) { }
 
   async create(
     dto: CreateActivityDto,
@@ -84,6 +89,7 @@ export class ActivitiesService {
       end_time: dto.end_time,
       activity_locations: dto.activity_locations ?? null,
       is_preaching_shift: dto.is_preaching_shift ?? false,
+      request_attendance: dto.request_attendance ?? false,
       status: 'draft',
       volunteers: [],
       guestGroups: [],
@@ -121,6 +127,7 @@ export class ActivitiesService {
             end_time: dto.end_time,
             activity_locations: dto.activity_locations ?? null,
             is_preaching_shift: dto.is_preaching_shift ?? false,
+            request_attendance: dto.request_attendance ?? false,
             status: 'draft',
             volunteers: [],
             guestGroups: [],
@@ -1204,11 +1211,11 @@ export class ActivitiesService {
       const distance_km =
         activityLoc && host?.lat && host?.lng
           ? this.haversineKm(
-              activityLoc.lat,
-              activityLoc.lng,
-              host.lat,
-              host.lng,
-            )
+            activityLoc.lat,
+            activityLoc.lng,
+            host.lat,
+            host.lng,
+          )
           : null;
 
       result.push({
@@ -1258,16 +1265,38 @@ export class ActivitiesService {
     activity: Activity,
   ): Promise<ActivityResponseDto> {
     const groupIds = (activity.guestGroups ?? []).map((g) => g.id);
-    const [counts, volunteerRoles] = await Promise.all([
+    const [counts, volunteerRoles, rawRequests] = await Promise.all([
       this.getGroupGuestCounts(groupIds),
       this.getVolunteerRoles(activity.id, activity.volunteers ?? []),
+      this.requestsRepo.find({
+        where: { activity_id: activity.id },
+        relations: ['group'],
+        order: { preference: 'DESC', created_at: 'ASC' },
+      }),
     ]);
     const preachingGroups = await this.getPreachingGroupsDto(
       activity.id,
       counts,
       volunteerRoles,
     );
-    return this.toDto(activity, counts, volunteerRoles, preachingGroups);
+    const requestGroupIds = rawRequests.map((r) => r.group_id);
+    const requestCounts = requestGroupIds.length
+      ? await this.getGroupGuestCounts(requestGroupIds)
+      : new Map<string, number>();
+    const requests: ActivityAttendanceRequestDto[] = rawRequests.map((r) => ({
+      request_id: r.id,
+      group_id: r.group_id,
+      group_code: r.group?.group_code ?? '',
+      guest_count: requestCounts.get(r.group_id) ?? 0,
+      preference: r.preference,
+    }));
+    return this.toDto(
+      activity,
+      counts,
+      volunteerRoles,
+      preachingGroups,
+      requests,
+    );
   }
 
   private async getPreachingGroupsDto(
@@ -1455,9 +1484,9 @@ export class ActivitiesService {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
@@ -1474,6 +1503,19 @@ export class ActivitiesService {
     throw new ForbiddenException();
   }
 
+  async deleteAttendanceRequest(
+    activityId: string,
+    requestId: string,
+  ): Promise<ActivityResponseDto> {
+    await this.requestsRepo.delete({ id: requestId, activity_id: activityId });
+    const activity = await this.activitiesRepo.findOne({
+      where: { id: activityId },
+      relations: ACTIVITY_RELATIONS,
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    return this.toDtoWithCounts(activity);
+  }
+
   private toDto = (
     activity: Activity,
     groupCounts: Map<string, number> = new Map(),
@@ -1486,6 +1528,7 @@ export class ActivitiesService {
       }
     > = new Map(),
     preachingGroups: PreachingGroupDto[] = [],
+    requests: ActivityAttendanceRequestDto[] = [],
   ): ActivityResponseDto => ({
     id: activity.id,
     region_id: activity.region_id,
@@ -1502,6 +1545,7 @@ export class ActivitiesService {
     activity_locations: activity.activity_locations ?? null,
     image_key: activity.image_key ?? null,
     is_preaching_shift: activity.is_preaching_shift,
+    request_attendance: activity.request_attendance,
     volunteers: (activity.volunteers ?? []).map((v) => {
       const vr = volunteerRoles.get(v.id);
       return {
@@ -1525,6 +1569,7 @@ export class ActivitiesService {
       0,
     ),
     preaching_groups: preachingGroups,
+    requests,
     max_guests: activity.max_guests,
     created_at: activity.created_at,
     updated_at: activity.updated_at,
