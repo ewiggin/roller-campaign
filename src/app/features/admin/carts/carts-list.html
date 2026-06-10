@@ -1,0 +1,783 @@
+<div>
+  <!-- Page header -->
+  <div class="flex items-center justify-between mb-5">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">Carts</h2>
+    <div class="flex items-center gap-2">
+      <button
+        (click)="downloadExcel()"
+        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+          />
+        </svg>
+        Export Excel
+      </button>
+      <button
+        (click)="downloadTemplate()"
+        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+          />
+        </svg>
+        Template
+      </button>
+      <button
+        (click)="openImport()"
+        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+          />
+        </svg>
+        Import Excel
+      </button>
+      <button
+        (click)="openCreate()"
+        class="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        New cart
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="text-sm text-red-500 mb-4">{{ error() }}</p>
+  }
+
+  <!-- Filters -->
+  <div
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4"
+  >
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <!-- Region -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Region</label
+        >
+        <app-searchable-select
+          [items]="regionItems()"
+          placeholder="All regions"
+          emptyLabel="All regions"
+          [compact]="true"
+          [selected]="filterRegion()"
+          (selectedChange)="onRegionFilterChange($event)"
+        />
+      </div>
+
+      <!-- Congregation -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Congregation</label
+        >
+        <app-searchable-select
+          [items]="filterHostItems()"
+          placeholder="All congregations"
+          emptyLabel="All congregations"
+          [compact]="true"
+          [selected]="filterHost()"
+          (selectedChange)="filterHost.set($event)"
+        />
+      </div>
+
+      <!-- Cart number -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Cart number</label
+        >
+        <input
+          type="search"
+          placeholder="Search by number…"
+          [value]="filterNumber()"
+          (input)="filterNumber.set($any($event.target).value)"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+        />
+      </div>
+
+      <!-- Clear -->
+      <div class="flex items-end">
+        <button
+          (click)="clearFilters()"
+          [disabled]="!hasActiveFilters()"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-zinc-400 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 overflow-hidden"
+  >
+    <button
+      type="button"
+      (click)="toggleMap()"
+      class="w-full flex items-center justify-between px-5 py-3 bg-gray-50 dark:bg-[#27272a] hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+      [class.border-b]="mapExpanded()"
+      [class.border-gray-200]="mapExpanded()"
+      [class.dark:border-zinc-700]="mapExpanded()"
+    >
+      <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+        >Map</span
+      >
+      <svg
+        class="w-4 h-4 text-gray-400 dark:text-zinc-500 transition-transform"
+        [class.rotate-180]="mapExpanded()"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+      </svg>
+    </button>
+
+    @if (mapExpanded()) {
+      <div class="p-4">
+        @if (mapError()) {
+          <p class="text-sm text-red-500">{{ mapError() }}</p>
+        } @else {
+          <div #mapContainer class="w-full h-96 rounded-lg bg-gray-100 dark:bg-zinc-800"></div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- List card -->
+  <div
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+  >
+    <!-- Column headers -->
+    <div
+      class="grid grid-cols-[3rem_10rem_1fr_1fr_5rem] gap-4 px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700"
+    >
+      <span class="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide"
+        >#</span
+      >
+      <span class="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide"
+        >Region / Host</span
+      >
+      <span class="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide"
+        >Primary location</span
+      >
+      <span class="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide"
+        >Secondary location</span
+      >
+      <span
+        class="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide"
+      ></span>
+    </div>
+
+    @if (loading()) {
+      <div class="px-5 py-10 text-center text-sm text-gray-400 dark:text-zinc-500">Loading…</div>
+    } @else if (filteredCarts().length === 0) {
+      <div class="px-5 py-10 text-center text-sm text-gray-400 dark:text-zinc-500">
+        No carts found.
+      </div>
+    } @else {
+      <div class="divide-y divide-gray-100 dark:divide-zinc-800">
+        @for (cart of filteredCarts(); track cart.id) {
+          <div
+            class="grid grid-cols-[3rem_10rem_1fr_1fr_5rem] gap-4 px-5 py-4 items-center hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
+          >
+            <!-- Number + photo badge -->
+            <div class="flex items-center gap-1.5">
+              <span class="text-sm font-semibold text-gray-900 dark:text-zinc-100">{{
+                cart.number || '—'
+              }}</span>
+              @if (cart.image_key) {
+                <svg
+                  class="w-3.5 h-3.5 text-blue-400 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  title="Has photo"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                  />
+                </svg>
+              }
+            </div>
+
+            <!-- Region / Host -->
+            <div class="min-w-0">
+              <p class="text-sm text-gray-700 dark:text-zinc-200 truncate">
+                {{ regionNameFor(cart.region_id) }}
+              </p>
+              @if (cart.host_name) {
+                <p class="text-xs text-gray-400 dark:text-zinc-500 truncate">
+                  {{ cart.host_name }}
+                </p>
+              }
+            </div>
+
+            <!-- Primary location -->
+            <div class="min-w-0">
+              @if (cart.primary_location) {
+                <p class="text-sm text-gray-700 dark:text-zinc-200 truncate">
+                  {{ cart.primary_location.address }}
+                </p>
+                <p class="text-xs text-gray-400 dark:text-zinc-500">
+                  {{ cart.primary_location.lat.toFixed(5) }},
+                  {{ cart.primary_location.lng.toFixed(5) }}
+                </p>
+              } @else {
+                <span class="text-sm text-gray-400 dark:text-zinc-500">—</span>
+              }
+            </div>
+
+            <!-- Secondary location -->
+            <div class="min-w-0">
+              @if (cart.secondary_location) {
+                <p class="text-sm text-gray-700 dark:text-zinc-200 truncate">
+                  {{ cart.secondary_location.address }}
+                </p>
+                <p class="text-xs text-gray-400 dark:text-zinc-500">
+                  {{ cart.secondary_location.lat.toFixed(5) }},
+                  {{ cart.secondary_location.lng.toFixed(5) }}
+                </p>
+              } @else {
+                <span class="text-sm text-gray-400 dark:text-zinc-500">—</span>
+              }
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-1">
+              <button
+                (click)="openEdit(cart)"
+                class="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
+                title="Edit"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+                  />
+                </svg>
+              </button>
+              <button
+                (click)="confirmDelete(cart)"
+                class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                title="Delete"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Edit/Create modal -->
+@if (modal()) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    (click)="closeModal()"
+  >
+    <div
+      class="w-full max-w-lg bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-y-auto max-h-[90vh]"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Modal header -->
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-zinc-800">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-zinc-100">
+          {{ modal() === 'create' ? 'New cart' : 'Edit cart' }}
+        </h3>
+      </div>
+
+      <!-- Modal body -->
+      <form [formGroup]="form" (ngSubmit)="save()" class="px-6 py-4 space-y-5">
+        <!-- Region -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+            Region <span class="text-red-400">*</span>
+          </label>
+          <app-searchable-select
+            formControlName="region_id"
+            [items]="regionItems()"
+            placeholder="Select region…"
+          />
+        </div>
+
+        <!-- Host -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+            Host
+          </label>
+          <app-searchable-select
+            formControlName="host_id"
+            [items]="hostItems()"
+            placeholder="No host assigned"
+            emptyLabel="No host"
+          />
+        </div>
+
+        <!-- Number -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+            Number
+          </label>
+          <input
+            formControlName="number"
+            type="text"
+            placeholder="1"
+            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+            style="font-size: max(16px, 1em)"
+          />
+        </div>
+
+        <!-- Primary location -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">
+            Primary location
+          </label>
+          <app-location-picker
+            [required]="false"
+            [initialAddress]="primaryLocationInput?.address ?? null"
+            [initialLat]="primaryLocationInput?.lat ?? null"
+            [initialLng]="primaryLocationInput?.lng ?? null"
+            (locationSelected)="onPrimaryLocation($event)"
+          />
+        </div>
+
+        <!-- Secondary location -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-sm font-medium text-gray-700 dark:text-zinc-300">
+              Secondary location
+            </label>
+            <button
+              type="button"
+              (click)="toggleSecondary()"
+              class="text-xs text-blue-500 hover:underline"
+            >
+              {{ hasSecondary() ? 'Remove' : 'Add secondary' }}
+            </button>
+          </div>
+          @if (hasSecondary()) {
+            <app-location-picker
+              [required]="false"
+              [initialAddress]="secondaryLocationInput?.address ?? null"
+              [initialLat]="secondaryLocationInput?.lat ?? null"
+              [initialLng]="secondaryLocationInput?.lng ?? null"
+              (locationSelected)="onSecondaryLocation($event)"
+            />
+          } @else {
+            <p class="text-sm text-gray-400 dark:text-zinc-500">No secondary location set.</p>
+          }
+        </div>
+
+        <!-- Photo -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1.5">
+            Photo
+          </label>
+
+          @if (imagePreviewObjectUrl() || existingImageUrl()) {
+            <div class="rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-700">
+              <img
+                [src]="imagePreviewObjectUrl() ?? existingImageUrl()"
+                alt="Cart photo"
+                class="w-full max-h-48 object-cover bg-gray-100 dark:bg-zinc-800"
+              />
+              <div
+                class="flex items-center justify-between px-3 py-1.5 bg-gray-50 dark:bg-[#27272a] text-xs text-gray-500 dark:text-zinc-400"
+              >
+                <span>{{ imageFile()?.name ?? 'Current photo' }}</span>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    (click)="triggerImageInput()"
+                    class="text-blue-500 hover:underline"
+                  >
+                    Change
+                  </button>
+                  <button
+                    type="button"
+                    (click)="removeImage()"
+                    class="text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          } @else {
+            <button
+              type="button"
+              (click)="triggerImageInput()"
+              class="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 dark:border-zinc-700 px-4 py-3 text-sm text-gray-500 dark:text-zinc-400 hover:border-blue-400 hover:text-blue-500 transition-colors w-full"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                />
+              </svg>
+              Upload photo
+            </button>
+          }
+
+          <input
+            #imageInput
+            type="file"
+            accept="image/*"
+            (change)="onImageSelected($event)"
+            class="hidden"
+          />
+
+          @if (uploading()) {
+            <div class="mt-2">
+              <div
+                class="flex items-center justify-between text-xs text-gray-500 dark:text-zinc-400 mb-1"
+              >
+                <span>Uploading…</span>
+                <span>{{ uploadPercent() }}%</span>
+              </div>
+              <div class="h-1.5 rounded-full bg-gray-200 dark:bg-zinc-700 overflow-hidden">
+                <div
+                  class="h-full rounded-full bg-blue-500 transition-all"
+                  [style.width.%]="uploadPercent()"
+                ></div>
+              </div>
+            </div>
+          }
+        </div>
+
+        @if (formError()) {
+          <p class="text-sm text-red-500">{{ formError() }}</p>
+        }
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            (click)="closeModal()"
+            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            [disabled]="form.invalid || saving() || uploading()"
+            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {{ saving() ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+
+<!-- Import modal -->
+@if (importModal()) {
+  <div
+    class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4"
+    (click)="closeImport()"
+  >
+    <div
+      class="w-full max-w-xl bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden max-h-[85vh] flex flex-col"
+      (click)="$event.stopPropagation()"
+    >
+      <div
+        class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between shrink-0"
+      >
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+          Import carts from Excel
+        </h3>
+        <button
+          (click)="closeImport()"
+          class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="overflow-y-auto flex-1 p-5">
+        @if (importStep() === 'upload') {
+          <div class="space-y-4">
+            <div
+              class="border-2 border-dashed rounded-xl p-10 text-center transition-colors cursor-pointer"
+              [class]="
+                isDragging
+                  ? 'border-blue-400 bg-blue-50 dark:bg-blue-950'
+                  : 'border-gray-300 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-700'
+              "
+              (dragover)="onDragOver($event)"
+              (dragleave)="onDragLeave()"
+              (drop)="onDrop($event)"
+              (click)="importFileInput.click()"
+            >
+              @if (importing()) {
+                <p class="text-sm text-gray-500 dark:text-zinc-400">Parsing file…</p>
+              } @else {
+                <svg
+                  class="w-8 h-8 mx-auto text-gray-300 dark:text-zinc-600 mb-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <p class="text-sm text-gray-500 dark:text-zinc-400">
+                  Drop .xlsx here or <span class="text-blue-500">click to browse</span>
+                </p>
+                <p class="text-xs text-gray-400 dark:text-zinc-500 mt-1">
+                  Columns: number, region_name, host_name, primary_address, primary_lat,
+                  primary_lng, secondary_address, secondary_lat, secondary_lng
+                </p>
+              }
+            </div>
+            <input
+              #importFileInput
+              type="file"
+              accept=".xlsx,.xls"
+              class="hidden"
+              (change)="onImportFileSelected($event)"
+            />
+            @if (importError()) {
+              <p class="text-sm text-red-500">{{ importError() }}</p>
+            }
+          </div>
+        }
+
+        @if (importStep() === 'preview' && parseResult()) {
+          <div class="space-y-4">
+            <div class="flex flex-wrap gap-2">
+              <span
+                class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-gray-50 text-gray-700 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700"
+                >Total: {{ parseResult()!.summary.total }}</span
+              >
+              <span
+                class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
+                >Valid: {{ parseResult()!.summary.valid }}</span
+              >
+              @if (parseResult()!.summary.errors > 0) {
+                <span
+                  class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800"
+                  >Errors: {{ parseResult()!.summary.errors }}</span
+                >
+              }
+            </div>
+
+            @if (parseResult()!.errors.length > 0) {
+              <div>
+                <h4
+                  class="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide mb-2"
+                >
+                  Rows with errors (will not be imported)
+                </h4>
+                <div
+                  class="rounded-lg border border-red-200 dark:border-red-900 overflow-hidden max-h-36 overflow-y-auto"
+                >
+                  <table class="w-full text-xs">
+                    <thead class="bg-red-50 dark:bg-red-950">
+                      <tr>
+                        <th class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium">
+                          Row
+                        </th>
+                        <th class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium">
+                          #
+                        </th>
+                        <th class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium">
+                          Reason
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-red-100 dark:divide-red-900">
+                      @for (err of parseResult()!.errors; track err.row) {
+                        <tr>
+                          <td class="px-3 py-2 text-gray-700 dark:text-zinc-300">{{ err.row }}</td>
+                          <td class="px-3 py-2 text-gray-700 dark:text-zinc-300">
+                            {{ err.number || '—' }}
+                          </td>
+                          <td class="px-3 py-2 text-gray-500 dark:text-zinc-400">
+                            {{ err.reason }}
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            }
+
+            @if (parseResult()!.valid.length > 0) {
+              <div>
+                <h4
+                  class="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide mb-2"
+                >
+                  {{ parseResult()!.valid.length }} rows ready to import
+                </h4>
+                <div
+                  class="rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden max-h-48 overflow-y-auto"
+                >
+                  <table class="w-full text-xs">
+                    <thead class="bg-gray-50 dark:bg-[#27272a]">
+                      <tr>
+                        <th
+                          class="px-3 py-2 text-left text-gray-600 dark:text-zinc-300 font-medium"
+                        >
+                          #
+                        </th>
+                        <th
+                          class="px-3 py-2 text-left text-gray-600 dark:text-zinc-300 font-medium"
+                        >
+                          Region
+                        </th>
+                        <th
+                          class="px-3 py-2 text-left text-gray-600 dark:text-zinc-300 font-medium"
+                        >
+                          Host
+                        </th>
+                        <th
+                          class="px-3 py-2 text-left text-gray-600 dark:text-zinc-300 font-medium"
+                        >
+                          Primary location
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
+                      @for (row of parseResult()!.valid; track $index) {
+                        <tr>
+                          <td class="px-3 py-2 text-gray-700 dark:text-zinc-300">
+                            {{ row.number || '—' }}
+                          </td>
+                          <td class="px-3 py-2 text-gray-500 dark:text-zinc-400">
+                            {{ row.region_name }}
+                          </td>
+                          <td class="px-3 py-2 text-gray-500 dark:text-zinc-400">
+                            {{ row.host_name || '—' }}
+                          </td>
+                          <td class="px-3 py-2 text-gray-500 dark:text-zinc-400">
+                            {{
+                              row.primary_address ||
+                                (row.primary_lat != null
+                                  ? row.primary_lat + ', ' + row.primary_lng
+                                  : '—')
+                            }}
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            }
+
+            @if (importError()) {
+              <p class="text-sm text-red-500">{{ importError() }}</p>
+            }
+            <div class="flex justify-end gap-2 pt-1">
+              <button
+                (click)="importStep.set('upload')"
+                class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                (click)="commitImport()"
+                [disabled]="!parseResult()!.valid.length || importing()"
+                class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {{
+                  importing() ? 'Importing…' : 'Import ' + parseResult()!.valid.length + ' carts'
+                }}
+              </button>
+            </div>
+          </div>
+        }
+
+        @if (importStep() === 'done' && commitResult()) {
+          <div class="py-6 text-center space-y-3">
+            <div
+              class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center mx-auto"
+            >
+              <svg
+                class="w-6 h-6 text-green-600 dark:text-green-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p class="text-base font-semibold text-gray-900 dark:text-zinc-100">Import complete</p>
+            <p class="text-sm text-gray-500 dark:text-zinc-400">
+              {{ commitResult()!.created }} cart{{ commitResult()!.created === 1 ? '' : 's' }}
+              created
+            </p>
+            <button
+              (click)="closeImport()"
+              class="rounded-lg bg-blue-500 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}
