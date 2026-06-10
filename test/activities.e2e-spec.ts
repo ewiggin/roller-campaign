@@ -1446,4 +1446,215 @@ describe('Activities (e2e)', () => {
       ).toBe(true);
     });
   });
+
+  // ── Preaching group carts ──────────────────────────────────────────────────
+
+  describe('Preaching group carts', () => {
+    let hostId: string;
+    let cartInRegionId: string;
+    let cartOtherHostId: string;
+    let cartOtherRegionId: string;
+    let activityWithHostId: string;
+    let activityNoHostId: string;
+    let group1Id: string;
+    let group2Id: string;
+
+    beforeAll(async () => {
+      const host = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send({ name: `Cart-host-${Date.now()}`, region_id: regionId })
+      ).body;
+      hostId = host.id;
+
+      const otherHost = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send({ name: `Cart-other-host-${Date.now()}`, region_id: regionId })
+      ).body;
+
+      const otherRegion = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({
+            name: 'Other Cart Region',
+            event_start_date: '2024-06-14',
+            event_end_date: '2024-06-22',
+          })
+      ).body;
+
+      cartInRegionId = (
+        await request(server)
+          .post('/api/carts')
+          .set('Authorization', auth())
+          .send({ region_id: regionId, host_id: hostId, number: 'C-1' })
+      ).body.id;
+
+      cartOtherHostId = (
+        await request(server)
+          .post('/api/carts')
+          .set('Authorization', auth())
+          .send({ region_id: regionId, host_id: otherHost.id, number: 'C-2' })
+      ).body.id;
+
+      cartOtherRegionId = (
+        await request(server)
+          .post('/api/carts')
+          .set('Authorization', auth())
+          .send({ region_id: otherRegion.id, number: 'C-3' })
+      ).body.id;
+
+      activityWithHostId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            ...baseTurn(),
+            date: '2025-04-01',
+            host_id: hostId,
+            is_preaching_shift: true,
+          })
+      ).body.id;
+
+      activityNoHostId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({ ...baseTurn(), date: '2025-04-02', is_preaching_shift: true })
+      ).body.id;
+
+      const withGroups = (
+        await request(server)
+          .post(`/api/activities/${activityWithHostId}/preaching-groups`)
+          .set('Authorization', auth())
+          .send({ name: 'Grupo A' })
+      ).body;
+      group1Id = withGroups.preaching_groups[0].id;
+
+      const withGroups2 = (
+        await request(server)
+          .post(`/api/activities/${activityWithHostId}/preaching-groups`)
+          .set('Authorization', auth())
+          .send({ name: 'Grupo B' })
+      ).body;
+      group2Id = withGroups2.preaching_groups[1].id;
+    });
+
+    it('available-carts only includes carts matching the activity region and host', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${activityWithHostId}/available-carts`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const ids = res.body.map((c: { id: string }) => c.id);
+      expect(ids).toContain(cartInRegionId);
+      expect(ids).not.toContain(cartOtherHostId);
+      expect(ids).not.toContain(cartOtherRegionId);
+    });
+
+    it('available-carts includes carts with any host when activity has no host', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${activityNoHostId}/available-carts`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const ids = res.body.map((c: { id: string }) => c.id);
+      expect(ids).toContain(cartInRegionId);
+      expect(ids).toContain(cartOtherHostId);
+      expect(ids).not.toContain(cartOtherRegionId);
+    });
+
+    it('blocks assigning a cart from a different host', async () => {
+      await request(server)
+        .post(
+          `/api/activities/${activityWithHostId}/preaching-groups/${group1Id}/carts`,
+        )
+        .set('Authorization', auth())
+        .send({ cartId: cartOtherHostId })
+        .expect(400);
+    });
+
+    it('blocks assigning a cart from a different region', async () => {
+      await request(server)
+        .post(
+          `/api/activities/${activityWithHostId}/preaching-groups/${group1Id}/carts`,
+        )
+        .set('Authorization', auth())
+        .send({ cartId: cartOtherRegionId })
+        .expect(400);
+    });
+
+    it('assigns a matching cart to a preaching group', async () => {
+      const res = await request(server)
+        .post(
+          `/api/activities/${activityWithHostId}/preaching-groups/${group1Id}/carts`,
+        )
+        .set('Authorization', auth())
+        .send({ cartId: cartInRegionId })
+        .expect(200);
+
+      const group = res.body.preaching_groups.find(
+        (g: { id: string }) => g.id === group1Id,
+      );
+      expect(
+        group.carts.some((c: { id: string }) => c.id === cartInRegionId),
+      ).toBe(true);
+    });
+
+    it('no longer offers an assigned cart as available', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${activityWithHostId}/available-carts`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const ids = res.body.map((c: { id: string }) => c.id);
+      expect(ids).not.toContain(cartInRegionId);
+    });
+
+    it('blocks assigning a cart already assigned to another group of the same activity', async () => {
+      await request(server)
+        .post(
+          `/api/activities/${activityWithHostId}/preaching-groups/${group2Id}/carts`,
+        )
+        .set('Authorization', auth())
+        .send({ cartId: cartInRegionId })
+        .expect(400);
+    });
+
+    it('removes a cart from a preaching group', async () => {
+      const res = await request(server)
+        .delete(
+          `/api/activities/${activityWithHostId}/preaching-groups/${group1Id}/carts/${cartInRegionId}`,
+        )
+        .set('Authorization', auth())
+        .expect(200);
+
+      const group = res.body.preaching_groups.find(
+        (g: { id: string }) => g.id === group1Id,
+      );
+      expect(
+        group.carts.some((c: { id: string }) => c.id === cartInRegionId),
+      ).toBe(false);
+    });
+
+    it('allows assigning the cart to another group after being removed', async () => {
+      const res = await request(server)
+        .post(
+          `/api/activities/${activityWithHostId}/preaching-groups/${group2Id}/carts`,
+        )
+        .set('Authorization', auth())
+        .send({ cartId: cartInRegionId })
+        .expect(200);
+
+      const group = res.body.preaching_groups.find(
+        (g: { id: string }) => g.id === group2Id,
+      );
+      expect(
+        group.carts.some((c: { id: string }) => c.id === cartInRegionId),
+      ).toBe(true);
+    });
+  });
 });

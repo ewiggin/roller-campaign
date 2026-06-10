@@ -15,9 +15,11 @@ import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import { ActivityVolunteerRole } from './entities/activity-volunteer-role.entity';
 import { ActivityPreachingGroup } from './entities/activity-preaching-group.entity';
 import { ActivityPreachingGroupVolunteer } from './entities/activity-preaching-group-volunteer.entity';
+import { Cart } from '../carts/entities/cart.entity';
 import { ActivityListQueryDto } from './dto/activity-list-query.dto';
 import {
   ActivityResponseDto,
+  AvailableCartForActivityDto,
   AvailableGroupForActivityDto,
   AvailableVolunteerForActivityDto,
   PreachingGroupDto,
@@ -56,6 +58,7 @@ export class ActivitiesService {
     private readonly preachingGroupsRepo: Repository<ActivityPreachingGroup>,
     @InjectRepository(ActivityPreachingGroupVolunteer)
     private readonly pgVolunteersRepo: Repository<ActivityPreachingGroupVolunteer>,
+    @InjectRepository(Cart) private readonly cartsRepo: Repository<Cart>,
   ) {}
 
   async create(
@@ -164,7 +167,8 @@ export class ActivitiesService {
     const qb = this.activitiesRepo
       .createQueryBuilder('a')
       .leftJoinAndSelect('a.volunteers', 'volunteers')
-      .leftJoinAndSelect('a.guestGroups', 'guestGroups');
+      .leftJoinAndSelect('a.guestGroups', 'guestGroups')
+      .leftJoinAndSelect('a.host', 'host');
 
     if (currentUser.role === 'volunteer') {
       const v = await this.volunteersRepo.findOne({
@@ -829,10 +833,110 @@ export class ActivitiesService {
     return this.unassignGuestGroup(id, guestGroupId, currentUser);
   }
 
+  async assignCartToGroup(
+    id: string,
+    groupId: string,
+    cartId: string,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const group = await this.findPreachingGroupOrFail(id, groupId, {
+      carts: true,
+    });
+
+    const cart = await this.cartsRepo.findOne({ where: { id: cartId } });
+    if (!cart) throw new NotFoundException('Carrito no encontrado');
+
+    if (
+      cart.region_id !== activity.region_id ||
+      (activity.host_id && cart.host_id !== activity.host_id)
+    ) {
+      throw new BadRequestException(
+        'El carrito no pertenece a la región/anfitrión de este turno',
+      );
+    }
+
+    if (group.carts.some((c) => c.id === cartId))
+      return this.findOne(id, currentUser);
+
+    // A cart can only belong to one preaching group per activity.
+    const otherGroups = await this.preachingGroupsRepo.find({
+      where: { activity_id: id },
+      relations: { carts: true },
+    });
+    const alreadyAssigned = otherGroups.some(
+      (g) => g.id !== groupId && g.carts.some((c) => c.id === cartId),
+    );
+    if (alreadyAssigned) {
+      throw new BadRequestException(
+        'El carrito ya está asignado a otro grupo de predicación de este turno',
+      );
+    }
+
+    group.carts.push(cart);
+    await this.preachingGroupsRepo.save(group);
+    return this.findOne(id, currentUser);
+  }
+
+  async removeCartFromGroup(
+    id: string,
+    groupId: string,
+    cartId: string,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const group = await this.findPreachingGroupOrFail(id, groupId, {
+      carts: true,
+    });
+    group.carts = group.carts.filter((c) => c.id !== cartId);
+    await this.preachingGroupsRepo.save(group);
+    return this.findOne(id, currentUser);
+  }
+
+  async getAvailableCarts(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<AvailableCartForActivityDto[]> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const groups = await this.preachingGroupsRepo.find({
+      where: { activity_id: id },
+      relations: { carts: true },
+    });
+    const assignedIds = new Set(
+      groups.flatMap((g) => g.carts.map((c) => c.id)),
+    );
+
+    const carts = await this.cartsRepo.find({
+      where: activity.host_id
+        ? { region_id: activity.region_id, host_id: activity.host_id }
+        : { region_id: activity.region_id },
+      relations: { host: true },
+      order: { number: 'ASC' },
+    });
+
+    return carts
+      .filter((c) => !assignedIds.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        number: c.number,
+        host_id: c.host_id,
+        host_name: c.host?.name ?? null,
+      }));
+  }
+
   private async findPreachingGroupOrFail(
     activityId: string,
     groupId: string,
-    relations?: { guestGroups?: boolean },
+    relations?: { guestGroups?: boolean; carts?: boolean },
   ): Promise<ActivityPreachingGroup> {
     const group = await this.preachingGroupsRepo.findOne({
       where: { id: groupId, activity_id: activityId },
@@ -1180,7 +1284,7 @@ export class ActivitiesService {
   ): Promise<PreachingGroupDto[]> {
     const groups = await this.preachingGroupsRepo.find({
       where: { activity_id: activityId },
-      relations: { guestGroups: true },
+      relations: { guestGroups: true, carts: true },
       order: { position: 'ASC' },
     });
     if (groups.length === 0) return [];
@@ -1227,6 +1331,10 @@ export class ActivitiesService {
         id: g.id,
         group_code: g.group_code,
         guest_count: groupCounts.get(g.id) ?? 0,
+      })),
+      carts: (group.carts ?? []).map((c) => ({
+        id: c.id,
+        number: c.number,
       })),
     }));
   }
