@@ -1224,8 +1224,8 @@ export class ActivitiesListComponent implements OnInit {
         this.reloadAvailableGroups();
         this.load();
       },
-      error: () => {
-        this.detailError.set('Error assigning group.');
+      error: (err) => {
+        this.detailError.set(err?.error?.message ?? 'Error assigning group.');
         this.detailSaving.set(false);
       },
     });

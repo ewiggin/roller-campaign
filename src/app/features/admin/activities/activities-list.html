@@ -1430,7 +1430,9 @@
                   @for (r of selectedActivity()!.requests ?? []; track r.request_id) {
                     <li class="flex items-center justify-between px-4 py-2.5 gap-3">
                       <div class="flex items-center gap-2 min-w-0">
-                        <span class="shrink-0 text-sm leading-none">{{ '❤️'.repeat(r.preference) }}</span>
+                        <span class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
+                          <span class="text-amber-700 dark:text-amber-300 text-base font-bold leading-none">{{ r.preference }}</span>
+                        </span>
                         <div class="min-w-0">
                           <p class="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate">{{ r.group_code }}</p>
                           <p class="text-xs text-gray-400 dark:text-zinc-500">{{ r.guest_count }} guest{{ r.guest_count !== 1 ? 's' : '' }}</p>
@@ -1461,6 +1463,7 @@
             }
 
             <!-- Add group -->
+            @if ((selectedActivity()!.guest_groups?.length ?? 0) === 0) {
             <div class="flex gap-2">
               @if (groupsLoading()) {
                 <div class="flex-1 animate-pulse h-9 bg-gray-100 dark:bg-zinc-800 rounded-lg"></div>
@@ -1481,6 +1484,7 @@
                 Add {{ selectedGroupIds().length > 1 ? selectedGroupIds().length : '' }}
               </button>
             </div>
+            }
 
             <!-- Assigned groups -->
             @if ((selectedActivity()!.guest_groups?.length ?? 0) === 0) {
