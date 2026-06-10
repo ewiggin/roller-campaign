@@ -103,6 +103,10 @@ export class ActivitiesService {
     return this.http.delete<Activity>(`/api/activities/${id}/guest-groups/${groupId}`);
   }
 
+  deleteAttendanceRequest(id: string, requestId: string) {
+    return this.http.delete<Activity>(`/api/activities/${id}/requests/${requestId}`);
+  }
+
   // ── Preaching groups ──────────────────────────────────────────────────────
 
   addPreachingGroup(id: string, name?: string | null) {

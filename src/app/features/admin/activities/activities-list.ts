@@ -273,6 +273,8 @@ export class ActivitiesListComponent implements OnInit {
     host_id: [null as string | null],
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
+    is_preaching_shift: [false],
+    request_attendance: [false],
   });
 
   readonly createDescLen = signal(0);
@@ -302,6 +304,8 @@ export class ActivitiesListComponent implements OnInit {
     host_id: [null as string | null],
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
+    is_preaching_shift: [false],
+    request_attendance: [false],
   });
 
   readonly editDescLen = signal(0);
@@ -743,6 +747,7 @@ export class ActivitiesListComponent implements OnInit {
       start_time: v.start_time!,
       end_time: v.end_time!,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
+      request_attendance: v.request_attendance ?? false,
       is_preaching_shift: this.preachingShiftsOnly,
     };
 
@@ -820,6 +825,8 @@ export class ActivitiesListComponent implements OnInit {
       host_id: activity.host_id,
       required_volunteers: activity.required_volunteers,
       max_guests: activity.max_guests,
+      is_preaching_shift: activity.is_preaching_shift,
+      request_attendance: activity.request_attendance,
     });
     this.editDescLen.set(activity.description?.length ?? 0);
     this.editActivitySlots.set(
@@ -954,6 +961,7 @@ export class ActivitiesListComponent implements OnInit {
       required_volunteers: v.required_volunteers || null,
       max_guests: v.max_guests || null,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
+      request_attendance: v.request_attendance ?? false,
       is_preaching_shift: this.selectedActivity()?.is_preaching_shift ?? false,
     };
   }
@@ -1239,6 +1247,40 @@ export class ActivitiesListComponent implements OnInit {
       },
       error: () => {
         this.detailError.set('Error removing group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  assignFromRequest(groupId: string, requestId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.assignGuestGroup(activity.id, groupId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.reloadAvailableGroups();
+        this.load();
+      },
+      error: (err) => {
+        this.detailError.set(err?.error?.message ?? 'Error assigning group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  deleteRequest(requestId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.deleteAttendanceRequest(activity.id, requestId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+      },
+      error: () => {
+        this.detailError.set('Error deleting request.');
         this.detailSaving.set(false);
       },
     });
