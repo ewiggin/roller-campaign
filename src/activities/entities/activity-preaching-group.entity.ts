@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Activity } from './activity.entity';
 import { GuestGroup } from '../../guest-groups/entities/guest-group.entity';
+import { Cart } from '../../carts/entities/cart.entity';
 
 @Entity('activity_preaching_groups')
 export class ActivityPreachingGroup {
@@ -40,6 +41,14 @@ export class ActivityPreachingGroup {
     inverseJoinColumn: { name: 'guestGroupId' },
   })
   guestGroups: GuestGroup[];
+
+  @ManyToMany(() => Cart, { eager: false })
+  @JoinTable({
+    name: 'activity_preaching_group_carts',
+    joinColumn: { name: 'preachingGroupId' },
+    inverseJoinColumn: { name: 'cartId' },
+  })
+  carts: Cart[];
 
   @CreateDateColumn()
   created_at: Date;

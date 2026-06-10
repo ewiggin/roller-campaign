@@ -43,6 +43,31 @@ export class ActivityGuestGroupDto {
   guest_count: number;
 }
 
+export class ActivityCartDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: '5' })
+  number: string;
+}
+
+export class AvailableCartForActivityDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: '5' })
+  number: string;
+
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    nullable: true,
+  })
+  host_id: string | null;
+
+  @ApiPropertyOptional({ example: 'Hotel Campanile', nullable: true })
+  host_name: string | null;
+}
+
 export class VolunteerRoleRefDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
@@ -173,6 +198,9 @@ export class PreachingGroupDto {
 
   @ApiProperty({ type: [ActivityGuestGroupDto] })
   guest_groups: ActivityGuestGroupDto[];
+
+  @ApiProperty({ type: [ActivityCartDto] })
+  carts: ActivityCartDto[];
 }
 
 export class ActivityResponseDto {
