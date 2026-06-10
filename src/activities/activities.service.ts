@@ -1166,7 +1166,7 @@ export class ActivitiesService {
       this.requestsRepo.find({
         where: { activity_id: activity.id },
         relations: ['group'],
-        order: { preference: 'ASC', created_at: 'ASC' },
+        order: { preference: 'DESC', created_at: 'ASC' },
       }),
     ]);
     const preachingGroups = await this.getPreachingGroupsDto(

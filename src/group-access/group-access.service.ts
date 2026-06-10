@@ -217,7 +217,7 @@ export class GroupAccessService {
     const requests = await this.requestsRepo.find({
       where: { activity_id: activityId },
       relations: ['group'],
-      order: { preference: 'ASC', created_at: 'ASC' },
+      order: { preference: 'DESC', created_at: 'ASC' },
     });
 
     if (requests.length === 0) return [];

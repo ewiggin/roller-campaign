@@ -25,7 +25,6 @@ import { GroupAccessService } from './group-access.service';
 class EnrollBodyDto {
   @IsInt()
   @Min(1)
-  @Max(5)
   preference: number;
 }
 
