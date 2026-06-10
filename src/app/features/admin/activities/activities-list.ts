@@ -1,4 +1,5 @@
 import { DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -6,6 +7,7 @@ import { catchError, concatMap, from, last, map, of, switchMap, take, toArray } 
 import type {
   Activity,
   ActivityStatus,
+  AvailableCartForActivity,
   AvailableGroupForActivity,
   AvailableVolunteerForActivity,
   RepeatType,
@@ -367,6 +369,19 @@ export class ActivitiesListComponent implements OnInit {
   readonly groupsLoading = signal(false);
   readonly selectedGroupIds = signal<string[]>([]);
 
+  // ── Carts (preaching groups) ─────────────────────────────────────────────
+
+  readonly availableCarts = signal<AvailableCartForActivity[]>([]);
+  readonly cartsLoading = signal(false);
+
+  readonly availableCartItems = computed(() =>
+    this.availableCarts().map((c) => ({
+      value: c.id,
+      label: c.number,
+      meta: c.host_name ?? undefined,
+    })),
+  );
+
   readonly availableVolunteerRoles = computed(() => this.allVolunteerRoles());
 
   readonly filteredVolunteersList = computed(() => {
@@ -466,6 +481,7 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly pickVolunteerByGroup = signal<Record<string, string>>({});
   readonly pickGuestGroupByGroup = signal<Record<string, string>>({});
+  readonly pickCartByGroup = signal<Record<string, string>>({});
 
   pickedVolunteerFor(groupId: string): string {
     return this.pickVolunteerByGroup()[groupId] ?? '';
@@ -481,6 +497,14 @@ export class ActivitiesListComponent implements OnInit {
 
   setPickedGuestGroupFor(groupId: string, value: string) {
     this.pickGuestGroupByGroup.update((m) => ({ ...m, [groupId]: value }));
+  }
+
+  pickedCartFor(groupId: string): string {
+    return this.pickCartByGroup()[groupId] ?? '';
+  }
+
+  setPickedCartFor(groupId: string, value: string) {
+    this.pickCartByGroup.update((m) => ({ ...m, [groupId]: value }));
   }
 
   readonly expandedGroupIds = signal<Record<string, boolean>>({});
@@ -812,6 +836,7 @@ export class ActivitiesListComponent implements OnInit {
     this.filterVolunteerRole.set('');
     this.pickVolunteerByGroup.set({});
     this.pickGuestGroupByGroup.set({});
+    this.pickCartByGroup.set({});
     this.pickRoleByGroup.set({});
     this.expandedGroupIds.set({});
     this.activeModal.set('detail');
@@ -836,6 +861,7 @@ export class ActivitiesListComponent implements OnInit {
       },
       error: () => this.groupsLoading.set(false),
     });
+    if (activity.is_preaching_shift) this.reloadAvailableCarts();
   }
 
   reloadAvailableVolunteers() {
@@ -861,6 +887,19 @@ export class ActivitiesListComponent implements OnInit {
         this.groupsLoading.set(false);
       },
       error: () => this.groupsLoading.set(false),
+    });
+  }
+
+  reloadAvailableCarts() {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.cartsLoading.set(true);
+    this.svc.getAvailableCarts(activity.id).subscribe({
+      next: (carts) => {
+        this.availableCarts.set(carts);
+        this.cartsLoading.set(false);
+      },
+      error: () => this.cartsLoading.set(false),
     });
   }
 
@@ -1346,6 +1385,42 @@ export class ActivitiesListComponent implements OnInit {
       },
       error: () => {
         this.detailError.set('Error removing group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  addCartToGroup(groupId: string) {
+    const activity = this.selectedActivity();
+    const cartId = this.pickedCartFor(groupId);
+    if (!activity || !cartId) return;
+    this.detailSaving.set(true);
+    this.svc.assignCartToGroup(activity.id, groupId, cartId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.setPickedCartFor(groupId, '');
+        this.detailSaving.set(false);
+        this.reloadAvailableCarts();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.detailError.set(err.error?.message ?? 'Error assigning cart.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  removeCartFromGroup(groupId: string, cartId: string) {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.removeCartFromGroup(activity.id, groupId, cartId).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.detailSaving.set(false);
+        this.reloadAvailableCarts();
+      },
+      error: () => {
+        this.detailError.set('Error removing cart.');
         this.detailSaving.set(false);
       },
     });
