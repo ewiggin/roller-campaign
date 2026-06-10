@@ -10,6 +10,7 @@ import { Host } from '../hosts/entities/host.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
+import { Cart } from '../carts/entities/cart.entity';
 import { ActivitiesService } from './activities.service';
 import { ActivitiesController } from './activities.controller';
 
@@ -26,6 +27,7 @@ import { ActivitiesController } from './activities.controller';
       Volunteer,
       Region,
       User,
+      Cart,
     ]),
   ],
   controllers: [ActivitiesController],
