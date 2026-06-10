@@ -886,10 +886,10 @@ export class GuestsService {
       `SELECT apgv.preaching_group_id AS group_id, vol.full_name, vol.phone, vol.email,
               vr.name AS role_name, apgv.description
        FROM activity_preaching_group_volunteers apgv
-       INNER JOIN activity_preaching_groups apg ON apg.id = apgv.preaching_group_id
-       INNER JOIN volunteers vol ON vol.id = apgv.volunteer_id
+       INNER JOIN activity_preaching_groups apg ON CAST(apg.id AS TEXT) = apgv.preaching_group_id
+       INNER JOIN volunteers vol ON CAST(vol.id AS TEXT) = apgv.volunteer_id
        LEFT JOIN activity_volunteer_roles avr ON avr.activity_id = apg.activity_id AND avr.volunteer_id = apgv.volunteer_id
-       LEFT JOIN volunteer_roles vr ON vr.id = avr.role_id
+       LEFT JOIN volunteer_roles vr ON CAST(vr.id AS TEXT) = avr.role_id
        WHERE ${groupFilter}
        ORDER BY vol.full_name ASC`,
       isSqlite ? groupIds : [groupIds],
