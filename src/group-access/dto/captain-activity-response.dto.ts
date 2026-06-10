@@ -34,4 +34,7 @@ export class CaptainActivityResponseDto {
 
   @ApiProperty({ example: false })
   is_assigned: boolean;
+
+  @ApiPropertyOptional({ example: 'https://...', nullable: true })
+  image_url: string | null;
 }

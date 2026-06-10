@@ -10,6 +10,7 @@ import { Activity } from '../activities/entities/activity.entity';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { Guest } from '../guests/entities/guest.entity';
 import { Region } from '../regions/entities/region.entity';
+import { StorageService } from '../storage/storage.service';
 import { CaptainActivityResponseDto } from './dto/captain-activity-response.dto';
 import { GroupLookupResponseDto } from './dto/group-lookup-response.dto';
 import { GroupActivityRequest } from './entities/group-activity-request.entity';
@@ -29,6 +30,7 @@ export class GroupAccessService {
     private readonly requestsRepo: Repository<GroupActivityRequest>,
     @InjectRepository(ActivityPreachingGroup)
     private readonly preachingGroupsRepo: Repository<ActivityPreachingGroup>,
+    private readonly storageSvc: StorageService,
   ) {}
 
   async lookup(code: string): Promise<GroupLookupResponseDto> {
@@ -103,18 +105,24 @@ export class GroupAccessService {
       existingRequests.map((r) => [r.activity_id, r]),
     );
 
-    return activities
-      .filter((a) => {
-        if (conflictsWithShift(a)) return false;
-        if (a.max_guests === null) return true;
-        const enrolledCount = (a.guestGroups ?? []).reduce(
-          (sum, g) => sum + (groupCounts.get(g.id) ?? 0),
-          0,
-        );
-        return enrolledCount < a.max_guests;
-      })
-      .map((a) => {
+    const filtered = activities.filter((a) => {
+      if (conflictsWithShift(a)) return false;
+      if (a.max_guests === null) return true;
+      const enrolledCount = (a.guestGroups ?? []).reduce(
+        (sum, g) => sum + (groupCounts.get(g.id) ?? 0),
+        0,
+      );
+      return enrolledCount < a.max_guests;
+    });
+
+    return Promise.all(
+      filtered.map(async (a) => {
         const req = requestByActivity.get(a.id);
+        const image_url = a.image_key
+          ? await this.storageSvc
+              .getPresignedDownloadUrl(a.image_key, 3600)
+              .catch(() => null)
+          : null;
         return {
           id: a.id,
           name: a.name,
@@ -127,8 +135,10 @@ export class GroupAccessService {
           is_requested: req !== undefined,
           preference: req?.preference ?? null,
           is_assigned: (a.guestGroups ?? []).some((g) => g.id === group.id),
+          image_url,
         };
-      });
+      }),
+    );
   }
 
   async enroll(
