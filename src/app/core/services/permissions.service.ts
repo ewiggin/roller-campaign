@@ -14,6 +14,7 @@ const DEFAULT_PERMISSIONS: RolePermissions = {
     'guests',
     'activities',
     'volunteers',
+    'carts',
   ],
   volunteer: [],
   volunteer_manager: [],

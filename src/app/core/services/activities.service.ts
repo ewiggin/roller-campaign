@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import type {
   Activity,
   ActivityListResponse,
+  AvailableCartForActivity,
   AvailableGroupForActivity,
   AvailableVolunteerForActivity,
   CreateActivityBatchPayload,
@@ -171,6 +172,22 @@ export class ActivitiesService {
   removeGuestGroupFromGroup(id: string, groupId: string, guestGroupId: string) {
     return this.http.delete<Activity>(
       `/api/activities/${id}/preaching-groups/${groupId}/guest-groups/${guestGroupId}`,
+    );
+  }
+
+  getAvailableCarts(id: string) {
+    return this.http.get<AvailableCartForActivity[]>(`/api/activities/${id}/available-carts`);
+  }
+
+  assignCartToGroup(id: string, groupId: string, cartId: string) {
+    return this.http.post<Activity>(`/api/activities/${id}/preaching-groups/${groupId}/carts`, {
+      cartId,
+    });
+  }
+
+  removeCartFromGroup(id: string, groupId: string, cartId: string) {
+    return this.http.delete<Activity>(
+      `/api/activities/${id}/preaching-groups/${groupId}/carts/${cartId}`,
     );
   }
 

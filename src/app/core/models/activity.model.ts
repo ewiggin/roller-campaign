@@ -30,6 +30,19 @@ export interface ActivityAttendanceRequest {
   preference: number;
 }
 
+export interface AvailableCartForActivity {
+  id: string;
+  number: string;
+  host_id: string | null;
+  host_name: string | null;
+}
+
+export interface ActivityCart {
+  id: string;
+  number: string;
+}
+
+
 export interface PreachingGroupVolunteer {
   id: string;
   volunteer_code: string;
@@ -47,6 +60,7 @@ export interface PreachingGroup {
   position: number;
   volunteers: PreachingGroupVolunteer[];
   guest_groups: ActivityGuestGroup[];
+  carts: ActivityCart[];
 }
 
 export interface Activity {

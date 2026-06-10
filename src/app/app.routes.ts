@@ -117,6 +117,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'carts',
+        data: { screen: 'carts' },
+        canActivate: [permissionsGuard],
+        loadComponent: () =>
+          import('./features/admin/carts/carts-list').then((m) => m.CartsListComponent),
+      },
+      {
         path: 'audit-logs',
         loadComponent: () =>
           import('./features/admin/audit-logs/audit-logs-list').then(
