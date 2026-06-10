@@ -13,9 +13,15 @@ import { Guest } from '../guests/entities/guest.entity';
 import { Host } from '../hosts/entities/host.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
+import {
+  computeGroupAggregates,
+  GroupAggregates,
+  GuestAggregateInput,
+} from './aggregates';
 import { CreateGuestGroupDto } from './dto/create-guest-group.dto';
 import { GuestGroupResponseDto } from './dto/guest-group-response.dto';
 import { ImportGroupResponseDto } from './dto/import-group-response.dto';
+import { RecomputeAggregatesResponseDto } from './dto/recompute-aggregates-response.dto';
 import { UpdateGuestGroupDto } from './dto/update-guest-group.dto';
 import { GuestGroup } from './entities/guest-group.entity';
 
@@ -717,72 +723,157 @@ export class GuestGroupsService {
     );
   }
 
+  async recomputeAggregates(): Promise<RecomputeAggregatesResponseDto> {
+    const [groups, guests] = await Promise.all([
+      this.groupsRepository.find({ select: { id: true } }),
+      this.guestsRepository.find({
+        select: {
+          group_id: true,
+          status: true,
+          is_minor: true,
+          lat: true,
+          lng: true,
+          native_language: true,
+          other_languages: true,
+          speaks_english: true,
+          car_seats: true,
+        },
+      }),
+    ]);
+
+    const guestsByGroup = new Map<string, Guest[]>();
+    for (const guest of guests) {
+      const list = guestsByGroup.get(guest.group_id) ?? [];
+      list.push(guest);
+      guestsByGroup.set(guest.group_id, list);
+    }
+
+    const computedAt = new Date().toISOString();
+    for (const group of groups) {
+      const agg = computeGroupAggregates(
+        (guestsByGroup.get(group.id) ?? []).map((g) =>
+          this.toAggregateInput(g),
+        ),
+      );
+      await this.groupsRepository.update(group.id, {
+        agg_guest_count: agg.agg_guest_count,
+        agg_minor_count: agg.agg_minor_count,
+        agg_status_counts: agg.agg_status_counts,
+        agg_avg_lat: agg.agg_avg_lat,
+        agg_avg_lng: agg.agg_avg_lng,
+        agg_languages: agg.agg_languages.length > 0 ? agg.agg_languages : null,
+        agg_speaks_english: agg.agg_speaks_english,
+        agg_car_seats: agg.agg_car_seats,
+        agg_computed_at: computedAt,
+      });
+    }
+
+    return { groups_updated: groups.length, computed_at: computedAt };
+  }
+
+  private toAggregateInput(guest: Guest): GuestAggregateInput {
+    return {
+      status: guest.status,
+      is_minor: guest.is_minor,
+      lat: guest.lat,
+      lng: guest.lng,
+      native_language: guest.native_language,
+      other_languages: guest.other_languages?.join(',') ?? null,
+      speaks_english: guest.speaks_english,
+      car_seats: guest.car_seats,
+    };
+  }
+
   private async fetchGroupStats(
     groupIds: string[],
-  ): Promise<Map<string, { languages: string[]; total_car_seats: number }>> {
+  ): Promise<
+    Map<
+      string,
+      { languages: string[]; total_car_seats: number; live: GroupAggregates }
+    >
+  > {
     const result = new Map<
       string,
-      { languages: string[]; total_car_seats: number }
+      { languages: string[]; total_car_seats: number; live: GroupAggregates }
     >();
     if (groupIds.length === 0) return result;
 
-    const [carRows, langRows] = await Promise.all([
-      this.guestsRepository
-        .createQueryBuilder('g')
-        .select('g.group_id', 'group_id')
-        .addSelect('SUM(g.car_seats)', 'total')
-        .where('g.group_id IN (:...groupIds)', { groupIds })
-        .andWhere('g.car_seats IS NOT NULL')
-        .groupBy('g.group_id')
-        .getRawMany<{ group_id: string; total: string }>(),
-      this.guestsRepository
-        .createQueryBuilder('g')
-        .select('g.group_id', 'group_id')
-        .addSelect('g.native_language', 'native_language')
-        .addSelect('g.other_languages', 'other_languages')
-        .where('g.group_id IN (:...groupIds)', { groupIds })
-        .andWhere(
-          '(g.native_language IS NOT NULL OR g.other_languages IS NOT NULL)',
-        )
-        .getRawMany<{
-          group_id: string;
-          native_language: string | null;
-          other_languages: string | null;
-        }>(),
-    ]);
+    const guests = await this.guestsRepository.find({
+      select: {
+        group_id: true,
+        status: true,
+        is_minor: true,
+        lat: true,
+        lng: true,
+        native_language: true,
+        other_languages: true,
+        speaks_english: true,
+        car_seats: true,
+      },
+      where: { group_id: In(groupIds) },
+    });
 
-    const carMap = new Map(
-      carRows.map((r) => [r.group_id, Math.round(parseFloat(r.total) || 0)]),
-    );
-
-    const langsByGroup = new Map<string, Set<string>>();
-    for (const row of langRows) {
-      if (!langsByGroup.has(row.group_id))
-        langsByGroup.set(row.group_id, new Set());
-      const set = langsByGroup.get(row.group_id)!;
-      if (row.native_language?.trim()) set.add(row.native_language.trim());
-      if (row.other_languages) {
-        for (const lang of row.other_languages.split(',')) {
-          const l = lang.trim();
-          if (l) set.add(l);
-        }
-      }
+    const guestsByGroup = new Map<string, Guest[]>();
+    for (const guest of guests) {
+      const list = guestsByGroup.get(guest.group_id) ?? [];
+      list.push(guest);
+      guestsByGroup.set(guest.group_id, list);
     }
 
     for (const id of groupIds) {
+      const members = guestsByGroup.get(id) ?? [];
+      // Display stats keep the historical semantics: every guest counts
+      const languages = new Set<string>();
+      let totalCarSeats = 0;
+      for (const g of members) {
+        if (g.native_language?.trim()) languages.add(g.native_language.trim());
+        for (const lang of g.other_languages ?? []) {
+          const l = lang.trim();
+          if (l) languages.add(l);
+        }
+        totalCarSeats += g.car_seats ?? 0;
+      }
       result.set(id, {
-        languages: [...(langsByGroup.get(id) ?? [])].sort(),
-        total_car_seats: carMap.get(id) ?? 0,
+        languages: [...languages].sort(),
+        total_car_seats: totalCarSeats,
+        live: computeGroupAggregates(
+          members.map((g) => this.toAggregateInput(g)),
+        ),
       });
     }
     return result;
+  }
+
+  private isAggStale(group: GuestGroup, live: GroupAggregates): boolean {
+    const closeEnough = (a: number | null, b: number | null) =>
+      a === null || b === null ? a === b : Math.abs(a - b) < 1e-6;
+    const normalizeCounts = (counts: Record<string, number> | null) =>
+      JSON.stringify(
+        Object.entries(counts ?? {}).sort(([a], [b]) => a.localeCompare(b)),
+      );
+
+    return !(
+      group.agg_guest_count === live.agg_guest_count &&
+      group.agg_minor_count === live.agg_minor_count &&
+      group.agg_car_seats === live.agg_car_seats &&
+      group.agg_speaks_english === live.agg_speaks_english &&
+      (group.agg_languages ?? []).join(',') === live.agg_languages.join(',') &&
+      normalizeCounts(group.agg_status_counts) ===
+        normalizeCounts(live.agg_status_counts) &&
+      closeEnough(group.agg_avg_lat, live.agg_avg_lat) &&
+      closeEnough(group.agg_avg_lng, live.agg_avg_lng)
+    );
   }
 
   toDto(
     group: GuestGroup,
     guestCount: number,
     hostName?: string | null,
-    stats?: { languages: string[]; total_car_seats: number },
+    stats?: {
+      languages: string[];
+      total_car_seats: number;
+      live?: GroupAggregates;
+    },
   ): GuestGroupResponseDto {
     const dto = new GuestGroupResponseDto();
     dto.id = group.id;
@@ -797,6 +888,19 @@ export class GuestGroupsService {
     dto.available_to = group.available_to ?? null;
     dto.composition = group.composition ?? null;
     dto.car_count = group.car_count ?? null;
+    dto.agg_guest_count = group.agg_guest_count ?? null;
+    dto.agg_minor_count = group.agg_minor_count ?? null;
+    dto.agg_status_counts = group.agg_status_counts ?? null;
+    dto.agg_avg_lat = group.agg_avg_lat ?? null;
+    dto.agg_avg_lng = group.agg_avg_lng ?? null;
+    dto.agg_languages = group.agg_languages ?? null;
+    dto.agg_speaks_english = group.agg_speaks_english ?? null;
+    dto.agg_car_seats = group.agg_car_seats ?? null;
+    dto.agg_computed_at = group.agg_computed_at ?? null;
+    dto.agg_stale =
+      group.agg_computed_at && stats?.live
+        ? this.isAggStale(group, stats.live)
+        : null;
     dto.created_at = group.created_at;
     dto.updated_at = group.updated_at;
     return dto;
