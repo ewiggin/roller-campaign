@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
   Unique,
@@ -28,8 +29,10 @@ export class GroupActivityRequest {
   created_at: Date;
 
   @ManyToOne(() => GuestGroup, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'group_id' })
   group: GuestGroup;
 
   @ManyToOne(() => Activity, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'activity_id' })
   activity: Activity;
 }
