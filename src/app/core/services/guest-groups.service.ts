@@ -4,6 +4,7 @@ import type {
   CreateGuestGroupPayload,
   GuestGroup,
   GuestGroupListResponse,
+  RecomputeAggregatesResult,
   UpdateGuestGroupPayload,
 } from '../models/guest-group.model';
 export type { GuestGroup };
@@ -86,6 +87,10 @@ export class GuestGroupsService {
 
   downloadTemplate() {
     return this.http.get('/api/guest-groups/import/template', { responseType: 'blob' });
+  }
+
+  recomputeAggregates() {
+    return this.http.post<RecomputeAggregatesResult>('/api/guest-groups/recompute-aggregates', {});
   }
 
   truncate() {
