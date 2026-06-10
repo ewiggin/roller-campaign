@@ -13,6 +13,7 @@ const ALL_SCREENS = [
   'guests',
   'activities',
   'volunteers',
+  'carts',
 ];
 
 function makeJwt(payload: Record<string, unknown>): string {
@@ -63,7 +64,7 @@ describe('PermissionsService', () => {
     it('region_admin defaults to all screens', () => {
       const { service } = setup('superadmin');
       expect(service.permissions().region_admin).toEqual(expect.arrayContaining(ALL_SCREENS));
-      expect(service.permissions().region_admin).toHaveLength(7);
+      expect(service.permissions().region_admin).toHaveLength(8);
     });
 
     it('new roles default to empty array', () => {

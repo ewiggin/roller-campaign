@@ -11,6 +11,7 @@ const SCREEN_ROUTES: { screen: string; path: string }[] = [
   { screen: 'guests', path: '/admin/guests' },
   { screen: 'activities', path: '/admin/activities' },
   { screen: 'volunteers', path: '/admin/volunteers' },
+  { screen: 'carts', path: '/admin/carts' },
 ];
 
 export const permissionsGuard: CanActivateFn = async (route) => {

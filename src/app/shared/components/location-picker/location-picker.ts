@@ -44,6 +44,8 @@ export class LocationPickerComponent implements OnInit, OnDestroy {
   readonly touched = signal(false);
 
   addressValue = '';
+  latValue = '';
+  lngValue = '';
 
   private autocomplete: google.maps.places.Autocomplete | null = null;
   private map: google.maps.Map | null = null;
@@ -56,6 +58,8 @@ export class LocationPickerComponent implements OnInit, OnDestroy {
     setOptions({ key: environment.googleMapsApiKey, v: 'weekly' });
     if (this.initialAddress && this.initialLat !== null && this.initialLng !== null) {
       this.addressValue = this.initialAddress;
+      this.latValue = String(this.initialLat);
+      this.lngValue = String(this.initialLng);
       this.result.set({ address: this.initialAddress, lat: this.initialLat, lng: this.initialLng });
       this.mode.set('preview');
     }
@@ -176,8 +180,24 @@ export class LocationPickerComponent implements OnInit, OnDestroy {
 
   // ── Clear ─────────────────────────────────────────────────────────────────
 
+  onLatLngInput(): void {
+    const lat = parseFloat(this.latValue);
+    const lng = parseFloat(this.lngValue);
+    if (isNaN(lat) || isNaN(lng)) return;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+    this.touched.set(true);
+    this.setResult({
+      address: this.addressValue || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      lat,
+      lng,
+    });
+    setTimeout(() => this.updateMapPosition(lat, lng), 60);
+  }
+
   clearResult(): void {
     this.addressValue = '';
+    this.latValue = '';
+    this.lngValue = '';
     this.result.set(null);
     this.locationSelected.emit(null);
     this.map = null;
@@ -192,6 +212,8 @@ export class LocationPickerComponent implements OnInit, OnDestroy {
 
   private setResult(r: PlaceResult): void {
     this.result.set(r);
+    this.latValue = String(r.lat);
+    this.lngValue = String(r.lng);
     this.locationSelected.emit(r);
   }
 
