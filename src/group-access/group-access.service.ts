@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ActivityPreachingGroup } from '../activities/entities/activity-preaching-group.entity';
 import { Activity } from '../activities/entities/activity.entity';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { Guest } from '../guests/entities/guest.entity';
@@ -26,6 +27,8 @@ export class GroupAccessService {
     private readonly regionsRepo: Repository<Region>,
     @InjectRepository(GroupActivityRequest)
     private readonly requestsRepo: Repository<GroupActivityRequest>,
+    @InjectRepository(ActivityPreachingGroup)
+    private readonly preachingGroupsRepo: Repository<ActivityPreachingGroup>,
   ) {}
 
   async lookup(code: string): Promise<GroupLookupResponseDto> {
@@ -51,6 +54,23 @@ export class GroupAccessService {
       where: { group_code: code },
     });
     if (!group) throw new NotFoundException('Código de grupo no encontrado');
+
+    const shiftGroups = await this.preachingGroupsRepo.find({
+      where: { guestGroups: { id: group.id } },
+      relations: { activity: true, guestGroups: true },
+    });
+    const busySlots = shiftGroups.map((sg) => ({
+      date: sg.activity.date,
+      start: sg.activity.start_time,
+      end: sg.activity.end_time,
+    }));
+    const conflictsWithShift = (act: Activity) =>
+      busySlots.some(
+        (s) =>
+          s.date === act.date &&
+          s.start < act.end_time &&
+          s.end > act.start_time,
+      );
 
     const activities = await this.activitiesRepo.find({
       where: {
@@ -85,6 +105,7 @@ export class GroupAccessService {
 
     return activities
       .filter((a) => {
+        if (conflictsWithShift(a)) return false;
         if (a.max_guests === null) return true;
         const enrolledCount = (a.guestGroups ?? []).reduce(
           (sum, g) => sum + (groupCounts.get(g.id) ?? 0),
@@ -105,6 +126,7 @@ export class GroupAccessService {
           activity_locations: a.activity_locations ?? null,
           is_requested: req !== undefined,
           preference: req?.preference ?? null,
+          is_assigned: (a.guestGroups ?? []).some((g) => g.id === group.id),
         };
       });
   }

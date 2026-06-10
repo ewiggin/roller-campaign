@@ -31,4 +31,7 @@ export class CaptainActivityResponseDto {
 
   @ApiPropertyOptional({ example: 1, nullable: true })
   preference: number | null;
+
+  @ApiProperty({ example: false })
+  is_assigned: boolean;
 }

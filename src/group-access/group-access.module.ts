@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivityPreachingGroup } from '../activities/entities/activity-preaching-group.entity';
 import { Activity } from '../activities/entities/activity.entity';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { Guest } from '../guests/entities/guest.entity';
@@ -14,6 +15,7 @@ import { GroupAccessService } from './group-access.service';
       GuestGroup,
       Guest,
       Activity,
+      ActivityPreachingGroup,
       Region,
       GroupActivityRequest,
     ]),
