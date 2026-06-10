@@ -46,6 +46,35 @@ export class GuestGroup {
   @Column({ type: 'int', nullable: true, default: null })
   car_count: number | null;
 
+  // --- Aggregated snapshot of guest data (precomputed so the guests table
+  // --- can eventually be removed; NULL = never computed)
+  @Column({ type: 'int', nullable: true, default: null })
+  agg_guest_count: number | null;
+
+  @Column({ type: 'int', nullable: true, default: null })
+  agg_minor_count: number | null;
+
+  @Column({ type: 'simple-json', nullable: true, default: null })
+  agg_status_counts: Record<string, number> | null;
+
+  @Column({ type: 'float', nullable: true, default: null })
+  agg_avg_lat: number | null;
+
+  @Column({ type: 'float', nullable: true, default: null })
+  agg_avg_lng: number | null;
+
+  @Column({ type: 'simple-array', nullable: true, default: null })
+  agg_languages: string[] | null;
+
+  @Column({ type: 'boolean', nullable: true, default: null })
+  agg_speaks_english: boolean | null;
+
+  @Column({ type: 'int', nullable: true, default: null })
+  agg_car_seats: number | null;
+
+  @Column({ type: 'varchar', nullable: true, default: null })
+  agg_computed_at: string | null;
+
   @OneToMany('Guest', (guest: Guest) => guest.group)
   guests: Guest[];
 
