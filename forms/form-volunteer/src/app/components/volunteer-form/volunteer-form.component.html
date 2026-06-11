@@ -1,0 +1,467 @@
+<div class="min-h-screen py-8 px-4">
+  <div class="max-w-lg mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <div class="text-5xl mb-3 flex justify-center">
+        <img src="/event-logo-full.svg" width="400" alt="Logo" />
+      </div>
+      <h1 class="text-3xl font-bold text-slate-800">
+        Formulario de voluntario
+      </h1>
+      <p class="text-gray-600 mt-2">
+        Este formulario nos ayuda a saber tu disponibilidad real y a qué
+        distancia estas de cada evento.
+      </p>
+    </div>
+
+    <!-- PASO 1: Código de voluntario -->
+    @if (step() === "code") {
+      <div class="bg-white rounded-2xl shadow-lg p-6 space-y-4">
+        <div class="space-y-1">
+          <label class="block text-sm font-semibold text-gray-700">
+            Código de voluntario<span class="text-red-500">*</span>
+          </label>
+          <p class="text-xs text-gray-500">
+            Lo podrás encontrar en JW Hub > Mi perfil > "Número de identificación"
+          </p>
+          <input
+            type="text"
+            [formControl]="codeControl"
+            (keydown.enter)="validateCode()"
+            placeholder="Ej. 1234567"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+            [class.border-red-400]="codeError()"
+            [disabled]="isValidating()"
+          />
+          @if (codeError()) {
+            <p class="text-xs text-red-500">{{ codeError() }}</p>
+          }
+        </div>
+        <button
+          type="button"
+          (click)="validateCode()"
+          [disabled]="isValidating() || !codeControl.value"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+        >
+          @if (isValidating()) {
+            <span class="inline-flex items-center gap-2 justify-center">
+              <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              Verificando...
+            </span>
+          } @else {
+            Continuar
+          }
+        </button>
+      </div>
+    }
+
+    <!-- PASO 2: Formulario -->
+    @if (step() === "form") {
+      @if (initialLocation()) {
+        <div class="mb-4 text-center text-sm text-indigo-600 font-medium">
+          Ya tienes datos registrados. Puedes modificarlos y volver a enviar.
+        </div>
+      }
+      <form
+        [formGroup]="form"
+        (ngSubmit)="onSubmit()"
+        class="bg-white rounded-2xl shadow-lg p-6 space-y-5"
+      >
+        <!-- Código confirmado + nombre -->
+        <div
+          class="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2"
+        >
+          <span class="text-indigo-500">👤</span>
+          <div class="flex flex-col">
+            <span class="text-sm text-indigo-800 font-medium">{{
+              volunteerName()
+            }}</span>
+            <span class="text-xs text-indigo-500"
+              >Código: {{ codeControl.value }}</span
+            >
+          </div>
+          <button
+            type="button"
+            (click)="step.set('code')"
+            class="ml-auto text-xs text-indigo-500 hover:text-indigo-700 underline"
+          >
+            Cambiar
+          </button>
+        </div>
+
+        <!-- Email -->
+        <div class="space-y-1">
+          <label class="block text-sm font-semibold text-gray-700">
+            Email <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="email"
+            formControlName="email"
+            placeholder="tu@email.com"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+            [class.border-red-400]="isInvalid('email')"
+          />
+          @if (isInvalid("email")) {
+            <p class="text-xs text-red-500">Introduce un email válido</p>
+          }
+        </div>
+
+        <!-- Teléfono -->
+        <div class="space-y-1">
+          <label class="block text-sm font-semibold text-gray-700">
+            Teléfono
+          </label>
+          <input
+            type="tel"
+            formControlName="phone"
+            placeholder="Ej. +34 600 000 000"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+          />
+        </div>
+
+        <!-- Región de participación -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-gray-700">
+            Región en la que participas <span class="text-red-500">*</span>
+          </label>
+          @if (regionsError()) {
+            <p class="text-xs text-red-500">{{ regionsError() }}</p>
+          }
+          <div class="grid grid-cols-2 gap-2">
+            @for (region of availableRegions(); track region.id) {
+              <label
+                class="flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2.5 cursor-pointer text-sm font-medium transition-colors"
+                [class.border-indigo-500]="
+                  form.get('region_id')?.value === region.id
+                "
+                [class.bg-indigo-50]="
+                  form.get('region_id')?.value === region.id
+                "
+                [class.text-indigo-700]="
+                  form.get('region_id')?.value === region.id
+                "
+                [class.border-gray-300]="
+                  form.get('region_id')?.value !== region.id
+                "
+                [class.text-gray-600]="
+                  form.get('region_id')?.value !== region.id
+                "
+              >
+                <input
+                  type="radio"
+                  class="hidden"
+                  formControlName="region_id"
+                  [value]="region.id"
+                />
+                {{ region.name }}
+              </label>
+            }
+          </div>
+          @if (isInvalid("region_id")) {
+            <p class="text-xs text-red-500">Selecciona una región</p>
+          }
+        </div>
+
+        <!-- Dirección -->
+        <div class="space-y-1">
+          <label class="block text-sm font-semibold text-gray-700">
+            Dirección <span class="text-red-500">*</span>
+          </label>
+          <p class="text-xs text-gray-500">
+            Indica tu dirección para facilitar la coordinación
+          </p>
+          <app-location-picker
+            [required]="true"
+            [initialValue]="initialLocation()"
+            (locationSelected)="onLocationSelected($event)"
+          />
+          @if (locationTouched() && !selectedLocation()) {
+            <p class="text-xs text-red-500">Este campo es obligatorio</p>
+          }
+        </div>
+
+        <!-- Plazas de coche -->
+        <div class="space-y-1">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700"
+              >¿Puedes ofrecer tu coche? (Solo contestar el conductor)</label
+            >
+            <label
+              class="inline-flex items-center gap-3 cursor-pointer select-none"
+            >
+              <div
+                class="relative w-12 h-6 rounded-full transition-colors duration-200"
+                [class.bg-indigo-500]="
+                  carAvailable() || form.get('carSeats')?.value
+                "
+                [class.bg-gray-300]="
+                  !carAvailable() && !form.get('carSeats')?.value
+                "
+                (click)="toggleCar()"
+              >
+                <div
+                  class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
+                  [class.translate-x-6]="
+                    carAvailable() || form.get('carSeats')?.value
+                  "
+                ></div>
+              </div>
+              <span class="text-sm text-gray-700">
+                {{
+                  carAvailable() || form.get("carSeats")?.value ? "Sí" : "No"
+                }}
+              </span>
+            </label>
+          </div>
+
+          @if (carAvailable() || form.get("carSeats")?.value > 0) {
+            <label class="block text-sm font-semibold text-gray-700">
+              Plazas disponibles en tu coche
+            </label>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                (click)="decrementSeats()"
+                class="w-10 h-10 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-lg transition flex items-center justify-center"
+              >
+                −
+              </button>
+              <span class="text-2xl font-bold text-indigo-700 w-8 text-center">
+                {{ form.get("carSeats")?.value }}
+              </span>
+              <button
+                type="button"
+                (click)="incrementSeats()"
+                class="w-10 h-10 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-lg transition flex items-center justify-center"
+              >
+                +
+              </button>
+              <span class="text-sm text-gray-500 ml-1"
+                >plazas libres en mi coche</span
+              >
+            </div>
+          }
+        </div>
+
+        <!-- Disponibilidad de turnos -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-gray-700">
+            Disponibilidad de turnos
+          </label>
+          <p class="text-xs text-gray-500">
+            Marca los turnos en los que puedes participar. Son horarios
+            orientativos; podría ser que te necesitáramos antes o después de
+            esos horarios.
+          </p>
+
+          <div class="overflow-x-auto rounded-xl border border-gray-200">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-indigo-50">
+                  <th
+                    class="text-left px-3 py-2 text-xs font-semibold text-indigo-700 w-28"
+                  >
+                    Día
+                  </th>
+                  <th
+                    class="text-center px-3 py-2 text-xs font-semibold text-indigo-700"
+                  >
+                    10:00 a 13:00
+                  </th>
+                  <th
+                    class="text-center px-3 py-2 text-xs font-semibold text-indigo-700"
+                  >
+                    17:00 a 20:00
+                  </th>
+                </tr>
+              </thead>
+              <tbody [formGroup]="shiftsGroup">
+                @for (day of days; track day) {
+                  <tr
+                    [class]="
+                      outsideWeek.has(day)
+                        ? 'border-t border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors'
+                        : 'border-t border-gray-100 hover:bg-gray-50 transition-colors'
+                    "
+                  >
+                    <td
+                      [class]="
+                        outsideWeek.has(day)
+                          ? 'px-3 py-2.5 font-medium text-amber-700 text-xs'
+                          : 'px-3 py-2.5 font-medium text-gray-700 text-xs'
+                      "
+                    >
+                      {{ dayLabel[day] }}
+                      @if (outsideWeek.has(day)) {
+                        <span class="ml-1 text-amber-500 text-[10px]">★</span>
+                      }
+                    </td>
+                    <td class="text-center px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        [formControlName]="day + '_morning'"
+                        class="w-4 h-4 rounded cursor-pointer"
+                        [class.accent-amber-500]="outsideWeek.has(day)"
+                        [class.accent-indigo-600]="!outsideWeek.has(day)"
+                      />
+                    </td>
+                    <td class="text-center px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        [formControlName]="day + '_afternoon'"
+                        class="w-4 h-4 rounded cursor-pointer"
+                        [class.accent-amber-500]="outsideWeek.has(day)"
+                        [class.accent-indigo-600]="!outsideWeek.has(day)"
+                      />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-amber-600 flex items-center gap-1">
+            <span>★</span>
+            <span
+              >Días fuera de la semana principal (sábado previo y lunes
+              siguiente)</span
+            >
+          </p>
+        </div>
+
+        <!-- Aceptación de condiciones -->
+        @if (termsAlreadyAccepted()) {
+          <div
+            class="flex items-start gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3"
+          >
+            <svg
+              class="w-4 h-4 text-green-600 mt-0.5 shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <div class="text-sm">
+              <span class="font-medium text-green-800"
+                >Condiciones aceptadas</span
+              >
+              @if (termsAcceptedAt()) {
+                <span class="text-green-700">
+                  el {{ formatTermsDate(termsAcceptedAt()!) }}
+                </span>
+              }
+              <span class="text-green-600">
+                —
+                <a
+                  routerLink="/legal"
+                  target="_blank"
+                  class="underline hover:text-green-800"
+                  >ver política de privacidad</a
+                >
+              </span>
+            </div>
+          </div>
+        } @else {
+          <div class="space-y-1">
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                formControlName="aceptaCondiciones"
+                class="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-400"
+              />
+              <span class="text-sm text-gray-700">
+                He leído y acepto la
+                <a
+                  routerLink="/legal"
+                  target="_blank"
+                  class="text-indigo-600 underline hover:text-indigo-800"
+                >
+                  política de privacidad y condiciones del servicio
+                </a>
+                <span class="text-red-500"> *</span>
+              </span>
+            </label>
+            @if (isInvalid("aceptaCondiciones")) {
+              <p class="text-xs text-red-500 pl-7">
+                Debes aceptar las condiciones para continuar
+              </p>
+            }
+          </div>
+        }
+
+        <!-- Error -->
+        @if (submitError()) {
+          <div
+            class="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700"
+          >
+            ❌ {{ submitError() }}
+          </div>
+        }
+
+        <button
+          type="submit"
+          [disabled]="apiService.isLoading()"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+        >
+          @if (apiService.isLoading()) {
+            <span class="inline-flex items-center gap-2 justify-center">
+              <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              Guardando...
+            </span>
+          } @else {
+            Enviar disponibilidad
+          }
+        </button>
+      </form>
+    }
+
+    <!-- CONFIRMACIÓN -->
+    @if (step() === "success") {
+      <div class="bg-white rounded-2xl shadow-lg p-8 text-center space-y-5">
+        <div class="text-6xl">✅</div>
+        <h2 class="text-2xl font-bold text-indigo-800">
+          ¡Gracias, {{ volunteerName() }}!
+        </h2>
+        <p class="text-gray-600">
+          Tu disponibilidad ha sido registrada correctamente.
+        </p>
+        <p class="text-gray-500 text-sm">
+          Gracias por tu colaboración y disposición para servir en los carritos.
+          El equipo organizador revisará tu información y se pondrá en contacto
+          contigo si es necesario.
+        </p>
+      </div>
+    }
+  </div>
+</div>
