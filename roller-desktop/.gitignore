@@ -1,0 +1,12 @@
+node_modules/
+
+# Rust build output
+src-tauri/target/
+
+# Generated capability schemas
+src-tauri/gen/
+
+# Sidecar binaries (built by roller-backend's build:sidecar, ~70 MB each)
+src-tauri/binaries/
+
+.DS_Store

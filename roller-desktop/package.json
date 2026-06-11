@@ -1,0 +1,15 @@
+{
+  "name": "roller-desktop",
+  "version": "0.1.0",
+  "description": "Roller Admin desktop bundle (Tauri v2 + NestJS sidecar)",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:sidecar": "npm --prefix ../roller-backend run build:sidecar"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.6"
+  }
+}
