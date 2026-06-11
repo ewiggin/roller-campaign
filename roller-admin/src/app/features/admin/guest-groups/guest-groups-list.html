@@ -1,0 +1,1240 @@
+<div>
+  <div class="flex items-center justify-between mb-5">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">Guest Groups</h2>
+    <div class="flex items-center gap-2">
+      <button
+        (click)="downloadExcel()"
+        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+          />
+        </svg>
+        Export Excel
+      </button>
+      <button
+        (click)="downloadTemplate()"
+        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+          />
+        </svg>
+        Template
+      </button>
+      <button
+        (click)="openImport()"
+        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+          />
+        </svg>
+        Import Excel
+      </button>
+      @if (isSuperAdmin()) {
+        <button
+          (click)="recomputeAggregates()"
+          [disabled]="recomputing()"
+          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+          title="Recompute the aggregate snapshot stored on each group"
+        >
+          <svg
+            class="w-4 h-4"
+            [class.animate-spin]="recomputing()"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+            />
+          </svg>
+          {{ recomputing() ? 'Recomputing…' : 'Recompute snapshot' }}
+        </button>
+        <button
+          (click)="openTruncate()"
+          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
+          </svg>
+          Truncate
+        </button>
+      }
+      <button
+        (click)="openCreate()"
+        class="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        New group
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4"
+  >
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+      <!-- Region -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Region</label
+        >
+        <app-searchable-select
+          [items]="regionItems()"
+          placeholder="All regions"
+          emptyLabel="All regions"
+          [compact]="true"
+          [selected]="selectedRegionId()"
+          (selectedChange)="selectRegion($event)"
+        />
+      </div>
+
+      <!-- Search -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Search</label
+        >
+        <input
+          type="search"
+          placeholder="Search by code…"
+          [value]="searchCode()"
+          (input)="onSearchInput($any($event.target).value)"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+        />
+      </div>
+
+      <!-- Min shared car seats -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Shared car seats</label
+        >
+        <input
+          type="number"
+          min="0"
+          step="1"
+          placeholder="Any"
+          [value]="minCarSeats() || ''"
+          (input)="onMinCarSeatsInput($any($event.target).value)"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+        />
+      </div>
+
+      <!-- Cars filter -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Cars</label>
+        <select
+          [value]="hasCars() === true ? 'true' : hasCars() === false ? 'false' : ''"
+          (change)="onHasCarsChange($any($event.target).value)"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        >
+          <option value="">All</option>
+          <option value="true">With cars</option>
+          <option value="false">Without cars</option>
+        </select>
+      </div>
+
+      <!-- Languages multiselect -->
+      <div class="relative" #langDropdown>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Language</label
+        >
+        <button
+          type="button"
+          (click)="langDropdownOpen.set(!langDropdownOpen())"
+          class="w-full flex items-center justify-between gap-2 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-left"
+        >
+          <span
+            [class]="
+              selectedLanguages().length === 0
+                ? 'text-gray-400 dark:text-zinc-500'
+                : 'text-gray-900 dark:text-zinc-100'
+            "
+          >
+            {{
+              selectedLanguages().length === 0
+                ? 'All languages'
+                : selectedLanguages().length === 1
+                  ? selectedLanguages()[0]
+                  : selectedLanguages().length + ' selected'
+            }}
+          </span>
+          <svg
+            class="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        @if (langDropdownOpen()) {
+          <div
+            class="absolute z-20 mt-1 left-0 w-full min-w-44 max-h-56 overflow-y-auto rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#27272a] shadow-lg py-1"
+          >
+            @if (availableLanguages().length === 0) {
+              <p class="px-3 py-2 text-xs text-gray-400 dark:text-zinc-500">
+                No languages in this view
+              </p>
+            }
+            @for (lang of availableLanguages(); track lang) {
+              <label
+                class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer text-sm text-gray-700 dark:text-zinc-300"
+              >
+                <input
+                  type="checkbox"
+                  [checked]="selectedLanguages().includes(lang)"
+                  (change)="toggleLanguage(lang)"
+                  class="rounded border-gray-300 dark:border-zinc-600 accent-blue-500"
+                />
+                {{ lang }}
+              </label>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Composition multiselect -->
+      <div class="relative" #compDropdown>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Type</label>
+        <button
+          type="button"
+          (click)="compDropdownOpen.set(!compDropdownOpen())"
+          class="w-full flex items-center justify-between gap-2 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-left"
+        >
+          <span
+            [class]="
+              selectedCompositions().length === 0
+                ? 'text-gray-400 dark:text-zinc-500'
+                : 'text-gray-900 dark:text-zinc-100'
+            "
+          >
+            {{
+              selectedCompositions().length === 0
+                ? 'All types'
+                : selectedCompositions().length === 1
+                  ? compositionLabel($any(selectedCompositions()[0]))
+                  : selectedCompositions().length + ' selected'
+            }}
+          </span>
+          <svg
+            class="w-3.5 h-3.5 text-gray-400 dark:text-zinc-500 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        @if (compDropdownOpen()) {
+          <div
+            class="absolute z-20 mt-1 left-0 w-full min-w-40 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#27272a] shadow-lg py-1"
+          >
+            @for (opt of compositionOptions; track opt[0]) {
+              <label
+                class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer text-sm text-gray-700 dark:text-zinc-300"
+              >
+                <input
+                  type="checkbox"
+                  [checked]="selectedCompositions().includes(opt[0])"
+                  (change)="toggleComposition(opt[0])"
+                  class="rounded border-gray-300 dark:border-zinc-600 accent-blue-500"
+                />
+                {{ opt[1] }}
+              </label>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Clear -->
+      <div class="flex items-end">
+        <button
+          (click)="clearFilters()"
+          [disabled]="!hasActiveFilters()"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-zinc-400 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div
+      class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+    >
+      <div
+        class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700"
+      >
+        <div class="animate-pulse h-3 bg-gray-200 dark:bg-zinc-700 rounded w-28"></div>
+      </div>
+      <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
+        @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+          <li class="px-5 py-4 flex items-center gap-4">
+            <div class="flex-1 space-y-2">
+              <div class="animate-pulse h-3.5 bg-gray-200 dark:bg-zinc-700 rounded w-28"></div>
+              <div class="animate-pulse h-2.5 bg-gray-100 dark:bg-zinc-800 rounded w-16"></div>
+            </div>
+          </li>
+        }
+      </ul>
+    </div>
+  } @else if (error()) {
+    <div
+      class="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900 px-5 py-4"
+    >
+      <p class="text-sm text-red-600 dark:text-red-400">{{ error() }}</p>
+    </div>
+  } @else if (groups().length === 0) {
+    <div
+      class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] px-5 py-10 text-center"
+    >
+      <p class="text-sm text-gray-400 dark:text-zinc-500">No groups in this region.</p>
+    </div>
+  } @else {
+    <div
+      class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+    >
+      <div
+        class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
+      >
+        <span
+          class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+        >
+          {{ total() }} group{{ total() !== 1 ? 's' : '' }}
+          @if (regionName()) {
+            · {{ regionName() }}
+          }
+        </span>
+        @if (totalPages() > 1) {
+          <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
+            <button
+              (click)="prevPage()"
+              [disabled]="page() === 1"
+              class="p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+            >
+              ‹
+            </button>
+            <span class="text-xs">{{ page() }} / {{ totalPages() }}</span>
+            <button
+              (click)="nextPage()"
+              [disabled]="page() === totalPages()"
+              class="p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+            >
+              ›
+            </button>
+          </div>
+        }
+      </div>
+
+      @if (groups().length === 0 && searchCode()) {
+        <p class="px-5 py-10 text-sm text-gray-400 dark:text-zinc-500 text-center">
+          No groups match "{{ searchCode() }}".
+        </p>
+      } @else {
+        <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
+          @for (group of groups(); track group.id) {
+            <li
+              class="px-5 py-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+            >
+              <!-- Group info — clickable to open guests modal -->
+              <button (click)="openGuests(group)" class="flex-1 min-w-0 text-left">
+                <p
+                  class="text-sm font-medium text-gray-900 dark:text-zinc-100 hover:text-blue-500 transition-colors"
+                >
+                  {{ group.group_code }}
+                </p>
+                <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span class="text-xs text-gray-400 dark:text-zinc-500">
+                    {{ group.guest_count }} guest{{ group.guest_count !== 1 ? 's' : '' }}
+                  </span>
+                  @if (group.car_count !== null) {
+                    <span
+                      class="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-zinc-500"
+                    >
+                      <svg
+                        class="w-3 h-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
+                        />
+                      </svg>
+                      {{ group.car_count }} car{{ group.car_count !== 1 ? 's' : '' }}
+                    </span>
+                  }
+                  @if (group.total_car_seats > 0) {
+                    <span class="text-xs text-gray-400 dark:text-zinc-500">
+                      {{ group.total_car_seats }} avail. seats
+                    </span>
+                  }
+                  @for (lang of group.languages; track lang) {
+                    <span
+                      class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800"
+                    >
+                      {{ lang }}
+                    </span>
+                  }
+                  @if (group.host_name) {
+                    <span class="text-xs text-purple-600 dark:text-purple-400 font-medium"
+                      >· {{ group.host_name }}</span
+                    >
+                  }
+                  @if (group.composition) {
+                    <span
+                      class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-teal-50 text-teal-700 ring-teal-200 dark:bg-teal-950 dark:text-teal-400 dark:ring-teal-800"
+                    >
+                      {{ compositionLabel(group.composition) }}
+                    </span>
+                  }
+                  @if (group.available_from || group.available_to) {
+                    <span class="text-xs text-gray-400 dark:text-zinc-500">
+                      {{ (group.available_from | date: 'd MMM') ?? '—' }} →
+                      {{
+                        (group.available_to
+                          | date
+                            : 'd
+              MMM') ?? '—'
+                      }}
+                    </span>
+                  }
+                </div>
+                <!-- Aggregate snapshot (validation before guest data removal) -->
+                @if (group.agg_computed_at) {
+                  <div class="flex items-center gap-2 mt-1 flex-wrap">
+                    @if (group.agg_stale === false) {
+                      <span
+                        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
+                        title="Snapshot matches live guest data"
+                      >
+                        ✓ snapshot
+                      </span>
+                    } @else {
+                      <span
+                        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-800"
+                        title="Snapshot differs from live guest data — recompute"
+                      >
+                        ⚠ snapshot stale
+                      </span>
+                    }
+                    <span class="text-[11px] text-gray-400 dark:text-zinc-500">
+                      {{ group.agg_guest_count }} active ({{ aggStatusSummary(group) }})
+                      @if (group.agg_minor_count) {
+                        · {{ group.agg_minor_count }} minor{{
+                          group.agg_minor_count !== 1 ? 's' : ''
+                        }}
+                      }
+                      · {{ group.agg_car_seats }} seats
+                      @if (group.agg_languages?.length) {
+                        · {{ group.agg_languages!.join(', ') }}
+                      }
+                      @if (group.agg_avg_lat !== null) {
+                        · {{ group.agg_avg_lat | number: '1.0-4' }},
+                        {{ group.agg_avg_lng | number: '1.0-4' }}
+                      }
+                      · {{ group.agg_computed_at | date: 'd MMM HH:mm' }}
+                    </span>
+                  </div>
+                }
+              </button>
+
+              <div class="flex items-center gap-1 shrink-0">
+                <button
+                  (click)="openEdit(group)"
+                  class="p-1.5 rounded-md text-gray-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-950 transition-colors"
+                  title="Edit group"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+                    />
+                  </svg>
+                </button>
+                <button
+                  (click)="openAssignHost(group)"
+                  class="p-1.5 rounded-md text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
+                  title="Assign host"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                    />
+                  </svg>
+                </button>
+                <button
+                  (click)="openGuests(group)"
+                  class="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
+                  title="View guests"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </button>
+                @if (isSuperAdmin()) {
+                  <button
+                    (click)="deleteGroup(group)"
+                    class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                    title="Delete"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  }
+</div>
+
+@if (activeModal()) {
+  <div
+    class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4"
+    (click)="closeModal()"
+  >
+    <!-- Create modal -->
+    @if (activeModal() === 'create') {
+      <div
+        class="w-full max-w-sm bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
+        >
+          <h3
+            class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+          >
+            New group
+          </h3>
+          <button
+            (click)="closeModal()"
+            class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <form [formGroup]="form" (ngSubmit)="save()" class="p-5 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+              >Group code *</label
+            >
+            <input
+              formControlName="group_code"
+              type="text"
+              placeholder="GRP-001"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+              >Region *</label
+            >
+            <app-searchable-select
+              formControlName="region_id"
+              [items]="regionItems()"
+              placeholder="Select region…"
+            />
+          </div>
+          @if (formError()) {
+            <p class="text-sm text-red-500">{{ formError() }}</p>
+          }
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              (click)="closeModal()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              [disabled]="form.invalid || saving()"
+              class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {{ saving() ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    }
+
+    <!-- Assign host modal -->
+    @if (activeModal() === 'assign-host') {
+      <div
+        class="w-full max-w-sm bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
+        >
+          <div>
+            <h3
+              class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+            >
+              Assign host
+            </h3>
+            <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+              {{ hostAssignGroup()?.group_code }}
+            </p>
+          </div>
+          <button
+            (click)="closeModal()"
+            class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="p-5 space-y-4">
+          @if (hostsLoading()) {
+            <div class="animate-pulse h-9 bg-gray-100 dark:bg-zinc-800 rounded-lg"></div>
+          } @else {
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+                >Host congregation</label
+              >
+              <app-searchable-select
+                [items]="hostItems()"
+                placeholder="— None —"
+                emptyLabel="— None —"
+                [selected]="selectedHostId()"
+                (selectedChange)="selectedHostId.set($event)"
+              />
+            </div>
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                (click)="closeModal()"
+                class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                (click)="confirmAssignHost()"
+                [disabled]="assigningHost()"
+                class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
+              >
+                {{ assigningHost() ? 'Saving…' : 'Save' }}
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Import modal -->
+    @if (activeModal() === 'import') {
+      <div
+        class="w-full max-w-md bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
+        >
+          <h3
+            class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+          >
+            Import groups from Excel
+          </h3>
+          <button
+            (click)="closeModal()"
+            class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-5 space-y-4">
+          <!-- Region selector (optional when file has region_name column) -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+              Region
+              <span class="text-xs font-normal text-gray-400 dark:text-zinc-500 ml-1"
+                >(optional if file has
+                <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code>
+                column)</span
+              >
+            </label>
+            <app-searchable-select
+              [items]="regionItems()"
+              placeholder="— auto-detect from file —"
+              emptyLabel="— auto-detect from file —"
+              [selected]="importRegionId()"
+              (selectedChange)="importRegionId.set($event)"
+            />
+          </div>
+
+          <!-- Delete absent toggle -->
+          @if (!importResult()) {
+            <div class="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-2.5 bg-red-50 dark:bg-red-950">
+                <div class="flex items-center gap-2">
+                  <svg
+                    class="w-4 h-4 text-red-600 dark:text-red-400 shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                  <span
+                    class="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide"
+                  >
+                    Delete absent groups
+                  </span>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                  <span class="text-xs text-gray-600 dark:text-zinc-400"
+                    >Remove from DB if not in Excel</span
+                  >
+                  <div
+                    class="relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"
+                    [class.bg-red-500]="importDeleteAbsent()"
+                    [class.bg-gray-300]="!importDeleteAbsent()"
+                    [class.dark:bg-red-600]="importDeleteAbsent()"
+                    [class.dark:bg-zinc-600]="!importDeleteAbsent()"
+                    (click)="importDeleteAbsent.set(!importDeleteAbsent())"
+                  >
+                    <div
+                      class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                      [class.translate-x-4]="importDeleteAbsent()"
+                    ></div>
+                  </div>
+                </label>
+              </div>
+              @if (importDeleteAbsent()) {
+                <div
+                  class="px-4 py-2.5 bg-red-50/60 dark:bg-red-950/60 border-t border-red-200 dark:border-red-800"
+                >
+                  <p class="text-xs text-red-700 dark:text-red-300">
+                    All groups (and their guests) <strong>not present</strong> in the Excel will be
+                    permanently deleted from the database.
+                  </p>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Result after import -->
+          @if (importResult()) {
+            <div
+              class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-4 space-y-1"
+            >
+              <p class="text-sm font-semibold text-green-700 dark:text-green-400">
+                Import complete
+              </p>
+              <p class="text-xs text-green-600 dark:text-green-500">
+                {{ importResult()!.created }} created · {{ importResult()!.updated }} updated ·
+                {{ importResult()!.total }} total
+                @if (importResult()!.regions_not_found) {
+                  ·
+                  <span class="text-orange-600 dark:text-orange-400"
+                    >{{ importResult()!.regions_not_found }} skipped (region not found)</span
+                  >
+                }
+                @if (importResult()!.deleted) {
+                  ·
+                  <span class="text-red-600 dark:text-red-400"
+                    >{{ importResult()!.deleted }} groups deleted</span
+                  >
+                }
+              </p>
+            </div>
+          }
+
+          <!-- Drop zone (hidden once result shown) -->
+          @if (!importResult()) {
+            <div
+              class="border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer"
+              [class]="
+                isDragging
+                  ? 'border-blue-400 bg-blue-50 dark:bg-blue-950'
+                  : 'border-gray-300 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-700'
+              "
+              (dragover)="onDragOver($event)"
+              (dragleave)="onDragLeave()"
+              (drop)="onDrop($event)"
+              (click)="fileInput.click()"
+            >
+              @if (importing()) {
+                <p class="text-sm text-gray-500 dark:text-zinc-400">Importing…</p>
+              } @else {
+                <svg
+                  class="w-7 h-7 mx-auto text-gray-300 dark:text-zinc-600 mb-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <p class="text-sm text-gray-500 dark:text-zinc-400">
+                  Drop .xlsx or .csv here or <span class="text-blue-500">click to browse</span>
+                </p>
+                <p class="text-xs text-gray-400 dark:text-zinc-500 mt-1">
+                  Required:
+                  <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">group_code</code> ·
+                  Optional:
+                  <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code>
+                </p>
+              }
+            </div>
+            <input
+              #fileInput
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              class="hidden"
+              (change)="onFileSelected($event)"
+            />
+          }
+          @if (importError()) {
+            <p class="text-sm text-red-500">{{ importError() }}</p>
+          }
+
+          <div class="flex justify-end">
+            <button
+              (click)="closeModal()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              {{ importResult() ? 'Close' : 'Cancel' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Guests modal -->
+    @if (activeModal() === 'guests') {
+      <div
+        class="w-full max-w-lg bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden max-h-[80vh] flex flex-col"
+        (click)="$event.stopPropagation()"
+      >
+        <!-- Header -->
+        <div
+          class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between shrink-0"
+        >
+          <div>
+            <h3
+              class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+            >
+              {{ detailGroup()?.group_code }}
+            </h3>
+            <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+              {{ detailGroup()?.guest_count }} guest{{
+                (detailGroup()?.guest_count ?? 0) !== 1 ? 's' : ''
+              }}
+            </p>
+          </div>
+          <button
+            (click)="closeModal()"
+            class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="overflow-y-auto flex-1">
+          @if (guestsLoading()) {
+            <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
+              @for (i of [1, 2, 3, 4, 5]; track i) {
+                <li class="px-5 py-3 flex items-center gap-3">
+                  <div class="flex-1 space-y-2">
+                    <div
+                      class="animate-pulse h-3.5 bg-gray-200 dark:bg-zinc-700 rounded"
+                      [style.width.%]="40 + ((i * 13) % 35)"
+                    ></div>
+                    <div
+                      class="animate-pulse h-2.5 bg-gray-100 dark:bg-zinc-800 rounded w-16"
+                    ></div>
+                  </div>
+                  <div
+                    class="animate-pulse h-5 bg-gray-100 dark:bg-zinc-800 rounded-full w-16"
+                  ></div>
+                </li>
+              }
+            </ul>
+          } @else if (guestsError()) {
+            <p class="px-5 py-4 text-sm text-red-500">{{ guestsError() }}</p>
+          } @else if (groupGuests().length === 0) {
+            <p class="px-5 py-10 text-sm text-gray-400 dark:text-zinc-500 text-center">
+              No guests in this group.
+            </p>
+          } @else {
+            <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
+              <!-- Group contact first, highlighted -->
+              @if (groupContact()) {
+                <li class="px-5 py-3 bg-blue-50 dark:bg-blue-950/40 flex items-center gap-3">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <a
+                        [routerLink]="['/admin/guests', groupContact()!.id]"
+                        (click)="closeModal()"
+                        class="text-sm font-semibold text-blue-700 dark:text-blue-300 hover:underline truncate"
+                      >
+                        {{ groupContact()!.full_name }}
+                      </a>
+                      <span
+                        class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-blue-100 text-blue-700 ring-blue-300 dark:bg-blue-900 dark:text-blue-300 dark:ring-blue-700 shrink-0"
+                      >
+                        contact
+                      </span>
+                      @if (groupContact()!.is_minor) {
+                        <span
+                          class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-950 dark:text-orange-400 dark:ring-orange-800 shrink-0"
+                          >minor</span
+                        >
+                      }
+                    </div>
+                    <p class="text-xs text-blue-500 dark:text-blue-400 mt-0.5">
+                      {{ groupContact()!.guest_code }}
+                    </p>
+                    @if (groupContact()!.email) {
+                      <p class="text-xs text-blue-400 dark:text-blue-500 mt-0.5">
+                        {{ groupContact()!.email }}
+                      </p>
+                    }
+                  </div>
+                  <span
+                    class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1"
+                    [class]="statusClass(groupContact()!.status)"
+                  >
+                    {{ groupContact()!.status }}
+                  </span>
+                </li>
+              }
+
+              <!-- Rest of guests -->
+              @for (guest of otherGuests(); track guest.id) {
+                <li
+                  class="px-5 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                >
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <a
+                        [routerLink]="['/admin/guests', guest.id]"
+                        (click)="closeModal()"
+                        class="text-sm font-medium text-gray-900 dark:text-zinc-100 hover:text-blue-500 transition-colors truncate"
+                      >
+                        {{ guest.full_name }}
+                      </a>
+                      @if (guest.is_minor) {
+                        <span
+                          class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-950 dark:text-orange-400 dark:ring-orange-800 shrink-0"
+                          >minor</span
+                        >
+                      }
+                      @if (guest.is_special_servant) {
+                        <span
+                          class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-purple-50 text-purple-700 ring-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:ring-purple-800 shrink-0"
+                          >special</span
+                        >
+                      }
+                    </div>
+                    <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+                      {{ guest.guest_code }}
+                    </p>
+                  </div>
+                  <span
+                    class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium ring-1"
+                    [class]="statusClass(guest.status)"
+                  >
+                    {{ guest.status }}
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Truncate confirmation modal -->
+    @if (activeModal() === 'truncate') {
+      <div
+        class="w-full max-w-sm bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="px-5 py-3 bg-red-50 dark:bg-red-950 border-b border-red-200 dark:border-red-900 flex items-center justify-between"
+        >
+          <h3 class="text-sm font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">
+            Truncate all data
+          </h3>
+          <button
+            (click)="closeModal()"
+            class="p-1 rounded text-red-400 hover:text-red-600 dark:hover:text-red-300"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="p-5 space-y-4">
+          <p class="text-sm text-gray-700 dark:text-zinc-300">
+            This will permanently delete <strong>all guests and all guest groups</strong> across
+            every region. This action cannot be undone.
+          </p>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+              Type
+              <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded text-red-600 dark:text-red-400"
+                >DELETE</code
+              >
+              to confirm
+            </label>
+            <input
+              type="text"
+              [value]="truncateConfirmText()"
+              (input)="truncateConfirmText.set($any($event.target).value)"
+              placeholder="DELETE"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 placeholder-gray-400 dark:placeholder-zinc-500"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              (click)="closeModal()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              (click)="confirmTruncate()"
+              [disabled]="truncateConfirmText() !== 'DELETE' || truncating()"
+              class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {{ truncating() ? 'Deleting…' : 'Delete all' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Edit availability / composition modal -->
+    @if (activeModal() === 'edit') {
+      <div
+        class="w-full max-w-sm bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
+        >
+          <div>
+            <h3
+              class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+            >
+              Edit group
+            </h3>
+            <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+              {{ editGroup()?.group_code }}
+            </p>
+          </div>
+          <button
+            (click)="closeModal()"
+            class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <form [formGroup]="editForm" (ngSubmit)="saveEdit()" class="p-5 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+              >Num cars</label
+            >
+            <input
+              formControlName="car_count"
+              type="number"
+              min="0"
+              step="1"
+              placeholder="—"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+              >Composition</label
+            >
+            <select
+              formControlName="composition"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="">— Not specified —</option>
+              @for (opt of compositionOptions; track opt[0]) {
+                <option [value]="opt[0]">{{ opt[1] }}</option>
+              }
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+                >Available from</label
+              >
+              <input
+                formControlName="available_from"
+                type="date"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+                >Available to</label
+              >
+              <input
+                formControlName="available_to"
+                type="date"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+          </div>
+          @if (formError()) {
+            <p class="text-sm text-red-500">{{ formError() }}</p>
+          }
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              (click)="closeModal()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              [disabled]="saving()"
+              class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            >
+              {{ saving() ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    }
+  </div>
+}
