@@ -1,0 +1,706 @@
+<style type="text/tailwindcss">
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    @apply font-light bg-stone-100 text-stone-900;
+  }
+
+  .font-serif-display {
+    font-family: 'DM Serif Display', Georgia, serif;
+  }
+
+  .toc-list {
+    counter-reset: toc;
+  }
+  .toc-list li {
+    counter-increment: toc;
+  }
+  .toc-list li::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: 'DM Serif Display', Georgia, serif;
+    @apply text-orange-700 text-sm min-w-8 shrink-0;
+  }
+
+  .legal-list li::before {
+    content: '—';
+    @apply text-orange-700 shrink-0;
+  }
+
+  .hero-glow::before {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: radial-gradient(ellipse 80% 60% at 50% 120%, #c2410c22, transparent);
+  }
+
+  .subsection:last-child {
+    @apply mb-0 pb-0 border-b-0;
+  }
+</style>
+
+<div class="min-h-screen">
+  <!-- NAV -->
+  <nav
+    class="sticky top-0 z-50 bg-white border-b border-stone-200 h-[60px] px-6 flex items-center justify-between"
+  >
+    <div class="font-serif-display text-xl tracking-wide text-stone-900 no-underline"></div>
+    <ul class="flex gap-8 list-none m-0 p-0">
+      <li>
+        <a
+          href="/legal#privacidad"
+          class="text-[0.75rem] font-medium tracking-widest uppercase text-stone-500 no-underline hover:text-orange-700 transition-colors"
+          >Privacidad</a
+        >
+      </li>
+      <li>
+        <a
+          href="/legal#aviso"
+          class="text-[0.75rem] font-medium tracking-widest uppercase text-stone-500 no-underline hover:text-orange-700 transition-colors"
+          >Aviso legal</a
+        >
+      </li>
+      <li>
+        <a
+          href="/legal#cookies"
+          class="text-[0.75rem] font-medium tracking-widest uppercase text-stone-500 no-underline hover:text-orange-700 transition-colors"
+          >Cookies</a
+        >
+      </li>
+    </ul>
+  </nav>
+
+  <!-- HERO -->
+  <div
+    class="hero-glow relative bg-stone-900 text-white text-center px-8 pt-20 pb-16 overflow-hidden"
+  >
+    <span
+      class="inline-block text-[0.7rem] font-medium tracking-[0.16em] uppercase text-orange-600 border border-orange-700/30 px-4 py-1.5 rounded-full mb-6"
+    >
+      Documentación legal
+    </span>
+    <h1 class="font-serif-display text-[clamp(2.5rem,6vw,4rem)] font-normal leading-[1.15] mb-4">
+      Transparencia <em class="italic text-amber-500">primero.</em>
+    </h1>
+    <p class="text-stone-400 text-[0.95rem] max-w-md mx-auto">
+      Cómo tratamos tus datos, quién somos y qué cookies usamos.
+    </p>
+  </div>
+
+  <!-- CONTAINER -->
+  <div class="max-w-3xl mx-auto px-2 pb-16">
+    <!-- RESUMEN (primera capa informativa) -->
+    <div id="resumen" class="bg-white border border-stone-200 rounded overflow-hidden mt-12 mb-8">
+      <div class="flex items-start gap-6 px-10 pt-10 pb-6 border-b border-stone-200">
+        <span class="font-serif-display text-5xl text-orange-700/30 leading-none shrink-0">⚡</span>
+        <div class="pt-1.5">
+          <h2 class="font-serif-display text-3xl font-normal leading-snug m-0">Resumen</h2>
+          <p class="text-stone-500 text-[0.88rem] mt-1">
+            Añadimos esta sección como resumen de todo el documento legal.
+          </p>
+        </div>
+      </div>
+      <div class="px-4 pt-8 pb-10 grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div class="flex gap-4">
+          <div
+            class="shrink-0 w-9 h-9 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-700 text-base"
+          >
+            👤
+          </div>
+          <div>
+            <p class="text-[0.75rem] font-medium tracking-wide uppercase text-stone-500 mb-1">
+              Quién es el responsable
+            </p>
+            <p class="text-[0.92rem] leading-relaxed text-stone-800">
+              Mario Martínez Catena, persona física. Puedes contactarle en
+              <a
+                href="mailto:mario.martinezcatena@icloud.com"
+                class="text-orange-700 hover:underline"
+                >mario.martinezcatena@icloud.com</a
+              >.
+            </p>
+            <p class="text-[0.92rem] leading-relaxed text-stone-800">
+              David Pérez, persona física. Puedes contactarle en
+              <a href="mailto:davidpereztcj@gmail.com" class="text-orange-700 hover:underline"
+                >davidpereztcj@gmail.com</a
+              >.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <div
+            class="shrink-0 w-9 h-9 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-700 text-base"
+          >
+            📋
+          </div>
+          <div>
+            <p class="text-[0.75rem] font-medium tracking-wide uppercase text-stone-500 mb-1">
+              Qué datos guardamos
+            </p>
+            <p class="text-[0.92rem] leading-relaxed text-stone-800">
+              Nombre completo, email, ciudad de origen, idiomas, fechas de llegada y partida, y
+              dirección de hospedaje.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <div
+            class="shrink-0 w-9 h-9 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-700 text-base"
+          >
+            🎯
+          </div>
+          <div>
+            <p class="text-[0.75rem] font-medium tracking-wide uppercase text-stone-500 mb-1">
+              Para qué los usamos
+            </p>
+            <p class="text-[0.92rem] leading-relaxed text-stone-800">
+              Gestionar tu cuenta y enviarte notificaciones del evento. Sin fines comerciales.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <div
+            class="shrink-0 w-9 h-9 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-700 text-base"
+          >
+            🗓️
+          </div>
+          <div>
+            <p class="text-[0.75rem] font-medium tracking-wide uppercase text-stone-500 mb-1">
+              Cuánto tiempo los conservamos
+            </p>
+            <p class="text-[0.92rem] leading-relaxed text-stone-800">
+              Solo durante el evento. A finales de agosto de 2026
+              <strong class="font-medium">todos los datos se eliminan</strong> de forma definitiva.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <div
+            class="shrink-0 w-9 h-9 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-700 text-base"
+          >
+            🌍
+          </div>
+          <div>
+            <p class="text-[0.75rem] font-medium tracking-wide uppercase text-stone-500 mb-1">
+              Dónde se guardan
+            </p>
+            <p class="text-[0.92rem] leading-relaxed text-stone-800">
+              En servidores dentro de la UE (Ámsterdam). No salen del Espacio Económico Europeo.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <div
+            class="shrink-0 w-9 h-9 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-700 text-base"
+          >
+            🍪
+          </div>
+          <div>
+            <p class="text-[0.75rem] font-medium tracking-wide uppercase text-stone-500 mb-1">
+              Cookies
+            </p>
+            <p class="text-[0.92rem] leading-relaxed text-stone-800">
+              Solo una cookie de sesión para mantenerte conectado. Sin tracking ni publicidad.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-4 sm:col-span-2">
+          <div
+            class="shrink-0 w-9 h-9 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-700 text-base"
+          >
+            ✋
+          </div>
+          <div>
+            <p class="text-[0.75rem] font-medium tracking-wide uppercase text-stone-500 mb-1">
+              Tus derechos
+            </p>
+            <p class="text-[0.92rem] leading-relaxed text-stone-800">
+              Puedes acceder, corregir, exportar o eliminar tus datos en cualquier momento
+              escribiendo a
+              <a
+                href="mailto:mario.martinezcatena@icloud.com"
+                class="text-orange-700 hover:underline"
+                >mario.martinezcatena@icloud.com</a
+              >
+              , o también,
+              <a href="mailto:davidpereztcj@gmail.com" class="text-orange-700 hover:underline"
+                >davidpereztcj@gmail.com</a
+              >. También puedes reclamar ante la
+              <a href="https://www.aepd.es" target="_blank" class="text-orange-700 hover:underline"
+                >AEPD</a
+              >.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOC -->
+    <div class="bg-white border border-stone-200 rounded px-10 py-8 mb-8">
+      <p class="text-[0.7rem] font-medium tracking-[0.12em] uppercase text-stone-500 mb-4">
+        Contenido
+      </p>
+      <ol class="toc-list list-none flex flex-col gap-2 m-0 p-0">
+        <li class="flex items-baseline gap-3">
+          <a
+            href="/legal#privacidad"
+            class="text-stone-900 no-underline text-[0.95rem] hover:text-orange-700 transition-colors"
+            >Política de Privacidad</a
+          >
+        </li>
+        <li class="flex items-baseline gap-3">
+          <a
+            href="/legal#aviso"
+            class="text-stone-900 no-underline text-[0.95rem] hover:text-orange-700 transition-colors"
+            >Aviso Legal</a
+          >
+        </li>
+        <li class="flex items-baseline gap-3">
+          <a
+            href="/legal#cookies"
+            class="text-stone-900 no-underline text-[0.95rem] hover:text-orange-700 transition-colors"
+            >Política de Cookies</a
+          >
+        </li>
+      </ol>
+    </div>
+
+    <!-- 1. PRIVACIDAD -->
+    <section id="privacidad" class="bg-white border border-stone-200 rounded overflow-hidden mb-8">
+      <div class="flex items-start gap-6 px-10 pt-10 pb-6 border-b border-stone-200">
+        <span class="font-serif-display text-5xl text-orange-700/30 leading-none shrink-0">01</span>
+        <h2 class="font-serif-display text-3xl font-normal leading-snug pt-1.5 m-0">
+          Política de Privacidad
+        </h2>
+      </div>
+      <div class="px-4 pt-8 pb-10">
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Responsable del tratamiento
+          </h3>
+          <p class="text-[0.95rem] leading-loose mb-3">
+            En cumplimiento del Reglamento (UE) 2016/679 (RGPD) y de la Ley Orgánica 3/2018
+            (LOPDGDD), se informa al usuario de los siguientes datos:
+          </p>
+          <ul class="legal-list list-none flex flex-col gap-1.5 m-0 p-0">
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Responsable:</strong>&nbsp;Mario Martínez Catena (persona
+              física)
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Contacto:</strong>&nbsp;<a
+                href="mailto:mario.martinezcatena@icloud.com"
+                class="text-orange-700 hover:underline"
+                >mario.martinezcatena@icloud.com</a
+              >
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Responsable:</strong>&nbsp;David Pérez (persona física)
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Contacto:</strong>&nbsp;<a
+                href="mailto:davidpereztcj@gmail.com"
+                class="text-orange-700 hover:underline"
+                >davidpereztcj@gmail.com
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Datos personales recogidos
+          </h3>
+          <p class="text-[0.95rem] leading-loose mb-3">
+            El servicio, llamado a partir de ahora Roller, recoge únicamente los datos estrictamente
+            necesarios para la prestación del servicio:
+          </p>
+          <ul class="legal-list list-none flex flex-col gap-1.5 m-0 p-0">
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">Nombre completo</li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              Dirección de correo electrónico
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">Ciudad de origen</li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">Idiomas que habla</li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              Fecha de llegada y fecha de partida al evento
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              Dirección del hospedaje durante el evento
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              Datos de uso de la plataforma (actividad, fechas de acceso)
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              Token de sesión, almacenado localmente en tu navegador para mantener la sesión activa
+            </li>
+          </ul>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Finalidades del tratamiento
+          </h3>
+          <ul class="legal-list list-none flex flex-col gap-1.5 m-0 p-0">
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              Gestión de la cuenta y acceso al servicio
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              Envío de comunicaciones transaccionales del evento (invitaciones, recordatorios,
+              verificación de email)
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              Soporte técnico y atención al usuario
+            </li>
+          </ul>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Base jurídica
+          </h3>
+          <p class="text-[0.95rem] leading-loose m-0">
+            La base jurídica del tratamiento es la ejecución de la relación contractual con el
+            usuario (art. 6.1.b RGPD), derivada de la aceptación de esta política en el momento del
+            registro.
+          </p>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Conservación de los datos
+          </h3>
+          <div
+            class="bg-orange-50 border-l-4 border-orange-700 rounded-r px-5 py-4 text-[0.92rem] leading-loose"
+          >
+            Roller es un servicio vinculado a un evento de duración limitada.
+            <strong class="font-medium"
+              >Todos los datos personales serán eliminados de forma definitiva e irreversible a
+              finales de agosto de 2026</strong
+            >, una vez concluido el evento. No se realizará ningún tipo de conservación posterior.
+          </div>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Proveedores técnicos
+          </h3>
+          <p class="text-[0.95rem] leading-loose mb-4">
+            Los datos no se ceden a terceros con fines comerciales. Los siguientes proveedores
+            actúan como encargados del tratamiento bajo sus propias políticas compatibles con el
+            RGPD.
+            <strong class="font-medium"
+              >Todos los datos personales se almacenan y procesan dentro del Espacio Económico
+              Europeo, en servidores ubicados en territorio de la UE.</strong
+            >
+          </p>
+          <table class="w-full text-[0.9rem] border-collapse">
+            <thead>
+              <tr class="bg-stone-100">
+                <th
+                  class="text-left px-4 py-2.5 text-[0.68rem] font-medium tracking-widest uppercase text-stone-500 border-b border-stone-200"
+                >
+                  Proveedor
+                </th>
+                <th
+                  class="text-left px-4 py-2.5 text-[0.68rem] font-medium tracking-widest uppercase text-stone-500 border-b border-stone-200"
+                >
+                  Función
+                </th>
+                <th
+                  class="text-left px-4 py-2.5 text-[0.68rem] font-medium tracking-widest uppercase text-stone-500 border-b border-stone-200"
+                >
+                  Región
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-stone-200">
+                <td class="px-4 py-3 align-top whitespace-nowrap">
+                  <strong class="font-medium">Railway</strong>
+                  <span
+                    class="ml-1.5 inline-block bg-orange-50 text-orange-700 text-[0.62rem] font-medium tracking-wide uppercase px-2 py-0.5 rounded-full border border-orange-200"
+                    >API · BD</span
+                  >
+                </td>
+                <td class="px-4 py-3 align-top leading-relaxed">
+                  Alojamiento del backend y base de datos del servicio
+                </td>
+                <td class="px-4 py-3 align-top whitespace-nowrap">🇳🇱 Ámsterdam, UE</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 align-top whitespace-nowrap">
+                  <strong class="font-medium">Resend</strong>
+                  <span
+                    class="ml-1.5 inline-block bg-orange-50 text-orange-700 text-[0.62rem] font-medium tracking-wide uppercase px-2 py-0.5 rounded-full border border-orange-200"
+                    >Email</span
+                  >
+                </td>
+                <td class="px-4 py-3 align-top leading-relaxed">
+                  Envío de correos electrónicos transaccionales
+                </td>
+                <td class="px-4 py-3 align-top whitespace-nowrap">🇪🇺 UE (en revisión)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Transferencias internacionales
+          </h3>
+          <p class="text-[0.95rem] leading-loose m-0">
+            No se realizan transferencias de datos personales fuera del Espacio Económico Europeo.
+            Todos los datos se almacenan y procesan en servidores ubicados en territorio de la UE.
+          </p>
+        </div>
+
+        <div class="subsection">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Tus derechos
+          </h3>
+          <p class="text-[0.95rem] leading-loose mb-3">
+            Puedes ejercer en cualquier momento, de forma gratuita, los siguientes derechos:
+          </p>
+          <ul class="legal-list list-none flex flex-col gap-1.5 mb-4 m-0 p-0">
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Acceso</strong> — conocer qué datos personales se tratan
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Rectificación</strong> — corregir datos inexactos o
+              incompletos
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Supresión</strong> — solicitar la eliminación de los datos
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Portabilidad</strong> — recibir tus datos en formato
+              estructurado
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Oposición y limitación</strong> del tratamiento
+            </li>
+          </ul>
+          <p class="text-[0.95rem] leading-loose m-0">
+            Dirige tu solicitud a
+            <a href="mailto:mario.martinezcatena@icloud.com" class="text-orange-700 hover:underline"
+              >mario.martinezcatena@icloud.com</a
+            >. Será atendida en el plazo máximo de un mes. También puedes presentar una reclamación
+            ante la <strong class="font-medium">Agencia Española de Protección de Datos</strong> en
+            <a href="https://www.aepd.es" target="_blank" class="text-orange-700 hover:underline"
+              >www.aepd.es</a
+            >.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. AVISO LEGAL -->
+    <section id="aviso" class="bg-white border border-stone-200 rounded overflow-hidden mb-8">
+      <div class="flex items-start gap-6 px-10 pt-10 pb-6 border-b border-stone-200">
+        <span class="font-serif-display text-5xl text-orange-700/30 leading-none shrink-0">02</span>
+        <h2 class="font-serif-display text-3xl font-normal leading-snug pt-1.5 m-0">Aviso Legal</h2>
+      </div>
+      <div class="px-4 pt-8 pb-10">
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Identificación del responsable
+          </h3>
+          <p class="text-[0.95rem] leading-loose mb-3">
+            En cumplimiento del artículo 10 de la LSSI-CE, se informa que Roller es un servicio
+            gestionado por:
+          </p>
+          <ul class="legal-list list-none flex flex-col gap-1.5 m-0 p-0">
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Nombre:</strong>&nbsp;Mario Martínez Catena
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Condición:</strong>&nbsp;persona física
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Contacto:</strong>&nbsp;<a
+                href="mailto:mario.martinezcatena@icloud.com"
+                class="text-orange-700 hover:underline"
+                >mario.martinezcatena@icloud.com</a
+              >
+            </li>
+          </ul>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Objeto del servicio
+          </h3>
+          <p class="text-[0.95rem] leading-loose m-0">
+            Roller es una plataforma SaaS de gestión de eventos, de carácter temporal y vinculada a
+            la celebración de un evento concreto con fecha de finalización prevista a finales de
+            agosto de 2026. El acceso al servicio está restringido a usuarios invitados o
+            registrados.
+          </p>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Exclusión de garantías y responsabilidad
+          </h3>
+          <p class="text-[0.95rem] leading-loose m-0">
+            Roller se presta en fase de servicio activo para un evento específico. El responsable no
+            garantiza la disponibilidad continua del servicio ni se hace responsable de daños
+            derivados de interrupciones técnicas ajenas a su control. El servicio se ofrece sin
+            contraprestación económica directa a los usuarios del evento.
+          </p>
+        </div>
+
+        <div class="subsection">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Legislación aplicable y jurisdicción
+          </h3>
+          <p class="text-[0.95rem] leading-loose m-0">
+            Las presentes condiciones se rigen por la legislación española. Para cualquier
+            controversia derivada del uso del servicio, las partes se someten a los juzgados y
+            tribunales que correspondan según la normativa vigente.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. COOKIES -->
+    <section id="cookies" class="bg-white border border-stone-200 rounded overflow-hidden mb-8">
+      <div class="flex items-start gap-6 px-10 pt-10 pb-6 border-b border-stone-200">
+        <span class="font-serif-display text-5xl text-orange-700/30 leading-none shrink-0">03</span>
+        <h2 class="font-serif-display text-3xl font-normal leading-snug pt-1.5 m-0">
+          Política de Cookies
+        </h2>
+      </div>
+      <div class="px-4 pt-8 pb-10">
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            ¿Qué son las cookies?
+          </h3>
+          <p class="text-[0.95rem] leading-loose m-0">
+            Las cookies son pequeños archivos de texto que un sitio web almacena en tu navegador.
+            Permiten que el sitio recuerde información entre visitas o durante una misma sesión.
+          </p>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Cookies utilizadas por Roller
+          </h3>
+          <div
+            class="bg-orange-50 border-l-4 border-orange-700 rounded-r px-5 py-4 text-[0.92rem] leading-loose mb-4"
+          >
+            Roller utiliza
+            <strong class="font-medium"
+              >exclusivamente cookies técnicas estrictamente necesarias</strong
+            >. No se utilizan cookies de analítica, publicidad ni seguimiento de terceros.
+          </div>
+          <ul class="legal-list list-none flex flex-col gap-1.5 m-0 p-0">
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Cookie de sesión:</strong> almacena el token de
+              autenticación para mantener la sesión iniciada. Se elimina al cerrar sesión o al
+              expirar el tiempo de inactividad configurado.
+            </li>
+          </ul>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Base jurídica
+          </h3>
+          <p class="text-[0.95rem] leading-loose m-0">
+            Las cookies técnicas están exentas del requisito de consentimiento previo en virtud del
+            artículo 22.2 de la LSSI-CE, al ser estrictamente necesarias para el servicio
+            expresamente solicitado por el usuario.
+          </p>
+        </div>
+
+        <div class="subsection mb-8 pb-8 border-b border-stone-200">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Gestión y desactivación
+          </h3>
+          <p class="text-[0.95rem] leading-loose mb-3">
+            Puedes configurar tu navegador para bloquear o eliminar cookies. No obstante, desactivar
+            la cookie de sesión impedirá el correcto funcionamiento del servicio, ya que es
+            imprescindible para la autenticación.
+          </p>
+          <ul class="legal-list list-none flex flex-col gap-1.5 m-0 p-0">
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Chrome:</strong> Configuración › Privacidad y seguridad ›
+              Cookies
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Firefox:</strong> Opciones › Privacidad y seguridad
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Safari:</strong> Preferencias › Privacidad
+            </li>
+            <li class="flex gap-3 text-[0.95rem] leading-relaxed">
+              <strong class="font-medium">Edge:</strong> Configuración › Cookies y permisos del
+              sitio
+            </li>
+          </ul>
+        </div>
+
+        <div class="subsection">
+          <h3
+            class="text-[0.72rem] font-medium tracking-[0.1em] uppercase text-orange-700 mb-3 m-0"
+          >
+            Eliminación definitiva
+          </h3>
+          <p class="text-[0.95rem] leading-loose m-0">
+            Dado el carácter temporal del servicio, todas las cookies serán irrelevantes a partir de
+            <strong>31 de agosto de 2026</strong>, fecha en la que Roller y sus datos asociados
+            <strong> serán eliminados definitivamente.</strong>
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="text-center px-8 py-12 text-[0.8rem] text-stone-500 border-t border-stone-200">
+    <p class="mt-1">
+      Versión 1.0 · mayo 2026 · Sujeto a cambios con notificación previa a los usuarios
+    </p>
+  </footer>
+</div>

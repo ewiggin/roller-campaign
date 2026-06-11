@@ -1,0 +1,469 @@
+<div class="min-h-screen py-8 px-4">
+  <div class="max-w-lg mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <div class="text-5xl mb-3 flex justify-center">
+        <img src="/event-logo-full.svg" width="400" alt="Logo" />
+      </div>
+      <h1 class="text-3xl font-bold text-slate-800">Formulario de invitado</h1>
+      <p class="text-gray-600 mt-2">Rellena el formulario para ayudarnos a coordinar tu viaje</p>
+    </div>
+
+    <!-- PASO 1: Código de invitado -->
+    @if (step() === 'code') {
+      <div class="bg-white rounded-2xl shadow-lg p-6 space-y-4">
+        <div class="space-y-1">
+          <label class="block text-sm font-semibold text-gray-700">
+            Introduce tu código de invitado <span class="text-red-500">*</span>
+          </label>
+          <p class="text-xs text-gray-500">
+            Encontrarás tu código de invitado en: <br />
+            Campaña de predicación > Mi viaje > Resumen > Debajo del enlace "Mi itinerario".
+          </p>
+          <input
+            type="text"
+            [formControl]="codeControl"
+            (keydown.enter)="validateCode()"
+            placeholder="Ej. AAAA-BBBB-999"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition uppercase"
+            [class.border-red-400]="codeError()"
+            [disabled]="isValidating()"
+          />
+          @if (codeError()) {
+            <p class="text-xs text-red-500">
+              {{ codeError() }}
+            </p>
+          }
+        </div>
+        <button
+          type="button"
+          (click)="validateCode()"
+          [disabled]="isValidating() || !codeControl.value"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+        >
+          @if (isValidating()) {
+            <span class="inline-flex items-center gap-2 justify-center">
+              <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              Verificando...
+            </span>
+          } @else {
+            Continuar
+          }
+        </button>
+      </div>
+    }
+
+    <!-- PASO 2: Formulario -->
+    @if (step() === 'form') {
+      <form
+        [formGroup]="form"
+        (ngSubmit)="onSubmit()"
+        class="bg-white rounded-2xl shadow-lg p-6 space-y-5"
+      >
+        <!-- Feedback -->
+        @if (submitSuccess()) {
+          <div class="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700">
+            ✅ ¡Datos guardados correctamente! Gracias por rellenar este formulario.
+          </div>
+        } @else {
+          <!-- Código confirmado -->
+          <div
+            class="flex flex-wrap items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2"
+          >
+            <span class="text-indigo-500">🎟️</span>
+            <span class="text-sm text-indigo-800 font-medium">Código: {{ codeControl.value }}</span>
+            @if (regionName()) {
+              <span
+                class="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2.5 py-0.5 font-medium"
+              >
+                {{ regionName() }}
+              </span>
+            }
+            <button
+              type="button"
+              (click)="step.set('code')"
+              class="ml-auto text-xs text-indigo-500 hover:text-indigo-700 underline"
+            >
+              Cambiar
+            </button>
+          </div>
+          <!-- Nombre completo -->
+          <div class="space-y-1">
+            <label class="block text-sm font-semibold text-gray-700">
+              Nombre completo <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              formControlName="nombreCompleto"
+              placeholder="Nombre y apellidos"
+              class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+              [class.border-red-400]="isInvalid('nombreCompleto')"
+            />
+            @if (isInvalid('nombreCompleto')) {
+              <p class="text-xs text-red-500">Este campo es obligatorio</p>
+            }
+          </div>
+
+          <!-- Email -->
+          <div class="space-y-1">
+            <label class="block text-sm font-semibold text-gray-700">
+              Email personal (no introduzcas el correo @jwpub)<span class="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              formControlName="email"
+              placeholder="tu@email.com"
+              class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+              [class.border-red-400]="isInvalid('email')"
+            />
+            @if (isInvalid('email')) {
+              <p class="text-xs text-red-500">Introduce un email válido</p>
+            }
+          </div>
+
+          <!-- Ciudad de origen -->
+          <div class="space-y-1">
+            <label class="block text-sm font-semibold text-gray-700">
+              Ciudad de origen <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              formControlName="ciudadOrigen"
+              placeholder="ej. Madrid, Barcelona..."
+              class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+              [class.border-red-400]="isInvalid('ciudadOrigen')"
+            />
+            @if (isInvalid('ciudadOrigen')) {
+              <p class="text-xs text-red-500">Este campo es obligatorio</p>
+            }
+          </div>
+
+          <!-- Plazas de coche -->
+          <div class="space-y-1">
+            <div class="space-y-2">
+              <label class="block text-sm font-semibold text-gray-700"
+                >En la predicación, ¿puedes ofrecer tu coche para llevar a otros invitados que no
+                sean de tu grupo? (Solo el conductor debe responder)</label
+              >
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  (click)="setCarAvailable(true)"
+                  class="flex-1 border rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="carAvailable()"
+                  [class.bg-indigo-50]="carAvailable()"
+                  [class.text-indigo-700]="carAvailable()"
+                  [class.border-gray-300]="!carAvailable()"
+                  [class.text-gray-600]="!carAvailable()"
+                >
+                  Sí
+                </button>
+                <button
+                  type="button"
+                  (click)="setCarAvailable(false)"
+                  class="flex-1 border rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="!carAvailable()"
+                  [class.bg-indigo-50]="!carAvailable()"
+                  [class.text-indigo-700]="!carAvailable()"
+                  [class.border-gray-300]="carAvailable()"
+                  [class.text-gray-600]="carAvailable()"
+                >
+                  No
+                </button>
+              </div>
+            </div>
+            @if (carAvailable()) {
+              <label class="block text-sm font-semibold text-gray-700">
+                Plazas de coche disponibles para otros invitados
+              </label>
+              <div class="flex items-center gap-3">
+                <button
+                  type="button"
+                  (click)="decrementPlazas()"
+                  class="w-10 h-10 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-lg transition flex items-center justify-center"
+                >
+                  −
+                </button>
+                <span class="text-2xl font-bold text-indigo-700 w-8 text-center">
+                  {{ form.get('plazasCoche')?.value }}
+                </span>
+                <button
+                  type="button"
+                  (click)="incrementPlazas()"
+                  class="w-10 h-10 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold text-lg transition flex items-center justify-center"
+                >
+                  +
+                </button>
+                <span class="text-sm text-gray-500 ml-1">plazas libres en mi coche</span>
+              </div>
+            }
+          </div>
+
+          <!-- Idiomas -->
+          <div class="space-y-2">
+            <label class="block text-sm font-semibold text-gray-700">
+              ¿Hablas alguno de estos idiomas?
+              <span class="text-xs font-normal text-gray-400 ml-1">(Puedes marcar varios)</span>
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              @for (lang of languages; track lang) {
+                <button
+                  type="button"
+                  (click)="toggleLanguage(lang)"
+                  class="flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="selectedLanguages().includes(lang)"
+                  [class.bg-indigo-50]="selectedLanguages().includes(lang)"
+                  [class.text-indigo-700]="selectedLanguages().includes(lang)"
+                  [class.border-gray-300]="!selectedLanguages().includes(lang)"
+                  [class.text-gray-600]="!selectedLanguages().includes(lang)"
+                >
+                  @if (selectedLanguages().includes(lang)) {
+                    <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fill-rule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  }
+                  {{ lang }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Medio de transporte -->
+          <div class="space-y-2">
+            <label class="block text-sm font-semibold text-gray-700">
+              ¿Cómo llegarás a la región asignada? <span class="text-red-500">*</span>
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+              @for (
+                opcion of ['Coche', 'Tren', 'Avión', 'Autobús', 'Ferri', 'Otra'];
+                track opcion
+              ) {
+                <label
+                  class="flex items-center justify-center gap-1.5 border rounded-xl px-3 py-2.5 cursor-pointer text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="form.get('medioTransporte')?.value === opcion"
+                  [class.bg-indigo-50]="form.get('medioTransporte')?.value === opcion"
+                  [class.text-indigo-700]="form.get('medioTransporte')?.value === opcion"
+                  [class.border-gray-300]="form.get('medioTransporte')?.value !== opcion"
+                  [class.text-gray-600]="form.get('medioTransporte')?.value !== opcion"
+                >
+                  <input
+                    type="radio"
+                    class="hidden"
+                    formControlName="medioTransporte"
+                    [value]="opcion"
+                    (change)="onTransporteChange()"
+                  />
+                  {{ opcion }}
+                </label>
+              }
+            </div>
+            @if (isInvalid('medioTransporte')) {
+              <p class="text-xs text-red-500">Selecciona una opción</p>
+            }
+            @if (isOtroTransporte) {
+              <input
+                type="text"
+                formControlName="medioTransporteOtro"
+                placeholder="¿Cómo llegarás?"
+                class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+              />
+            }
+            @if (isAvion) {
+              <input
+                type="text"
+                formControlName="numeroVuelo"
+                placeholder="Número de vuelo: Ej. IB3456"
+                class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+              />
+              <label class="block text-sm font-semibold text-gray-700 pt-1">
+                ¿Necesitas que el departamento de transporte te lleve del aeropuerto hasta el hotel?
+              </label>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  (click)="form.get('necesitaTransporteAeropuerto')?.setValue(true)"
+                  class="flex-1 border rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.bg-indigo-50]="form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.text-indigo-700]="form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.border-gray-300]="!form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.text-gray-600]="!form.get('necesitaTransporteAeropuerto')?.value"
+                >
+                  Sí
+                </button>
+                <button
+                  type="button"
+                  (click)="form.get('necesitaTransporteAeropuerto')?.setValue(false)"
+                  class="flex-1 border rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+                  [class.border-indigo-500]="!form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.bg-indigo-50]="!form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.text-indigo-700]="!form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.border-gray-300]="form.get('necesitaTransporteAeropuerto')?.value"
+                  [class.text-gray-600]="form.get('necesitaTransporteAeropuerto')?.value"
+                >
+                  No
+                </button>
+              </div>
+              @if (form.get('necesitaTransporteAeropuerto')?.value) {
+                <div class="space-y-2 bg-orange-100 p-2 rounded-sm text-xs flex flex-col gap-2">
+                  <div>
+                    <strong>⚠️ No podemos garantizar que pueda haber transporte.</strong> <br />
+                  </div>
+                  <div>
+                    Debido a la logística y organización de la campaña,
+                    <strong>alquilar un vehículo puede ser una opción muy útil</strong> para
+                    desplazarte con mayor facilidad durante la semana.
+                  </div>
+                </div>
+              }
+            }
+          </div>
+
+          <!-- Fechas y horas -->
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="space-y-1">
+              <label class="block text-sm font-semibold text-gray-700">
+                Llegada a la región asignada <span class="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                placeholder="dd MM yyyy"
+                formControlName="fechaLlegada"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+                [class.border-red-400]="isInvalid('fechaLlegada')"
+              />
+              @if (isInvalid('fechaLlegada')) {
+                <p class="text-xs text-red-500">Obligatorio</p>
+              }
+              <input
+                type="time"
+                placeholder="hh:mm"
+                formControlName="horaLlegada"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+                [class.border-red-400]="isInvalid('horaLlegada')"
+              />
+              @if (isInvalid('horaLlegada')) {
+                <p class="text-xs text-red-500">Obligatorio</p>
+              }
+            </div>
+            <div class="space-y-1">
+              <label class="block text-sm font-semibold text-gray-700">
+                Salida <span class="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                placeholder="dd MM yyyy"
+                formControlName="fechaSalida"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+                [class.border-red-400]="isInvalid('fechaSalida')"
+              />
+              @if (isInvalid('fechaSalida')) {
+                <p class="text-xs text-red-500">Obligatorio</p>
+              }
+              <input
+                type="time"
+                placeholder="hh:mm"
+                formControlName="horaSalida"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
+                [class.border-red-400]="isInvalid('horaSalida')"
+              />
+              @if (isInvalid('horaSalida')) {
+                <p class="text-xs text-red-500">Obligatorio</p>
+              }
+            </div>
+          </div>
+
+          <!-- Dirección hospedaje -->
+          <div class="space-y-1">
+            <label class="block text-sm font-semibold text-gray-700">
+              Dirección del hospedaje <span class="text-red-500">*</span>
+            </label>
+            <app-location-picker
+              [required]="true"
+              (locationSelected)="onLocationSelected($event)"
+            />
+          </div>
+
+          <!-- Aceptación de condiciones -->
+          <div class="space-y-1">
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                formControlName="aceptaCondiciones"
+                class="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-400"
+              />
+              <span class="text-sm text-gray-700">
+                He leído y acepto la
+                <a
+                  routerLink="/legal"
+                  target="_blank"
+                  class="text-indigo-600 underline hover:text-indigo-800"
+                >
+                  política de privacidad y condiciones del servicio
+                </a>
+                <span class="text-red-500"> *</span>
+              </span>
+            </label>
+            @if (isInvalid('aceptaCondiciones')) {
+              <p class="text-xs text-red-500 pl-7">Debes aceptar las condiciones para continuar</p>
+            }
+          </div>
+
+          @if (submitError()) {
+            <div class="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+              ❌ No se ha podido procesar tu formulario. Por favor, prueba otra vez más tarde.
+              Código de error:{{ submitError() }}
+            </div>
+          }
+
+          <button
+            type="submit"
+            [disabled]="apiService.isLoading()"
+            class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+          >
+            @if (apiService.isLoading()) {
+              <span class="inline-flex items-center gap-2 justify-center">
+                <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  />
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                Guardando...
+              </span>
+            } @else {
+              Enviar formulario
+            }
+          </button>
+        }
+      </form>
+    }
+  </div>
+</div>
