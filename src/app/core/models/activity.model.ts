@@ -22,9 +22,12 @@ export interface ActivityGuestGroup {
   guest_count: number;
 }
 
-export interface ActivityCart {
-  id: string;
-  number: string;
+export interface ActivityAttendanceRequest {
+  request_id: string;
+  group_id: string;
+  group_code: string;
+  guest_count: number;
+  preference: number;
 }
 
 export interface AvailableCartForActivity {
@@ -33,6 +36,12 @@ export interface AvailableCartForActivity {
   host_id: string | null;
   host_name: string | null;
 }
+
+export interface ActivityCart {
+  id: string;
+  number: string;
+}
+
 
 export interface PreachingGroupVolunteer {
   id: string;
@@ -70,12 +79,14 @@ export interface Activity {
   activity_locations: LocationPoint[] | null;
   image_key: string | null;
   is_preaching_shift: boolean;
+  request_attendance: boolean;
   volunteers: ActivityVolunteer[];
   volunteer_count: number;
   required_volunteers: number | null;
   guest_groups: ActivityGuestGroup[];
   total_guests_assigned: number;
   preaching_groups: PreachingGroup[];
+  requests: ActivityAttendanceRequest[];
   max_guests: number | null;
   created_at: string;
   updated_at: string;
@@ -139,4 +150,5 @@ export interface CreateActivityPayload {
   activity_locations?: LocationPoint[] | null;
   image_key?: string | null;
   is_preaching_shift?: boolean;
+  request_attendance?: boolean;
 }
