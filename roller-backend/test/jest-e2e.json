@@ -1,0 +1,22 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "testMatch": ["<rootDir>/test/**/*.e2e-spec.ts"],
+  "testEnvironment": "node",
+  "modulePathIgnorePatterns": ["<rootDir>/dist", "<rootDir>/build"],
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "testTimeout": 30000,
+  "maxWorkers": 1,
+  "collectCoverageFrom": [
+    "<rootDir>/src/**/*.ts",
+    "!<rootDir>/src/main.ts",
+    "!<rootDir>/src/migrations/**",
+    "!<rootDir>/src/**/*.module.ts",
+    "!<rootDir>/src/**/*.dto.ts",
+    "!<rootDir>/src/**/*.entity.ts"
+  ],
+  "coverageDirectory": "<rootDir>/coverage",
+  "coverageReporters": ["text", "lcov", "html"]
+}
