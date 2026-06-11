@@ -216,7 +216,10 @@ export class ActivityAttendanceRequestDto {
   @ApiProperty({ example: 12 })
   guest_count: number;
 
-  @ApiProperty({ example: 1, description: '1=primera opción, 2=segunda, 3=si hace falta' })
+  @ApiProperty({
+    example: 1,
+    description: '1=primera opción, 2=segunda, 3=si hace falta',
+  })
   preference: number;
 }
 

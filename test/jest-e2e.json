@@ -3,6 +3,7 @@
   "rootDir": "..",
   "testMatch": ["<rootDir>/test/**/*.e2e-spec.ts"],
   "testEnvironment": "node",
+  "modulePathIgnorePatterns": ["<rootDir>/dist", "<rootDir>/build"],
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },

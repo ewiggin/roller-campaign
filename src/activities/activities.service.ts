@@ -64,7 +64,7 @@ export class ActivitiesService {
     private readonly requestsRepo: Repository<GroupActivityRequest>,
     @InjectRepository(Cart)
     private readonly cartsRepo: Repository<Cart>,
-  ) { }
+  ) {}
 
   async create(
     dto: CreateActivityDto,
@@ -1211,11 +1211,11 @@ export class ActivitiesService {
       const distance_km =
         activityLoc && host?.lat && host?.lng
           ? this.haversineKm(
-            activityLoc.lat,
-            activityLoc.lng,
-            host.lat,
-            host.lng,
-          )
+              activityLoc.lat,
+              activityLoc.lng,
+              host.lat,
+              host.lng,
+            )
           : null;
 
       result.push({
@@ -1484,9 +1484,9 @@ export class ActivitiesService {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 

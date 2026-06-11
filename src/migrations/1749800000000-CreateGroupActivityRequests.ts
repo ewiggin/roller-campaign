@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateGroupActivityRequests1749800000000
-  implements MigrationInterface
-{
+export class CreateGroupActivityRequests1749800000000 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS group_activity_requests (

@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -36,10 +38,17 @@ import { VolunteersModule } from './volunteers/volunteers.module';
             ssl: { rejectUnauthorized: false },
           };
         }
+        // No entity glob here: when bundled as a single-file sidecar (ncc +
+        // pkg) there are no *.entity.js files on disk, so globs find nothing.
+        // Every entity is registered via TypeOrmModule.forFeature.
+        const database = config.get('DATABASE_PATH', 'app.db');
+        if (database !== ':memory:') {
+          mkdirSync(dirname(database), { recursive: true });
+        }
         return {
           type: 'better-sqlite3',
-          database: config.get('DATABASE_PATH', 'app.db'),
-          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          database,
+          autoLoadEntities: true,
           synchronize: true,
         };
       },

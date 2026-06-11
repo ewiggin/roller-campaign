@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -5,6 +6,7 @@ import { json, urlencoded } from 'express';
 import { DataSource } from 'typeorm';
 import morgan from 'morgan';
 import { AppModule } from './app.module';
+import { StorageService } from './storage/storage.service';
 
 const RESET = '\x1b[0m';
 const DIM = '\x1b[2m';
@@ -126,7 +128,33 @@ async function bootstrap() {
     SwaggerModule.setup('docs', app, document);
   }
 
-  await app.listen(process.env.PORT ?? 3000);
-  logger.log(`Application running on port ${process.env.PORT ?? 3000}`);
+  // Desktop (Tauri sidecar) mode: bind to loopback only and let the OS pick
+  // a free port (PORT=0), then report it so the Tauri shell can read it.
+  const isDesktop = process.env.ROLLER_DESKTOP === '1';
+  const requestedPort = Number(process.env.PORT ?? (isDesktop ? 0 : 3000));
+
+  if (isDesktop) {
+    await app.listen(requestedPort, '127.0.0.1');
+  } else {
+    await app.listen(requestedPort);
+  }
+
+  const address = app.getHttpServer().address();
+  const port =
+    typeof address === 'object' && address !== null
+      ? address.port
+      : requestedPort;
+  logger.log(`Application running on port ${port}`);
+
+  // Local storage driver: file URLs must point back at this server with the
+  // port actually bound (dynamic in desktop mode).
+  app.get(StorageService).setLocalBaseUrl(`http://127.0.0.1:${port}`);
+
+  if (isDesktop) {
+    process.stdout.write(`ROLLER_API_PORT=${port}\n`);
+    if (process.env.PORT_FILE) {
+      writeFileSync(process.env.PORT_FILE, String(port), 'utf8');
+    }
+  }
 }
 bootstrap();

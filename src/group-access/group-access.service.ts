@@ -213,9 +213,7 @@ export class GroupAccessService {
     await this.requestsRepo.delete({ id: requestId });
   }
 
-  async getRequestsForActivity(
-    activityId: string,
-  ): Promise<
+  async getRequestsForActivity(activityId: string): Promise<
     {
       request_id: string;
       group_id: string;
