@@ -1,12 +1,13 @@
 {
   "name": "roller-admin",
-  "version": "0.29.0",
+  "version": "0.30.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --proxy-config proxy.config.json --port 4201",
     "build": "ng build",
     "build:staging": "ng build --configuration=staging",
     "build:production": "ng build --configuration=production",
+    "build:desktop": "ng build --configuration=desktop",
     "watch": "ng build --watch --configuration development",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.html\"",
     "test": "ng test",

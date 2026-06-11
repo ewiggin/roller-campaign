@@ -42,7 +42,6 @@ export interface ActivityCart {
   number: string;
 }
 
-
 export interface PreachingGroupVolunteer {
   id: string;
   volunteer_code: string;
