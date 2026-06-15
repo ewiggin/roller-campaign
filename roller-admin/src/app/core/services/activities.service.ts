@@ -198,4 +198,18 @@ export class ActivitiesService {
   unpublish(id: string) {
     return this.http.post<Activity>(`/api/activities/${id}/unpublish`, {});
   }
+
+  // ── Schedule PDF export ───────────────────────────────────────────────────
+
+  exportGroupSchedulePdf(groupId: string) {
+    return this.http.get(`/api/activities/export/schedule-pdf?groupId=${groupId}`, {
+      responseType: 'blob',
+    });
+  }
+
+  exportHostSchedulesPdf(hostId: string) {
+    return this.http.get(`/api/activities/export/schedule-pdf?hostId=${hostId}`, {
+      responseType: 'blob',
+    });
+  }
 }

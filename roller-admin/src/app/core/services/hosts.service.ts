@@ -48,6 +48,12 @@ export class HostsService {
     return this.http.get(`/api/hosts/export${qs}`, { responseType: 'blob' });
   }
 
+  exportAssignedGroupsPdf(regionId: string) {
+    return this.http.get(`/api/hosts/export/assigned-groups/pdf?regionId=${regionId}`, {
+      responseType: 'blob',
+    });
+  }
+
   downloadTemplate() {
     return this.http.get('/api/hosts/import/template', { responseType: 'blob' });
   }

@@ -6,13 +6,21 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import type { Content } from 'pdfmake/interfaces';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { createPdfBuffer } from '../common/pdf/pdf.util';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { GroupActivityRequest } from '../group-access/entities/group-activity-request.entity';
 import { Guest } from '../guests/entities/guest.entity';
+import { Host } from '../hosts/entities/host.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
+import {
+  buildGroupScheduleContent,
+  SCHEDULE_PDF_STYLES,
+  ScheduleActivityItem,
+} from './schedule-pdf.util';
 import { ActivityVolunteerRole } from './entities/activity-volunteer-role.entity';
 import { ActivityPreachingGroup } from './entities/activity-preaching-group.entity';
 import { ActivityPreachingGroupVolunteer } from './entities/activity-preaching-group-volunteer.entity';
@@ -64,6 +72,8 @@ export class ActivitiesService {
     private readonly requestsRepo: Repository<GroupActivityRequest>,
     @InjectRepository(Cart)
     private readonly cartsRepo: Repository<Cart>,
+    @InjectRepository(Host)
+    private readonly hostsRepo: Repository<Host>,
   ) {}
 
   async create(
@@ -1574,4 +1584,184 @@ export class ActivitiesService {
     created_at: activity.created_at,
     updated_at: activity.updated_at,
   });
+
+  // ── Schedule PDF export ───────────────────────────────────────────────────
+
+  private async getGroupScheduleActivities(
+    groupId: string,
+  ): Promise<ScheduleActivityItem[]> {
+    const activities = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'gg', 'gg.id = :groupId', { groupId })
+      .where('a.status = :status', { status: 'published' })
+      .orderBy('a.date', 'ASC')
+      .addOrderBy('a.start_time', 'ASC')
+      .getMany();
+
+    const preachingShiftIds = activities
+      .filter((a) => a.is_preaching_shift)
+      .map((a) => a.id);
+    const turnoNames = await this.getPreachingGroupNames(
+      preachingShiftIds,
+      groupId,
+    );
+
+    return activities.map((a) => ({
+      date: a.date,
+      start_time: a.start_time,
+      end_time: a.end_time,
+      name: a.name,
+      description: a.description,
+      locations: a.activity_locations ?? [],
+      is_preaching_shift: a.is_preaching_shift,
+      preaching_group_name: a.is_preaching_shift
+        ? turnoNames.get(a.id) ?? null
+        : null,
+    }));
+  }
+
+  private async getPreachingGroupNames(
+    activityIds: string[],
+    groupId: string,
+  ): Promise<Map<string, string | null>> {
+    if (activityIds.length === 0) return new Map();
+
+    const groups = await this.preachingGroupsRepo
+      .createQueryBuilder('pg')
+      .innerJoin('pg.guestGroups', 'gg', 'gg.id = :groupId', { groupId })
+      .where('pg.activity_id IN (:...activityIds)', { activityIds })
+      .getMany();
+
+    return new Map(groups.map((g) => [g.activity_id, g.name]));
+  }
+
+  private computeScheduleDays(
+    region: Region | null,
+    activities: ScheduleActivityItem[],
+  ): string[] {
+    let start = region?.event_start_date ?? null;
+    let end = region?.event_end_date ?? null;
+
+    if (!start || !end) {
+      if (activities.length === 0) return [];
+      const dates = activities.map((a) => a.date).sort();
+      start = dates[0];
+      end = dates[dates.length - 1];
+    }
+
+    const days: string[] = [];
+    for (let d = start; d <= end; d = this.shiftDays(d, 1)) {
+      days.push(d);
+    }
+    return days;
+  }
+
+  async exportGroupSchedulePdf(
+    groupId: string,
+    currentUser: JwtPayload,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const group = await this.groupsRepo.findOne({
+      where: { id: groupId },
+      relations: { host: true },
+    });
+    if (!group) throw new NotFoundException('Grupo no encontrado');
+    await this.assertRegionAccess(group.region_id, currentUser);
+
+    const region = await this.regionsRepo.findOne({
+      where: { id: group.region_id },
+    });
+    const activities = await this.getGroupScheduleActivities(groupId);
+    const days = this.computeScheduleDays(region, activities);
+
+    const content = buildGroupScheduleContent(
+      {
+        group_code: group.group_code,
+        composition: group.composition,
+        guest_count: group.agg_guest_count ?? 0,
+        host_name: group.host?.name ?? null,
+      },
+      days,
+      activities,
+    );
+
+    const buffer = await createPdfBuffer({
+      content,
+      styles: SCHEDULE_PDF_STYLES,
+      footer: (currentPage, pageCount) => ({
+        text: `${currentPage} / ${pageCount}`,
+        alignment: 'center',
+        fontSize: 8,
+        color: '#999999',
+        margin: [0, 10, 0, 0],
+      }),
+    });
+
+    return {
+      buffer,
+      filename: `calendario-${group.group_code.toLowerCase()}.pdf`,
+    };
+  }
+
+  async exportHostSchedulesPdf(
+    hostId: string,
+    currentUser: JwtPayload,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const host = await this.hostsRepo.findOne({ where: { id: hostId } });
+    if (!host) throw new NotFoundException('Congregación no encontrada');
+    await this.assertRegionAccess(host.region_id, currentUser);
+
+    const groups = await this.groupsRepo.find({
+      where: { host_id: hostId },
+      order: { group_code: 'ASC' },
+    });
+
+    const region = await this.regionsRepo.findOne({
+      where: { id: host.region_id },
+    });
+
+    const content: Content[] = [];
+    if (groups.length === 0) {
+      content.push({
+        text: 'No hay grupos asignados a esta congregación.',
+      });
+    }
+
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i];
+      const activities = await this.getGroupScheduleActivities(group.id);
+      const days = this.computeScheduleDays(region, activities);
+
+      const groupContent = buildGroupScheduleContent(
+        {
+          group_code: group.group_code,
+          composition: group.composition,
+          guest_count: group.agg_guest_count ?? 0,
+          host_name: host.name,
+        },
+        days,
+        activities,
+      );
+
+      if (i > 0 && groupContent.length > 0) {
+        const first = groupContent[0] as Content & { pageBreak?: string };
+        first.pageBreak = 'before';
+      }
+      content.push(...groupContent);
+    }
+
+    const buffer = await createPdfBuffer({
+      content,
+      styles: SCHEDULE_PDF_STYLES,
+      footer: (currentPage, pageCount) => ({
+        text: `${currentPage} / ${pageCount}`,
+        alignment: 'center',
+        fontSize: 8,
+        color: '#999999',
+        margin: [0, 10, 0, 0],
+      }),
+    });
+
+    const safeName = host.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return { buffer, filename: `calendario-${safeName}.pdf` };
+  }
 }

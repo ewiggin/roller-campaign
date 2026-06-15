@@ -490,6 +490,65 @@ describe('Hosts (e2e)', () => {
     });
   });
 
+  describe('GET /api/hosts/export/assigned-groups/pdf', () => {
+    it('returns a PDF listing groups assigned to each host', async () => {
+      const host = (
+        await request(server)
+          .post('/api/hosts')
+          .set('Authorization', auth())
+          .send(baseHost())
+      ).body;
+
+      const grp = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `PDF-${Date.now()}`, region_id: regionId })
+      ).body;
+
+      await request(server)
+        .patch(`/api/guest-groups/${grp.id}/host`)
+        .set('Authorization', auth())
+        .send({ hostId: host.id });
+
+      const guest = (
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `GPDF-${Date.now()}`,
+            group_id: grp.id,
+            region_id: regionId,
+            full_name: 'Informe Invitado',
+          })
+      ).body;
+
+      await request(server)
+        .patch(`/api/guest-groups/${grp.id}/contact`)
+        .set('Authorization', auth())
+        .send({ guestId: guest.id });
+
+      const res = await request(server)
+        .get(`/api/hosts/export/assigned-groups/pdf?regionId=${regionId}`)
+        .set('Authorization', auth())
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+
+      expect(res.headers['content-type']).toMatch(/application\/pdf/);
+      const buffer = res.body as Buffer;
+      expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
+      expect(buffer.length).toBeGreaterThan(500);
+    });
+
+    it('returns 400 when regionId is missing', async () => {
+      await request(server)
+        .get('/api/hosts/export/assigned-groups/pdf')
+        .set('Authorization', auth())
+        .expect(400);
+    });
+  });
+
   describe('Import commit with updateRows', () => {
     it('updates existing hosts via updateRows', async () => {
       const name = `Update Existing ${Date.now()}`;

@@ -15,6 +15,7 @@ import type { GroupComposition, GuestGroup } from '../../../core/models/guest-gr
 import type { Guest } from '../../../core/models/guest.model';
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
+import { ActivitiesService } from '../../../core/services/activities.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { GuestGroupsService, ImportGroupResult } from '../../../core/services/guest-groups.service';
 import { GuestsService } from '../../../core/services/guests.service';
@@ -37,6 +38,7 @@ export const COMPOSITION_LABELS: Record<GroupComposition, string> = {
 })
 export class GuestGroupsListComponent implements OnInit {
   private readonly svc = inject(GuestGroupsService);
+  private readonly activitiesSvc = inject(ActivitiesService);
   private readonly guestsSvc = inject(GuestsService);
   private readonly regionsSvc = inject(RegionsService);
   private readonly hostsSvc = inject(HostsService);
@@ -67,6 +69,7 @@ export class GuestGroupsListComponent implements OnInit {
   readonly truncating = signal(false);
   readonly truncateConfirmText = signal('');
   readonly recomputing = signal(false);
+  readonly downloadingSchedulePdf = signal<string | null>(null);
 
   // Host assignment modal
   readonly hostAssignGroup = signal<GuestGroup | null>(null);
@@ -421,6 +424,23 @@ export class GuestGroupsListComponent implements OnInit {
       a.download = 'plantilla-grupos.xlsx';
       a.click();
       URL.revokeObjectURL(url);
+    });
+  }
+
+  downloadSchedulePdf(group: GuestGroup) {
+    if (this.downloadingSchedulePdf()) return;
+    this.downloadingSchedulePdf.set(group.id);
+    this.activitiesSvc.exportGroupSchedulePdf(group.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `calendario-${group.group_code.toLowerCase()}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.downloadingSchedulePdf.set(null);
+      },
+      error: () => this.downloadingSchedulePdf.set(null),
     });
   }
 

@@ -11,6 +11,7 @@ import {
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HostsService } from '../../../core/services/hosts.service';
 import { GuestGroupsService } from '../../../core/services/guest-groups.service';
+import { ActivitiesService } from '../../../core/services/activities.service';
 import type { Host, GroupSuggestion } from '../../../core/models/host.model';
 
 @Component({
@@ -22,6 +23,7 @@ export class HostDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly svc = inject(HostsService);
   private readonly groupsSvc = inject(GuestGroupsService);
+  private readonly activitiesSvc = inject(ActivitiesService);
 
   readonly host = signal<Host | null>(null);
   readonly loading = signal(true);
@@ -33,6 +35,7 @@ export class HostDetailComponent implements OnInit {
 
   readonly assigning = signal<string | null>(null);
   readonly downloading = signal(false);
+  readonly downloadingSchedulePdf = signal(false);
 
   readonly totalGuests = computed(() => this.assigned().reduce((sum, g) => sum + g.guest_count, 0));
 
@@ -164,6 +167,24 @@ export class HostDetailComponent implements OnInit {
         this.downloading.set(false);
       },
       error: () => this.downloading.set(false),
+    });
+  }
+
+  downloadSchedulePdf() {
+    const h = this.host();
+    if (!h || this.downloadingSchedulePdf()) return;
+    this.downloadingSchedulePdf.set(true);
+    this.activitiesSvc.exportHostSchedulesPdf(h.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `calendario-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.downloadingSchedulePdf.set(false);
+      },
+      error: () => this.downloadingSchedulePdf.set(false),
     });
   }
 

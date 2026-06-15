@@ -236,6 +236,19 @@ export class HostsListComponent implements OnInit {
     });
   }
 
+  downloadAssignedGroupsPdf() {
+    const regionId = this.selectedRegionId();
+    if (!regionId) return;
+    this.svc.exportAssignedGroupsPdf(regionId).subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'grupos-asignados.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
   downloadTemplate() {
     this.svc.downloadTemplate().subscribe((blob) => {
       const url = URL.createObjectURL(blob);

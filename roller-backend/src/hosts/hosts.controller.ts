@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -60,6 +61,26 @@ export class HostsController {
       'Content-Type':
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': 'attachment; filename="congregaciones.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Get('export/assigned-groups/pdf')
+  @ApiOkResponse({
+    description: 'PDF con los grupos asignados agrupados por congregación',
+  })
+  async exportAssignedGroupsPdf(
+    @Query('regionId') regionId: string | undefined,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (!regionId) {
+      throw new BadRequestException('regionId es obligatorio');
+    }
+    const buffer = await this.service.exportAssignedGroupsPdf(regionId, user);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="grupos-asignados.pdf"',
     });
     res.send(buffer);
   }

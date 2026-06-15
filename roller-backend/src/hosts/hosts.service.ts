@@ -7,8 +7,10 @@ import {
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
+import type { Content } from 'pdfmake/interfaces';
+import { createPdfBuffer } from '../common/pdf/pdf.util';
 import { Host } from './entities/host.entity';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { Guest } from '../guests/entities/guest.entity';
@@ -28,6 +30,12 @@ import {
   ImportHostRowDto,
 } from './dto/import-host.dto';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+
+const COMPOSITION_LABELS: Record<string, string> = {
+  men_only: 'Solo hombres',
+  mixed: 'Mixto',
+  women_only: 'Solo mujeres',
+};
 
 @Injectable()
 export class HostsService {
@@ -493,6 +501,111 @@ export class HostsService {
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Hosts');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  async exportAssignedGroupsPdf(
+    regionId: string,
+    currentUser: JwtPayload,
+  ): Promise<Buffer> {
+    await this.assertRegionAccess(regionId, currentUser);
+
+    const region = await this.regionsRepo.findOne({ where: { id: regionId } });
+    if (!region) throw new NotFoundException('Región no encontrada');
+
+    const hosts = await this.hostsRepo.find({
+      where: { region_id: regionId },
+      order: { name: 'ASC' },
+    });
+
+    const groups = await this.groupsRepo
+      .createQueryBuilder('gg')
+      .loadRelationCountAndMap('gg.guest_count', 'gg.guests')
+      .where('gg.region_id = :regionId', { regionId })
+      .andWhere('gg.host_id IS NOT NULL')
+      .orderBy('gg.group_code', 'ASC')
+      .getMany();
+
+    const groupsByHost = new Map<
+      string,
+      (GuestGroup & { guest_count?: number })[]
+    >();
+    for (const group of groups) {
+      const list = groupsByHost.get(group.host_id!);
+      if (list) list.push(group);
+      else groupsByHost.set(group.host_id!, [group]);
+    }
+
+    const hostsWithGroups = hosts.filter(
+      (h) => (groupsByHost.get(h.id)?.length ?? 0) > 0,
+    );
+
+    const content: Content[] = [
+      { text: 'Grupos asignados por congregación', style: 'title' },
+      { text: `Región: ${region.name}`, style: 'subtitle' },
+    ];
+
+    if (hostsWithGroups.length === 0) {
+      content.push({ text: 'No hay grupos asignados a ninguna congregación.' });
+    }
+
+    const cellLayout = {
+      paddingLeft: () => 12,
+      paddingRight: () => 12,
+      paddingTop: () => 12,
+      paddingBottom: () => 12,
+    };
+
+    for (const host of hostsWithGroups) {
+      content.push({ text: host.name, style: 'hostName' });
+
+      content.push({
+        table: {
+          headerRows: 1,
+          widths: ['*', 'auto', '*'],
+          body: [
+            [
+              { text: 'Grupo', style: 'tableHeader' },
+              { text: 'Personas', style: 'tableHeader' },
+              { text: 'Tipo', style: 'tableHeader' },
+            ],
+            ...(groupsByHost.get(host.id) ?? []).map((group) => [
+              { text: group.group_code, style: 'tableCell' },
+              {
+                text: String(group.guest_count ?? 0),
+                style: 'tableCell',
+                alignment: 'center' as const,
+              },
+              {
+                text: group.composition
+                  ? COMPOSITION_LABELS[group.composition]
+                  : '—',
+                style: 'tableCell',
+              },
+            ]),
+          ],
+        },
+        layout: cellLayout,
+        margin: [0, 4, 0, 16],
+      });
+    }
+
+    return createPdfBuffer({
+      content,
+      styles: {
+        title: { fontSize: 16, bold: true, margin: [0, 0, 0, 2] },
+        subtitle: { fontSize: 9, color: '#666666', margin: [0, 0, 0, 16] },
+        hostName: { fontSize: 12, bold: true, margin: [0, 12, 0, 0] },
+        tableHeader: { fontSize: 11, bold: true, fillColor: '#f0f0f0' },
+        tableCell: { fontSize: 11 },
+      },
+      footer: (currentPage, pageCount) => ({
+        text: `${currentPage} / ${pageCount}`,
+        alignment: 'center',
+        fontSize: 8,
+        color: '#999999',
+        margin: [0, 10, 0, 0],
+      }),
+    });
   }
 
   downloadTemplate(): Buffer {

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -10,8 +11,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -79,6 +82,34 @@ export class ActivitiesController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.svc.findAll(query, user);
+  }
+
+  @Get('export/schedule-pdf')
+  @ApiOkResponse({
+    description:
+      'PDF con el calendario de actividades y turnos de predicación. ' +
+      'Usar groupId para un grupo concreto o hostId para todos los grupos ' +
+      'de una congregación (una página por grupo).',
+  })
+  async exportSchedulePdf(
+    @Query('groupId') groupId: string | undefined,
+    @Query('hostId') hostId: string | undefined,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (!groupId && !hostId) {
+      throw new BadRequestException('groupId o hostId es obligatorio');
+    }
+
+    const { buffer, filename } = groupId
+      ? await this.svc.exportGroupSchedulePdf(groupId, user)
+      : await this.svc.exportHostSchedulesPdf(hostId!, user);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    res.send(buffer);
   }
 
   @Get(':id')
