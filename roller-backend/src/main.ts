@@ -96,8 +96,14 @@ async function bootstrap() {
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
 
-  const fmt = `${c.dim(':date[iso]')}  :method-colored :url-trimmed ${c.dim('→')} :status-colored :response-time-colored ${c.dim(':res[content-length] bytes')}  :ip  :user-colored  :origin-colored`;
-  app.use(morgan(fmt));
+  // Desktop builds run unattended on the user's machine: skip per-request
+  // access logs to avoid growing the log file indefinitely, keeping only
+  // startup/error logging.
+  const isDesktop = process.env.ROLLER_DESKTOP === '1';
+  if (!isDesktop) {
+    const fmt = `${c.dim(':date[iso]')}  :method-colored :url-trimmed ${c.dim('→')} :status-colored :response-time-colored ${c.dim(':res[content-length] bytes')}  :ip  :user-colored  :origin-colored`;
+    app.use(morgan(fmt));
+  }
 
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
@@ -130,7 +136,6 @@ async function bootstrap() {
 
   // Desktop (Tauri sidecar) mode: bind to loopback only and let the OS pick
   // a free port (PORT=0), then report it so the Tauri shell can read it.
-  const isDesktop = process.env.ROLLER_DESKTOP === '1';
   const requestedPort = Number(process.env.PORT ?? (isDesktop ? 0 : 3000));
 
   if (isDesktop) {
