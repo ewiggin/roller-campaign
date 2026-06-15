@@ -107,6 +107,33 @@ fn build_init_script(port: u16) -> String {
     )
 }
 
+/// Static splash page bundled into the binary. Written to disk on startup
+/// and loaded via a `file://` URL, independent of frontendDist/devUrl, so it
+/// shows identically in `tauri dev` and the packaged app.
+const SPLASH_HTML: &str = include_str!("../assets/splashscreen.html");
+
+/// Shown immediately on launch while the sidecar boots (TypeORM connection,
+/// possible migrations); closed once the main window is ready.
+fn create_splash_window(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let path = app.path().app_cache_dir()?.join("splashscreen.html");
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    std::fs::write(&path, SPLASH_HTML)?;
+    tauri::WebviewWindowBuilder::new(
+        app,
+        "splashscreen",
+        tauri::WebviewUrl::External(
+            tauri::Url::from_file_path(&path).map_err(|_| "invalid splash screen path")?,
+        ),
+    )
+    .title("Roller Admin")
+    .inner_size(360.0, 220.0)
+    .resizable(false)
+    .decorations(false)
+    .center()
+    .build()?;
+    Ok(())
+}
+
 /// Created only after the sidecar announced its port, so the injected global
 /// is guaranteed to exist before any Angular code runs.
 fn create_main_window(app: &tauri::AppHandle, port: u16) {
@@ -131,6 +158,10 @@ fn create_main_window(app: &tauri::AppHandle, port: u16) {
             })
             .build()
             .expect("failed to create main window");
+
+        if let Some(splash) = app.get_webview_window("splashscreen") {
+            let _ = splash.close();
+        }
     });
 }
 
@@ -192,11 +223,27 @@ fn spawn_sidecar(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error
 
 fn main() {
     tauri::Builder::default()
+        // Must be registered first: focuses the existing window instead of
+        // letting a second instance start (shared SQLite database + port).
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            } else if let Some(splash) = app.get_webview_window("splashscreen") {
+                let _ = splash.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
+            // Best-effort: if the splash window can't be created for some
+            // reason, fall back to the previous behavior (no window until
+            // the sidecar is ready) instead of failing app startup.
+            if let Err(err) = create_splash_window(app.handle()) {
+                eprintln!("[splash] failed to create splash window: {err}");
+            }
             spawn_sidecar(app.handle())?;
             Ok(())
         })
