@@ -4,6 +4,7 @@ node_modules/
 # Local Claude Code state
 .claude/settings.local.json
 memory/
+.claude
 
 # Real guest access codes — never commit
 forms/codes.csv
