@@ -2,6 +2,7 @@ import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuditLogsService } from '../../../core/services/audit-logs.service';
+import { downloadFile } from '../../../core/utils/download-file';
 import type { AuditLog, AuditAction, AuditResource } from '../../../core/models/audit-log.model';
 
 const RESOURCES: AuditResource[] = [
@@ -150,13 +151,9 @@ export class AuditLogsListComponent implements OnInit {
           );
           const csv = [headers.join(','), ...rows].join('\n');
           const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
-          a.click();
-          URL.revokeObjectURL(url);
-          this.exporting.set(false);
+          void downloadFile(blob, `audit-log-${new Date().toISOString().slice(0, 10)}.csv`).then(() =>
+            this.exporting.set(false),
+          );
         },
         error: () => {
           alert('Error exporting audit log.');

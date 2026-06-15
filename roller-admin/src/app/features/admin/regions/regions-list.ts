@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { downloadFile } from '../../../core/utils/download-file';
 import type {
   Region,
   ImportRegionRow,
@@ -200,23 +201,13 @@ export class RegionsListComponent implements OnInit {
 
   downloadExcel() {
     this.svc.exportExcel().subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'regiones.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'regiones.xlsx');
     });
   }
 
   downloadTemplate() {
     this.svc.downloadTemplate().subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'plantilla-regiones.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'plantilla-regiones.xlsx');
     });
   }
 

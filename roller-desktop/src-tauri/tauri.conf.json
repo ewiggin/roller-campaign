@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "software.meps.roller",
   "build": {
-    "beforeDevCommand": "npm --prefix ../roller-admin start",
+    "beforeDevCommand": "npm --prefix ../roller-admin run start:desktop",
     "devUrl": "http://localhost:4201",
     "beforeBuildCommand": "npm --prefix ../roller-admin run build:desktop",
     "frontendDist": "../../roller-admin/dist/roller-admin/browser"

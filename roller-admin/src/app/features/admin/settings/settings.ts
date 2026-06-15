@@ -3,6 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { SettingsService } from '../../../core/services/settings.service';
 import { PermissionsService } from '../../../core/services/permissions.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { downloadFile } from '../../../core/utils/download-file';
 import { CONFIGURABLE_SCREENS } from '../../../core/models/settings.model';
 import type { DatabaseImportResult, ScreenKey } from '../../../core/models/settings.model';
 
@@ -246,14 +247,9 @@ export class SettingsComponent implements OnInit {
     this.dbExporting.set(true);
     this.dbExportError.set('');
     this.svc.exportDatabase().subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+      next: async (blob) => {
         const date = new Date().toISOString().slice(0, 10);
-        a.href = url;
-        a.download = `roller-backup-${date}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        await downloadFile(blob, `roller-backup-${date}.json`);
         this.dbExporting.set(false);
       },
       error: () => {

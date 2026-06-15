@@ -12,6 +12,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HostsService } from '../../../core/services/hosts.service';
 import { GuestGroupsService } from '../../../core/services/guest-groups.service';
 import { ActivitiesService } from '../../../core/services/activities.service';
+import { downloadFile } from '../../../core/utils/download-file';
 import type { Host, GroupSuggestion } from '../../../core/models/host.model';
 
 @Component({
@@ -157,13 +158,8 @@ export class HostDetailComponent implements OnInit {
     if (!h || this.downloading()) return;
     this.downloading.set(true);
     this.svc.downloadGuestsExcel(h.id).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `invitados-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(url);
+      next: async (blob) => {
+        await downloadFile(blob, `invitados-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.xlsx`);
         this.downloading.set(false);
       },
       error: () => this.downloading.set(false),
@@ -175,13 +171,8 @@ export class HostDetailComponent implements OnInit {
     if (!h || this.downloadingSchedulePdf()) return;
     this.downloadingSchedulePdf.set(true);
     this.activitiesSvc.exportHostSchedulesPdf(h.id).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `calendario-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
+      next: async (blob) => {
+        await downloadFile(blob, `calendario-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
         this.downloadingSchedulePdf.set(false);
       },
       error: () => this.downloadingSchedulePdf.set(false),

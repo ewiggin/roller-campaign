@@ -21,6 +21,7 @@ import { GuestGroupsService, ImportGroupResult } from '../../../core/services/gu
 import { GuestsService } from '../../../core/services/guests.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
+import { downloadFile } from '../../../core/utils/download-file';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 type ActiveModal = 'create' | 'guests' | 'import' | 'assign-host' | 'edit' | 'truncate' | null;
@@ -407,23 +408,13 @@ export class GuestGroupsListComponent implements OnInit {
 
   downloadExcel() {
     this.svc.exportExcel(this.selectedRegionId() || undefined).subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'grupos.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'grupos.xlsx');
     });
   }
 
   downloadTemplate() {
     this.svc.downloadTemplate().subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'plantilla-grupos.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'plantilla-grupos.xlsx');
     });
   }
 
@@ -431,13 +422,8 @@ export class GuestGroupsListComponent implements OnInit {
     if (this.downloadingSchedulePdf()) return;
     this.downloadingSchedulePdf.set(group.id);
     this.activitiesSvc.exportGroupSchedulePdf(group.id).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `calendario-${group.group_code.toLowerCase()}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
+      next: async (blob) => {
+        await downloadFile(blob, `calendario-${group.group_code.toLowerCase()}.pdf`);
         this.downloadingSchedulePdf.set(null);
       },
       error: () => this.downloadingSchedulePdf.set(null),

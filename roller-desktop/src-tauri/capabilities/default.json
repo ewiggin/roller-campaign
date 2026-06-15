@@ -23,6 +23,8 @@
         { "url": "mailto:*" },
         { "url": "tel:*" }
       ]
-    }
+    },
+    "dialog:allow-save",
+    "fs:allow-write-file"
   ]
 }

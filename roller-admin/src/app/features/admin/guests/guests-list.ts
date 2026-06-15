@@ -15,6 +15,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { GuestGroupsService } from '../../../core/services/guest-groups.service';
 import { GuestsService } from '../../../core/services/guests.service';
 import { RegionsService } from '../../../core/services/regions.service';
+import { downloadFile } from '../../../core/utils/download-file';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 const STATUSES: GuestStatus[] = ['pending', 'confirmed', 'cancelled', 'arrived', 'blocked'];
@@ -363,23 +364,13 @@ export class GuestsListComponent implements OnInit {
           this.filterTermsAccepted() === '' ? undefined : this.filterTermsAccepted() === 'true',
       })
       .subscribe((blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'invitados.xlsx';
-        a.click();
-        URL.revokeObjectURL(url);
+        void downloadFile(blob, 'invitados.xlsx');
       });
   }
 
   downloadTemplate() {
     this.svc.downloadTemplate().subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'plantilla-invitados.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'plantilla-invitados.xlsx');
     });
   }
 
@@ -448,12 +439,7 @@ export class GuestsListComponent implements OnInit {
     const rows = this.commitResult()?.groups_not_found_rows;
     if (!rows?.length) return;
     this.svc.exportNotFound(rows).subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'invitados-sin-grupo.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'invitados-sin-grupo.xlsx');
     });
   }
 

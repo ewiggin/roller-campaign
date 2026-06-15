@@ -4,6 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve --proxy-config proxy.config.json --port 4201",
+    "start:desktop": "ng serve --configuration desktop --port 4201",
     "build": "ng build",
     "build:staging": "ng build --configuration=staging",
     "build:production": "ng build --configuration=production",
@@ -24,6 +25,8 @@
     "@angular/router": "^21.2.0",
     "@googlemaps/js-api-loader": "^2.0.2",
     "@tailwindcss/postcss": "^4.3.0",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
+    "@tauri-apps/plugin-fs": "^2.5.1",
     "postcss": "^8.5.14",
     "rxjs": "~7.8.0",
     "tailwindcss": "^4.3.0",

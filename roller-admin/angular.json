@@ -116,6 +116,9 @@
             },
             "development": {
               "buildTarget": "roller-admin:build:development"
+            },
+            "desktop": {
+              "buildTarget": "roller-admin:build:desktop,development"
             }
           },
           "defaultConfiguration": "development"

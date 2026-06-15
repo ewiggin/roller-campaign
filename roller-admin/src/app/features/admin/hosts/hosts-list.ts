@@ -5,6 +5,7 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { downloadFile } from '../../../core/utils/download-file';
 import type {
   Host,
   ImportHostRow,
@@ -227,35 +228,20 @@ export class HostsListComponent implements OnInit {
 
   downloadExcel() {
     this.svc.exportExcel(this.selectedRegionId() || undefined).subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'congregaciones.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'congregaciones.xlsx');
     });
   }
 
   downloadAssignedGroupsPdf() {
     const regionId = this.selectedRegionId();
     this.svc.exportAssignedGroupsPdf(regionId || undefined).subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'grupos-asignados.pdf';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'grupos-asignados.pdf');
     });
   }
 
   downloadTemplate() {
     this.svc.downloadTemplate().subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'plantilla-congregaciones.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'plantilla-congregaciones.xlsx');
     });
   }
 

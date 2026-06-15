@@ -20,6 +20,7 @@ import { CartsService } from '../../../core/services/carts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { StorageService } from '../../../core/services/storage.service';
+import { downloadFile } from '../../../core/utils/download-file';
 import type {
   Cart,
   ImportCartParseResponse,
@@ -422,23 +423,13 @@ export class CartsListComponent implements OnInit, OnDestroy {
 
   downloadExcel() {
     this.svc.exportExcel().subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'carts.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'carts.xlsx');
     });
   }
 
   downloadTemplate() {
     this.svc.downloadTemplate().subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'template-carts.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'template-carts.xlsx');
     });
   }
 

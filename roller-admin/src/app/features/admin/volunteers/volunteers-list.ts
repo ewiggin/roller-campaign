@@ -11,6 +11,7 @@ import type {
 } from '../../../core/models/volunteer.model';
 import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
+import { downloadFile } from '../../../core/utils/download-file';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 const AVAILABILITY_OPTIONS = [
@@ -244,23 +245,13 @@ export class VolunteersListComponent implements OnInit {
 
   downloadExcel() {
     this.svc.exportExcel(this.buildQuery()).subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'voluntarios.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'voluntarios.xlsx');
     });
   }
 
   downloadTemplate() {
     this.svc.downloadTemplate().subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'plantilla-voluntarios.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
+      void downloadFile(blob, 'plantilla-voluntarios.xlsx');
     });
   }
 
