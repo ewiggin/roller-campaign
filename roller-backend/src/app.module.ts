@@ -9,6 +9,7 @@ import { CartsModule } from './carts/carts.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { GroupAccessModule } from './group-access/group-access.module';
 import { AuthModule } from './auth/auth.module';
+import { DatabaseModule } from './database/database.module';
 import { GuestGroupsModule } from './guest-groups/guest-groups.module';
 import { GuestsModule } from './guests/guests.module';
 import { HostsModule } from './hosts/hosts.module';
@@ -63,6 +64,7 @@ import { VolunteersModule } from './volunteers/volunteers.module';
     HostsModule,
     AuditLogsModule,
     SettingsModule,
+    DatabaseModule,
     GroupAccessModule,
     StorageModule,
     CartsModule,

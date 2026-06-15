@@ -839,6 +839,11 @@ export class VolunteersService {
       'DoA T',
       'LuS M',
       'LuS T',
+      'terms_accepted',
+      'terms_accepted_at',
+      'terms_version',
+      'created_at',
+      'updated_at',
     ];
 
     const rows = volunteers.map((v) => [
@@ -854,30 +859,36 @@ export class VolunteersService {
       v.lat ?? '',
       v.lng ?? '',
       v.maps_link ?? '',
-      v.monday_morning ? 'Yes' : 'No',
-      v.monday_afternoon ? 'Yes' : 'No',
-      v.tuesday_morning ? 'Yes' : 'No',
-      v.tuesday_afternoon ? 'Yes' : 'No',
-      v.wednesday_morning ? 'Yes' : 'No',
-      v.wednesday_afternoon ? 'Yes' : 'No',
-      v.thursday_morning ? 'Yes' : 'No',
-      v.thursday_afternoon ? 'Yes' : 'No',
-      v.friday_morning ? 'Yes' : 'No',
-      v.friday_afternoon ? 'Yes' : 'No',
-      v.saturday_morning ? 'Yes' : 'No',
-      v.saturday_afternoon ? 'Yes' : 'No',
-      v.sunday_morning ? 'Yes' : 'No',
-      v.sunday_afternoon ? 'Yes' : 'No',
-      v.saturday_prev_morning ? 'Yes' : 'No',
-      v.saturday_prev_afternoon ? 'Yes' : 'No',
-      v.sunday_prev_morning ? 'Yes' : 'No',
-      v.sunday_prev_afternoon ? 'Yes' : 'No',
-      v.monday_next_morning ? 'Yes' : 'No',
-      v.monday_next_afternoon ? 'Yes' : 'No',
+      v.monday_morning ? 'Sí' : 'No',
+      v.monday_afternoon ? 'Sí' : 'No',
+      v.tuesday_morning ? 'Sí' : 'No',
+      v.tuesday_afternoon ? 'Sí' : 'No',
+      v.wednesday_morning ? 'Sí' : 'No',
+      v.wednesday_afternoon ? 'Sí' : 'No',
+      v.thursday_morning ? 'Sí' : 'No',
+      v.thursday_afternoon ? 'Sí' : 'No',
+      v.friday_morning ? 'Sí' : 'No',
+      v.friday_afternoon ? 'Sí' : 'No',
+      v.saturday_morning ? 'Sí' : 'No',
+      v.saturday_afternoon ? 'Sí' : 'No',
+      v.sunday_morning ? 'Sí' : 'No',
+      v.sunday_afternoon ? 'Sí' : 'No',
+      v.saturday_prev_morning ? 'Sí' : 'No',
+      v.saturday_prev_afternoon ? 'Sí' : 'No',
+      v.sunday_prev_morning ? 'Sí' : 'No',
+      v.sunday_prev_afternoon ? 'Sí' : 'No',
+      v.monday_next_morning ? 'Sí' : 'No',
+      v.monday_next_afternoon ? 'Sí' : 'No',
+      v.terms_accepted === null ? '' : v.terms_accepted ? 'Sí' : 'No',
+      v.terms_accepted_at ?? '',
+      v.terms_version ?? '',
+      v.created_at instanceof Date ? v.created_at.toISOString() : v.created_at,
+      v.updated_at instanceof Date ? v.updated_at.toISOString() : v.updated_at,
     ]);
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = headers.map(() => ({ wch: 16 }));
     XLSX.utils.book_append_sheet(wb, ws, 'Voluntarios');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
@@ -1457,7 +1468,13 @@ export class VolunteersService {
   private parseBool(val: unknown): boolean {
     const s = this.str(val);
     if (!s) return false;
-    const lower = s.toLowerCase();
-    return lower === 'sí' || lower === 'si' || s === '1' || lower === 'true';
+    const lower = s.toLowerCase().normalize('NFC');
+    return (
+      lower === 'sí' ||
+      lower === 'si' ||
+      lower === 'yes' ||
+      s === '1' ||
+      lower === 'true'
+    );
   }
 }

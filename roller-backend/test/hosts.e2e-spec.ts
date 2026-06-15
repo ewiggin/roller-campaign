@@ -541,11 +541,18 @@ describe('Hosts (e2e)', () => {
       expect(buffer.length).toBeGreaterThan(500);
     });
 
-    it('returns 400 when regionId is missing', async () => {
-      await request(server)
+    it('returns a PDF for all accessible regions when regionId is missing', async () => {
+      const res = await request(server)
         .get('/api/hosts/export/assigned-groups/pdf')
         .set('Authorization', auth())
-        .expect(400);
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+
+      expect(res.headers['content-type']).toMatch(/application\/pdf/);
+      const buffer = res.body as Buffer;
+      expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
+      expect(buffer.length).toBeGreaterThan(500);
     });
   });
 

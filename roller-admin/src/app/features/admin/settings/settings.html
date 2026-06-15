@@ -268,4 +268,78 @@
       }
     </div>
   </div>
+
+  <!-- ── Database backup ──────────────────────────────────────────────── -->
+  <div
+    class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+  >
+    <div
+      class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-800"
+    >
+      <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+        >Copia de seguridad</span
+      >
+    </div>
+    <div class="px-5 py-5 space-y-6">
+      <div>
+        <p class="text-sm text-gray-500 dark:text-zinc-400 mb-3">
+          Descarga un archivo con todos los datos de la base de datos (regiones, usuarios,
+          congregaciones, invitados, voluntarios, actividades, etc.).
+        </p>
+        <button
+          type="button"
+          (click)="exportDatabase()"
+          [disabled]="dbExporting()"
+          class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {{ dbExporting() ? 'Exportando…' : 'Exportar base de datos' }}
+        </button>
+        @if (dbExportError()) {
+          <p class="mt-3 text-sm text-red-600 dark:text-red-400">{{ dbExportError() }}</p>
+        }
+      </div>
+
+      <div class="pt-5 border-t border-gray-100 dark:border-zinc-800">
+        <p class="text-sm text-gray-500 dark:text-zinc-400 mb-1">
+          Importa un archivo exportado previamente. Esta acción
+          <span class="font-semibold text-red-600 dark:text-red-400"
+            >sustituirá todos los datos actuales</span
+          >
+          por los del archivo y no se puede deshacer.
+        </p>
+        <p class="text-sm text-gray-500 dark:text-zinc-400 mb-3">
+          Se recomienda exportar una copia de seguridad antes de importar.
+        </p>
+        <label
+          class="inline-flex items-center rounded-lg bg-gray-700 dark:bg-zinc-700 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 dark:hover:bg-zinc-600 cursor-pointer transition-colors"
+          [class.opacity-50]="dbImporting()"
+          [class.pointer-events-none]="dbImporting()"
+        >
+          {{ dbImporting() ? 'Importando…' : 'Importar base de datos' }}
+          <input type="file" accept=".json" class="hidden" (change)="onImportFileSelected($event)" />
+        </label>
+        @if (dbImportError()) {
+          <p class="mt-3 text-sm text-red-600 dark:text-red-400">{{ dbImportError() }}</p>
+        }
+        @if (dbImportResult()) {
+          <div class="mt-3 text-sm text-green-600 dark:text-green-400 font-medium">
+            <p>
+              Importación completada: {{ dbImportResult()!.tables }} tablas,
+              {{ dbImportResult()!.rows }} filas.
+            </p>
+            <p class="mt-1 text-gray-500 dark:text-zinc-400 font-normal">
+              Debes cerrar sesión y volver a iniciarla para continuar.
+            </p>
+            <button
+              type="button"
+              (click)="logoutAfterImport()"
+              class="mt-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+            >
+              Cerrar sesión
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
 </div>

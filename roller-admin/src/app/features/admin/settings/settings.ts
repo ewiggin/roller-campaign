@@ -2,8 +2,9 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { SettingsService } from '../../../core/services/settings.service';
 import { PermissionsService } from '../../../core/services/permissions.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { CONFIGURABLE_SCREENS } from '../../../core/models/settings.model';
-import type { ScreenKey } from '../../../core/models/settings.model';
+import type { DatabaseImportResult, ScreenKey } from '../../../core/models/settings.model';
 
 type PermGrid = Record<
   'region_admin' | 'volunteer' | 'volunteer_manager' | 'guest_manager' | 'host_manager',
@@ -33,6 +34,7 @@ const ROLE_LABELS: Record<string, string> = {
 export class SettingsComponent implements OnInit {
   private readonly svc = inject(SettingsService);
   private readonly permsSvc = inject(PermissionsService);
+  private readonly authSvc = inject(AuthService);
   private readonly fb = inject(FormBuilder);
 
   readonly screens = CONFIGURABLE_SCREENS;
@@ -229,5 +231,71 @@ export class SettingsComponent implements OnInit {
 
   private gridToScreens(grid: Record<ScreenKey, boolean>): string[] {
     return this.screens.filter((s) => grid[s.key]).map((s) => s.key);
+  }
+
+  // ── Database backup ──────────────────────────────────────────────────
+
+  readonly dbExporting = signal(false);
+  readonly dbExportError = signal('');
+  readonly dbImporting = signal(false);
+  readonly dbImportError = signal('');
+  readonly dbImportResult = signal<DatabaseImportResult | null>(null);
+
+  exportDatabase() {
+    if (this.dbExporting()) return;
+    this.dbExporting.set(true);
+    this.dbExportError.set('');
+    this.svc.exportDatabase().subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const date = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `roller-backup-${date}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.dbExporting.set(false);
+      },
+      error: () => {
+        this.dbExportError.set('Error al exportar la base de datos.');
+        this.dbExporting.set(false);
+      },
+    });
+  }
+
+  onImportFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || this.dbImporting()) return;
+
+    if (
+      !confirm(
+        'Esto sustituirá TODOS los datos actuales por los del archivo importado. ' +
+          'Esta acción no se puede deshacer. ¿Deseas continuar?',
+      )
+    ) {
+      return;
+    }
+
+    this.dbImporting.set(true);
+    this.dbImportError.set('');
+    this.dbImportResult.set(null);
+    this.svc.importDatabase(file).subscribe({
+      next: (result) => {
+        this.dbImportResult.set(result);
+        this.dbImporting.set(false);
+      },
+      error: () => {
+        this.dbImportError.set(
+          'Error al importar la base de datos. Comprueba que el archivo es una copia de seguridad válida.',
+        );
+        this.dbImporting.set(false);
+      },
+    });
+  }
+
+  logoutAfterImport() {
+    this.authSvc.logout();
   }
 }

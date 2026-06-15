@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -74,9 +73,6 @@ export class HostsController {
     @CurrentUser() user: JwtPayload,
     @Res() res: Response,
   ): Promise<void> {
-    if (!regionId) {
-      throw new BadRequestException('regionId es obligatorio');
-    }
     const buffer = await this.service.exportAssignedGroupsPdf(regionId, user);
     res.set({
       'Content-Type': 'application/pdf',

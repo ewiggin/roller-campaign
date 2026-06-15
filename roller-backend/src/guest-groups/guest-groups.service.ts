@@ -583,46 +583,80 @@ export class GuestGroupsService {
       : [];
     const hostMap = new Map(hosts.map((h) => [h.id, h.name]));
 
-    return this.buildGroupsExcel(groups, regionMap, hostMap);
+    const stats = await this.fetchGroupStats(groups.map((g) => g.id));
+
+    return this.buildGroupsExcel(groups, regionMap, hostMap, stats);
   }
 
   private buildGroupsExcel(
     groups: (GuestGroup & { guest_count?: number })[],
     regionMap = new Map<string, string>(),
     hostMap = new Map<string, string>(),
+    statsMap = new Map<
+      string,
+      { languages: string[]; total_car_seats: number; live: GroupAggregates }
+    >(),
   ): Buffer {
     const headers = [
       'group_code',
       'region_name',
       'host_name',
       'guest_count',
+      'languages',
+      'total_car_seats',
       'car_count',
       'available_from',
       'available_to',
       'composition',
+      'agg_guest_count',
+      'agg_minor_count',
+      'agg_status_counts',
+      'agg_avg_lat',
+      'agg_avg_lng',
+      'agg_languages',
+      'agg_speaks_english',
+      'agg_car_seats',
+      'agg_computed_at',
+      'created_at',
+      'updated_at',
     ];
-    const rows = groups.map((g) => [
-      g.group_code,
-      regionMap.get(g.region_id) ?? '',
-      g.host_id ? (hostMap.get(g.host_id) ?? '') : '',
-      g.guest_count ?? 0,
-      g.car_count ?? '',
-      g.available_from ?? '',
-      g.available_to ?? '',
-      g.composition ?? '',
-    ]);
+    const rows = groups.map((g) => {
+      const stats = statsMap.get(g.id);
+      return [
+        g.group_code,
+        regionMap.get(g.region_id) ?? '',
+        g.host_id ? (hostMap.get(g.host_id) ?? '') : '',
+        g.guest_count ?? 0,
+        (stats?.languages ?? []).join(', '),
+        stats?.total_car_seats ?? 0,
+        g.car_count ?? '',
+        g.available_from ?? '',
+        g.available_to ?? '',
+        g.composition ?? '',
+        g.agg_guest_count ?? '',
+        g.agg_minor_count ?? '',
+        g.agg_status_counts
+          ? Object.entries(g.agg_status_counts)
+              .map(([status, count]) => `${status}: ${count}`)
+              .join(', ')
+          : '',
+        g.agg_avg_lat ?? '',
+        g.agg_avg_lng ?? '',
+        (g.agg_languages ?? []).join(', '),
+        g.agg_speaks_english === null ? '' : g.agg_speaks_english ? 'Sí' : 'No',
+        g.agg_car_seats ?? '',
+        g.agg_computed_at ?? '',
+        g.created_at instanceof Date
+          ? g.created_at.toISOString()
+          : g.created_at,
+        g.updated_at instanceof Date
+          ? g.updated_at.toISOString()
+          : g.updated_at,
+      ];
+    });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    ws['!cols'] = [
-      { wch: 16 },
-      { wch: 24 },
-      { wch: 28 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 14 },
-      { wch: 14 },
-      { wch: 14 },
-    ];
+    ws['!cols'] = headers.map(() => ({ wch: 16 }));
     XLSX.utils.book_append_sheet(wb, ws, 'Grupos');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }

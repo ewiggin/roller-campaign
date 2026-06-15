@@ -238,8 +238,7 @@ export class HostsListComponent implements OnInit {
 
   downloadAssignedGroupsPdf() {
     const regionId = this.selectedRegionId();
-    if (!regionId) return;
-    this.svc.exportAssignedGroupsPdf(regionId).subscribe((blob) => {
+    this.svc.exportAssignedGroupsPdf(regionId || undefined).subscribe((blob) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

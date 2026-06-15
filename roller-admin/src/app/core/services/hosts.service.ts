@@ -48,8 +48,9 @@ export class HostsService {
     return this.http.get(`/api/hosts/export${qs}`, { responseType: 'blob' });
   }
 
-  exportAssignedGroupsPdf(regionId: string) {
-    return this.http.get(`/api/hosts/export/assigned-groups/pdf?regionId=${regionId}`, {
+  exportAssignedGroupsPdf(regionId?: string) {
+    const qs = regionId ? `?regionId=${regionId}` : '';
+    return this.http.get(`/api/hosts/export/assigned-groups/pdf${qs}`, {
       responseType: 'blob',
     });
   }

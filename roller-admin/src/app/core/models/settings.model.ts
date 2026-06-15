@@ -61,3 +61,9 @@ export interface UpdatePermissionsPayload {
   guest_manager?: string[];
   host_manager?: string[];
 }
+
+export interface DatabaseImportResult {
+  tables: number;
+  rows: number;
+  importedAt: string;
+}

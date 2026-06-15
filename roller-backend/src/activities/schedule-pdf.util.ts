@@ -60,21 +60,34 @@ function locationsText(locations: LocationPoint[]): string {
   return locations.map((l) => l.address).join('\n');
 }
 
+export interface BuildGroupScheduleContentOptions {
+  /** Show composition, guest count and host as a subtitle under the group title. Defaults to true. */
+  showGroupInfo?: boolean;
+}
+
 export function buildGroupScheduleContent(
   group: ScheduleGroupInfo,
   days: string[],
   activities: ScheduleActivityItem[],
+  options: BuildGroupScheduleContentOptions = {},
 ): Content[] {
   const content: Content[] = [];
 
-  const subtitleParts = [
-    group.composition ? COMPOSITION_LABELS[group.composition] : null,
-    `${group.guest_count} persona${group.guest_count !== 1 ? 's' : ''}`,
-    group.host_name ? `Hospedados en: ${group.host_name}` : null,
-  ].filter(Boolean);
+  const { showGroupInfo = true } = options;
 
   content.push({ text: `Grupo ${group.group_code}`, style: 'groupTitle' });
-  content.push({ text: subtitleParts.join('   ·   '), style: 'groupSubtitle' });
+
+  if (showGroupInfo) {
+    const subtitleParts = [
+      group.composition ? COMPOSITION_LABELS[group.composition] : null,
+      `${group.guest_count} persona${group.guest_count !== 1 ? 's' : ''}`,
+      group.host_name ? `Hospedados en: ${group.host_name}` : null,
+    ].filter(Boolean);
+
+    content.push({ text: subtitleParts.join('   ·   '), style: 'groupSubtitle' });
+  } else {
+    content.push({ text: '', style: 'groupSubtitle' });
+  }
 
   if (days.length === 0) {
     content.push({ text: 'No hay actividades programadas para este grupo.' });

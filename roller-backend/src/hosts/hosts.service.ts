@@ -31,11 +31,27 @@ import {
 } from './dto/import-host.dto';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
-const COMPOSITION_LABELS: Record<string, string> = {
-  men_only: 'Solo hombres',
-  mixed: 'Mixto',
-  women_only: 'Solo mujeres',
-};
+const WEEKDAY_LABELS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+const HOST_HEADER_COLORS = [
+  { bg: '#dbeafe', text: '#1e3a8a' },
+  { bg: '#dcfce7', text: '#14532d' },
+  { bg: '#fef3c7', text: '#78350f' },
+  { bg: '#fce7f3', text: '#831843' },
+  { bg: '#e0e7ff', text: '#312e81' },
+  { bg: '#ffedd5', text: '#7c2d12' },
+  { bg: '#ccfbf1', text: '#134e4a' },
+  { bg: '#ede9fe', text: '#4c1d95' },
+];
+
+function formatMeetingSchedule(
+  day: number | null,
+  time: string | null,
+): string | null {
+  const label = day ? WEEKDAY_LABELS[day] ?? '' : '';
+  if (!time) return label || null;
+  return label ? `${label} ${time}` : time;
+}
 
 @Injectable()
 export class HostsService {
@@ -451,9 +467,6 @@ export class HostsService {
     const allRegions = await this.regionsRepo.find({ select: ['id', 'name'] });
     const regionNameMap = new Map(allRegions.map((r) => [r.id, r.name]));
 
-    const dayLabel = (d: number | null) =>
-      d ? (['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][d] ?? '') : '';
-
     const headers = [
       'name',
       'region_name',
@@ -474,9 +487,9 @@ export class HostsService {
       h.address ?? '',
       h.lat ?? '',
       h.lng ?? '',
-      h.weekday_meeting_day ? dayLabel(h.weekday_meeting_day) : '',
+      h.weekday_meeting_day ? WEEKDAY_LABELS[h.weekday_meeting_day] ?? '' : '',
       h.weekday_meeting_time ?? '',
-      h.weekend_meeting_day ? dayLabel(h.weekend_meeting_day) : '',
+      h.weekend_meeting_day ? WEEKDAY_LABELS[h.weekend_meeting_day] ?? '' : '',
       h.weekend_meeting_time ?? '',
       h.capacity ?? '',
       h.group_count,
@@ -504,89 +517,198 @@ export class HostsService {
   }
 
   async exportAssignedGroupsPdf(
-    regionId: string,
+    regionId: string | undefined,
     currentUser: JwtPayload,
   ): Promise<Buffer> {
-    await this.assertRegionAccess(regionId, currentUser);
+    let regions: Region[];
 
-    const region = await this.regionsRepo.findOne({ where: { id: regionId } });
-    if (!region) throw new NotFoundException('Región no encontrada');
+    if (regionId) {
+      await this.assertRegionAccess(regionId, currentUser);
+      const region = await this.regionsRepo.findOne({
+        where: { id: regionId },
+      });
+      if (!region) throw new NotFoundException('Región no encontrada');
+      regions = [region];
+    } else if (currentUser.role === 'superadmin') {
+      regions = await this.regionsRepo.find({ order: { name: 'ASC' } });
+    } else {
+      const user = await this.usersRepo.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      regions = (user?.regions ?? []).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
+    }
 
-    const hosts = await this.hostsRepo.find({
-      where: { region_id: regionId },
-      order: { name: 'ASC' },
-    });
+    const regionIds = regions.map((r) => r.id);
 
-    const groups = await this.groupsRepo
-      .createQueryBuilder('gg')
-      .loadRelationCountAndMap('gg.guest_count', 'gg.guests')
-      .where('gg.region_id = :regionId', { regionId })
-      .andWhere('gg.host_id IS NOT NULL')
-      .orderBy('gg.group_code', 'ASC')
-      .getMany();
+    const hosts = regionIds.length
+      ? await this.hostsRepo.find({
+          where: { region_id: In(regionIds) },
+          order: { name: 'ASC' },
+        })
+      : [];
 
-    const groupsByHost = new Map<
-      string,
-      (GuestGroup & { guest_count?: number })[]
-    >();
+    const groups = regionIds.length
+      ? await this.groupsRepo
+          .createQueryBuilder('gg')
+          .where('gg.region_id IN (:...regionIds)', { regionIds })
+          .andWhere('gg.host_id IS NOT NULL')
+          .orderBy('gg.group_code', 'ASC')
+          .getMany()
+      : [];
+
+    const groupsByHost = new Map<string, GuestGroup[]>();
     for (const group of groups) {
       const list = groupsByHost.get(group.host_id!);
       if (list) list.push(group);
       else groupsByHost.set(group.host_id!, [group]);
     }
 
-    const hostsWithGroups = hosts.filter(
-      (h) => (groupsByHost.get(h.id)?.length ?? 0) > 0,
-    );
+    const hostsByRegion = new Map<string, Host[]>();
+    for (const host of hosts) {
+      if ((groupsByHost.get(host.id)?.length ?? 0) === 0) continue;
+      const list = hostsByRegion.get(host.region_id);
+      if (list) list.push(host);
+      else hostsByRegion.set(host.region_id, [host]);
+    }
 
     const content: Content[] = [
       { text: 'Grupos asignados por congregación', style: 'title' },
-      { text: `Región: ${region.name}`, style: 'subtitle' },
     ];
 
-    if (hostsWithGroups.length === 0) {
+    if (regionId) {
+      content.push({ text: `Región: ${regions[0].name}`, style: 'subtitle' });
+    }
+
+    const hasAnyHost = [...hostsByRegion.values()].some(
+      (list) => list.length > 0,
+    );
+    if (!hasAnyHost) {
       content.push({ text: 'No hay grupos asignados a ninguna congregación.' });
     }
 
     const cellLayout = {
       paddingLeft: () => 12,
       paddingRight: () => 12,
-      paddingTop: () => 12,
-      paddingBottom: () => 12,
+      paddingTop: () => 6,
+      paddingBottom: () => 6,
     };
 
-    for (const host of hostsWithGroups) {
-      content.push({ text: host.name, style: 'hostName' });
+    let hostIndex = 0;
+    for (const region of regions) {
+      const regionHosts = hostsByRegion.get(region.id) ?? [];
+      if (regionHosts.length === 0) continue;
 
-      content.push({
-        table: {
-          headerRows: 1,
-          widths: ['*', 'auto', '*'],
-          body: [
-            [
-              { text: 'Grupo', style: 'tableHeader' },
-              { text: 'Personas', style: 'tableHeader' },
-              { text: 'Tipo', style: 'tableHeader' },
+      for (const host of regionHosts) {
+        const color = HOST_HEADER_COLORS[hostIndex % HOST_HEADER_COLORS.length];
+
+        const headerStack: Content[] = [
+          { text: host.name, style: 'hostName', color: color.text },
+        ];
+        if (!regionId) {
+          headerStack.push({
+            text: region.name,
+            style: 'hostRegion',
+            color: color.text,
+          });
+        }
+
+        const infoLines: string[] = [];
+        if (host.address) infoLines.push(host.address);
+        const weekday = formatMeetingSchedule(
+          host.weekday_meeting_day,
+          host.weekday_meeting_time,
+        );
+        if (weekday) infoLines.push(`Entre semana: ${weekday}`);
+        const weekend = formatMeetingSchedule(
+          host.weekend_meeting_day,
+          host.weekend_meeting_time,
+        );
+        if (weekend) infoLines.push(`Fin de semana: ${weekend}`);
+
+        if (infoLines.length > 0) {
+          headerStack.push({
+            text: infoLines.join('\n'),
+            style: 'hostDetails',
+            color: color.text,
+          });
+        }
+
+        content.push({
+          table: {
+            widths: ['*'],
+            body: [[{ stack: headerStack }]],
+          },
+          layout: {
+            hLineWidth: () => 0,
+            vLineWidth: () => 0,
+            paddingLeft: () => 10,
+            paddingRight: () => 10,
+            paddingTop: () => 8,
+            paddingBottom: () => 8,
+            fillColor: () => color.bg,
+          },
+          margin: [0, 0, 0, 8],
+          pageBreak: hostIndex > 0 ? 'before' : undefined,
+        });
+
+        if (host.note) {
+          content.push({
+            table: {
+              widths: ['*'],
+              body: [[{ text: `Nota: ${host.note}`, style: 'noteText' }]],
+            },
+            layout: {
+              hLineWidth: () => 0,
+              vLineWidth: () => 0,
+              paddingLeft: () => 8,
+              paddingRight: () => 8,
+              paddingTop: () => 6,
+              paddingBottom: () => 6,
+              fillColor: () => '#fffbeb',
+            },
+            margin: [0, 6, 0, 0],
+          });
+        }
+
+        const hostGroups = groupsByHost.get(host.id) ?? [];
+        const groupRows: Content[][] = [];
+        for (let i = 0; i < hostGroups.length; i += 2) {
+          const right = hostGroups[i + 1];
+          groupRows.push([
+            { text: hostGroups[i].group_code, style: 'tableCell' },
+            right
+              ? { text: right.group_code, style: 'tableCell' }
+              : { text: '', style: 'tableCell' },
+          ]);
+        }
+
+        content.push({
+          table: {
+            headerRows: 1,
+            widths: ['*', '*'],
+            body: [
+              [
+                {
+                  text: `Grupos asignados a ${host.name}`,
+                  style: 'tableHeader',
+                  fillColor: color.bg,
+                  color: color.text,
+                  colSpan: 2,
+                },
+                {},
+              ],
+              ...groupRows,
             ],
-            ...(groupsByHost.get(host.id) ?? []).map((group) => [
-              { text: group.group_code, style: 'tableCell' },
-              {
-                text: String(group.guest_count ?? 0),
-                style: 'tableCell',
-                alignment: 'center' as const,
-              },
-              {
-                text: group.composition
-                  ? COMPOSITION_LABELS[group.composition]
-                  : '—',
-                style: 'tableCell',
-              },
-            ]),
-          ],
-        },
-        layout: cellLayout,
-        margin: [0, 4, 0, 16],
-      });
+          },
+          layout: cellLayout,
+          margin: [0, 4, 0, 16],
+        });
+
+        hostIndex++;
+      }
     }
 
     return createPdfBuffer({
@@ -594,9 +716,12 @@ export class HostsService {
       styles: {
         title: { fontSize: 16, bold: true, margin: [0, 0, 0, 2] },
         subtitle: { fontSize: 9, color: '#666666', margin: [0, 0, 0, 16] },
-        hostName: { fontSize: 12, bold: true, margin: [0, 12, 0, 0] },
-        tableHeader: { fontSize: 11, bold: true, fillColor: '#f0f0f0' },
-        tableCell: { fontSize: 11 },
+        hostName: { fontSize: 13, bold: true },
+        hostRegion: { fontSize: 9, margin: [0, 2, 0, 0] },
+        hostDetails: { fontSize: 9, color: '#666666', margin: [0, 2, 0, 0] },
+        noteText: { fontSize: 9, color: '#92400e' },
+        tableHeader: { fontSize: 11, bold: true },
+        tableCell: { fontSize: 9 },
       },
       footer: (currentPage, pageCount) => ({
         text: `${currentPage} / ${pageCount}`,

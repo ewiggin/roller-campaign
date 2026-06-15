@@ -1740,6 +1740,7 @@ export class ActivitiesService {
         },
         days,
         activities,
+        { showGroupInfo: false },
       );
 
       if (i > 0 && groupContent.length > 0) {
