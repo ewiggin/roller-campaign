@@ -1,4 +1,4 @@
-[![Desktop Release](https://github.com/ewiggin/roller-campaign/actions/workflows/desktop-release.yml/badge.svg)](https://github.com/ewiggin/roller-campaign/actions/workflows/desktop-release.yml)
+[![Desktop Release](https://github.com/ewiggin/roller-campaign/actions/workflows/desktop-release.yml/badge.svg)](https://github.com/ewiggin/roller-campaign/actions/workflows/desktop-release.yml) [![Tests](https://github.com/ewiggin/roller-campaign/actions/workflows/test.yml/badge.svg)](https://github.com/ewiggin/roller-campaign/actions/workflows/test.yml)
 
 # Roller Campaign
 
