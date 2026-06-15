@@ -1,3 +1,5 @@
+[![Desktop Release](https://github.com/ewiggin/roller-campaign/actions/workflows/desktop-release.yml/badge.svg?branch=main&event=release)](https://github.com/ewiggin/roller-campaign/actions/workflows/desktop-release.yml)
+
 # Roller Campaign
 
 Platform for managing volunteers and guests of a special evangelism campaign
