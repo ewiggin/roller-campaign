@@ -237,6 +237,14 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // Remembers the main window's size/position/maximized state between
+        // launches. The splash screen is excluded: it's always centered and
+        // its size is fixed.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_denylist(&["splashscreen"])
+                .build(),
+        )
         .setup(|app| {
             // Best-effort: if the splash window can't be created for some
             // reason, fall back to the previous behavior (no window until
@@ -248,8 +256,13 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { .. } = event {
-                kill_sidecar(window.app_handle());
+            // The splash screen is closed programmatically once the main
+            // window is ready; that also fires CloseRequested and must not
+            // kill the sidecar.
+            if window.label() == "main" {
+                if let WindowEvent::CloseRequested { .. } = event {
+                    kill_sidecar(window.app_handle());
+                }
             }
         })
         .build(tauri::generate_context!())
