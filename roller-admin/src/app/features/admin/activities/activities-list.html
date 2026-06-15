@@ -331,8 +331,8 @@
                     }
                     <span class="text-gray-300 dark:text-zinc-600">·</span>
                     <span class="text-xs text-gray-400 dark:text-zinc-500">
-                      {{ activity.guest_groups?.length ?? 0 }} group{{
-                        (activity.guest_groups?.length ?? 0) !== 1 ? 's' : ''
+                      {{ activity.guest_groups.length }} group{{
+                        activity.guest_groups.length !== 1 ? 's' : ''
                       }}
                     </span>
                     @if (activity.max_guests) {
@@ -347,7 +347,7 @@
                       >
                         {{ activity.total_guests_assigned }} de {{ activity.max_guests }} guests
                       </span>
-                    } @else if ((activity.total_guests_assigned ?? 0) > 0) {
+                    } @else if (activity.total_guests_assigned > 0) {
                       <span class="text-gray-300 dark:text-zinc-600">·</span>
                       <span class="text-xs font-medium text-blue-600 dark:text-blue-400">
                         {{ activity.total_guests_assigned }} guests
@@ -902,17 +902,17 @@
             {{ tab[1] }}
             @if (tab[0] === 'volunteers') {
               <span class="ml-1 text-xs text-gray-400 dark:text-zinc-500"
-                >({{ selectedActivity()!.volunteers?.length ?? 0 }})</span
+                >({{ selectedActivity()!.volunteers.length }})</span
               >
             }
             @if (tab[0] === 'groups') {
               <span class="ml-1 text-xs text-gray-400 dark:text-zinc-500"
-                >({{ selectedActivity()!.guest_groups?.length ?? 0 }})</span
+                >({{ selectedActivity()!.guest_groups.length }})</span
               >
             }
             @if (tab[0] === 'preaching-groups') {
               <span class="ml-1 text-xs text-gray-400 dark:text-zinc-500"
-                >({{ selectedActivity()!.preaching_groups?.length ?? 0 }})</span
+                >({{ selectedActivity()!.preaching_groups.length }})</span
               >
             }
           </button>
@@ -1345,7 +1345,7 @@
             </div>
 
             <!-- Assigned volunteers -->
-            @if ((selectedActivity()!.volunteers?.length ?? 0) === 0) {
+            @if (selectedActivity()!.volunteers.length === 0) {
               <p class="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
                 No volunteers assigned yet.
               </p>
@@ -1353,7 +1353,7 @@
               <ul
                 class="divide-y divide-gray-100 dark:divide-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden"
               >
-                @for (v of selectedActivity()!.volunteers ?? []; track v.id) {
+                @for (v of selectedActivity()!.volunteers; track v.id) {
                   <li class="flex items-center gap-3 px-4 py-2.5">
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-medium text-gray-900 dark:text-zinc-100 truncate">
@@ -1426,7 +1426,7 @@
               </div>
             }
             <!-- Attendance requests -->
-            @if ((selectedActivity()!.requests?.length ?? 0) > 0) {
+            @if (selectedActivity()!.requests.length > 0) {
               <div>
                 <p
                   class="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2"
@@ -1436,7 +1436,7 @@
                 <ul
                   class="divide-y divide-gray-100 dark:divide-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden"
                 >
-                  @for (r of selectedActivity()!.requests ?? []; track r.request_id) {
+                  @for (r of selectedActivity()!.requests; track r.request_id) {
                     <li class="flex items-center justify-between px-4 py-2.5 gap-3">
                       <div class="flex items-center gap-2 min-w-0">
                         <span
@@ -1491,7 +1491,7 @@
             }
 
             <!-- Add group -->
-            @if ((selectedActivity()!.guest_groups?.length ?? 0) === 0) {
+            @if (selectedActivity()!.guest_groups.length === 0) {
               <div class="flex gap-2">
                 @if (groupsLoading()) {
                   <div
@@ -1517,7 +1517,7 @@
             }
 
             <!-- Assigned groups -->
-            @if ((selectedActivity()!.guest_groups?.length ?? 0) === 0) {
+            @if (selectedActivity()!.guest_groups.length === 0) {
               <p class="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
                 No groups assigned yet.
               </p>
@@ -1525,7 +1525,7 @@
               <ul
                 class="divide-y divide-gray-100 dark:divide-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden"
               >
-                @for (g of selectedActivity()!.guest_groups ?? []; track g.id) {
+                @for (g of selectedActivity()!.guest_groups; track g.id) {
                   <li class="flex items-center justify-between px-4 py-2.5">
                     <div>
                       <p class="text-sm font-medium text-gray-900 dark:text-zinc-100">
@@ -1584,7 +1584,7 @@
               </button>
             </div>
 
-            @if ((selectedActivity()!.preaching_groups?.length ?? 0) === 0) {
+            @if (selectedActivity()!.preaching_groups.length === 0) {
               <p class="text-sm text-gray-400 dark:text-zinc-500 text-center py-6">
                 No preaching groups yet.
               </p>

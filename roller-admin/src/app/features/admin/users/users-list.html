@@ -61,7 +61,7 @@
                   <span class="text-[10px] text-gray-400 dark:text-zinc-500">(you)</span>
                 }
               </div>
-              @if (user.regions?.length) {
+              @if (user.regions.length) {
                 <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5 truncate">
                   @for (r of user.regions; track r.id; let last = $last) {
                     {{ r.name }}{{ !last ? ', ' : '' }}

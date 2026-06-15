@@ -1,3 +1,3 @@
 {
-  "assets": ["build/sidecar/**/*.node"]
+  "assets": ["build/sidecar/**/*.node", "build/sidecar/*.afm", "build/sidecar/*.icc"]
 }

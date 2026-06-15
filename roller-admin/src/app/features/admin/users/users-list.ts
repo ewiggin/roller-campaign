@@ -1,6 +1,5 @@
 import { Component, inject, signal, OnInit, computed } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { DatePipe } from '@angular/common';
 import { UsersService } from '../../../core/services/users.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -31,7 +30,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 @Component({
   selector: 'app-users-list',
-  imports: [ReactiveFormsModule, DatePipe],
+  imports: [ReactiveFormsModule],
   templateUrl: './users-list.html',
 })
 export class UsersListComponent implements OnInit {
