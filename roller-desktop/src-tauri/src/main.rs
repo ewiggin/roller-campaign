@@ -94,14 +94,6 @@ fn build_init_script(port: u16) -> String {
     }},
     true,
   );
-  // TEMP PROBE — remove after verification
-  setTimeout(() => {{
-    openExternal('https://example.com')
-      .then(() => fetch('http://127.0.0.1:{port}/api/version?opener=ok'))
-      .catch((e) =>
-        fetch('http://127.0.0.1:{port}/api/version?opener=err-' + encodeURIComponent(String(e))),
-      );
-  }}, 4000);
   const nativeOpen = window.open.bind(window);
   window.open = (url, ...args) => {{
     if (url && isExternal(String(url))) {{
