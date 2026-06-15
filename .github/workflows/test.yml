@@ -1,0 +1,100 @@
+# Runs each app's test suite independently. Every job checks out the repo
+# but only installs/tests its own directory, so a failure in one app doesn't
+# block the others from reporting.
+name: Tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  backend:
+    name: Backend e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: roller-backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefix roller-backend
+
+      - name: Run tests
+        working-directory: roller-backend
+        env:
+          NODE_ENV: development
+          PORT: 3000
+          DATABASE_PATH: ':memory:'
+          JWT_SECRET: ci-test-secret
+          JWT_EXPIRES_IN: 6h
+          ADMIN_EMAIL: admin@test.com
+          ADMIN_PASSWORD: adminpass123
+          RAILWAY_BUCKET_NAME: ci-dummy-bucket
+          RAILWAY_BUCKET_ENDPOINT: https://dummy.storage.example.com
+          RAILWAY_BUCKET_REGION: us-east-1
+          RAILWAY_ACCESS_KEY_ID: ci-dummy-key
+          RAILWAY_SECRET_ACCESS_KEY: ci-dummy-secret
+        run: npm test
+
+  admin:
+    name: Admin unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: roller-admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefix roller-admin
+
+      - name: Run tests
+        working-directory: roller-admin
+        run: npm run test:ci
+
+  form-guests:
+    name: form-guests unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: forms/form-guests/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefix forms/form-guests
+
+      - name: Run tests
+        working-directory: forms/form-guests
+        run: npm test -- --watch=false
+
+  form-volunteer:
+    name: form-volunteer unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: forms/form-volunteer/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefix forms/form-volunteer
+
+      - name: Run tests
+        working-directory: forms/form-volunteer
+        run: npm test -- --watch=false
