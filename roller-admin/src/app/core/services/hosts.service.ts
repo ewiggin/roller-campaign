@@ -65,10 +65,17 @@ export class HostsService {
     return this.http.post<ImportHostParseResponse>('/api/hosts/import/parse', form);
   }
 
-  commitImport(rows: ImportHostRow[], updateRows?: ImportHostRow[]) {
+  commitImport(
+    rows: ImportHostRow[],
+    updateRows?: ImportHostRow[],
+    partialUpdate?: boolean,
+    columns?: string[],
+  ) {
     return this.http.post<ImportHostCommitResponse>('/api/hosts/import/commit', {
       rows,
       ...(updateRows?.length ? { updateRows } : {}),
+      ...(partialUpdate ? { partialUpdate } : {}),
+      ...(columns?.length ? { columns } : {}),
     });
   }
 }

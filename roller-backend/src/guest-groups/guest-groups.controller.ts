@@ -31,9 +31,11 @@ import { Audit } from '../audit-logs/decorators/audit.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { CommitGroupImportDto } from './dto/commit-group-import.dto';
 import { CreateGuestGroupDto } from './dto/create-guest-group.dto';
 import { GuestGroupResponseDto } from './dto/guest-group-response.dto';
 import { ImportGroupResponseDto } from './dto/import-group-response.dto';
+import { ParseGroupResponseDto } from './dto/parse-group-response.dto';
 import { RecomputeAggregatesResponseDto } from './dto/recompute-aggregates-response.dto';
 import { SetContactDto } from './dto/set-contact.dto';
 import { UpdateGuestGroupDto } from './dto/update-guest-group.dto';
@@ -75,6 +77,34 @@ export class GuestGroupsController {
       'attachment; filename="plantilla-grupos.xlsx"',
     );
     res.send(buffer);
+  }
+
+  @Post('import/parse')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOkResponse({ type: ParseGroupResponseDto })
+  async parseImport(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<ParseGroupResponseDto> {
+    if (!file) throw new Error('No file received');
+    return this.service.parseImport(file.buffer);
+  }
+
+  @Post('import/commit')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ImportGroupResponseDto })
+  async commitImport(
+    @Body() dto: CommitGroupImportDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ImportGroupResponseDto> {
+    return this.service.commitGroupImport(dto, user);
   }
 
   @Post('import')

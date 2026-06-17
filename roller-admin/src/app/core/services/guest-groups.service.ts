@@ -4,18 +4,14 @@ import type {
   CreateGuestGroupPayload,
   GuestGroup,
   GuestGroupListResponse,
+  ImportGroupCommitResponse,
+  ImportGroupParseResponse,
+  ImportGroupRow,
   RecomputeAggregatesResult,
   UpdateGuestGroupPayload,
 } from '../models/guest-group.model';
 export type { GuestGroup };
-
-export interface ImportGroupResult {
-  created: number;
-  updated: number;
-  total: number;
-  regions_not_found?: number;
-  deleted?: number;
-}
+export type { ImportGroupCommitResponse as ImportGroupResult };
 
 @Injectable({ providedIn: 'root' })
 export class GuestGroupsService {
@@ -70,6 +66,33 @@ export class GuestGroupsService {
     return this.http.patch<GuestGroup>(`/api/guest-groups/${groupId}/host`, { hostId });
   }
 
+  parseImport(file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<ImportGroupParseResponse>('/api/guest-groups/import/parse', form);
+  }
+
+  commitImport(
+    rows: ImportGroupRow[],
+    updateRows?: ImportGroupRow[],
+    regionId?: string,
+    deleteAbsent?: boolean,
+    partialUpdate?: boolean,
+    columns?: string[],
+    toDeleteCodes?: string[],
+    fileColumns?: string[],
+  ) {
+    return this.http.post<ImportGroupCommitResponse>('/api/guest-groups/import/commit', {
+      rows,
+      ...(updateRows?.length ? { updateRows } : {}),
+      ...(regionId ? { regionId } : {}),
+      ...(deleteAbsent ? { deleteAbsent: true } : {}),
+      ...(toDeleteCodes?.length ? { toDeleteCodes } : {}),
+      ...(partialUpdate && columns?.length ? { partialUpdate: true, columns } : {}),
+      ...(fileColumns?.length ? { fileColumns } : {}),
+    });
+  }
+
   importFromExcel(file: File, regionId?: string, deleteAbsent?: boolean) {
     const form = new FormData();
     form.append('file', file);
@@ -77,7 +100,7 @@ export class GuestGroupsService {
     if (regionId) parts.push(`regionId=${regionId}`);
     if (deleteAbsent) parts.push('deleteAbsent=true');
     const qs = parts.length ? '?' + parts.join('&') : '';
-    return this.http.post<ImportGroupResult>(`/api/guest-groups/import${qs}`, form);
+    return this.http.post<ImportGroupCommitResponse>(`/api/guest-groups/import${qs}`, form);
   }
 
   exportExcel(regionId?: string) {

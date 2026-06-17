@@ -733,11 +733,11 @@
     <!-- Import modal -->
     @if (activeModal() === 'import') {
       <div
-        class="w-full max-w-md bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+        class="w-full max-w-2xl bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden max-h-[85vh] flex flex-col"
         (click)="$event.stopPropagation()"
       >
         <div
-          class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
+          class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between shrink-0"
         >
           <h3
             class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
@@ -748,182 +748,311 @@
             (click)="closeModal()"
             class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
           >
-            <svg
-              class="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <div class="p-5 space-y-4">
-          <!-- Region selector (optional when file has region_name column) -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
-              Region
-              <span class="text-xs font-normal text-gray-400 dark:text-zinc-500 ml-1"
-                >(optional if file has
-                <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code>
-                column)</span
-              >
-            </label>
-            <app-searchable-select
-              [items]="regionItems()"
-              placeholder="— auto-detect from file —"
-              emptyLabel="— auto-detect from file —"
-              [selected]="importRegionId()"
-              (selectedChange)="importRegionId.set($event)"
-            />
-          </div>
+        <div class="overflow-y-auto flex-1 p-5">
 
-          <!-- Delete absent toggle -->
-          @if (!importResult()) {
-            <div class="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
-              <div class="flex items-center justify-between px-4 py-2.5 bg-red-50 dark:bg-red-950">
-                <div class="flex items-center gap-2">
+          <!-- Step 1: Upload -->
+          @if (importStep() === 'upload') {
+            <div class="space-y-4">
+              <!-- Region selector (optional) -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+                  Region
+                  <span class="text-xs font-normal text-gray-400 dark:text-zinc-500 ml-1"
+                    >(optional if file has <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code> column)</span
+                  >
+                </label>
+                <app-searchable-select
+                  [items]="regionItems()"
+                  placeholder="— auto-detect from file —"
+                  emptyLabel="— auto-detect from file —"
+                  [selected]="importRegionId()"
+                  (selectedChange)="importRegionId.set($event)"
+                />
+              </div>
+
+              <div
+                class="border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer"
+                [class]="
+                  isDragging
+                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-950'
+                    : 'border-gray-300 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-700'
+                "
+                (dragover)="onDragOver($event)"
+                (dragleave)="onDragLeave()"
+                (drop)="onDrop($event)"
+                (click)="fileInput.click()"
+              >
+                @if (importing()) {
+                  <p class="text-sm text-gray-500 dark:text-zinc-400">Parsing file…</p>
+                } @else {
                   <svg
-                    class="w-4 h-4 text-red-600 dark:text-red-400 shrink-0"
+                    class="w-7 h-7 mx-auto text-gray-300 dark:text-zinc-600 mb-2"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
-                    stroke-width="2"
+                    stroke-width="1.5"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span
-                    class="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide"
-                  >
-                    Delete absent groups
-                  </span>
-                </div>
-                <label class="flex items-center gap-2 cursor-pointer select-none">
-                  <span class="text-xs text-gray-600 dark:text-zinc-400"
-                    >Remove from DB if not in Excel</span
-                  >
-                  <div
-                    class="relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"
-                    [class.bg-red-500]="importDeleteAbsent()"
-                    [class.bg-gray-300]="!importDeleteAbsent()"
-                    [class.dark:bg-red-600]="importDeleteAbsent()"
-                    [class.dark:bg-zinc-600]="!importDeleteAbsent()"
-                    (click)="importDeleteAbsent.set(!importDeleteAbsent())"
-                  >
-                    <div
-                      class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
-                      [class.translate-x-4]="importDeleteAbsent()"
-                    ></div>
-                  </div>
-                </label>
-              </div>
-              @if (importDeleteAbsent()) {
-                <div
-                  class="px-4 py-2.5 bg-red-50/60 dark:bg-red-950/60 border-t border-red-200 dark:border-red-800"
-                >
-                  <p class="text-xs text-red-700 dark:text-red-300">
-                    All groups (and their guests) <strong>not present</strong> in the Excel will be
-                    permanently deleted from the database.
+                  <p class="text-sm text-gray-500 dark:text-zinc-400">
+                    Drop .xlsx or .csv here or <span class="text-blue-500">click to browse</span>
                   </p>
+                  <p class="text-xs text-gray-400 dark:text-zinc-500 mt-1">
+                    Required: <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">group_code</code>
+                    · Optional: <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code>
+                    <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">host_name</code>
+                  </p>
+                }
+              </div>
+              <input #fileInput type="file" accept=".xlsx,.xls,.csv" class="hidden" (change)="onFileSelected($event)" />
+
+              @if (importError()) {
+                <p class="text-sm text-red-500">{{ importError() }}</p>
+              }
+            </div>
+          }
+
+          <!-- Step 2: Preview -->
+          @if (importStep() === 'preview' && parseResult()) {
+            <div class="space-y-4">
+              <!-- Summary badges -->
+              <div class="flex flex-wrap gap-2">
+                <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-gray-50 text-gray-700 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">
+                  Total: {{ parseResult()!.summary.total }}
+                </span>
+                <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800">
+                  New: {{ parseResult()!.summary.valid }}
+                </span>
+                @if (parseResult()!.summary.errors > 0) {
+                  <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800">
+                    Errors: {{ parseResult()!.summary.errors }}
+                  </span>
+                }
+                @if (parseResult()!.summary.duplicates > 0) {
+                  <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800">
+                    Existing: {{ parseResult()!.summary.duplicates }}
+                  </span>
+                }
+              </div>
+
+              <!-- Column picker -->
+              @if (parseResult()!.columns.length > 0) {
+                <div class="rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
+                  <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-[#27272a]">
+                    <span class="text-xs font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+                      Columns to import
+                      <span class="ml-1 font-normal normal-case text-gray-400 dark:text-zinc-500"
+                        >({{ importSelectedColumns().length }}/{{ parseResult()!.columns.length }})</span
+                      >
+                    </span>
+                    <div class="flex gap-3">
+                      <button type="button" (click)="selectAllColumns()" class="text-xs text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 font-medium">All</button>
+                      <button type="button" (click)="selectNoColumns()" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 font-medium">Required only</button>
+                    </div>
+                  </div>
+                  <div class="p-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                    @for (col of parseResult()!.columns; track col) {
+                      <label
+                        class="flex items-center gap-1.5 min-w-0"
+                        [class.cursor-pointer]="!isRequiredColumn(col)"
+                        [class.cursor-default]="isRequiredColumn(col)"
+                        [class.opacity-50]="isRequiredColumn(col)"
+                      >
+                        <input
+                          type="checkbox"
+                          [checked]="isColumnSelected(col)"
+                          [disabled]="isRequiredColumn(col)"
+                          (change)="toggleColumn(col)"
+                          class="shrink-0 rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400 focus:ring-offset-0"
+                        />
+                        <span class="text-xs text-gray-700 dark:text-zinc-300 truncate" [title]="col">{{ columnLabel(col) }}</span>
+                      </label>
+                    }
+                  </div>
                 </div>
               }
-            </div>
-          }
 
-          <!-- Result after import -->
-          @if (importResult()) {
-            <div
-              class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-4 space-y-1"
-            >
-              <p class="text-sm font-semibold text-green-700 dark:text-green-400">
-                Import complete
-              </p>
-              <p class="text-xs text-green-600 dark:text-green-500">
-                {{ importResult()!.created }} created · {{ importResult()!.updated }} updated ·
-                {{ importResult()!.total }} total
-                @if (importResult()!.regions_not_found) {
-                  ·
-                  <span class="text-orange-600 dark:text-orange-400"
-                    >{{ importResult()!.regions_not_found }} skipped (region not found)</span
-                  >
-                }
-                @if (importResult()!.deleted) {
-                  ·
-                  <span class="text-red-600 dark:text-red-400"
-                    >{{ importResult()!.deleted }} groups deleted</span
-                  >
-                }
-              </p>
-            </div>
-          }
+              <!-- Errors table -->
+              @if (parseResult()!.errors.length > 0) {
+                <div>
+                  <h4 class="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide mb-2">
+                    Rows with errors (will not be imported)
+                  </h4>
+                  <div class="rounded-lg border border-red-200 dark:border-red-900 overflow-hidden max-h-32 overflow-y-auto">
+                    <table class="w-full text-xs">
+                      <thead class="bg-red-50 dark:bg-red-950">
+                        <tr>
+                          <th class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium">Row</th>
+                          <th class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium">Code</th>
+                          <th class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium">Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-red-100 dark:divide-red-900">
+                        @for (err of parseResult()!.errors; track err.row) {
+                          <tr class="bg-white dark:bg-[#18181b]">
+                            <td class="px-3 py-1.5 text-gray-500 dark:text-zinc-400">{{ err.row }}</td>
+                            <td class="px-3 py-1.5 font-mono text-gray-700 dark:text-zinc-300">{{ err.group_code }}</td>
+                            <td class="px-3 py-1.5 text-red-600 dark:text-red-400">{{ err.reason }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              }
 
-          <!-- Drop zone (hidden once result shown) -->
-          @if (!importResult()) {
-            <div
-              class="border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer"
-              [class]="
-                isDragging
-                  ? 'border-blue-400 bg-blue-50 dark:bg-blue-950'
-                  : 'border-gray-300 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-700'
-              "
-              (dragover)="onDragOver($event)"
-              (dragleave)="onDragLeave()"
-              (drop)="onDrop($event)"
-              (click)="fileInput.click()"
-            >
-              @if (importing()) {
-                <p class="text-sm text-gray-500 dark:text-zinc-400">Importing…</p>
-              } @else {
-                <svg
-                  class="w-7 h-7 mx-auto text-gray-300 dark:text-zinc-600 mb-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <p class="text-sm text-gray-500 dark:text-zinc-400">
-                  Drop .xlsx or .csv here or <span class="text-blue-500">click to browse</span>
-                </p>
-                <p class="text-xs text-gray-400 dark:text-zinc-500 mt-1">
-                  Required:
-                  <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">group_code</code> ·
-                  Optional:
-                  <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code>
-                </p>
+              <!-- New rows preview -->
+              @if (parseResult()!.valid.length > 0) {
+                <div class="rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
+                  <div class="px-4 py-2.5 bg-gray-50 dark:bg-[#27272a]">
+                    <span class="text-xs font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+                      {{ parseResult()!.valid.length }} groups to create
+                    </span>
+                  </div>
+                  <div class="max-h-32 overflow-y-auto divide-y divide-gray-100 dark:divide-zinc-800">
+                    @for (row of parseResult()!.valid; track row.group_code) {
+                      <div class="px-4 py-2 flex items-center justify-between gap-3">
+                        <span class="font-mono text-xs text-gray-700 dark:text-zinc-300">{{ row.group_code }}</span>
+                        @if (row.host_name) {
+                          <span class="text-xs text-gray-400 dark:text-zinc-500 truncate">{{ row.host_name }}</span>
+                        }
+                        @if (row.region_name) {
+                          <span class="text-xs text-gray-400 dark:text-zinc-500 shrink-0">{{ row.region_name }}</span>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+
+              <!-- Existing groups (duplicates) -->
+              @if (parseResult()!.duplicateRows.length > 0) {
+                <div class="rounded-lg border border-yellow-200 dark:border-yellow-800 overflow-hidden">
+                  <div class="flex items-center justify-between px-4 py-2.5 bg-yellow-50 dark:bg-yellow-950">
+                    <span class="text-xs font-semibold text-yellow-700 dark:text-yellow-400 uppercase tracking-wide">
+                      {{ parseResult()!.duplicateRows.length }} already exist in database
+                    </span>
+                    <div
+                      class="relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"
+                      [class.bg-yellow-500]="importUpdateExisting()"
+                      [class.bg-gray-300]="!importUpdateExisting()"
+                      [class.dark:bg-yellow-600]="importUpdateExisting()"
+                      [class.dark:bg-zinc-600]="!importUpdateExisting()"
+                      (click)="importUpdateExisting.set(!importUpdateExisting())"
+                    >
+                      <div
+                        class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                        [class.translate-x-4]="importUpdateExisting()"
+                      ></div>
+                    </div>
+                  </div>
+                  @if (importUpdateExisting()) {
+                    <div class="max-h-32 overflow-y-auto divide-y divide-yellow-100 dark:divide-yellow-900">
+                      @for (row of parseResult()!.duplicateRows; track row.group_code) {
+                        <div class="px-4 py-2 flex items-center justify-between gap-3 bg-white dark:bg-[#18181b]">
+                          <span class="font-mono text-xs text-gray-700 dark:text-zinc-300">{{ row.group_code }}</span>
+                          @if (row.host_name) {
+                            <span class="text-xs text-gray-400 dark:text-zinc-500 truncate">{{ row.host_name }}</span>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+
+              <!-- Delete absent toggle -->
+              <div class="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-2.5 bg-red-50 dark:bg-red-950">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span class="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">Delete absent groups</span>
+                  </div>
+                  <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <span class="text-xs text-gray-600 dark:text-zinc-400">Remove from DB if not in Excel</span>
+                    <div
+                      class="relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"
+                      [class.bg-red-500]="importDeleteAbsent()"
+                      [class.bg-gray-300]="!importDeleteAbsent()"
+                      [class.dark:bg-red-600]="importDeleteAbsent()"
+                      [class.dark:bg-zinc-600]="!importDeleteAbsent()"
+                      (click)="importDeleteAbsent.set(!importDeleteAbsent())"
+                    >
+                      <div
+                        class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                        [class.translate-x-4]="importDeleteAbsent()"
+                      ></div>
+                    </div>
+                  </label>
+                </div>
+                @if (importDeleteAbsent() && (parseResult()?.toDelete?.length ?? 0) > 0) {
+                  <div class="px-4 py-2.5 bg-red-50/60 dark:bg-red-950/60 border-t border-red-200 dark:border-red-800">
+                    <p class="text-xs text-red-700 dark:text-red-300">
+                      {{ parseResult()!.toDelete.length }} groups (and their guests) will be permanently deleted.
+                    </p>
+                  </div>
+                }
+              </div>
+
+              @if (importError()) {
+                <p class="text-sm text-red-500">{{ importError() }}</p>
               }
             </div>
-            <input
-              #fileInput
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              class="hidden"
-              (change)="onFileSelected($event)"
-            />
-          }
-          @if (importError()) {
-            <p class="text-sm text-red-500">{{ importError() }}</p>
           }
 
-          <div class="flex justify-end">
+          <!-- Step 3: Done -->
+          @if (importStep() === 'done' && commitResult()) {
+            <div class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-4 space-y-1">
+              <p class="text-sm font-semibold text-green-700 dark:text-green-400">Import complete</p>
+              <p class="text-xs text-green-600 dark:text-green-500">
+                {{ commitResult()!.created }} created · {{ commitResult()!.updated }} updated · {{ commitResult()!.total }} total
+                @if (commitResult()!.regions_not_found) {
+                  · <span class="text-orange-600 dark:text-orange-400">{{ commitResult()!.regions_not_found }} skipped (region not found)</span>
+                }
+                @if (commitResult()!.hosts_not_found) {
+                  · <span class="text-orange-600 dark:text-orange-400">{{ commitResult()!.hosts_not_found }} congregation(s) not found</span>
+                }
+                @if (commitResult()!.deleted) {
+                  · <span class="text-red-600 dark:text-red-400">{{ commitResult()!.deleted }} groups deleted</span>
+                }
+              </p>
+            </div>
+          }
+        </div>
+
+        <!-- Footer -->
+        <div class="px-5 py-3 border-t border-gray-200 dark:border-zinc-700 flex justify-between shrink-0 bg-gray-50 dark:bg-[#27272a]">
+          @if (importStep() === 'preview') {
+            <button
+              (click)="importStep.set('upload')"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              ← Back
+            </button>
+            <button
+              (click)="commitImport()"
+              [disabled]="!canCommit || importing()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {{ importing() ? 'Importing…' : commitLabel }}
+            </button>
+          } @else {
+            <span></span>
             <button
               (click)="closeModal()"
               class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
             >
-              {{ importResult() ? 'Close' : 'Cancel' }}
+              {{ importStep() === 'done' ? 'Close' : 'Cancel' }}
             </button>
-          </div>
+          }
         </div>
       </div>
     }

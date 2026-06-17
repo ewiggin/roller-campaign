@@ -1,0 +1,51 @@
+import { inject, Injectable, OnDestroy } from '@angular/core';
+import { fetch } from '@tauri-apps/plugin-http';
+import { environment } from '../../../environments/environment';
+import { ToastService } from './toast.service';
+
+const VERSION_CHECK_URL = 'https://roller-admin.booringsoftware.com/version.txt';
+const CHECK_INTERVAL_MS = 30 * 60 * 1000;
+
+@Injectable({ providedIn: 'root' })
+export class VersionCheckService implements OnDestroy {
+  private readonly toast = inject(ToastService);
+  private intervalId: ReturnType<typeof setInterval> | null = null;
+
+  start() {
+    if (!environment.version) return;
+    this.check();
+    this.intervalId = setInterval(() => this.check(), CHECK_INTERVAL_MS);
+  }
+
+  ngOnDestroy() {
+    if (this.intervalId !== null) {
+      clearInterval(this.intervalId);
+    }
+  }
+
+  private check() {
+    console.log('[version-check] fetching...');
+    fetch(VERSION_CHECK_URL)
+      .then((res) => res.text())
+      .then((remoteVersion) => {
+        const remote = remoteVersion.trim().replace(/^[a-z]+-v/i, '');
+        console.log(`[version-check] local: ${environment.version} — remote: ${remote}`);
+        if (remote && environment.version && isNewerVersion(environment.version, remote)) {
+          this.toast.show(
+            `Nueva versión disponible: ${remote}. Descarga la última versión para actualizar.`,
+            'info',
+          );
+        }
+      })
+      .catch((err) => console.error('[version-check] error:', err));
+  }
+}
+
+function isNewerVersion(current: string, remote: string): boolean {
+  const parse = (v: string) => v.split('.').map(Number);
+  const [cMaj, cMin, cPat] = parse(current);
+  const [rMaj, rMin, rPat] = parse(remote);
+  if (rMaj !== cMaj) return rMaj > cMaj;
+  if (rMin !== cMin) return rMin > cMin;
+  return rPat > cPat;
+}

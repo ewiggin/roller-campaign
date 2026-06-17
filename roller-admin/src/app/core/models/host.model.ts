@@ -77,6 +77,7 @@ export interface ImportHostParseResponse {
   duplicateRows: ImportHostRow[];
   errors: { row: number; name: string; reason: string }[];
   summary: { total: number; valid: number; duplicates: number; errors: number };
+  columns: string[];
 }
 
 export interface ImportHostCommitResponse {

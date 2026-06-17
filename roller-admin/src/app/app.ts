@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ThemeService } from './core/services/theme.service';
 import { ToastContainerComponent } from './shared/components/toast-container/toast-container';
+import { VersionCheckService } from './core/services/version-check.service';
 
 @Component({
   selector: 'app-root',
@@ -14,5 +15,6 @@ import { ToastContainerComponent } from './shared/components/toast-container/toa
 export class App {
   constructor() {
     inject(ThemeService);
+    inject(VersionCheckService).start();
   }
 }

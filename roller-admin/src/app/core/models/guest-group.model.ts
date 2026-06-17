@@ -40,6 +40,35 @@ export interface GuestGroupListResponse {
   available_languages: string[];
 }
 
+export interface ImportGroupRow {
+  group_code: string;
+  region_name?: string | null;
+  host_name?: string | null;
+  available_from?: string | null;
+  available_to?: string | null;
+  composition?: string | null;
+  car_count?: number | null;
+}
+
+export interface ImportGroupParseResponse {
+  valid: ImportGroupRow[];
+  errors: { row: number; group_code: string; reason: string }[];
+  duplicates: string[];
+  duplicateRows: ImportGroupRow[];
+  toDelete: string[];
+  summary: { total: number; valid: number; errors: number; duplicates: number; to_delete: number };
+  columns: string[];
+}
+
+export interface ImportGroupCommitResponse {
+  created: number;
+  updated: number;
+  total: number;
+  regions_not_found?: number;
+  hosts_not_found?: number;
+  deleted?: number;
+}
+
 export interface CreateGuestGroupPayload {
   group_code: string;
   region_id: string;

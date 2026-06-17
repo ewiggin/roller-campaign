@@ -1,6 +1,6 @@
 {
   "name": "roller-backend",
-  "version": "0.35.0",
+  "version": "0.2.5",
   "description": "",
   "author": "ewiggin",
   "private": true,
@@ -22,6 +22,9 @@
     "test:cov": "jest --config ./test/jest-e2e.json --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json"
+  },
+  "engines": {
+    "node": ">=22.0.0 <23.0.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.798.0",
