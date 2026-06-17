@@ -109,7 +109,7 @@
                   <span class="text-xs text-gray-700 dark:text-zinc-300">
                     Voluntarios
                     @if (entry.hasVolunteers) {
-                      <span class="text-gray-400 dark:text-zinc-500">({{ entry.activity.volunteers?.length ?? 0 }})</span>
+                      <span class="text-gray-400 dark:text-zinc-500">({{ entry.activity.volunteers.length }})</span>
                     }
                   </span>
                 </label>
@@ -128,7 +128,7 @@
                   <span class="text-xs text-gray-700 dark:text-zinc-300">
                     Grupos de invitados
                     @if (entry.hasGuestGroups) {
-                      <span class="text-gray-400 dark:text-zinc-500">({{ entry.activity.guest_groups?.length ?? 0 }})</span>
+                      <span class="text-gray-400 dark:text-zinc-500">({{ entry.activity.guest_groups.length }})</span>
                     }
                   </span>
                 </label>
@@ -147,7 +147,7 @@
                   <span class="text-xs text-gray-700 dark:text-zinc-300">
                     Grupos de predicación
                     @if (entry.hasPreachingGroups) {
-                      <span class="text-gray-400 dark:text-zinc-500">({{ entry.activity.preaching_groups?.length ?? 0 }})</span>
+                      <span class="text-gray-400 dark:text-zinc-500">({{ entry.activity.preaching_groups.length }})</span>
                     }
                   </span>
                 </label>

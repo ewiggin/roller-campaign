@@ -136,6 +136,7 @@ Al añadir consumo de archivos nuevo, usar siempre los endpoints presign — nun
 ### Convenciones backend
 
 - DTOs: carpeta `dto/` dentro de cada módulo. Usar `PartialType` de `@nestjs/swagger` para updates.
+- **Todos los campos de un DTO de `@Body()` deben tener al menos un decorador de class-validator** (`@IsString()`, `@IsOptional()`, `@IsArray()`, etc.). El `ValidationPipe` global tiene `whitelist: true`: cualquier propiedad sin decorador es silenciosamente eliminada del objeto antes de llegar al servicio. El síntoma típico es que el handler recibe `undefined` en campos que el cliente sí envía — errores difíciles de depurar. Para arrays anidados de DTOs usar además `@ValidateNested({ each: true })` + `@Type(() => SubDto)` de class-transformer.
 - Entidades: carpeta `entities/` dentro de cada módulo.
 - No exportar password: los métodos de `UsersService` devuelven `Omit<User, 'password'>`.
 - Swagger: todos los controllers llevan `@ApiTags`, los endpoints protegidos `@ApiBearerAuth()`.

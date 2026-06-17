@@ -11,13 +11,19 @@ import {
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import type { GroupComposition, GuestGroup } from '../../../core/models/guest-group.model';
+import type {
+  GroupComposition,
+  GuestGroup,
+  ImportGroupCommitResponse,
+  ImportGroupParseResponse,
+  ImportGroupRow,
+} from '../../../core/models/guest-group.model';
 import type { Guest } from '../../../core/models/guest.model';
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { GuestGroupsService, ImportGroupResult } from '../../../core/services/guest-groups.service';
+import { GuestGroupsService } from '../../../core/services/guest-groups.service';
 import { GuestsService } from '../../../core/services/guests.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
@@ -90,12 +96,81 @@ export class GuestGroupsListComponent implements OnInit {
   readonly assigningHost = signal(false);
 
   // Import modal
+  readonly importStep = signal<'upload' | 'preview' | 'done'>('upload');
   readonly importRegionId = signal('');
   readonly importing = signal(false);
   readonly importError = signal('');
-  readonly importResult = signal<ImportGroupResult | null>(null);
+  readonly parseResult = signal<ImportGroupParseResponse | null>(null);
+  readonly commitResult = signal<ImportGroupCommitResponse | null>(null);
+  readonly importUpdateExisting = signal(false);
   readonly importDeleteAbsent = signal(false);
+  readonly importSelectedColumns = signal<string[]>([]);
   isDragging = false;
+
+  private readonly REQUIRED_COLUMNS = new Set(['group_code']);
+
+  private readonly COLUMN_LABELS: Record<string, string> = {
+    group_code: 'Group code',
+    region_name: 'Region',
+    host_name: 'Congregation',
+    available_from: 'Available from',
+    available_to: 'Available to',
+    composition: 'Composition',
+    car_count: 'Car count',
+  };
+
+  isRequiredColumn(col: string): boolean {
+    return this.REQUIRED_COLUMNS.has(col);
+  }
+
+  columnLabel(col: string): string {
+    return this.COLUMN_LABELS[col] ?? col;
+  }
+
+  toggleColumn(col: string) {
+    if (this.isRequiredColumn(col)) return;
+    const current = this.importSelectedColumns();
+    this.importSelectedColumns.set(
+      current.includes(col) ? current.filter((c) => c !== col) : [...current, col],
+    );
+  }
+
+  selectAllColumns() {
+    this.importSelectedColumns.set([...(this.parseResult()?.columns ?? [])]);
+  }
+
+  selectNoColumns() {
+    this.importSelectedColumns.set([...this.REQUIRED_COLUMNS]);
+  }
+
+  isColumnSelected(col: string): boolean {
+    return this.importSelectedColumns().includes(col);
+  }
+
+  get canCommit(): boolean {
+    const result = this.parseResult();
+    if (!result) return false;
+    return (
+      result.valid.length > 0 ||
+      (this.importUpdateExisting() && (result.duplicateRows?.length ?? 0) > 0) ||
+      (this.importDeleteAbsent() && (result.toDelete?.length ?? 0) > 0)
+    );
+  }
+
+  get commitLabel(): string {
+    const result = this.parseResult();
+    if (!result) return 'Import';
+    const creates = result.valid.length;
+    const updates = this.importUpdateExisting() ? (result.duplicateRows?.length ?? 0) : 0;
+    const allCols = result.columns?.length ?? 0;
+    const selCols = this.importSelectedColumns().length;
+    const parts: string[] = [];
+    if (creates > 0) parts.push(`Create ${creates}`);
+    if (updates > 0) parts.push(`Update ${updates} (${selCols}/${allCols} cols)`);
+    if (this.importDeleteAbsent() && (result.toDelete?.length ?? 0) > 0)
+      parts.push(`Delete ${result.toDelete.length}`);
+    return parts.join(' · ') || 'Import';
+  }
 
   // Guests modal
   readonly detailGroup = signal<GuestGroup | null>(null);
@@ -355,10 +430,14 @@ export class GuestGroupsListComponent implements OnInit {
   }
 
   openImport() {
-    this.importRegionId.set(this.selectedRegionId() || this.regions()[0]?.id || '');
+    this.importStep.set('upload');
+    this.importRegionId.set(this.selectedRegionId() || '');
     this.importError.set('');
-    this.importResult.set(null);
+    this.parseResult.set(null);
+    this.commitResult.set(null);
+    this.importUpdateExisting.set(false);
     this.importDeleteAbsent.set(false);
+    this.importSelectedColumns.set([]);
     this.activeModal.set('import');
   }
 
@@ -375,32 +454,63 @@ export class GuestGroupsListComponent implements OnInit {
     ev.preventDefault();
     this.isDragging = false;
     const file = ev.dataTransfer?.files[0];
-    if (file) this.doImport(file);
+    if (file) this.parseFile(file);
   }
 
   onFileSelected(ev: Event) {
     const file = (ev.target as HTMLInputElement).files?.[0];
-    if (file) this.doImport(file);
+    if (file) this.parseFile(file);
   }
 
-  private doImport(file: File) {
+  private parseFile(file: File) {
     this.importing.set(true);
     this.importError.set('');
-    this.importResult.set(null);
+    this.svc.parseImport(file).subscribe({
+      next: (result) => {
+        this.parseResult.set(result);
+        this.importSelectedColumns.set([...(result.columns ?? [])]);
+        this.importStep.set('preview');
+        this.importing.set(false);
+      },
+      error: () => {
+        this.importError.set('Error parsing file. Check the format.');
+        this.importing.set(false);
+      },
+    });
+  }
+
+  commitImport() {
+    const result = this.parseResult();
+    if (!result || !this.canCommit) return;
+    this.importing.set(true);
+    this.importError.set('');
+    const regionId = this.importRegionId() || undefined;
+    const updateRows = this.importUpdateExisting() ? (result.duplicateRows ?? []) : undefined;
+    const deleteAbsent = this.importDeleteAbsent() ? true : undefined;
+    const toDeleteCodes = deleteAbsent ? result.toDelete : undefined;
+    const selectedCols = this.importSelectedColumns();
+    const allCols = result.columns ?? [];
+    const isPartial = selectedCols.length < allCols.length;
     this.svc
-      .importFromExcel(
-        file,
-        this.importRegionId() || undefined,
-        this.importDeleteAbsent() || undefined,
+      .commitImport(
+        result.valid as ImportGroupRow[],
+        updateRows,
+        regionId,
+        deleteAbsent,
+        isPartial ? true : undefined,
+        isPartial ? selectedCols : undefined,
+        toDeleteCodes,
+        result.columns,
       )
       .subscribe({
-        next: (result) => {
-          this.importResult.set(result);
+        next: (res) => {
+          this.commitResult.set(res);
+          this.importStep.set('done');
           this.importing.set(false);
           this.loadGroups();
         },
         error: () => {
-          this.importError.set('Error importing file. Check the format.');
+          this.importError.set('Error committing import.');
           this.importing.set(false);
         },
       });

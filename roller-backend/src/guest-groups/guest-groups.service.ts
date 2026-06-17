@@ -18,12 +18,28 @@ import {
   GroupAggregates,
   GuestAggregateInput,
 } from './aggregates';
+import { CommitGroupImportDto } from './dto/commit-group-import.dto';
 import { CreateGuestGroupDto } from './dto/create-guest-group.dto';
 import { GuestGroupResponseDto } from './dto/guest-group-response.dto';
 import { ImportGroupResponseDto } from './dto/import-group-response.dto';
+import { ImportGroupRowDto } from './dto/import-group-row.dto';
+import { ParseGroupResponseDto } from './dto/parse-group-response.dto';
 import { RecomputeAggregatesResponseDto } from './dto/recompute-aggregates-response.dto';
 import { UpdateGuestGroupDto } from './dto/update-guest-group.dto';
 import { GuestGroup } from './entities/guest-group.entity';
+
+const IMPORT_COLUMN_MAP: Record<string, string> = {
+  group_code: 'group_code',
+  region_name: 'region_name',
+  host_name: 'host_name',
+  available_from: 'available_from',
+  start_date: 'available_from',
+  available_to: 'available_to',
+  end_date: 'available_to',
+  composition: 'composition',
+  group_type: 'composition',
+  car_count: 'car_count',
+};
 
 @Injectable()
 export class GuestGroupsService {
@@ -309,6 +325,262 @@ export class GuestGroupsService {
       { id: guestId },
       { is_group_contact: true },
     );
+  }
+
+  async parseImport(buffer: Buffer): Promise<ParseGroupResponseDto> {
+    const wb = XLSX.read(buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const sheetHeaders = (
+      XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 })[0] ?? []
+    ) as string[];
+
+    const seenCanonical = new Set<string>();
+    const columns: string[] = [];
+    for (const h of sheetHeaders) {
+      const canonical = IMPORT_COLUMN_MAP[h];
+      if (canonical && !seenCanonical.has(canonical)) {
+        seenCanonical.add(canonical);
+        columns.push(canonical);
+      }
+    }
+
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
+      defval: null,
+    });
+
+    const valid: ImportGroupRowDto[] = [];
+    const errors: { row: number; group_code: string; reason: string }[] = [];
+    const seenCodes = new Set<string>();
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2;
+      const code = this.parseGroupCode(row);
+
+      if (!code) {
+        errors.push({ row: rowNum, group_code: '', reason: 'group_code es obligatorio' });
+        continue;
+      }
+      if (seenCodes.has(code)) {
+        errors.push({ row: rowNum, group_code: code, reason: 'group_code duplicado en el archivo' });
+        continue;
+      }
+      seenCodes.add(code);
+
+      const avail = this.parseAvailability(row);
+      const rawHostName = row['host_name'];
+      const hostName = typeof rawHostName === 'string' ? rawHostName.trim() : null;
+      const rawRegionName = row['region_name'];
+      const regionName = typeof rawRegionName === 'string' ? rawRegionName.trim() : null;
+
+      valid.push({
+        group_code: code,
+        region_name: regionName || null,
+        host_name: hostName || null,
+        available_from: avail.available_from ?? null,
+        available_to: avail.available_to ?? null,
+        composition: avail.composition ?? null,
+        car_count: avail.car_count ?? null,
+      });
+    }
+
+    const validCodes = valid.map((r) => r.group_code);
+    const existing =
+      validCodes.length > 0
+        ? await this.groupsRepository.find({
+            where: { group_code: In(validCodes) },
+            select: { group_code: true },
+          })
+        : [];
+    const existingCodes = new Set(existing.map((g) => g.group_code));
+
+    const duplicateRows = valid.filter((r) => existingCodes.has(r.group_code));
+    const newRows = valid.filter((r) => !existingCodes.has(r.group_code));
+    const duplicates = duplicateRows.map((r) => r.group_code);
+
+    const allDbGroups = await this.groupsRepository.find({
+      select: { group_code: true },
+    });
+    const excelCodes = new Set(valid.map((r) => r.group_code));
+    const toDelete = allDbGroups
+      .filter((g) => !excelCodes.has(g.group_code))
+      .map((g) => g.group_code);
+
+    return {
+      valid: newRows,
+      errors,
+      duplicates,
+      duplicateRows,
+      toDelete,
+      summary: {
+        total: rows.length,
+        valid: newRows.length,
+        errors: errors.length,
+        duplicates: duplicates.length,
+        to_delete: toDelete.length,
+      },
+      columns,
+    };
+  }
+
+  async commitGroupImport(
+    dto: CommitGroupImportDto,
+    currentUser: JwtPayload,
+  ): Promise<ImportGroupResponseDto> {
+    const rows = dto.rows ?? [];
+    const updateRows = dto.updateRows ?? [];
+
+    if (rows.length > 0) {
+      const hasRegionCol = (dto.fileColumns ?? []).includes('region_name')
+        || rows.some((r) => r.region_name != null);
+      if (!hasRegionCol && !dto.regionId) {
+        throw new BadRequestException(
+          'regionId is required when the file has no region_name column',
+        );
+      }
+    }
+
+    const allRegions = await this.regionsRepository.find({ select: ['id', 'name'] });
+    const regionMap = new Map(allRegions.map((r) => [r.name.toLowerCase(), r.id]));
+
+    let accessibleIds: Set<string> | 'all';
+    if (currentUser.role === 'superadmin') {
+      accessibleIds = 'all';
+    } else {
+      const user = await this.usersRepository.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      accessibleIds = new Set((user?.regions ?? []).map((r) => r.id));
+    }
+
+    if (dto.regionId) {
+      await this.assertRegionAccess(dto.regionId, currentUser);
+    }
+
+    // Host lookup cache: key = `${regionId}:${hostNameLower}`
+    const hostCache = new Map<string, string | null>();
+    const resolveHostId = async (regionId: string, hostName: string | null | undefined): Promise<string | null> => {
+      if (!hostName) return null;
+      const cacheKey = `${regionId}:${hostName.toLowerCase()}`;
+      if (hostCache.has(cacheKey)) return hostCache.get(cacheKey)!;
+      const host = await this.hostsRepository.findOne({
+        where: { region_id: regionId, name: hostName },
+        select: { id: true },
+      });
+      const id = host?.id ?? null;
+      hostCache.set(cacheKey, id);
+      return id;
+    };
+
+    let created = 0;
+    let updated = 0;
+    let regions_not_found = 0;
+    let hosts_not_found = 0;
+
+    const resolveRegionId = (row: ImportGroupRowDto): string | null => {
+      if (dto.regionId) return dto.regionId;
+      if (!row.region_name) return null;
+      return regionMap.get(row.region_name.toLowerCase()) ?? null;
+    };
+
+    const isAccessible = (regionId: string): boolean =>
+      accessibleIds === 'all' || accessibleIds.has(regionId);
+
+    // ── Create new rows ───────────────────────────────────────────────────
+    for (const row of rows) {
+      const regionId = resolveRegionId(row);
+      if (!regionId) { regions_not_found++; continue; }
+      if (!isAccessible(regionId)) { regions_not_found++; continue; }
+
+      const exists = await this.groupsRepository.findOne({
+        where: { group_code: row.group_code },
+      });
+      if (exists) continue;
+
+      const hostId = await resolveHostId(regionId, row.host_name);
+      if (row.host_name && hostId === null) hosts_not_found++;
+
+      await this.groupsRepository.save(
+        this.groupsRepository.create({
+          group_code: row.group_code,
+          region_id: regionId,
+          host_id: hostId ?? null,
+          available_from: row.available_from ?? null,
+          available_to: row.available_to ?? null,
+          composition: (row.composition as GuestGroup['composition']) ?? null,
+          car_count: row.car_count ?? null,
+        }),
+      );
+      created++;
+    }
+
+    // ── Update existing rows ──────────────────────────────────────────────
+    const updateColumns =
+      dto.partialUpdate && dto.columns ? new Set(dto.columns) : null;
+
+    for (const row of updateRows) {
+      const group = await this.groupsRepository.findOne({
+        where: { group_code: row.group_code },
+      });
+      if (!group) continue;
+      if (!isAccessible(group.region_id)) continue;
+
+      const applyAll = !updateColumns;
+      const apply = (col: string) => applyAll || updateColumns!.has(col);
+
+      const patch: Partial<GuestGroup> = {};
+      if (apply('available_from')) patch.available_from = row.available_from ?? null;
+      if (apply('available_to')) patch.available_to = row.available_to ?? null;
+      if (apply('composition')) patch.composition = (row.composition as GuestGroup['composition']) ?? null;
+      if (apply('car_count')) patch.car_count = row.car_count ?? null;
+
+      if (apply('host_name')) {
+        const hostId = await resolveHostId(group.region_id, row.host_name);
+        if (row.host_name && hostId === null) hosts_not_found++;
+        patch.host_id = hostId ?? null;
+      }
+
+      if (apply('region_name') && row.region_name) {
+        const newRegionId = regionMap.get(row.region_name.toLowerCase());
+        if (newRegionId && isAccessible(newRegionId)) patch.region_id = newRegionId;
+      }
+
+      Object.assign(group, patch);
+      await this.groupsRepository.save(group);
+      updated++;
+    }
+
+    // ── Delete absent ─────────────────────────────────────────────────────
+    let deleted = 0;
+    if (dto.deleteAbsent && (dto.toDeleteCodes ?? []).length > 0) {
+      const codesToDelete = dto.toDeleteCodes!;
+      const absentGroups = await this.groupsRepository.find({
+        where: { group_code: In(codesToDelete) },
+        select: { id: true },
+      });
+      const absentIds = absentGroups.map((g) => g.id);
+      for (let i = 0; i < absentIds.length; i += 200) {
+        await this.guestsRepository.delete({
+          group_id: In(absentIds.slice(i, i + 200)),
+        });
+      }
+      for (let i = 0; i < absentIds.length; i += 200) {
+        await this.groupsRepository.delete({
+          id: In(absentIds.slice(i, i + 200)),
+        });
+      }
+      deleted = absentIds.length;
+    }
+
+    return {
+      created,
+      updated,
+      total: rows.length + updateRows.length,
+      ...(regions_not_found > 0 ? { regions_not_found } : {}),
+      ...(hosts_not_found > 0 ? { hosts_not_found } : {}),
+      ...(deleted > 0 ? { deleted } : {}),
+    };
   }
 
   async importFromExcel(
