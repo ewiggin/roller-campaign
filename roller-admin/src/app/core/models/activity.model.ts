@@ -136,6 +136,7 @@ export interface UpdateActivityPayload extends Partial<CreateActivityPayload> {
 }
 
 export interface CreateActivityPayload {
+  id?: string;
   region_id: string;
   name: string;
   icon?: string | null;

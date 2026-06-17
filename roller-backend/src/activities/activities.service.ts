@@ -87,6 +87,7 @@ export class ActivitiesService {
     if (!region) throw new NotFoundException('Región no encontrada');
 
     const activity = this.activitiesRepo.create({
+      ...(dto.id ? { id: dto.id } : {}),
       region_id: dto.region_id,
       name: dto.name,
       icon: dto.icon ?? null,

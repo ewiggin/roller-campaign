@@ -19,6 +19,11 @@ import { LocationPointDto } from './location-point.dto';
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export class CreateActivityDto {
+  @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   @IsUUID()
   region_id: string;

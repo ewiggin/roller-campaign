@@ -20,6 +20,7 @@ import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { StorageService } from '../../../core/services/storage.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
+import { downloadFile } from '../../../core/utils/download-file';
 import { CalendarComponent } from '../../../shared/components/calendar/calendar';
 import { EmojiPickerComponent } from '../../../shared/components/emoji-picker/emoji-picker';
 import {
@@ -27,6 +28,7 @@ import {
   type PlaceResult,
 } from '../../../shared/components/location-picker/location-picker';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
+import { ActivityImportModalComponent } from './activity-import-modal';
 
 type ActiveModal = 'create' | 'detail' | null;
 type DetailTab = 'info' | 'volunteers' | 'groups' | 'preaching-groups';
@@ -47,6 +49,7 @@ interface LocationSlot {
     LocationPickerComponent,
     EmojiPickerComponent,
     CalendarComponent,
+    ActivityImportModalComponent,
   ],
   templateUrl: './activities-list.html',
 })
@@ -129,6 +132,41 @@ export class ActivitiesListComponent implements OnInit {
 
   clearSelection() {
     this.selectedIds.set(new Set());
+  }
+
+  // ── Import / Export ───────────────────────────────────────────────────────
+
+  readonly importModalOpen = signal(false);
+  readonly exporting = signal(false);
+
+  exportSelected() {
+    const ids = [...this.selectedIds()];
+    if (!ids.length) return;
+    this.exporting.set(true);
+    from(ids)
+      .pipe(
+        concatMap(id => this.svc.getOne(id)),
+        toArray(),
+      )
+      .subscribe({
+        next: async activities => {
+          const blob = new Blob([JSON.stringify(activities, null, 2)], {
+            type: 'application/json',
+          });
+          const date = new Date().toISOString().slice(0, 10);
+          await downloadFile(blob, `activities-${date}.json`);
+          this.exporting.set(false);
+        },
+        error: () => this.exporting.set(false),
+      });
+  }
+
+  onImportDone() {
+    this.importModalOpen.set(false);
+    this.load();
+    if (this.viewMode() === 'calendar' && this.calendarPeriod) {
+      this.fetchCalendar(this.calendarPeriod);
+    }
   }
 
   bulkPublish() {
