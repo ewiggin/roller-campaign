@@ -7,7 +7,8 @@
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
-    "build:sidecar": "npm --prefix ../roller-backend run build:sidecar"
+    "build:sidecar": "npm --prefix ../roller-backend run build:sidecar",
+    "tag": "../tag.sh"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6"
