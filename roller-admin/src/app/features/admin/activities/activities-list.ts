@@ -313,6 +313,7 @@ export class ActivitiesListComponent implements OnInit {
     max_guests: [null as number | null, [Validators.min(1)]],
     is_preaching_shift: [false],
     request_attendance: [false],
+    preaching_groups_count: [null as number | null, [Validators.min(1), Validators.max(50)]],
   });
 
   readonly createDescLen = signal(0);
@@ -789,20 +790,47 @@ export class ActivitiesListComponent implements OnInit {
       is_preaching_shift: this.preachingShiftsOnly,
     };
 
+    const groupsToCreate =
+      this.preachingShiftsOnly && this.createForm.value.preaching_groups_count
+        ? this.createForm.value.preaching_groups_count
+        : 0;
+
+    const addGroups = (activityId: string): ReturnType<typeof this.svc.getOne> =>
+      from(Array(groupsToCreate).fill(null)).pipe(
+        concatMap(() => this.svc.addPreachingGroup(activityId)),
+        last(),
+        switchMap(() => this.svc.getOne(activityId)),
+      );
+
+    const afterCreate = (activity: Activity): ReturnType<typeof this.svc.getOne> =>
+      groupsToCreate > 0 ? addGroups(activity.id) : of(activity);
+
     if (this.repeatEnabled()) {
       this.svc
         .createBatch({
           ...basePayload,
           repetition: { type: this.repeatType(), count: this.repeatCount() },
         })
+        .pipe(
+          switchMap((activities) =>
+            groupsToCreate > 0
+              ? from(activities).pipe(
+                  concatMap((a) => addGroups(a.id)),
+                  last(),
+                )
+              : activities[0]
+                ? of(activities[0])
+                : of(null as unknown as Activity),
+          ),
+        )
         .subscribe({
-          next: (activities) => {
+          next: (first) => {
             this.saving.set(false);
             this.activeModal.set(null);
             this.load();
             if (this.viewMode() === 'calendar')
               if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
-            if (activities[0]) this.openDetail(activities[0]);
+            if (first) this.openDetail(first);
           },
           error: () => {
             this.formError.set('Error creating activities.');
@@ -810,20 +838,23 @@ export class ActivitiesListComponent implements OnInit {
           },
         });
     } else {
-      this.svc.create(basePayload).subscribe({
-        next: (activity) => {
-          this.saving.set(false);
-          this.activeModal.set(null);
-          this.load();
-          if (this.viewMode() === 'calendar')
-            if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
-          this.openDetail(activity);
-        },
-        error: () => {
-          this.formError.set('Error creating activity.');
-          this.saving.set(false);
-        },
-      });
+      this.svc
+        .create(basePayload)
+        .pipe(switchMap((activity) => afterCreate(activity)))
+        .subscribe({
+          next: (activity) => {
+            this.saving.set(false);
+            this.activeModal.set(null);
+            this.load();
+            if (this.viewMode() === 'calendar')
+              if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
+            this.openDetail(activity);
+          },
+          error: () => {
+            this.formError.set('Error creating activity.');
+            this.saving.set(false);
+          },
+        });
     }
   }
 

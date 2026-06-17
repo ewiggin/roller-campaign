@@ -605,6 +605,23 @@
                 />
               </div>
             </div>
+
+            @if (preachingShiftsOnly) {
+              <div>
+                <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+                  >Grupos de predicación
+                  <span class="font-normal text-gray-400 dark:text-zinc-600">(opcional)</span>
+                </label>
+                <input
+                  type="number"
+                  formControlName="preaching_groups_count"
+                  min="1"
+                  max="50"
+                  placeholder="—"
+                  class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+                />
+              </div>
+            }
           </div>
 
           <!-- Request attendance -->
