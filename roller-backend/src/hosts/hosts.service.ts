@@ -33,6 +33,17 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 const WEEKDAY_LABELS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
+const DAY_ABBR_MAP: Record<string, number> = {
+  lun: 1, mar: 2, 'mié': 3, mie: 3, jue: 4, vie: 5, 'sáb': 6, sab: 6, dom: 7,
+};
+
+function parseMeetingDay(value: unknown): number | null {
+  if (value === '' || value == null) return null;
+  const num = Number(value);
+  if (!isNaN(num) && num >= 1 && num <= 7) return num;
+  return DAY_ABBR_MAP[String(value).toLowerCase().trim()] ?? null;
+}
+
 const HOST_HEADER_COLORS = [
   { bg: '#dbeafe', text: '#1e3a8a' },
   { bg: '#dcfce7', text: '#14532d' },
@@ -752,9 +763,28 @@ export class HostsService {
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
+  private static readonly KNOWN_HOST_COLUMNS = new Set([
+    'name',
+    'region_name',
+    'address',
+    'lat',
+    'lng',
+    'weekday_meeting_day',
+    'weekday_meeting_time',
+    'weekend_meeting_day',
+    'weekend_meeting_time',
+    'capacity',
+  ]);
+
   async parseImport(buffer: Buffer): Promise<ImportHostParseResponseDto> {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const sheetHeaders = (XLSX.utils.sheet_to_json<string[]>(sheet, {
+      header: 1,
+    })[0] ?? []) as string[];
+    const columns = sheetHeaders.filter(
+      (h) => typeof h === 'string' && HostsService.KNOWN_HOST_COLUMNS.has(h),
+    );
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       defval: '',
     });
@@ -806,16 +836,10 @@ export class HostsService {
         address: String(raw['address'] ?? '').trim() || null,
         lat: raw['lat'] !== '' ? Number(raw['lat']) || null : null,
         lng: raw['lng'] !== '' ? Number(raw['lng']) || null : null,
-        weekday_meeting_day:
-          raw['weekday_meeting_day'] !== ''
-            ? Number(raw['weekday_meeting_day']) || null
-            : null,
+        weekday_meeting_day: parseMeetingDay(raw['weekday_meeting_day']),
         weekday_meeting_time:
           String(raw['weekday_meeting_time'] ?? '').trim() || null,
-        weekend_meeting_day:
-          raw['weekend_meeting_day'] !== ''
-            ? Number(raw['weekend_meeting_day']) || null
-            : null,
+        weekend_meeting_day: parseMeetingDay(raw['weekend_meeting_day']),
         weekend_meeting_time:
           String(raw['weekend_meeting_time'] ?? '').trim() || null,
         capacity:
@@ -833,6 +857,7 @@ export class HostsService {
       valid,
       duplicateRows,
       errors,
+      columns,
       summary: {
         total: rows.length,
         valid: valid.length,
@@ -866,17 +891,26 @@ export class HostsService {
           name: row.name,
           region_id: regionId,
           address: row.address ?? null,
-          lat: row.lat ?? null,
-          lng: row.lng ?? null,
-          weekday_meeting_day: row.weekday_meeting_day ?? null,
+          lat: row.lat != null ? Number(row.lat) : null,
+          lng: row.lng != null ? Number(row.lng) : null,
+          weekday_meeting_day:
+            row.weekday_meeting_day != null
+              ? Number(row.weekday_meeting_day)
+              : null,
           weekday_meeting_time: row.weekday_meeting_time ?? null,
-          weekend_meeting_day: row.weekend_meeting_day ?? null,
+          weekend_meeting_day:
+            row.weekend_meeting_day != null
+              ? Number(row.weekend_meeting_day)
+              : null,
           weekend_meeting_time: row.weekend_meeting_time ?? null,
-          capacity: row.capacity ?? null,
+          capacity: row.capacity != null ? Number(row.capacity) : null,
         }),
       );
       created++;
     }
+
+    const updateColumns =
+      dto.partialUpdate && dto.columns ? new Set(dto.columns) : null;
 
     for (const row of dto.updateRows ?? []) {
       const regionId = regionMap.get(row.region_name.toLowerCase());
@@ -887,17 +921,29 @@ export class HostsService {
         .andWhere('h.region_id = :regionId', { regionId })
         .getOne();
       if (!existing) continue;
-      Object.assign(existing, {
+      const allFields: Partial<Host> = {
         address: row.address ?? null,
-        lat: row.lat ?? null,
-        lng: row.lng ?? null,
-        weekday_meeting_day: row.weekday_meeting_day ?? null,
+        lat: row.lat != null ? Number(row.lat) : null,
+        lng: row.lng != null ? Number(row.lng) : null,
+        weekday_meeting_day:
+          row.weekday_meeting_day != null
+            ? Number(row.weekday_meeting_day)
+            : null,
         weekday_meeting_time: row.weekday_meeting_time ?? null,
-        weekend_meeting_day: row.weekend_meeting_day ?? null,
+        weekend_meeting_day:
+          row.weekend_meeting_day != null
+            ? Number(row.weekend_meeting_day)
+            : null,
         weekend_meeting_time: row.weekend_meeting_time ?? null,
-        capacity: row.capacity ?? null,
-      });
-      await this.hostsRepo.save(existing);
+        capacity: row.capacity != null ? Number(row.capacity) : null,
+      };
+      const patch = updateColumns
+        ? (Object.fromEntries(
+            Object.entries(allFields).filter(([k]) => updateColumns.has(k)),
+          ) as Partial<Host>)
+        : allFields;
+      if (Object.keys(patch).length === 0) continue;
+      await this.hostsRepo.update(existing.id, patch);
       updated++;
     }
 

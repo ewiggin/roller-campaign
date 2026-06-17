@@ -210,7 +210,51 @@ export class HostsListComponent implements OnInit {
   readonly parseResult = signal<ImportHostParseResponse | null>(null);
   readonly commitResult = signal<ImportHostCommitResponse | null>(null);
   readonly importUpdateExisting = signal(false);
+  readonly importSelectedColumns = signal<string[]>([]);
   isDragging = false;
+
+  private readonly REQUIRED_COLUMNS = new Set(['name', 'region_name']);
+
+  private readonly COLUMN_LABELS: Record<string, string> = {
+    name: 'Name',
+    region_name: 'Region',
+    address: 'Address',
+    lat: 'Latitude',
+    lng: 'Longitude',
+    weekday_meeting_day: 'Weekday day',
+    weekday_meeting_time: 'Weekday time',
+    weekend_meeting_day: 'Weekend day',
+    weekend_meeting_time: 'Weekend time',
+    capacity: 'Capacity',
+  };
+
+  isRequiredColumn(col: string): boolean {
+    return this.REQUIRED_COLUMNS.has(col);
+  }
+
+  columnLabel(col: string): string {
+    return this.COLUMN_LABELS[col] ?? col;
+  }
+
+  toggleColumn(col: string) {
+    if (this.isRequiredColumn(col)) return;
+    const current = this.importSelectedColumns();
+    this.importSelectedColumns.set(
+      current.includes(col) ? current.filter((c) => c !== col) : [...current, col],
+    );
+  }
+
+  selectAllColumns() {
+    this.importSelectedColumns.set([...(this.parseResult()?.columns ?? [])]);
+  }
+
+  selectNoColumns() {
+    this.importSelectedColumns.set([...this.REQUIRED_COLUMNS]);
+  }
+
+  isColumnSelected(col: string): boolean {
+    return this.importSelectedColumns().includes(col);
+  }
 
   openImport() {
     this.importStep.set('upload');
@@ -218,6 +262,7 @@ export class HostsListComponent implements OnInit {
     this.parseResult.set(null);
     this.commitResult.set(null);
     this.importUpdateExisting.set(false);
+    this.importSelectedColumns.set([]);
     this.importModal.set(true);
   }
 
@@ -269,6 +314,7 @@ export class HostsListComponent implements OnInit {
     this.svc.parseImport(file).subscribe({
       next: (result) => {
         this.parseResult.set(result);
+        this.importSelectedColumns.set([...(result.columns ?? [])]);
         this.importStep.set('preview');
         this.importing.set(false);
       },
@@ -292,8 +338,12 @@ export class HostsListComponent implements OnInit {
     if (!r) return 'Import';
     const parts: string[] = [];
     if (r.valid.length > 0) parts.push(`Import ${r.valid.length} new`);
-    if (this.importUpdateExisting() && r.duplicateRows.length > 0)
-      parts.push(`update ${r.duplicateRows.length} existing`);
+    if (this.importUpdateExisting() && r.duplicateRows.length > 0) {
+      const allCols = r.columns?.length ?? 0;
+      const selCols = this.importSelectedColumns().length;
+      const colNote = selCols < allCols ? ` (${selCols} cols)` : '';
+      parts.push(`update ${r.duplicateRows.length} existing${colNote}`);
+    }
     return parts.join(' + ') || 'Import';
   }
 
@@ -303,16 +353,26 @@ export class HostsListComponent implements OnInit {
     this.importing.set(true);
     this.importError.set('');
     const updateRows = this.importUpdateExisting() ? r.duplicateRows : undefined;
-    this.svc.commitImport(r.valid, updateRows).subscribe({
-      next: (res) => {
-        this.commitResult.set(res);
-        this.importStep.set('done');
-        this.importing.set(false);
-      },
-      error: () => {
-        this.importError.set('Error committing import.');
-        this.importing.set(false);
-      },
-    });
+    const selectedCols = this.importSelectedColumns();
+    const allCols = r.columns ?? [];
+    const isPartial = selectedCols.length < allCols.length;
+    this.svc
+      .commitImport(
+        r.valid,
+        updateRows,
+        isPartial ? true : undefined,
+        isPartial ? selectedCols : undefined,
+      )
+      .subscribe({
+        next: (res) => {
+          this.commitResult.set(res);
+          this.importStep.set('done');
+          this.importing.set(false);
+        },
+        error: () => {
+          this.importError.set('Error committing import.');
+          this.importing.set(false);
+        },
+      });
   }
 }

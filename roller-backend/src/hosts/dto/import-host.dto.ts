@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsArray, IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class ImportHostRowDto {
   @ApiProperty({ example: 'Congregación Norte' })
@@ -70,21 +69,33 @@ export class ImportHostParseResponseDto {
 
   @ApiProperty({ example: { total: 10, valid: 8, duplicates: 1, errors: 1 } })
   summary: { total: number; valid: number; duplicates: number; errors: number };
+
+  @ApiProperty({ example: ['name', 'region_name', 'address', 'weekday_meeting_day'] })
+  columns: string[];
 }
 
 export class ImportHostCommitDto {
+  // Rows are validated during the parse step; no re-validation here to avoid
+  // the whitelist pipe stripping fields from ImportHostRowDto properties.
   @ApiProperty({ type: [ImportHostRowDto] })
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ImportHostRowDto)
   rows: ImportHostRowDto[];
 
   @ApiPropertyOptional({ type: [ImportHostRowDto] })
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ImportHostRowDto)
   updateRows?: ImportHostRowDto[];
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  partialUpdate?: boolean;
+
+  @ApiPropertyOptional({ example: ['address', 'weekday_meeting_day'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  columns?: string[];
 }
 
 export class ImportHostCommitResponseDto {
