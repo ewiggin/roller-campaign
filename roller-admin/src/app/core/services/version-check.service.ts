@@ -30,7 +30,7 @@ export class VersionCheckService implements OnDestroy {
       .then((remoteVersion) => {
         const remote = remoteVersion.trim().replace(/^[a-z]+-v/i, '');
         console.log(`[version-check] local: ${environment.version} — remote: ${remote}`);
-        if (remote && isNewerVersion(environment.version, remote)) {
+        if (remote && environment.version && isNewerVersion(environment.version, remote)) {
           this.toast.show(
             `Nueva versión disponible: ${remote}. Descarga la última versión para actualizar.`,
             'info',
