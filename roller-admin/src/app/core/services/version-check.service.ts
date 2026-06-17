@@ -30,7 +30,7 @@ export class VersionCheckService implements OnDestroy {
       .then((remoteVersion) => {
         const remote = remoteVersion.trim().replace(/^[a-z]+-v/i, '');
         console.log(`[version-check] local: ${environment.version} — remote: ${remote}`);
-        if (remote && remote !== environment.version) {
+        if (remote && isNewerVersion(environment.version, remote)) {
           this.toast.show(
             `Nueva versión disponible: ${remote}. Descarga la última versión para actualizar.`,
             'info',
@@ -39,4 +39,13 @@ export class VersionCheckService implements OnDestroy {
       })
       .catch((err) => console.error('[version-check] error:', err));
   }
+}
+
+function isNewerVersion(current: string, remote: string): boolean {
+  const parse = (v: string) => v.split('.').map(Number);
+  const [cMaj, cMin, cPat] = parse(current);
+  const [rMaj, rMin, rPat] = parse(remote);
+  if (rMaj !== cMaj) return rMaj > cMaj;
+  if (rMin !== cMin) return rMin > cMin;
+  return rPat > cPat;
 }
