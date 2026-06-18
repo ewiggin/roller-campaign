@@ -26,6 +26,11 @@ const ADMIN_PASSWORD: &str = match option_env!("ROLLER_ADMIN_PASSWORD") {
     None => "roller-admin",
 };
 
+const GOOGLE_MAPS_API_KEY: &str = match option_env!("ROLLER_GOOGLE_MAPS_API_KEY") {
+    Some(v) => v,
+    None => "AIzaSyCAlxhBc7f3JB3dcUtamk_vka3VGGccOlQ",
+};
+
 struct Sidecar(Mutex<Option<CommandChild>>);
 
 fn kill_sidecar(app: &tauri::AppHandle) {
@@ -177,6 +182,7 @@ fn spawn_sidecar(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error
         ("JWT_SECRET".into(), jwt_secret),
         ("ADMIN_EMAIL".into(), ADMIN_EMAIL.into()),
         ("ADMIN_PASSWORD".into(), ADMIN_PASSWORD.into()),
+        ("GOOGLE_MAPS_API_KEY".into(), GOOGLE_MAPS_API_KEY.into()),
     ]);
 
     let (mut rx, child) = app.shell().sidecar("roller-backend")?.envs(envs).spawn()?;

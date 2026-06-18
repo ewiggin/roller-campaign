@@ -1588,6 +1588,40 @@ export class ActivitiesService {
 
   // ── Schedule PDF export ───────────────────────────────────────────────────
 
+  private congregationMeetings(
+    host: Host,
+    days: string[],
+  ): ScheduleActivityItem[] {
+    const slots = [
+      { day: host.weekday_meeting_day, time: host.weekday_meeting_time },
+      { day: host.weekend_meeting_day, time: host.weekend_meeting_time },
+    ];
+    const meetings: ScheduleActivityItem[] = [];
+    for (const day of days) {
+      const jsDay = new Date(day + 'T00:00:00').getDay();
+      const hostDay = jsDay === 0 ? 7 : jsDay;
+      for (const slot of slots) {
+        if (slot.day === hostDay && slot.time) {
+          meetings.push({
+            date: day,
+            start_time: slot.time,
+            end_time: '',
+            name: 'Reunión de la congregación',
+            description: null,
+            locations: [],
+            is_preaching_shift: false,
+            preaching_group_name: null,
+            is_congregation_meeting: true,
+            congregation_address: host.address,
+            congregation_lat: host.lat,
+            congregation_lng: host.lng,
+          });
+        }
+      }
+    }
+    return meetings;
+  }
+
   private async getGroupScheduleActivities(
     groupId: string,
   ): Promise<ScheduleActivityItem[]> {
@@ -1674,6 +1708,13 @@ export class ActivitiesService {
     const activities = await this.getGroupScheduleActivities(groupId);
     const days = this.computeScheduleDays(region, activities);
 
+    const meetings = group.host ? this.congregationMeetings(group.host, days) : [];
+    const allActivities = [...activities, ...meetings].sort((a, b) =>
+      a.date !== b.date
+        ? a.date.localeCompare(b.date)
+        : a.start_time.localeCompare(b.start_time),
+    );
+
     const content = buildGroupScheduleContent(
       {
         group_code: group.group_code,
@@ -1682,7 +1723,8 @@ export class ActivitiesService {
         host_name: group.host?.name ?? null,
       },
       days,
-      activities,
+      allActivities,
+      { showGroupInfo: false },
     );
 
     const buffer = await createPdfBuffer({
@@ -1732,6 +1774,13 @@ export class ActivitiesService {
       const activities = await this.getGroupScheduleActivities(group.id);
       const days = this.computeScheduleDays(region, activities);
 
+      const meetings = this.congregationMeetings(host, days);
+      const allActivities = [...activities, ...meetings].sort((a, b) =>
+        a.date !== b.date
+          ? a.date.localeCompare(b.date)
+          : a.start_time.localeCompare(b.start_time),
+      );
+
       const groupContent = buildGroupScheduleContent(
         {
           group_code: group.group_code,
@@ -1740,7 +1789,7 @@ export class ActivitiesService {
           host_name: host.name,
         },
         days,
-        activities,
+        allActivities,
         { showGroupInfo: false },
       );
 

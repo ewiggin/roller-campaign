@@ -7,16 +7,22 @@ import {
   OnInit,
   Output,
   ViewChild,
+  inject,
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
+import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 
 export interface PlaceResult {
   address: string;
   lat: number;
   lng: number;
+}
+
+interface PlacePrediction {
+  place_id: string;
+  description: string;
 }
 
 type PickerMode = 'preview' | 'editing';
@@ -28,7 +34,6 @@ type PickerMode = 'preview' | 'editing';
 })
 export class LocationPickerComponent implements OnInit, OnDestroy {
   @ViewChild('addressInput') private addressInputRef?: ElementRef<HTMLInputElement>;
-  @ViewChild('mapContainer') private mapContainerRef?: ElementRef<HTMLDivElement>;
 
   @Output() locationSelected = new EventEmitter<PlaceResult | null>();
 
@@ -40,22 +45,19 @@ export class LocationPickerComponent implements OnInit, OnDestroy {
 
   readonly result = signal<PlaceResult | null>(null);
   readonly mode = signal<PickerMode>('editing');
-  readonly mapError = signal<string | null>(null);
   readonly touched = signal(false);
+  readonly suggestions = signal<PlacePrediction[]>([]);
+  readonly loadingSuggestions = signal(false);
+  readonly error = signal<string | null>(null);
 
   addressValue = '';
   latValue = '';
   lngValue = '';
 
-  private autocomplete: google.maps.places.Autocomplete | null = null;
-  private map: google.maps.Map | null = null;
-  private marker: google.maps.Marker | null = null;
-  private geocoder: google.maps.Geocoder | null = null;
-  private autocompleteReady = false;
-  private mapReady = false;
+  private readonly http = inject(HttpClient);
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
-    setOptions({ key: environment.googleMapsApiKey, v: 'weekly' });
     if (this.initialAddress && this.initialLat !== null && this.initialLng !== null) {
       this.addressValue = this.initialAddress;
       this.latValue = String(this.initialLat);
@@ -79,106 +81,61 @@ export class LocationPickerComponent implements OnInit, OnDestroy {
 
   startEditing(): void {
     this.mode.set('editing');
-    setTimeout(() => {
-      this.addressInputRef?.nativeElement.focus();
-      if (this.result()) this.initInteractiveMap();
-    }, 60);
+    setTimeout(() => this.addressInputRef?.nativeElement.focus(), 60);
   }
 
   // ── Autocomplete ──────────────────────────────────────────────────────────
 
-  async initAutocomplete(): Promise<void> {
+  onAddressInput(): void {
     this.touched.set(true);
-    if (this.autocompleteReady || !this.addressInputRef) return;
-    this.autocompleteReady = true;
+    const value = this.addressValue.trim();
 
-    try {
-      const { Autocomplete } = (await importLibrary('places')) as google.maps.PlacesLibrary;
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
 
-      this.autocomplete = new Autocomplete(this.addressInputRef.nativeElement, {
-        fields: ['formatted_address', 'geometry'],
-      });
-
-      this.autocomplete.addListener('place_changed', () => {
-        const place = this.autocomplete!.getPlace();
-        if (!place.geometry?.location) return;
-
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
-        const address = place.formatted_address ?? this.addressValue;
-
-        this.addressValue = address;
-        this.setResult({ address, lat, lng });
-        setTimeout(() => this.updateMapPosition(lat, lng), 60);
-      });
-    } catch {
-      this.mapError.set('Could not load Google Places. Check the API key.');
-    }
-  }
-
-  // ── Interactive map ───────────────────────────────────────────────────────
-
-  private async initInteractiveMap(): Promise<void> {
-    if (this.mapReady || !this.mapContainerRef?.nativeElement || !this.result()) return;
-    this.mapReady = true;
-
-    try {
-      const { Map } = (await importLibrary('maps')) as google.maps.MapsLibrary;
-      const r = this.result()!;
-      const pos = { lat: r.lat, lng: r.lng };
-
-      this.map = new Map(this.mapContainerRef.nativeElement, {
-        center: pos,
-        zoom: 15,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-      });
-
-      this.marker = new google.maps.Marker({
-        position: pos,
-        map: this.map,
-        draggable: true,
-        cursor: 'move',
-        title: 'Drag to adjust position',
-      });
-
-      this.geocoder = new google.maps.Geocoder();
-
-      this.marker.addListener('dragend', () => {
-        const newPos = this.marker!.getPosition();
-        if (!newPos) return;
-        this.reverseGeocode(newPos.lat(), newPos.lng());
-      });
-    } catch {
-      this.mapError.set('Could not load interactive map.');
-    }
-  }
-
-  private updateMapPosition(lat: number, lng: number): void {
-    if (!this.mapReady) {
-      this.initInteractiveMap();
+    if (value.length < 3) {
+      this.suggestions.set([]);
       return;
     }
-    const pos = { lat, lng };
-    this.map?.panTo(pos);
-    this.marker?.setPosition(pos);
+
+    this.debounceTimer = setTimeout(() => {
+      this.loadingSuggestions.set(true);
+      this.http
+        .get<PlacePrediction[]>('/api/places/autocomplete', { params: { input: value } })
+        .subscribe({
+          next: (preds) => {
+            this.suggestions.set(preds);
+            this.loadingSuggestions.set(false);
+          },
+          error: () => {
+            this.suggestions.set([]);
+            this.loadingSuggestions.set(false);
+          },
+        });
+    }, 300);
   }
 
-  private reverseGeocode(lat: number, lng: number): void {
-    const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-    if (!this.geocoder) {
-      this.setResult({ address: fallback, lat, lng });
-      return;
-    }
-    this.geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-      const address = status === 'OK' && results?.[0] ? results[0].formatted_address : fallback;
-      this.addressValue = address;
-      this.setResult({ address, lat, lng });
-    });
+  selectSuggestion(prediction: PlacePrediction): void {
+    this.suggestions.set([]);
+    this.addressValue = prediction.description;
+    this.http
+      .get<PlaceResult>('/api/places/details', { params: { place_id: prediction.place_id } })
+      .subscribe({
+        next: (details) => {
+          this.addressValue = details.address;
+          this.setResult(details);
+        },
+        error: () => {
+          this.error.set('No se pudieron obtener los detalles del lugar.');
+        },
+      });
   }
 
-  // ── Clear ─────────────────────────────────────────────────────────────────
+  closeSuggestions(): void {
+    // Delay to allow click on suggestion to fire before hiding
+    setTimeout(() => this.suggestions.set([]), 150);
+  }
+
+  // ── Lat / Lng manual input ────────────────────────────────────────────────
 
   onLatLngInput(): void {
     const lat = parseFloat(this.latValue);
@@ -191,21 +148,17 @@ export class LocationPickerComponent implements OnInit, OnDestroy {
       lat,
       lng,
     });
-    setTimeout(() => this.updateMapPosition(lat, lng), 60);
   }
+
+  // ── Clear ─────────────────────────────────────────────────────────────────
 
   clearResult(): void {
     this.addressValue = '';
     this.latValue = '';
     this.lngValue = '';
     this.result.set(null);
+    this.suggestions.set([]);
     this.locationSelected.emit(null);
-    this.map = null;
-    this.marker = null;
-    this.mapReady = false;
-    this.autocompleteReady = false;
-    this.autocomplete = null;
-    this.geocoder = null;
     this.mode.set('editing');
     setTimeout(() => this.addressInputRef?.nativeElement.focus(), 60);
   }
@@ -218,6 +171,6 @@ export class LocationPickerComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.marker) this.marker.setMap(null);
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
   }
 }

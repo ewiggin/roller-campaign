@@ -207,6 +207,14 @@ export class VolunteersController {
     return this.svc.update(id, dto, user);
   }
 
+  @Delete('truncate')
+  @Audit('truncate', 'volunteer')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ description: 'Deleted volunteer count' })
+  truncate(): Promise<{ deleted: number }> {
+    return this.svc.truncate();
+  }
+
   @Delete(':id')
   @Audit('delete', 'volunteer')
   @HttpCode(HttpStatus.NO_CONTENT)
