@@ -47,6 +47,41 @@ import type { LocationPoint } from '../activities/dto/location-point.dto';
 
 const VOLUNTEER_TOKEN_TYPE = 'volunteer_access';
 
+const HEADER_TO_FIELD: Record<string, string> = {
+  'Número de identificación': 'volunteer_code',
+  'Nombre': 'full_name',
+  'Email': 'email',
+  'Teléfono': 'phone',
+  'Región de participación': 'region_name',
+  'Plazas de coche disponibles': 'car_seats',
+  'Dirección': 'hosting_address',
+  'Lat': 'lat',
+  'Lon': 'lng',
+  'Maps': 'maps_link',
+  'Activo': 'is_active',
+  'Roles': 'role_names',
+  'Lu M': 'monday_morning',
+  'Lu T': 'monday_afternoon',
+  'Ma M': 'tuesday_morning',
+  'Ma T': 'tuesday_afternoon',
+  'Mi M': 'wednesday_morning',
+  'Mi T': 'wednesday_afternoon',
+  'Ju M': 'thursday_morning',
+  'Ju T': 'thursday_afternoon',
+  'Vi M': 'friday_morning',
+  'Vi T': 'friday_afternoon',
+  'Sa M': 'saturday_morning',
+  'Sa T': 'saturday_afternoon',
+  'Do M': 'sunday_morning',
+  'Do T': 'sunday_afternoon',
+  'SaA M': 'saturday_prev_morning',
+  'SaA T': 'saturday_prev_afternoon',
+  'DoA M': 'sunday_prev_morning',
+  'DoA T': 'sunday_prev_afternoon',
+  'LuS M': 'monday_next_morning',
+  'LuS T': 'monday_next_afternoon',
+};
+
 @Injectable()
 export class VolunteersService {
   constructor(
@@ -436,38 +471,31 @@ export class VolunteersService {
   async parseImport(buffer: Buffer): Promise<ImportVolunteerParseResponseDto> {
     const wb = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = wb.Sheets[wb.SheetNames[0]];
+
+    const sheetHeaders = (
+      XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 })[0] ?? []
+    ) as string[];
+    const columns = sheetHeaders
+      .filter((h) => typeof h === 'string' && h in HEADER_TO_FIELD)
+      .map((h) => HEADER_TO_FIELD[h]);
+
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       raw: false,
       defval: null,
     });
 
-    const codes = rows
-      .map((r) => this.str(r['Número de identificación']))
-      .filter(Boolean) as string[];
-    const existing = codes.length
-      ? await this.volunteersRepo.find({
-          where: { volunteer_code: In(codes) },
-          select: { volunteer_code: true },
-        })
-      : [];
-    const existingSet = new Set(existing.map((v) => v.volunteer_code));
-
-    const to_create: ImportVolunteerRowDto[] = [];
-    const skipped: string[] = [];
     const excelCodes = new Set<string>();
+    const allRows: ImportVolunteerRowDto[] = [];
 
     for (const row of rows) {
       const rawCode = this.str(row['Número de identificación']);
       const code =
         rawCode ?? `GEN-${randomBytes(4).toString('hex').toUpperCase()}`;
       if (rawCode) excelCodes.add(code);
-      if (rawCode && existingSet.has(code)) {
-        skipped.push(code);
-        continue;
-      }
 
-      to_create.push({
+      allRows.push({
         volunteer_code: code,
+        has_code: !!rawCode,
         full_name: this.str(row['Nombre']) ?? code,
         email: this.str(row['Email']),
         phone: this.str(row['Teléfono']),
@@ -485,7 +513,7 @@ export class VolunteersService {
         groups: this.str(row['Grupos']),
         assigned_hours: this.parseNum(row['Horas asignadas']),
         is_active:
-          row['Activo'] !== undefined
+          row['Activo'] !== undefined && row['Activo'] !== null
             ? this.parseBool(row['Activo'])
             : undefined,
         role_names: this.str(row['Roles']),
@@ -512,23 +540,48 @@ export class VolunteersService {
       });
     }
 
+    // Split into new (valid) and existing (duplicateRows)
+    const knownCodes = allRows
+      .map((r) => r.volunteer_code)
+      .filter((c) => !c.startsWith('GEN-'));
+    const existing = knownCodes.length
+      ? await this.volunteersRepo.find({
+          where: { volunteer_code: In(knownCodes) },
+          select: { volunteer_code: true },
+        })
+      : [];
+    const existingSet = new Set(existing.map((v) => v.volunteer_code));
+
+    const valid: ImportVolunteerRowDto[] = [];
+    const duplicateRows: ImportVolunteerRowDto[] = [];
+    for (const row of allRows) {
+      if (existingSet.has(row.volunteer_code)) {
+        duplicateRows.push(row);
+      } else {
+        valid.push(row);
+      }
+    }
+    const duplicates = duplicateRows.map((r) => r.volunteer_code);
+
     // Volunteers in DB absent from the Excel
     const allDbVolunteers = await this.volunteersRepo.find({
       select: { volunteer_code: true },
     });
-    const to_delete = allDbVolunteers
+    const toDelete = allDbVolunteers
       .map((v) => v.volunteer_code)
       .filter((c) => !excelCodes.has(c));
 
     return {
-      to_create,
-      skipped,
-      to_delete,
+      valid,
+      duplicates,
+      duplicateRows,
+      toDelete,
+      columns,
       summary: {
-        total: to_create.length + skipped.length,
-        to_create: to_create.length,
-        skipped: skipped.length,
-        to_delete: to_delete.length,
+        total: allRows.length,
+        valid: valid.length,
+        duplicates: duplicates.length,
+        to_delete: toDelete.length,
       },
     };
   }
@@ -536,20 +589,50 @@ export class VolunteersService {
   async commitImport(
     dto: ImportVolunteerCommitDto,
   ): Promise<ImportVolunteerCommitResponseDto> {
-    // Pre-load all regions once for name lookups
     const allRegions = await this.regionsRepo.find();
     const regionByName = new Map(
       allRegions.map((r) => [r.name.trim().toLowerCase(), r]),
     );
 
-    // Fall back to region_ids if provided (legacy path)
-    const fallbackRegions = dto.region_ids?.length
-      ? allRegions.filter((r) => dto.region_ids!.includes(r.id))
-      : [];
+    const resolveRoles = async (
+      roleNamesStr: string | null | undefined,
+    ): Promise<VolunteerRole[]> => {
+      if (!roleNamesStr) return [];
+      const names = roleNamesStr
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const roles: VolunteerRole[] = [];
+      for (const name of names) {
+        let role = await this.rolesRepo.findOne({ where: { name } });
+        if (!role) {
+          role = await this.rolesRepo.save(this.rolesRepo.create({ name }));
+        }
+        roles.push(role);
+      }
+      return roles;
+    };
+
+    const resolveRegions = (
+      regionNameStr: string | null | undefined,
+    ): Region[] => {
+      if (!regionNameStr) return [];
+      return regionNameStr
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((name) => regionByName.get(name.toLowerCase()))
+        .filter((r): r is Region => !!r);
+    };
+
+    const updateCols =
+      dto.partialUpdate && dto.columns ? new Set(dto.columns) : null;
 
     let created = 0;
+    let updated = 0;
     let skipped = 0;
 
+    // ── Create new volunteers ─────────────────────────────────────────────────
     for (const row of dto.rows) {
       const exists = await this.volunteersRepo.findOne({
         where: { volunteer_code: row.volunteer_code },
@@ -559,11 +642,8 @@ export class VolunteersService {
         continue;
       }
 
-      // Resolve region: prefer name from row, fall back to region_ids
-      const rowRegion = row.region_name
-        ? regionByName.get(row.region_name.trim().toLowerCase())
-        : undefined;
-      const regions = rowRegion ? [rowRegion] : fallbackRegions;
+      const roles = await resolveRoles(row.role_names);
+      const regions = resolveRegions(row.region_name);
 
       await this.volunteersRepo.save(
         this.volunteersRepo.create({
@@ -572,6 +652,7 @@ export class VolunteersService {
           email: row.email ?? null,
           phone: row.phone ?? null,
           is_active: row.is_active ?? true,
+          roles,
           regions,
           car_seats: row.car_seats ?? null,
           hosting_address: row.hosting_address ?? null,
@@ -603,12 +684,74 @@ export class VolunteersService {
       created++;
     }
 
-    // ── Delete absent (global) ────────────────────────────────────────────
+    // ── Update existing volunteers ────────────────────────────────────────────
+    for (const row of dto.updateRows ?? []) {
+      const v = await this.volunteersRepo.findOne({
+        where: { volunteer_code: row.volunteer_code },
+        relations: { roles: true, regions: true },
+      });
+      if (!v) continue;
+
+      const scalarFields: Record<string, unknown> = {
+        full_name: row.full_name,
+        email: row.email ?? null,
+        phone: row.phone ?? null,
+        is_active: row.is_active,
+        car_seats: row.car_seats ?? null,
+        hosting_address: row.hosting_address ?? null,
+        lat: row.lat ?? null,
+        lng: row.lng ?? null,
+        maps_link: row.maps_link ?? null,
+        monday_morning: row.monday_morning ?? false,
+        monday_afternoon: row.monday_afternoon ?? false,
+        tuesday_morning: row.tuesday_morning ?? false,
+        tuesday_afternoon: row.tuesday_afternoon ?? false,
+        wednesday_morning: row.wednesday_morning ?? false,
+        wednesday_afternoon: row.wednesday_afternoon ?? false,
+        thursday_morning: row.thursday_morning ?? false,
+        thursday_afternoon: row.thursday_afternoon ?? false,
+        friday_morning: row.friday_morning ?? false,
+        friday_afternoon: row.friday_afternoon ?? false,
+        saturday_morning: row.saturday_morning ?? false,
+        saturday_afternoon: row.saturday_afternoon ?? false,
+        sunday_morning: row.sunday_morning ?? false,
+        sunday_afternoon: row.sunday_afternoon ?? false,
+        saturday_prev_morning: row.saturday_prev_morning ?? false,
+        saturday_prev_afternoon: row.saturday_prev_afternoon ?? false,
+        sunday_prev_morning: row.sunday_prev_morning ?? false,
+        sunday_prev_afternoon: row.sunday_prev_afternoon ?? false,
+        monday_next_morning: row.monday_next_morning ?? false,
+        monday_next_afternoon: row.monday_next_afternoon ?? false,
+      };
+
+      const patch = updateCols
+        ? Object.fromEntries(
+            Object.entries(scalarFields).filter(([k]) => updateCols.has(k)),
+          )
+        : Object.fromEntries(
+            Object.entries(scalarFields).filter(([, val]) => val !== undefined),
+          );
+
+      Object.assign(v, patch);
+
+      if (!updateCols || updateCols.has('role_names')) {
+        v.roles = await resolveRoles(row.role_names);
+      }
+
+      if (!updateCols || updateCols.has('region_name')) {
+        const regions = resolveRegions(row.region_name);
+        if (regions.length > 0) v.regions = regions;
+      }
+
+      await this.volunteersRepo.save(v);
+      updated++;
+    }
+
+    // ── Delete absent ─────────────────────────────────────────────────────────
     let deleted = 0;
     if (dto.deleteAbsent) {
       const codesToDelete = dto.toDeleteCodes ?? [];
       if (codesToDelete.length > 0) {
-        // DB has ON DELETE CASCADE on all volunteer join tables and availability
         for (let i = 0; i < codesToDelete.length; i += 200) {
           await this.volunteersRepo.delete({
             volunteer_code: In(codesToDelete.slice(i, i + 200)),
@@ -620,10 +763,19 @@ export class VolunteersService {
 
     return {
       created,
+      ...(updated > 0 ? { updated } : {}),
       skipped,
-      total: dto.rows.length,
+      total: dto.rows.length + (dto.updateRows?.length ?? 0),
       ...(deleted > 0 ? { deleted } : {}),
     };
+  }
+
+  async truncate(): Promise<{ deleted: number }> {
+    const result = await this.volunteersRepo
+      .createQueryBuilder()
+      .delete()
+      .execute();
+    return { deleted: result.affected ?? 0 };
   }
 
   // ── Me (volunteer role) ────────────────────────────────────────────────────

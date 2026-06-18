@@ -42,6 +42,27 @@
         </svg>
         Import Excel
       </button>
+      @if (isSuperAdmin()) {
+        <button
+          (click)="openTruncate()"
+          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
+          </svg>
+          Truncate
+        </button>
+      }
       <button
         (click)="openCreate()"
         class="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
@@ -397,469 +418,538 @@
   }
 </div>
 
-<!-- Create modal -->
-@if (createModal()) {
+@if (activeModal()) {
   <div
     class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4"
-    (click)="closeCreate()"
+    (click)="closeModal()"
   >
-    <div
-      class="w-full max-w-md bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden max-h-[85vh] flex flex-col"
-      (click)="$event.stopPropagation()"
-    >
+
+    <!-- Create modal -->
+    @if (activeModal() === 'create') {
       <div
-        class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between shrink-0"
+        class="w-full max-w-md bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden max-h-[85vh] flex flex-col"
+        (click)="$event.stopPropagation()"
       >
-        <h3 class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
-          New volunteer
-        </h3>
-        <button
-          (click)="closeCreate()"
-          class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+        <div
+          class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between shrink-0"
         >
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-      <form
-        [formGroup]="createForm"
-        (ngSubmit)="createVolunteer()"
-        class="overflow-y-auto flex-1 p-5 space-y-4"
-      >
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
-              >Code *</label
-            >
-            <input
-              formControlName="volunteer_code"
-              type="text"
-              placeholder="V-001"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
-              >Full name *</label
-            >
-            <input
-              formControlName="full_name"
-              type="text"
-              placeholder="Carlos López"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
-            />
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
-              >Email</label
-            >
-            <input
-              formControlName="email"
-              type="email"
-              placeholder="carlos@example.com"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
-              >Phone</label
-            >
-            <input
-              formControlName="phone"
-              type="text"
-              placeholder="+34 600 000 000"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
-            />
-          </div>
-        </div>
-
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" formControlName="is_active" class="rounded" />
-          <span class="text-sm text-gray-700 dark:text-zinc-300">Active</span>
-        </label>
-
-        @if (roles().length > 0) {
-          <div>
-            <p class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Roles</p>
-            <div
-              class="space-y-1 max-h-32 overflow-y-auto rounded-lg border border-gray-200 dark:border-zinc-700 p-2"
-            >
-              @for (role of roles(); track role.id) {
-                <label
-                  class="flex items-center gap-3 cursor-pointer p-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    [checked]="isCreateRoleSelected(role.id)"
-                    (change)="toggleCreateRole(role.id)"
-                    class="rounded"
-                  />
-                  <span class="text-sm text-gray-700 dark:text-zinc-300">{{ role.name }}</span>
-                </label>
-              }
-            </div>
-          </div>
-        }
-
-        @if (regions().length > 0) {
-          <div>
-            <p class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Regions</p>
-            <div
-              class="space-y-1 max-h-32 overflow-y-auto rounded-lg border border-gray-200 dark:border-zinc-700 p-2"
-            >
-              @for (region of regions(); track region.id) {
-                <label
-                  class="flex items-center gap-3 cursor-pointer p-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    [checked]="isCreateRegionSelected(region.id)"
-                    (change)="toggleCreateRegion(region.id)"
-                    class="rounded"
-                  />
-                  <span class="text-sm text-gray-700 dark:text-zinc-300">{{ region.name }}</span>
-                </label>
-              }
-            </div>
-          </div>
-        }
-
-        @if (createError()) {
-          <p class="text-sm text-red-500">{{ createError() }}</p>
-        }
-
-        <div class="flex justify-end gap-2 pt-1">
+          <h3 class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+            New volunteer
+          </h3>
           <button
-            type="button"
-            (click)="closeCreate()"
-            class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            (click)="closeModal()"
+            class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
           >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            [disabled]="createForm.invalid || creating()"
-            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {{ creating() ? 'Creating…' : 'Create volunteer' }}
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
-      </form>
-    </div>
-  </div>
-}
-
-<!-- Import modal -->
-@if (importModal()) {
-  <div
-    class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4"
-    (click)="closeImport()"
-  >
-    <div
-      class="w-full max-w-2xl bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden max-h-[85vh] flex flex-col"
-      (click)="$event.stopPropagation()"
-    >
-      <div
-        class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between shrink-0"
-      >
-        <h3 class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
-          Import volunteers from Excel
-        </h3>
-        <button
-          (click)="closeImport()"
-          class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+        <form
+          [formGroup]="createForm"
+          (ngSubmit)="createVolunteer()"
+          class="overflow-y-auto flex-1 p-5 space-y-4"
         >
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      <div class="overflow-y-auto flex-1 p-5">
-        <!-- Step 1: Upload -->
-        @if (importStep() === 'upload') {
-          <div class="space-y-4">
-            <div
-              class="border-2 border-dashed rounded-xl p-10 text-center transition-colors cursor-pointer"
-              [class]="
-                isDragging
-                  ? 'border-blue-400 bg-blue-50 dark:bg-blue-950'
-                  : 'border-gray-300 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-700'
-              "
-              (dragover)="onDragOver($event)"
-              (dragleave)="onDragLeave()"
-              (drop)="onDrop($event)"
-              (click)="fileInput.click()"
-            >
-              @if (importing()) {
-                <p class="text-sm text-gray-500 dark:text-zinc-400">Parsing file…</p>
-              } @else {
-                <svg
-                  class="w-8 h-8 mx-auto text-gray-300 dark:text-zinc-600 mb-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <p class="text-sm text-gray-500 dark:text-zinc-400">
-                  Drop .xlsx or .csv here or <span class="text-blue-500">click to browse</span>
-                </p>
-              }
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+                >Code *</label
+              >
+              <input
+                formControlName="volunteer_code"
+                type="text"
+                placeholder="V-001"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+              />
             </div>
-            <input
-              #fileInput
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              class="hidden"
-              (change)="onFileSelected($event)"
-            />
-            @if (importError()) {
-              <p class="text-sm text-red-500">{{ importError() }}</p>
-            }
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+                >Full name *</label
+              >
+              <input
+                formControlName="full_name"
+                type="text"
+                placeholder="Carlos López"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+              />
+            </div>
           </div>
-        }
-
-        <!-- Step 2: Preview -->
-        @if (importStep() === 'preview' && parseResult()) {
-          <div class="space-y-4">
-            <div class="flex flex-wrap gap-2">
-              <span
-                class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-gray-50 text-gray-700 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700"
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+                >Email</label
               >
-                Total: {{ parseResult()!.summary.total }}
-              </span>
-              <span
-                class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
-              >
-                To create: {{ parseResult()!.summary.to_create }}
-              </span>
-              @if (parseResult()!.summary.skipped > 0) {
-                <span
-                  class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800"
-                >
-                  Skipped: {{ parseResult()!.summary.skipped }}
-                </span>
-              }
+              <input
+                formControlName="email"
+                type="email"
+                placeholder="carlos@example.com"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+              />
             </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
+                >Phone</label
+              >
+              <input
+                formControlName="phone"
+                type="text"
+                placeholder="+34 600 000 000"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+              />
+            </div>
+          </div>
 
-            @if (parseResult()!.to_create.length > 0) {
-              <div>
-                <h4
-                  class="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide mb-2"
-                >
-                  {{ parseResult()!.to_create.length }} volunteers ready to import
-                </h4>
-                <div
-                  class="rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden max-h-48 overflow-y-auto"
-                >
-                  <table class="w-full text-xs">
-                    <thead class="bg-gray-50 dark:bg-[#27272a]">
-                      <tr>
-                        <th
-                          class="px-3 py-2 text-left text-gray-600 dark:text-zinc-300 font-medium"
-                        >
-                          Code
-                        </th>
-                        <th
-                          class="px-3 py-2 text-left text-gray-600 dark:text-zinc-300 font-medium"
-                        >
-                          Name
-                        </th>
-                        <th
-                          class="px-3 py-2 text-left text-gray-600 dark:text-zinc-300 font-medium"
-                        >
-                          Email
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
-                      @for (row of parseResult()!.to_create; track row.volunteer_code) {
-                        <tr>
-                          <td class="px-3 py-2 text-gray-700 dark:text-zinc-300 font-mono">
-                            {{ row.volunteer_code }}
-                          </td>
-                          <td class="px-3 py-2 text-gray-700 dark:text-zinc-300">
-                            {{ row.full_name }}
-                          </td>
-                          <td class="px-3 py-2 text-gray-500 dark:text-zinc-400">
-                            {{ row.email ?? '—' }}
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" formControlName="is_active" class="rounded" />
+            <span class="text-sm text-gray-700 dark:text-zinc-300">Active</span>
+          </label>
+
+          @if (roles().length > 0) {
+            <div>
+              <p class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Roles</p>
+              <div
+                class="space-y-1 max-h-32 overflow-y-auto rounded-lg border border-gray-200 dark:border-zinc-700 p-2"
+              >
+                @for (role of roles(); track role.id) {
+                  <label
+                    class="flex items-center gap-3 cursor-pointer p-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="isCreateRoleSelected(role.id)"
+                      (change)="toggleCreateRole(role.id)"
+                      class="rounded"
+                    />
+                    <span class="text-sm text-gray-700 dark:text-zinc-300">{{ role.name }}</span>
+                  </label>
+                }
               </div>
-            }
+            </div>
+          }
 
-            @if (parseResult()!.skipped.length > 0) {
-              <div>
-                <h4
-                  class="text-xs font-semibold text-yellow-600 dark:text-yellow-400 uppercase tracking-wide mb-2"
-                >
-                  {{ parseResult()!.skipped.length }} already exist (skipped)
-                </h4>
-                <p class="text-xs text-gray-500 dark:text-zinc-400">
-                  {{ parseResult()!.skipped.join(', ') }}
-                </p>
+          @if (regions().length > 0) {
+            <div>
+              <p class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Regions</p>
+              <div
+                class="space-y-1 max-h-32 overflow-y-auto rounded-lg border border-gray-200 dark:border-zinc-700 p-2"
+              >
+                @for (region of regions(); track region.id) {
+                  <label
+                    class="flex items-center gap-3 cursor-pointer p-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="isCreateRegionSelected(region.id)"
+                      (change)="toggleCreateRegion(region.id)"
+                      class="rounded"
+                    />
+                    <span class="text-sm text-gray-700 dark:text-zinc-300">{{ region.name }}</span>
+                  </label>
+                }
               </div>
-            }
+            </div>
+          }
 
-            <!-- Delete absent toggle -->
-            <div class="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
-              <div class="flex items-center justify-between px-4 py-2.5 bg-red-50 dark:bg-red-950">
-                <div class="flex items-center gap-2">
+          @if (createError()) {
+            <p class="text-sm text-red-500">{{ createError() }}</p>
+          }
+
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              (click)="closeModal()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              [disabled]="createForm.invalid || creating()"
+              class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {{ creating() ? 'Creating…' : 'Create volunteer' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    }
+
+    <!-- Import modal -->
+    @if (activeModal() === 'import') {
+      <div
+        class="w-full max-w-2xl bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden max-h-[85vh] flex flex-col"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between shrink-0"
+        >
+          <h3
+            class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+          >
+            Import volunteers from Excel
+          </h3>
+          <button
+            (click)="closeModal()"
+            class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="overflow-y-auto flex-1 p-5">
+
+          <!-- Step 1: Upload -->
+          @if (importStep() === 'upload') {
+            <div class="space-y-4">
+              <div
+                class="border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer"
+                [class]="
+                  isDragging
+                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-950'
+                    : 'border-gray-300 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-700'
+                "
+                (dragover)="onDragOver($event)"
+                (dragleave)="onDragLeave()"
+                (drop)="onDrop($event)"
+                (click)="fileInput.click()"
+              >
+                @if (importing()) {
+                  <p class="text-sm text-gray-500 dark:text-zinc-400">Parsing file…</p>
+                } @else {
                   <svg
-                    class="w-4 h-4 text-red-600 dark:text-red-400 shrink-0"
+                    class="w-7 h-7 mx-auto text-gray-300 dark:text-zinc-600 mb-2"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
-                    stroke-width="2"
+                    stroke-width="1.5"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span
-                    class="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide"
-                  >
-                    Delete absent volunteers
-                  </span>
-                </div>
-                <label class="flex items-center gap-2 cursor-pointer select-none">
-                  <span class="text-xs text-gray-600 dark:text-zinc-400"
-                    >Remove from DB if not in Excel</span
-                  >
-                  <div
-                    class="relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"
-                    [class.bg-red-500]="importDeleteAbsent()"
-                    [class.bg-gray-300]="!importDeleteAbsent()"
-                    [class.dark:bg-red-600]="importDeleteAbsent()"
-                    [class.dark:bg-zinc-600]="!importDeleteAbsent()"
-                    (click)="importDeleteAbsent.set(!importDeleteAbsent())"
-                  >
-                    <div
-                      class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
-                      [class.translate-x-4]="importDeleteAbsent()"
-                    ></div>
-                  </div>
-                </label>
+                  <p class="text-sm text-gray-500 dark:text-zinc-400">
+                    Drop .xlsx or .csv here or <span class="text-blue-500">click to browse</span>
+                  </p>
+                  <p class="text-xs text-gray-400 dark:text-zinc-500 mt-1">
+                    Required: <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">Nombre</code>
+                    · Optional: <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">Número de identificación</code>
+                    <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">Región de participación</code>
+                  </p>
+                }
               </div>
-              @if (importDeleteAbsent()) {
-                <div
-                  class="px-4 py-2.5 bg-red-50/60 dark:bg-red-950/60 border-t border-red-200 dark:border-red-800"
-                >
-                  @if ((parseResult()?.to_delete?.length ?? 0) > 0) {
-                    <p class="text-xs text-red-700 dark:text-red-300 font-medium mb-1">
-                      {{ parseResult()!.to_delete.length }} volunteers will be deleted:
-                    </p>
-                    <p class="text-xs text-red-600 dark:text-red-400 break-all">
-                      {{ parseResult()!.to_delete.slice(0, 10).join(', ')
-                      }}{{ parseResult()!.to_delete.length > 10 ? ' …' : '' }}
-                    </p>
-                  } @else {
-                    <p class="text-xs text-red-700 dark:text-red-300">
-                      All volunteers <strong>not present</strong> in the Excel will be permanently
-                      deleted from the database.
-                    </p>
+              <input #fileInput type="file" accept=".xlsx,.xls,.csv" class="hidden" (change)="onFileSelected($event)" />
+
+              @if (importError()) {
+                <p class="text-sm text-red-500">{{ importError() }}</p>
+              }
+            </div>
+          }
+
+          <!-- Step 2: Preview -->
+          @if (importStep() === 'preview' && parseResult()) {
+            <div class="space-y-4">
+              <!-- Summary badges -->
+              <div class="flex flex-wrap gap-2">
+                <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-gray-50 text-gray-700 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">
+                  Total: {{ parseResult()!.summary.total }}
+                </span>
+                @if (parseResult()!.summary.valid > 0) {
+                  <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800">
+                    New: {{ parseResult()!.summary.valid }}
+                  </span>
+                }
+                @if (parseResult()!.summary.duplicates > 0) {
+                  <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800">
+                    Existing: {{ parseResult()!.summary.duplicates }}
+                  </span>
+                }
+                @if (parseResult()!.summary.to_delete > 0) {
+                  <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800">
+                    Absent: {{ parseResult()!.summary.to_delete }}
+                  </span>
+                }
+              </div>
+
+              <!-- Column picker (checkbox grid) -->
+              @if (parseResult()!.columns.length > 0) {
+                <div class="rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
+                  <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-[#27272a]">
+                    <span class="text-xs font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+                      Columns to import
+                      <span class="ml-1 font-normal normal-case text-gray-400 dark:text-zinc-500"
+                        >({{ importSelectedColumns().length }}/{{ parseResult()!.columns.length }})</span
+                      >
+                    </span>
+                    <div class="flex gap-3">
+                      <button type="button" (click)="selectAllColumns()" class="text-xs text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 font-medium">All</button>
+                      <button type="button" (click)="selectNoColumns()" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 font-medium">Required only</button>
+                    </div>
+                  </div>
+                  <div class="p-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                    @for (col of parseResult()!.columns; track col) {
+                      <label
+                        class="flex items-center gap-1.5 min-w-0"
+                        [class.cursor-pointer]="!isRequiredColumn(col)"
+                        [class.cursor-default]="isRequiredColumn(col)"
+                        [class.opacity-50]="isRequiredColumn(col)"
+                      >
+                        <input
+                          type="checkbox"
+                          [checked]="isColumnSelected(col)"
+                          [disabled]="isRequiredColumn(col)"
+                          (change)="toggleColumn(col)"
+                          class="shrink-0 rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400 focus:ring-offset-0"
+                        />
+                        <span class="text-xs text-gray-700 dark:text-zinc-300 truncate" [title]="col">{{ columnLabel(col) }}</span>
+                      </label>
+                    }
+                  </div>
+                </div>
+              }
+
+              <!-- New volunteers to create toggle -->
+              @if (parseResult()!.valid.length > 0) {
+                <div class="rounded-lg border border-green-200 dark:border-green-800 overflow-hidden">
+                  <div class="flex items-center justify-between px-4 py-2.5 bg-green-50 dark:bg-green-950">
+                    <span class="text-xs font-semibold text-green-700 dark:text-green-400 uppercase tracking-wide">
+                      Create {{ parseResult()!.valid.length }} new volunteer{{ parseResult()!.valid.length !== 1 ? 's' : '' }}
+                    </span>
+                    <div
+                      class="relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"
+                      [class.bg-green-500]="importCreateNew()"
+                      [class.bg-gray-300]="!importCreateNew()"
+                      [class.dark:bg-green-600]="importCreateNew()"
+                      [class.dark:bg-zinc-600]="!importCreateNew()"
+                      (click)="importCreateNew.set(!importCreateNew())"
+                    >
+                      <div
+                        class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                        [class.translate-x-4]="importCreateNew()"
+                      ></div>
+                    </div>
+                  </div>
+                  @if (importCreateNew()) {
+                    <div class="max-h-32 overflow-y-auto divide-y divide-green-100 dark:divide-green-900">
+                      @for (row of validToCreate(); track row.volunteer_code) {
+                        <div class="px-4 py-2 flex items-center justify-between gap-3 bg-white dark:bg-[#18181b]">
+                          <span class="font-mono text-xs text-gray-700 dark:text-zinc-300 shrink-0">
+                            {{ row.has_code !== false ? row.volunteer_code : '—' }}
+                          </span>
+                          <span class="text-xs text-gray-500 dark:text-zinc-400 truncate">{{ row.full_name }}</span>
+                          @if (row.region_name) {
+                            <span class="text-xs text-gray-400 dark:text-zinc-500 shrink-0">{{ row.region_name }}</span>
+                          }
+                        </div>
+                      }
+                    </div>
+                    <!-- Volunteers without code sub-toggle -->
+                    @if (noCodeRows().length > 0) {
+                      <div class="flex items-center justify-between px-4 py-2 bg-green-50/60 dark:bg-green-950/60 border-t border-green-200 dark:border-green-800">
+                        <span class="text-xs text-green-700 dark:text-green-400">
+                          Include {{ noCodeRows().length }} without code
+                          <span class="text-green-600/70 dark:text-green-500/70">(auto-assigned ID)</span>
+                        </span>
+                        <div
+                          class="relative w-8 h-4 rounded-full transition-colors duration-200 cursor-pointer"
+                          [class.bg-green-400]="importIncludeNoCode()"
+                          [class.bg-gray-300]="!importIncludeNoCode()"
+                          [class.dark:bg-green-600]="importIncludeNoCode()"
+                          [class.dark:bg-zinc-600]="!importIncludeNoCode()"
+                          (click)="importIncludeNoCode.set(!importIncludeNoCode())"
+                        >
+                          <div
+                            class="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform duration-200"
+                            [class.translate-x-4]="importIncludeNoCode()"
+                          ></div>
+                        </div>
+                      </div>
+                    }
                   }
                 </div>
               }
-            </div>
 
-            @if (importError()) {
-              <p class="text-sm text-red-500">{{ importError() }}</p>
-            }
-
-            <div class="flex justify-end gap-2 pt-1">
-              <button
-                (click)="importStep.set('upload')"
-                class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
-              >
-                Back
-              </button>
-              <button
-                (click)="commitImport()"
-                [disabled]="
-                  (parseResult()!.to_create.length === 0 &&
-                    (!importDeleteAbsent() || (parseResult()?.to_delete?.length ?? 0) === 0)) ||
-                  importing()
-                "
-                class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {{
-                  importing()
-                    ? 'Importing…'
-                    : 'Import ' +
-                      parseResult()!.to_create.length +
-                      ' volunteers' +
-                      (importDeleteAbsent() && (parseResult()?.to_delete?.length ?? 0) > 0
-                        ? ' + delete ' + parseResult()!.to_delete.length + ' absent'
-                        : '')
-                }}
-              </button>
-            </div>
-          </div>
-        }
-
-        <!-- Step 3: Done -->
-        @if (importStep() === 'done' && commitResult()) {
-          <div class="py-6 text-center space-y-3">
-            <div
-              class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center mx-auto"
-            >
-              <svg
-                class="w-6 h-6 text-green-600 dark:text-green-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <p class="text-base font-semibold text-gray-900 dark:text-zinc-100">Import complete</p>
-            <p class="text-sm text-gray-500 dark:text-zinc-400">
-              {{ commitResult()!.created }} volunteers created
-              @if (commitResult()!.skipped > 0) {
-                · {{ commitResult()!.skipped }} skipped
+              <!-- Update existing toggle -->
+              @if (parseResult()!.duplicateRows.length > 0) {
+                <div class="rounded-lg border border-yellow-200 dark:border-yellow-800 overflow-hidden">
+                  <div class="flex items-center justify-between px-4 py-2.5 bg-yellow-50 dark:bg-yellow-950">
+                    <span class="text-xs font-semibold text-yellow-700 dark:text-yellow-400 uppercase tracking-wide">
+                      {{ parseResult()!.duplicateRows.length }} already exist in database
+                    </span>
+                    <div
+                      class="relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"
+                      [class.bg-yellow-500]="importUpdateExisting()"
+                      [class.bg-gray-300]="!importUpdateExisting()"
+                      [class.dark:bg-yellow-600]="importUpdateExisting()"
+                      [class.dark:bg-zinc-600]="!importUpdateExisting()"
+                      (click)="importUpdateExisting.set(!importUpdateExisting())"
+                    >
+                      <div
+                        class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                        [class.translate-x-4]="importUpdateExisting()"
+                      ></div>
+                    </div>
+                  </div>
+                  @if (importUpdateExisting()) {
+                    <div class="max-h-32 overflow-y-auto divide-y divide-yellow-100 dark:divide-yellow-900">
+                      @for (row of parseResult()!.duplicateRows; track row.volunteer_code) {
+                        <div class="px-4 py-2 flex items-center justify-between gap-3 bg-white dark:bg-[#18181b]">
+                          <span class="font-mono text-xs text-gray-700 dark:text-zinc-300">{{ row.volunteer_code }}</span>
+                          <span class="text-xs text-gray-400 dark:text-zinc-500 truncate">{{ row.full_name }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
               }
-              @if (commitResult()!.deleted) {
-                · {{ commitResult()!.deleted }} deleted
+
+              <!-- Delete absent toggle -->
+              <div class="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-2.5 bg-red-50 dark:bg-red-950">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span class="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">Delete absent volunteers</span>
+                  </div>
+                  <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <span class="text-xs text-gray-600 dark:text-zinc-400">Remove from DB if not in Excel</span>
+                    <div
+                      class="relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"
+                      [class.bg-red-500]="importDeleteAbsent()"
+                      [class.bg-gray-300]="!importDeleteAbsent()"
+                      [class.dark:bg-red-600]="importDeleteAbsent()"
+                      [class.dark:bg-zinc-600]="!importDeleteAbsent()"
+                      (click)="importDeleteAbsent.set(!importDeleteAbsent())"
+                    >
+                      <div
+                        class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                        [class.translate-x-4]="importDeleteAbsent()"
+                      ></div>
+                    </div>
+                  </label>
+                </div>
+                @if (importDeleteAbsent() && (parseResult()?.toDelete?.length ?? 0) > 0) {
+                  <div class="px-4 py-2.5 bg-red-50/60 dark:bg-red-950/60 border-t border-red-200 dark:border-red-800">
+                    <p class="text-xs text-red-700 dark:text-red-300">
+                      {{ parseResult()!.toDelete.length }} volunteers will be permanently deleted.
+                    </p>
+                  </div>
+                }
+              </div>
+
+              @if (importError()) {
+                <p class="text-sm text-red-500">{{ importError() }}</p>
               }
-            </p>
+            </div>
+          }
+
+          <!-- Step 3: Done -->
+          @if (importStep() === 'done' && commitResult()) {
+            <div class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-4 space-y-1">
+              <p class="text-sm font-semibold text-green-700 dark:text-green-400">Import complete</p>
+              <p class="text-xs text-green-600 dark:text-green-500">
+                {{ commitResult()!.created }} created
+                @if (commitResult()!.updated) {
+                  · {{ commitResult()!.updated }} updated
+                }
+                @if (commitResult()!.skipped > 0) {
+                  · {{ commitResult()!.skipped }} skipped
+                }
+                @if (commitResult()!.deleted) {
+                  · {{ commitResult()!.deleted }} deleted
+                }
+              </p>
+            </div>
+          }
+        </div>
+
+        <!-- Footer -->
+        <div class="px-5 py-3 border-t border-gray-200 dark:border-zinc-700 flex justify-between shrink-0 bg-gray-50 dark:bg-[#27272a]">
+          @if (importStep() === 'preview') {
             <button
-              (click)="closeImport()"
-              class="rounded-lg bg-blue-500 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
+              (click)="importStep.set('upload')"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
             >
-              Close
+              ← Back
+            </button>
+            <button
+              (click)="commitImport()"
+              [disabled]="!canCommit || importing()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {{ importing() ? 'Importing…' : commitLabel }}
+            </button>
+          } @else {
+            <span></span>
+            <button
+              (click)="closeModal()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              {{ importStep() === 'done' ? 'Close' : 'Cancel' }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Truncate confirmation modal -->
+    @if (activeModal() === 'truncate') {
+      <div
+        class="w-full max-w-sm bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="px-5 py-3 bg-red-50 dark:bg-red-950 border-b border-red-200 dark:border-red-900 flex items-center justify-between"
+        >
+          <h3 class="text-sm font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">
+            Truncate volunteers
+          </h3>
+          <button
+            (click)="closeModal()"
+            class="p-1 rounded text-red-400 hover:text-red-600 dark:hover:text-red-300"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="p-5 space-y-4">
+          <p class="text-sm text-gray-700 dark:text-zinc-300">
+            This will permanently delete <strong>all volunteers</strong> across every region. This action cannot be undone.
+          </p>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+              Type
+              <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded text-red-600 dark:text-red-400">DELETE</code>
+              to confirm
+            </label>
+            <input
+              type="text"
+              [value]="truncateConfirmText()"
+              (input)="truncateConfirmText.set($any($event.target).value)"
+              placeholder="DELETE"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 placeholder-gray-400 dark:placeholder-zinc-500"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              (click)="closeModal()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              (click)="confirmTruncate()"
+              [disabled]="truncateConfirmText() !== 'DELETE' || truncating()"
+              class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {{ truncating() ? 'Deleting…' : 'Delete all' }}
             </button>
           </div>
-        }
+        </div>
       </div>
-    </div>
+    }
+
   </div>
 }

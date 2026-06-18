@@ -29,6 +29,9 @@ export class ImportVolunteerRowDto {
   @ApiProperty({ example: '5274026' })
   volunteer_code: string;
 
+  @ApiPropertyOptional({ example: true })
+  has_code?: boolean;
+
   @ApiProperty({ example: 'Martínez, Mario' })
   full_name: string;
 
@@ -146,21 +149,27 @@ export class ImportVolunteerRowDto {
 
 export class ImportVolunteerParseResponseDto {
   @ApiProperty({ type: [ImportVolunteerRowDto] })
-  to_create: ImportVolunteerRowDto[];
+  valid: ImportVolunteerRowDto[];
 
   @ApiProperty({ example: ['V-001', 'V-002'] })
-  skipped: string[];
+  duplicates: string[];
+
+  @ApiProperty({ type: [ImportVolunteerRowDto] })
+  duplicateRows: ImportVolunteerRowDto[];
 
   @ApiProperty({ example: ['V-010', 'V-020'] })
-  to_delete: string[];
+  toDelete: string[];
+
+  @ApiProperty({ example: ['full_name', 'email', 'region_name'] })
+  columns: string[];
 
   @ApiProperty({
-    example: { total: 10, to_create: 8, skipped: 2, to_delete: 3 },
+    example: { total: 10, valid: 8, duplicates: 2, to_delete: 3 },
   })
   summary: {
     total: number;
-    to_create: number;
-    skipped: number;
+    valid: number;
+    duplicates: number;
     to_delete: number;
   };
 }
@@ -176,21 +185,38 @@ export class ImportVolunteerCommitDto {
   @IsArray()
   rows: ImportVolunteerRowDto[];
 
+  @ApiPropertyOptional({ type: [ImportVolunteerRowDto] })
+  @IsArray()
+  @IsOptional()
+  updateRows?: ImportVolunteerRowDto[];
+
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
   deleteAbsent?: boolean;
 
-  /** Códigos exactos a borrar (calculados en el parse). */
   @ApiPropertyOptional({ example: ['V-001', 'V-005'] })
   @IsOptional()
   @IsArray()
   toDeleteCodes?: string[];
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  partialUpdate?: boolean;
+
+  @ApiPropertyOptional({ example: ['full_name', 'email'] })
+  @IsOptional()
+  @IsArray()
+  columns?: string[];
 }
 
 export class ImportVolunteerCommitResponseDto {
   @ApiProperty({ example: 8 })
   created: number;
+
+  @ApiPropertyOptional({ example: 2 })
+  updated?: number;
 
   @ApiProperty({ example: 2 })
   skipped: number;

@@ -9,10 +9,13 @@ import type {
   VolunteerRole,
   VolunteerSummary,
 } from '../../../core/models/volunteer.model';
+import { AuthService } from '../../../core/services/auth.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
+
+type ActiveModal = 'create' | 'import' | 'truncate' | null;
 
 const AVAILABILITY_OPTIONS = [
   { value: 'saturday_prev_morning', label: 'Sat (prev) – morning' },
@@ -46,6 +49,9 @@ export class VolunteersListComponent implements OnInit {
   private readonly svc = inject(VolunteersService);
   private readonly regionsSvc = inject(RegionsService);
   private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(AuthService);
+
+  readonly isSuperAdmin = this.auth.isSuperAdmin;
 
   readonly regions = signal<Region[]>([]);
   readonly roles = signal<VolunteerRole[]>([]);
@@ -73,8 +79,10 @@ export class VolunteersListComponent implements OnInit {
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 
+  // Modal
+  readonly activeModal = signal<ActiveModal>(null);
+
   // Create modal
-  readonly createModal = signal(false);
   readonly creating = signal(false);
   readonly createError = signal('');
   readonly selectedCreateRoleIds = signal<string[]>([]);
@@ -89,14 +97,126 @@ export class VolunteersListComponent implements OnInit {
   });
 
   // Import modal
-  readonly importModal = signal(false);
   readonly importStep = signal<'upload' | 'preview' | 'done'>('upload');
   readonly importing = signal(false);
   readonly importError = signal('');
   readonly parseResult = signal<ImportVolunteerParseResponse | null>(null);
   readonly commitResult = signal<ImportVolunteerCommitResponse | null>(null);
+  readonly importUpdateExisting = signal(false);
   readonly importDeleteAbsent = signal(false);
+  readonly importSelectedColumns = signal<string[]>([]);
+  readonly importIncludeNoCode = signal(true);
+  readonly importCreateNew = signal(true);
   isDragging = false;
+
+  // Truncate modal
+  readonly truncating = signal(false);
+  readonly truncateConfirmText = signal('');
+
+  private readonly REQUIRED_COLUMNS = new Set(['volunteer_code']);
+
+  private readonly COLUMN_LABELS: Record<string, string> = {
+    volunteer_code: 'Code',
+    full_name: 'Full name',
+    email: 'Email',
+    phone: 'Phone',
+    region_name: 'Region',
+    car_seats: 'Car seats',
+    hosting_address: 'Address',
+    lat: 'Lat',
+    lng: 'Lng',
+    maps_link: 'Maps',
+    is_active: 'Active',
+    role_names: 'Roles',
+    monday_morning: 'Mon AM',
+    monday_afternoon: 'Mon PM',
+    tuesday_morning: 'Tue AM',
+    tuesday_afternoon: 'Tue PM',
+    wednesday_morning: 'Wed AM',
+    wednesday_afternoon: 'Wed PM',
+    thursday_morning: 'Thu AM',
+    thursday_afternoon: 'Thu PM',
+    friday_morning: 'Fri AM',
+    friday_afternoon: 'Fri PM',
+    saturday_morning: 'Sat AM',
+    saturday_afternoon: 'Sat PM',
+    sunday_morning: 'Sun AM',
+    sunday_afternoon: 'Sun PM',
+    saturday_prev_morning: 'Sat(p) AM',
+    saturday_prev_afternoon: 'Sat(p) PM',
+    sunday_prev_morning: 'Sun(p) AM',
+    sunday_prev_afternoon: 'Sun(p) PM',
+    monday_next_morning: 'Mon(n) AM',
+    monday_next_afternoon: 'Mon(n) PM',
+  };
+
+  readonly noCodeRows = computed(() =>
+    (this.parseResult()?.valid ?? []).filter((r) => r.has_code === false),
+  );
+
+  readonly validToCreate = computed(() => {
+    if (!this.importCreateNew()) return [];
+    const result = this.parseResult();
+    if (!result) return [];
+    if (this.importIncludeNoCode()) return result.valid;
+    return result.valid.filter((r) => r.has_code !== false);
+  });
+
+  isRequiredColumn(col: string): boolean {
+    return this.REQUIRED_COLUMNS.has(col);
+  }
+
+  columnLabel(col: string): string {
+    return this.COLUMN_LABELS[col] ?? col;
+  }
+
+  toggleColumn(col: string) {
+    if (this.isRequiredColumn(col)) return;
+    const current = this.importSelectedColumns();
+    this.importSelectedColumns.set(
+      current.includes(col) ? current.filter((c) => c !== col) : [...current, col],
+    );
+  }
+
+  selectAllColumns() {
+    this.importSelectedColumns.set([...(this.parseResult()?.columns ?? [])]);
+  }
+
+  selectNoColumns() {
+    this.importSelectedColumns.set([...this.REQUIRED_COLUMNS]);
+  }
+
+  isColumnSelected(col: string): boolean {
+    return this.importSelectedColumns().includes(col);
+  }
+
+  get canCommit(): boolean {
+    const result = this.parseResult();
+    if (!result) return false;
+    return (
+      this.validToCreate().length > 0 ||
+      (this.importUpdateExisting() && result.duplicateRows.length > 0) ||
+      (this.importDeleteAbsent() && result.toDelete.length > 0)
+    );
+  }
+
+  get commitLabel(): string {
+    const result = this.parseResult();
+    if (!result) return 'Import';
+    const creates = this.validToCreate().length;
+    const updates = this.importUpdateExisting() ? result.duplicateRows.length : 0;
+    const allCols = result.columns?.length ?? 0;
+    const selCols = this.importSelectedColumns().length;
+    const parts: string[] = [];
+    if (creates > 0) parts.push(`Import ${creates} new`);
+    if (updates > 0) {
+      const colNote = selCols < allCols ? ` (${selCols} cols)` : '';
+      parts.push(`update ${updates} existing${colNote}`);
+    }
+    if (this.importDeleteAbsent() && result.toDelete.length > 0)
+      parts.push(`delete ${result.toDelete.length} absent`);
+    return parts.join(' + ') || 'Import';
+  }
 
   ngOnInit() {
     this.regionsSvc.getAll().subscribe({ next: (r) => this.regions.set(r) });
@@ -172,6 +292,17 @@ export class VolunteersListComponent implements OnInit {
     }
   }
 
+  // ── Modal helpers ──────────────────────────────────────────────────────────
+
+  closeModal() {
+    if (this.activeModal() === 'import' && this.importStep() === 'done') {
+      this.load();
+    }
+    this.activeModal.set(null);
+  }
+
+  // ── Create modal ───────────────────────────────────────────────────────────
+
   openCreate() {
     this.createForm.reset({
       volunteer_code: '',
@@ -183,11 +314,7 @@ export class VolunteersListComponent implements OnInit {
     this.selectedCreateRoleIds.set([]);
     this.selectedCreateRegionIds.set([]);
     this.createError.set('');
-    this.createModal.set(true);
-  }
-
-  closeCreate() {
-    this.createModal.set(false);
+    this.activeModal.set('create');
   }
 
   isCreateRoleSelected(roleId: string): boolean {
@@ -231,7 +358,7 @@ export class VolunteersListComponent implements OnInit {
       .subscribe({
         next: () => {
           this.creating.set(false);
-          this.createModal.set(false);
+          this.activeModal.set(null);
           this.applyFilters();
         },
         error: (err) => {
@@ -242,6 +369,8 @@ export class VolunteersListComponent implements OnInit {
         },
       });
   }
+
+  // ── Import modal ───────────────────────────────────────────────────────────
 
   downloadExcel() {
     this.svc.exportExcel(this.buildQuery()).subscribe((blob) => {
@@ -259,14 +388,13 @@ export class VolunteersListComponent implements OnInit {
     this.importStep.set('upload');
     this.importError.set('');
     this.parseResult.set(null);
-    this.importDeleteAbsent.set(false);
     this.commitResult.set(null);
-    this.importModal.set(true);
-  }
-
-  closeImport() {
-    this.importModal.set(false);
-    if (this.importStep() === 'done') this.load();
+    this.importUpdateExisting.set(false);
+    this.importDeleteAbsent.set(false);
+    this.importSelectedColumns.set([]);
+    this.importIncludeNoCode.set(true);
+    this.importCreateNew.set(true);
+    this.activeModal.set('import');
   }
 
   onDragOver(ev: DragEvent) {
@@ -296,6 +424,7 @@ export class VolunteersListComponent implements OnInit {
     this.svc.parseImport(file).subscribe({
       next: (result) => {
         this.parseResult.set(result);
+        this.importSelectedColumns.set([...(result.columns ?? [])]);
         this.importStep.set('preview');
         this.importing.set(false);
       },
@@ -308,17 +437,25 @@ export class VolunteersListComponent implements OnInit {
 
   commitImport() {
     const result = this.parseResult();
-    const canCommit =
-      result &&
-      (result.to_create.length > 0 ||
-        (this.importDeleteAbsent() && (result.to_delete?.length ?? 0) > 0));
-    if (!canCommit) return;
+    if (!result || !this.canCommit) return;
     this.importing.set(true);
     this.importError.set('');
+    const rows = this.validToCreate() as ImportVolunteerRow[];
+    const updateRows = this.importUpdateExisting() ? result.duplicateRows : undefined;
     const deleteAbsent = this.importDeleteAbsent() ? true : undefined;
-    const toDeleteCodes = deleteAbsent ? (result!.to_delete ?? []) : undefined;
+    const toDeleteCodes = deleteAbsent ? result.toDelete : undefined;
+    const selectedCols = this.importSelectedColumns();
+    const allCols = result.columns ?? [];
+    const isPartial = selectedCols.length < allCols.length;
     this.svc
-      .commitImport(result!.to_create as ImportVolunteerRow[], deleteAbsent, toDeleteCodes)
+      .commitImport(
+        rows,
+        updateRows as ImportVolunteerRow[] | undefined,
+        deleteAbsent,
+        isPartial ? true : undefined,
+        isPartial ? selectedCols : undefined,
+        toDeleteCodes,
+      )
       .subscribe({
         next: (res) => {
           this.commitResult.set(res);
@@ -330,5 +467,25 @@ export class VolunteersListComponent implements OnInit {
           this.importing.set(false);
         },
       });
+  }
+
+  // ── Truncate modal ─────────────────────────────────────────────────────────
+
+  openTruncate() {
+    this.truncateConfirmText.set('');
+    this.activeModal.set('truncate');
+  }
+
+  confirmTruncate() {
+    if (this.truncateConfirmText() !== 'DELETE' || this.truncating()) return;
+    this.truncating.set(true);
+    this.svc.truncate().subscribe({
+      next: () => {
+        this.truncating.set(false);
+        this.activeModal.set(null);
+        this.load();
+      },
+      error: () => this.truncating.set(false),
+    });
   }
 }
