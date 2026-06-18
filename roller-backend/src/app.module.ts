@@ -19,6 +19,7 @@ import { UsersModule } from './users/users.module';
 import { StorageModule } from './storage/storage.module';
 import { VersionModule } from './version/version.module';
 import { VolunteersModule } from './volunteers/volunteers.module';
+import { PlacesModule } from './places/places.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { VolunteersModule } from './volunteers/volunteers.module';
     StorageModule,
     CartsModule,
     VersionModule,
+    PlacesModule,
   ],
 })
 export class AppModule {}
