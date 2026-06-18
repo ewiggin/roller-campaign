@@ -5,7 +5,6 @@ import {
   IsInt,
   IsOptional,
   IsUUID,
-  Max,
   Min,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
@@ -59,6 +58,5 @@ export class ActivityListQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(500)
   limit?: number = 50;
 }

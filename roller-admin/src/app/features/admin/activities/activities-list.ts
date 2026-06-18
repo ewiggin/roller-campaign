@@ -139,22 +139,38 @@ export class ActivitiesListComponent implements OnInit {
   readonly importModalOpen = signal(false);
   readonly exporting = signal(false);
 
-  exportSelected() {
-    const ids = [...this.selectedIds()];
-    if (!ids.length) return;
+  exportAll() {
     this.exporting.set(true);
-    from(ids)
+    this.svc
+      .getAll({
+        regionId: this.filterRegion() || undefined,
+        date: this.filterDate() || undefined,
+        hostId: this.filterHost() || undefined,
+        is_preaching_shift: this.preachingShiftsOnly ? true : undefined,
+        limit: 10000,
+      })
       .pipe(
-        concatMap(id => this.svc.getOne(id)),
-        toArray(),
+        switchMap(res => {
+          if (!res.data.length) return of([] as Activity[]);
+          return from(res.data).pipe(
+            concatMap(a => this.svc.getOne(a.id)),
+            toArray(),
+          );
+        }),
       )
       .subscribe({
         next: async activities => {
           const blob = new Blob([JSON.stringify(activities, null, 2)], {
             type: 'application/json',
           });
-          const date = new Date().toISOString().slice(0, 10);
-          await downloadFile(blob, `activities-${date}.json`);
+          const parts: string[] = [this.preachingShiftsOnly ? 'turnos' : 'actividades'];
+          const regionName = this.regions().find(r => r.id === this.filterRegion())?.name;
+          if (regionName) parts.push(regionName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
+          const hostName = this.filterHosts().find(h => h.id === this.filterHost())?.name;
+          if (hostName) parts.push(hostName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
+          if (this.filterDate()) parts.push(this.filterDate());
+          parts.push(new Date().toISOString().slice(0, 10));
+          await downloadFile(blob, `${parts.join('-')}.json`);
           this.exporting.set(false);
         },
         error: () => this.exporting.set(false),

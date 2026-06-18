@@ -57,6 +57,13 @@
         </button>
       </div>
       <button
+        (click)="exportAll()"
+        [disabled]="exporting()"
+        class="rounded-lg border border-gray-300 dark:border-zinc-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+      >
+        @if (exporting()) { Exportando… } @else { Exportar }
+      </button>
+      <button
         (click)="importModalOpen.set(true)"
         class="rounded-lg border border-gray-300 dark:border-zinc-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
       >
@@ -191,13 +198,6 @@
             } @else {
               Delete {{ selectedCount() > 1 ? selectedCount() + ' items' : '' }}
             }
-          </button>
-          <button
-            (click)="exportSelected()"
-            [disabled]="exporting() || bulkSaving()"
-            class="rounded-lg border border-gray-300 dark:border-zinc-600 px-3 py-1.5 text-sm font-semibold text-gray-700 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-          >
-            @if (exporting()) { Exportando… } @else { Exportar }
           </button>
           <button
             (click)="clearSelection()"
