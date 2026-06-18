@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.6] - 2026-06-18
+
+### Añadido
+- **Crear grupos de predicación al crear actividad**: al crear una nueva actividad se generan automáticamente los grupos de predicación correspondientes
+- **Zona de peligro en configuración**: nueva sección en Ajustes con opción de resetear completamente la base de datos (requiere escribir CONFIRMAR para habilitar el botón)
+- **Versión visible en el menú**: la versión de la app ahora se muestra en el menú lateral
+
+### Corregido
+- **Importación de booleanos**: SQLite3 no puede vincular valores booleanos directamente; se convierten a 0/1 en `buildInsertQuery` para evitar errores al importar la base de datos
+
+---
+
 ## [0.2.5] - 2026-06-18
 
 ### Añadido

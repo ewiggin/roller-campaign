@@ -46,6 +46,25 @@ export class DatabaseService {
     };
   }
 
+  async resetAll(): Promise<void> {
+    const ordered = this.getOrderedTables();
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      for (const meta of [...ordered].reverse()) {
+        await queryRunner.query(`DELETE FROM "${meta.tableName}"`);
+      }
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+    await this.cache.clear();
+  }
+
   async importAll(data: unknown): Promise<DatabaseImportSummary> {
     if (
       !data ||
@@ -165,7 +184,8 @@ export class DatabaseService {
     const params: unknown[] = [];
     const valueRows = rows.map((row) => {
       const placeholders = columns.map((col) => {
-        params.push(row[col] ?? null);
+        const v = row[col] ?? null;
+        params.push(typeof v === 'boolean' ? (v ? 1 : 0) : v);
         return isPostgres ? `$${params.length}` : '?';
       });
       return `(${placeholders.join(', ')})`;

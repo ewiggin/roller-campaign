@@ -14,5 +14,5 @@ export const environment = {
   production: true,
   apiUrl: `http://127.0.0.1:${apiPort}/api`,
   googleMapsApiKey: 'AIzaSyCAlxhBc7f3JB3dcUtamk_vka3VGGccOlQ',
-  version: '0.2.5',
+  version: '0.2.6',
 };

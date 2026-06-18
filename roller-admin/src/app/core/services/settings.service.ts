@@ -41,4 +41,8 @@ export class SettingsService {
     formData.append('file', file);
     return this.http.post<DatabaseImportResult>('/api/settings/database/import', formData);
   }
+
+  resetDatabase() {
+    return this.http.post<void>('/api/settings/database/reset', {});
+  }
 }

@@ -15,6 +15,7 @@ import type { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiConsumes,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -63,5 +64,13 @@ export class DatabaseController {
       throw new BadRequestException('El archivo no contiene JSON válido.');
     }
     return this.databaseService.importAll(data);
+  }
+
+  @Post('reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Audit('reset', 'settings')
+  @ApiNoContentResponse({ description: 'Base de datos reiniciada' })
+  async reset(): Promise<void> {
+    return this.databaseService.resetAll();
   }
 }

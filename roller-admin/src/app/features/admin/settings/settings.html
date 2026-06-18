@@ -269,7 +269,7 @@
     </div>
   </div>
 
-  <!-- ── Database backup ──────────────────────────────────────────────── -->
+  <!-- ── Database backup / reset ─────────────────────────────────────── -->
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
   >
@@ -340,6 +340,90 @@
           </div>
         }
       </div>
+    </div>
+  </div>
+
+  <!-- ── Danger zone ──────────────────────────────────────────────────── -->
+  <div
+    class="rounded-xl border border-red-200 dark:border-red-900 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
+  >
+    <div
+      class="px-5 py-3 bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900 flex items-center gap-2"
+    >
+      <svg
+        class="w-4 h-4 text-red-600 dark:text-red-400 shrink-0"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="2"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+        />
+      </svg>
+      <span class="text-sm font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide"
+        >Zona de peligro</span
+      >
+    </div>
+
+    <div class="px-5 py-5">
+      <h3 class="text-sm font-semibold text-gray-900 dark:text-zinc-100 mb-1">
+        Reiniciar base de datos
+      </h3>
+      <p class="text-sm text-gray-500 dark:text-zinc-400 mb-4">
+        Borra
+        <span class="font-semibold text-red-600 dark:text-red-400">absolutamente todos los datos</span>:
+        usuarios, configuración, regiones, invitados, voluntarios, actividades y demás. La aplicación
+        quedará como recién instalada. Esta acción es irreversible.
+      </p>
+
+      @if (!dbResetDone()) {
+        <div class="space-y-3">
+          <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400">
+            Escribe <span class="font-mono font-bold text-red-600 dark:text-red-400">CONFIRMAR</span>
+            para habilitar el botón
+          </label>
+          <input
+            type="text"
+            [value]="dbResetConfirm()"
+            (input)="updateResetConfirm($any($event.target).value)"
+            placeholder="CONFIRMAR"
+            autocomplete="off"
+            class="w-64 rounded-lg border border-red-300 dark:border-red-800 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+          />
+          <div>
+            <button
+              type="button"
+              (click)="resetDatabase()"
+              [disabled]="!dbResetEnabled"
+              class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {{ dbResetting() ? 'Reiniciando…' : 'Reiniciar base de datos' }}
+            </button>
+          </div>
+          @if (dbResetError()) {
+            <p class="text-sm text-red-600 dark:text-red-400">{{ dbResetError() }}</p>
+          }
+        </div>
+      } @else {
+        <div class="rounded-lg bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800 px-4 py-3">
+          <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-1">
+            Base de datos reiniciada correctamente.
+          </p>
+          <p class="text-sm text-yellow-700 dark:text-yellow-400 mb-3">
+            Debes cerrar sesión e iniciarla de nuevo para continuar.
+          </p>
+          <button
+            type="button"
+            (click)="logoutAfterImport()"
+            class="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-semibold text-white hover:bg-yellow-700 transition-colors"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      }
     </div>
   </div>
 </div>

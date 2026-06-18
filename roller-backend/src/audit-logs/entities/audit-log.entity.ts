@@ -18,7 +18,8 @@ export type AuditAction =
   | 'migrate'
   | 'generate_token'
   | 'form_lookup'
-  | 'form_submit';
+  | 'form_submit'
+  | 'reset';
 
 export type AuditResource =
   | 'auth'

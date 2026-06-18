@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { PermissionsService } from '../../../core/services/permissions.service';
 import { ThemeService } from '../../../core/services/theme.service';
+import { environment } from '../../../../environments/environment';
 
 interface NavItem {
   label: string;
@@ -69,6 +70,7 @@ export class AdminLayoutComponent implements OnInit {
 
   protected readonly userEmail = computed(() => this.auth.currentUser()?.email ?? '');
   protected readonly isSuperAdmin = this.auth.isSuperAdmin;
+  protected readonly version = environment.version;
 
   private readonly ALL_NAV_ITEMS: NavItem[] = [
     { label: 'Dashboard', path: '/admin/dashboard', screen: 'dashboard', paths: ICONS.grid },

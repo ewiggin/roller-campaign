@@ -294,4 +294,37 @@ export class SettingsComponent implements OnInit {
   logoutAfterImport() {
     this.authSvc.logout();
   }
+
+  // ── Database reset ────────────────────────────────────────────────────
+
+  readonly dbResetConfirm = signal('');
+  readonly dbResetting = signal(false);
+  readonly dbResetError = signal('');
+  readonly dbResetDone = signal(false);
+
+  get dbResetEnabled(): boolean {
+    return this.dbResetConfirm().trim() === 'CONFIRMAR' && !this.dbResetting();
+  }
+
+  updateResetConfirm(value: string) {
+    this.dbResetConfirm.set(value);
+  }
+
+  resetDatabase() {
+    if (!this.dbResetEnabled) return;
+    this.dbResetting.set(true);
+    this.dbResetError.set('');
+    this.dbResetDone.set(false);
+    this.svc.resetDatabase().subscribe({
+      next: () => {
+        this.dbResetting.set(false);
+        this.dbResetDone.set(true);
+        this.dbResetConfirm.set('');
+      },
+      error: () => {
+        this.dbResetError.set('Error al reiniciar la base de datos.');
+        this.dbResetting.set(false);
+      },
+    });
+  }
 }
