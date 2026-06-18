@@ -16,6 +16,10 @@ export interface ScheduleActivityItem {
   locations: LocationPoint[];
   is_preaching_shift: boolean;
   preaching_group_name: string | null;
+  is_congregation_meeting?: boolean;
+  congregation_address?: string | null;
+  congregation_lat?: number | null;
+  congregation_lng?: number | null;
 }
 
 export interface ScheduleGroupInfo {
@@ -43,15 +47,19 @@ export const SCHEDULE_PDF_STYLES: TDocumentDefinitions['styles'] = {
   emptyCell: { fontSize: 9, italics: true, color: '#999999' },
   activityName: { fontSize: 9, bold: true },
   activityMeta: { fontSize: 8, color: '#666666', italics: true },
+  meetingCell: { fontSize: 9, fillColor: '#fffbeb', color: '#78350f' },
+  meetingName: { fontSize: 9, bold: true, fillColor: '#fffbeb', color: '#78350f' },
 };
+
+const DAYS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const MONTHS_ES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
 
 function dayLabel(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
-  const label = d.toLocaleDateString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  const label = `${DAYS_ES[d.getDay()]}, ${d.getDate()} de ${MONTHS_ES[d.getMonth()]}`;
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
@@ -127,6 +135,37 @@ export function buildGroupScheduleContent(
     }
 
     for (const activity of dayActivities) {
+      const timeText = activity.end_time
+        ? `${activity.start_time} - ${activity.end_time}`
+        : activity.start_time;
+
+      if (activity.is_congregation_meeting) {
+        let locationContent: Content;
+        if (activity.congregation_address && activity.congregation_lat && activity.congregation_lng) {
+          locationContent = {
+            text: [
+              { text: activity.congregation_address + ' ', style: 'meetingCell' },
+              {
+                text: '(Maps)',
+                link: `https://www.google.com/maps?q=${activity.congregation_lat},${activity.congregation_lng}`,
+                style: 'meetingCell',
+                decoration: 'underline',
+              },
+            ],
+          } as Content;
+        } else if (activity.congregation_address) {
+          locationContent = { text: activity.congregation_address, style: 'meetingCell' };
+        } else {
+          locationContent = { text: '—', style: 'meetingCell' };
+        }
+        body.push([
+          { text: timeText, style: 'meetingCell' },
+          { text: activity.name, style: 'meetingName' },
+          locationContent,
+        ]);
+        continue;
+      }
+
       const nameStack: Content[] = [
         { text: activity.name, style: 'activityName' },
       ];
@@ -141,7 +180,7 @@ export function buildGroupScheduleContent(
       }
 
       body.push([
-        { text: `${activity.start_time} - ${activity.end_time}`, style: 'tableCell' },
+        { text: timeText, style: 'tableCell' },
         { stack: nameStack },
         { text: locationsText(activity.locations), style: 'tableCell' },
       ]);
