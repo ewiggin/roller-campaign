@@ -628,6 +628,11 @@ export class VolunteersService {
     const updateCols =
       dto.partialUpdate && dto.columns ? new Set(dto.columns) : null;
 
+    const fallbackRegions =
+      dto.region_ids?.length
+        ? await this.regionsRepo.find({ where: { id: In(dto.region_ids) } })
+        : [];
+
     let created = 0;
     let updated = 0;
     let skipped = 0;
@@ -643,7 +648,8 @@ export class VolunteersService {
       }
 
       const roles = await resolveRoles(row.role_names);
-      const regions = resolveRegions(row.region_name);
+      const namedRegions = resolveRegions(row.region_name);
+      const regions = namedRegions.length ? namedRegions : fallbackRegions;
 
       await this.volunteersRepo.save(
         this.volunteersRepo.create({

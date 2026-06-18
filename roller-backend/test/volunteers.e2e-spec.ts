@@ -254,9 +254,9 @@ describe('Volunteers (e2e)', () => {
         .attach('file', xlsx, 'voluntarios.xlsx')
         .expect(200);
       expect(res.body.summary.total).toBe(3);
-      expect(res.body.summary.to_create).toBe(2);
-      expect(res.body.summary.skipped).toBe(1);
-      expect(res.body.skipped).toContain('V-001');
+      expect(res.body.summary.valid).toBe(2);
+      expect(res.body.summary.duplicates).toBe(1);
+      expect(res.body.duplicates).toContain('V-001');
     });
 
     it('POST /api/volunteers/import/commit creates and skips', async () => {
@@ -312,11 +312,11 @@ describe('Volunteers (e2e)', () => {
         .attach('file', xlsx, 'vols.xlsx')
         .expect(200);
 
-      expect(res.body.to_delete).toContain('V-GONE-1');
-      expect(res.body.to_delete).toContain('V-GONE-2');
-      expect(res.body.to_delete).not.toContain('V-KEEP-A');
-      expect(res.body.to_delete).not.toContain('V-KEEP-B');
-      expect(res.body.summary.to_delete).toBe(res.body.to_delete.length);
+      expect(res.body.toDelete).toContain('V-GONE-1');
+      expect(res.body.toDelete).toContain('V-GONE-2');
+      expect(res.body.toDelete).not.toContain('V-KEEP-A');
+      expect(res.body.toDelete).not.toContain('V-KEEP-B');
+      expect(res.body.summary.to_delete).toBe(res.body.toDelete.length);
     });
 
     it('commit with deleteAbsent removes only absent volunteers', async () => {
