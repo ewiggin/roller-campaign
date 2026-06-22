@@ -530,12 +530,6 @@ export class ActivitiesService {
       );
     }
 
-    if (activity.host_id && group.host_id !== activity.host_id) {
-      throw new BadRequestException(
-        'El grupo no pertenece al anfitrión de esta actividad',
-      );
-    }
-
     if (group.available_from && activity.date < group.available_from) {
       throw new BadRequestException(
         'La fecha de la actividad es anterior al inicio de disponibilidad del grupo',
@@ -1117,7 +1111,7 @@ export class ActivitiesService {
   ): Promise<AvailableGroupForActivityDto[]> {
     const activity = await this.activitiesRepo.findOne({
       where: { id },
-      relations: { guestGroups: true },
+      relations: { guestGroups: true, host: true },
     });
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
@@ -1139,9 +1133,7 @@ export class ActivitiesService {
 
     const [groups, guests] = await Promise.all([
       this.groupsRepo.find({
-        where: activity.host_id
-          ? { region_id: activity.region_id, host_id: activity.host_id }
-          : { region_id: activity.region_id },
+        where: { region_id: activity.region_id },
         relations: ['host'],
       }),
       this.guestsRepo.find({
@@ -1219,14 +1211,13 @@ export class ActivitiesService {
         weekend_meeting_time: string | null;
       } | null;
       const activityLoc = activity.activity_locations?.[0] ?? null;
+      const srcLat = activityLoc?.lat ?? activity.host?.lat ?? null;
+      const srcLng = activityLoc?.lng ?? activity.host?.lng ?? null;
+      const dstLat = group.agg_avg_lat ?? host?.lat ?? null;
+      const dstLng = group.agg_avg_lng ?? host?.lng ?? null;
       const distance_km =
-        activityLoc && host?.lat && host?.lng
-          ? this.haversineKm(
-              activityLoc.lat,
-              activityLoc.lng,
-              host.lat,
-              host.lng,
-            )
+        srcLat !== null && srcLng !== null && dstLat !== null && dstLng !== null
+          ? this.haversineKm(srcLat, srcLng, dstLat, dstLng)
           : null;
 
       result.push({
@@ -1285,10 +1276,15 @@ export class ActivitiesService {
         order: { preference: 'DESC', created_at: 'ASC' },
       }),
     ]);
+    const actLoc = activity.activity_locations?.[0] ?? null;
+    const srcLat = actLoc?.lat ?? activity.host?.lat ?? null;
+    const srcLng = actLoc?.lng ?? activity.host?.lng ?? null;
     const preachingGroups = await this.getPreachingGroupsDto(
       activity.id,
       counts,
       volunteerRoles,
+      srcLat,
+      srcLng,
     );
     const requestGroupIds = rawRequests.map((r) => r.group_id);
     const requestCounts = requestGroupIds.length
@@ -1321,10 +1317,12 @@ export class ActivitiesService {
         available_roles: { id: string; name: string }[];
       }
     > = new Map(),
+    srcLat: number | null = null,
+    srcLng: number | null = null,
   ): Promise<PreachingGroupDto[]> {
     const groups = await this.preachingGroupsRepo.find({
       where: { activity_id: activityId },
-      relations: { guestGroups: true, carts: true },
+      relations: { guestGroups: { host: true }, carts: true },
       order: { position: 'ASC' },
     });
     if (groups.length === 0) return [];
@@ -1367,11 +1365,21 @@ export class ActivitiesService {
           };
         })
         .filter((v): v is PreachingGroupVolunteerDto => v !== null),
-      guest_groups: (group.guestGroups ?? []).map((g) => ({
-        id: g.id,
-        group_code: g.group_code,
-        guest_count: groupCounts.get(g.id) ?? 0,
-      })),
+      guest_groups: (group.guestGroups ?? []).map((g) => {
+        const dstLat = g.agg_avg_lat ?? g.host?.lat ?? null;
+        const dstLng = g.agg_avg_lng ?? g.host?.lng ?? null;
+        const distance_km =
+          srcLat !== null && srcLng !== null && dstLat !== null && dstLng !== null
+            ? Math.round(this.haversineKm(srcLat, srcLng, dstLat, dstLng) * 10) / 10
+            : null;
+        return {
+          id: g.id,
+          group_code: g.group_code,
+          guest_count: groupCounts.get(g.id) ?? 0,
+          host_name: g.host?.name ?? null,
+          distance_km,
+        };
+      }),
       carts: (group.carts ?? []).map((c) => ({
         id: c.id,
         number: c.number,
@@ -1574,6 +1582,8 @@ export class ActivitiesService {
       id: g.id,
       group_code: g.group_code,
       guest_count: groupCounts.get(g.id) ?? 0,
+      host_name: null,
+      distance_km: null,
     })),
     total_guests_assigned: (activity.guestGroups ?? []).reduce(
       (sum, g) => sum + (groupCounts.get(g.id) ?? 0),

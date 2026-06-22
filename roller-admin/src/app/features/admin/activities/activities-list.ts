@@ -523,7 +523,8 @@ export class ActivitiesListComponent implements OnInit {
         (g) =>
           !g.already_in_activity &&
           !g.host_schedule_conflict &&
-          !(isPreachingShift && g.preaching_shifts_count >= 3),
+          !(isPreachingShift && g.preaching_shifts_count >= 3) &&
+          g.guest_count > 0,
       )
       .map((g) => ({
         value: g.id,
@@ -539,7 +540,7 @@ export class ActivitiesListComponent implements OnInit {
   });
 
   readonly pickVolunteerByGroup = signal<Record<string, string>>({});
-  readonly pickGuestGroupByGroup = signal<Record<string, string>>({});
+  readonly pickGuestGroupByGroup = signal<Record<string, string[]>>({});
   readonly pickCartByGroup = signal<Record<string, string>>({});
 
   pickedVolunteerFor(groupId: string): string {
@@ -550,11 +551,11 @@ export class ActivitiesListComponent implements OnInit {
     this.pickVolunteerByGroup.update((m) => ({ ...m, [groupId]: value }));
   }
 
-  pickedGuestGroupFor(groupId: string): string {
-    return this.pickGuestGroupByGroup()[groupId] ?? '';
+  pickedGuestGroupFor(groupId: string): string[] {
+    return this.pickGuestGroupByGroup()[groupId] ?? [];
   }
 
-  setPickedGuestGroupFor(groupId: string, value: string) {
+  setPickedGuestGroupFor(groupId: string, value: string[]) {
     this.pickGuestGroupByGroup.update((m) => ({ ...m, [groupId]: value }));
   }
 
@@ -1481,22 +1482,29 @@ export class ActivitiesListComponent implements OnInit {
 
   addGuestGroupToGroup(groupId: string) {
     const activity = this.selectedActivity();
-    const guestGroupId = this.pickedGuestGroupFor(groupId);
-    if (!activity || !guestGroupId) return;
+    const guestGroupIds = this.pickedGuestGroupFor(groupId);
+    if (!activity || !guestGroupIds.length) return;
     this.detailSaving.set(true);
-    this.svc.assignGuestGroupToGroup(activity.id, groupId, guestGroupId).subscribe({
-      next: (updated) => {
-        this.selectedActivity.set(updated);
-        this.setPickedGuestGroupFor(groupId, '');
-        this.detailSaving.set(false);
-        this.reloadAvailableGroups();
-        this.load();
-      },
-      error: () => {
-        this.detailError.set('Error assigning group.');
-        this.detailSaving.set(false);
-      },
-    });
+    from(guestGroupIds)
+      .pipe(
+        concatMap((guestGroupId) =>
+          this.svc.assignGuestGroupToGroup(activity.id, groupId, guestGroupId),
+        ),
+        last(),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.selectedActivity.set(updated);
+          this.setPickedGuestGroupFor(groupId, []);
+          this.detailSaving.set(false);
+          this.reloadAvailableGroups();
+          this.load();
+        },
+        error: () => {
+          this.detailError.set('Error assigning group.');
+          this.detailSaving.set(false);
+        },
+      });
   }
 
   removeGuestGroupFromGroup(groupId: string, guestGroupId: string) {

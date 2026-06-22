@@ -20,6 +20,8 @@ export interface ActivityGuestGroup {
   id: string;
   group_code: string;
   guest_count: number;
+  host_name: string | null;
+  distance_km: number | null;
 }
 
 export interface ActivityAttendanceRequest {

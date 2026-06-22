@@ -1719,9 +1719,13 @@
                                 class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 ring-1 ring-blue-200 dark:ring-blue-800"
                               >
                                 {{ g.group_code }}
-                                <span class="text-blue-400 dark:text-blue-500"
-                                  >· {{ g.guest_count }}</span
-                                >
+                                @if (g.distance_km != null) {
+                                  <span class="text-blue-400 dark:text-blue-500">· {{ g.distance_km }} km</span>
+                                }
+                                @if (g.host_name) {
+                                  <span class="text-blue-400 dark:text-blue-500">· {{ g.host_name }}</span>
+                                }
+                                <span class="text-blue-400 dark:text-blue-500">· {{ g.guest_count }}</span>
                               </span>
                             }
                           </div>
@@ -1903,6 +1907,12 @@
                                     {{ g.group_code }}
                                   </p>
                                   <p class="text-xs text-gray-400 dark:text-zinc-500">
+                                    @if (g.distance_km != null) {
+                                      {{ g.distance_km }} km ·
+                                    }
+                                    @if (g.host_name) {
+                                      {{ g.host_name }} ·
+                                    }
                                     {{ g.guest_count }} guest{{ g.guest_count !== 1 ? 's' : '' }}
                                   </p>
                                 </div>
@@ -1934,15 +1944,16 @@
                           <app-searchable-select
                             class="flex-1"
                             [items]="ungroupedGroupItems()"
-                            placeholder="Select guest group…"
+                            placeholder="Select guest groups…"
                             [compact]="true"
-                            [selected]="pickedGuestGroupFor(group.id)"
-                            (selectedChange)="setPickedGuestGroupFor(group.id, $event)"
+                            [multi]="true"
+                            [selectedItems]="pickedGuestGroupFor(group.id)"
+                            (selectedItemsChange)="setPickedGuestGroupFor(group.id, $event)"
                           />
                           <button
                             type="button"
                             (click)="addGuestGroupToGroup(group.id)"
-                            [disabled]="!pickedGuestGroupFor(group.id) || detailSaving()"
+                            [disabled]="!pickedGuestGroupFor(group.id).length || detailSaving()"
                             class="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
                           >
                             Add
