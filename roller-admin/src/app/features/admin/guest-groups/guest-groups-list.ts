@@ -181,6 +181,7 @@ export class GuestGroupsListComponent implements OnInit {
   // Edit availability/composition modal
   readonly editGroup = signal<GuestGroup | null>(null);
   readonly editForm = this.fb.nonNullable.group({
+    region_id: ['' as string, Validators.required],
     available_from: ['' as string],
     available_to: ['' as string],
     composition: ['' as string],
@@ -395,6 +396,7 @@ export class GuestGroupsListComponent implements OnInit {
     this.editGroup.set(group);
     this.formError.set('');
     this.editForm.setValue({
+      region_id: group.region_id,
       available_from: group.available_from ?? '',
       available_to: group.available_to ?? '',
       composition: group.composition ?? '',
@@ -411,6 +413,7 @@ export class GuestGroupsListComponent implements OnInit {
     const v = this.editForm.getRawValue();
     this.svc
       .update(group.id, {
+        region_id: v.region_id,
         available_from: v.available_from || null,
         available_to: v.available_to || null,
         composition: (v.composition as GroupComposition) || null,
