@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.8] - 2026-06-22
+
+### Añadido
+- **Selector de región al editar grupo**: el formulario de edición de grupos de anfitriones incluye ahora un selector de región, permitiendo cambiar la región asignada al guardar los cambios
+
+---
+
 ## [0.2.7] - 2026-06-19
 
 ### Añadido
