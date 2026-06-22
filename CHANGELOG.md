@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.9] - 2026-06-22
+
+### Añadido
+- **Distancia y congregación en grupos de anfitriones**: el selector de grupos disponibles para un turno de predicación muestra ahora todos los grupos de la región ordenados por distancia (calculada desde la ubicación de la actividad, o la del anfitrión como fallback, hasta las coordenadas medias de los invitados del grupo), en lugar de filtrar solo por el anfitrión de la actividad
+- **Información ampliada en grupos ya asignados**: `ActivityGuestGroupDto` incluye ahora `host_name` y `distance_km`, de modo que los grupos ya asignados muestran los mismos datos que el selector
+
+### Mejorado
+- **Selector de grupos multi-selección**: el desplegable para añadir grupos a un turno de predicación permite ahora seleccionar varios grupos a la vez y oculta los grupos sin invitados
+- **Asignación entre congregaciones**: eliminada la validación que impedía asignar a un turno grupos de una congregación distinta a la del anfitrión de la actividad
+
+---
+
 ## [0.2.8] - 2026-06-22
 
 ### Añadido
