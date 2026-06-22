@@ -75,6 +75,7 @@ export interface CreateGuestGroupPayload {
 }
 
 export interface UpdateGuestGroupPayload {
+  region_id?: string;
   available_from?: string | null;
   available_to?: string | null;
   composition?: GroupComposition | null;
