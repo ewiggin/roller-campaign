@@ -41,6 +41,12 @@ export class ActivityGuestGroupDto {
 
   @ApiProperty({ example: 12 })
   guest_count: number;
+
+  @ApiPropertyOptional({ example: 'Congregación Norte', nullable: true })
+  host_name: string | null;
+
+  @ApiPropertyOptional({ example: 3.2, nullable: true })
+  distance_km: number | null;
 }
 
 export class ActivityCartDto {

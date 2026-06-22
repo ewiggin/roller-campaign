@@ -1378,7 +1378,7 @@ describe('Activities (e2e)', () => {
       ).body.id;
     });
 
-    it('only shows groups belonging to the activity host', async () => {
+    it('shows all region groups regardless of activity host', async () => {
       const res = await request(server)
         .get(`/api/activities/${activityWithHostId}/available-groups`)
         .set('Authorization', auth())
@@ -1386,8 +1386,8 @@ describe('Activities (e2e)', () => {
 
       const ids = res.body.map((g: { id: string }) => g.id);
       expect(ids).toContain(groupWithHostId);
-      expect(ids).not.toContain(groupOtherHostId);
-      expect(ids).not.toContain(groupNoHostId);
+      expect(ids).toContain(groupOtherHostId);
+      expect(ids).toContain(groupNoHostId);
     });
 
     it('shows all region groups when activity has no host', async () => {
@@ -1402,20 +1402,32 @@ describe('Activities (e2e)', () => {
       expect(ids).toContain(groupNoHostId);
     });
 
-    it('blocks assigning a group not belonging to the activity host', async () => {
-      await request(server)
+    it('allows assigning a group from a different host to the activity', async () => {
+      const res = await request(server)
         .post(`/api/activities/${activityWithHostId}/guest-groups`)
         .set('Authorization', auth())
         .send({ groupId: groupOtherHostId })
-        .expect(400);
+        .expect(200);
+
+      expect(
+        res.body.guest_groups.some(
+          (g: { id: string }) => g.id === groupOtherHostId,
+        ),
+      ).toBe(true);
     });
 
-    it('blocks assigning a group with no host to an activity with a host', async () => {
-      await request(server)
+    it('allows assigning a group with no host to an activity with a host', async () => {
+      const res = await request(server)
         .post(`/api/activities/${activityWithHostId}/guest-groups`)
         .set('Authorization', auth())
         .send({ groupId: groupNoHostId })
-        .expect(400);
+        .expect(200);
+
+      expect(
+        res.body.guest_groups.some(
+          (g: { id: string }) => g.id === groupNoHostId,
+        ),
+      ).toBe(true);
     });
 
     it('allows assigning a group belonging to the activity host', async () => {
