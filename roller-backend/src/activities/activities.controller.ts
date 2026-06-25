@@ -121,11 +121,22 @@ export class ActivitiesController {
 
   @Get('import/template')
   @ApiOkResponse({ description: 'Plantilla Excel para importación de actividades' })
-  getImportTemplate(@Res() res: Response): void {
-    const buffer = this.svc.generateExcelTemplate();
+  getImportTemplate(
+    @Query('is_preaching_shift') isPreachingShift: string | undefined,
+    @Query('is_food_shift') isFoodShift: string | undefined,
+    @Res() res: Response,
+  ): void {
+    const ps = isPreachingShift === 'true';
+    const fs = isFoodShift === 'true';
+    const buffer = this.svc.generateExcelTemplate(ps, fs);
+    const filename = ps
+      ? 'plantilla-turnos-predicacion.xlsx'
+      : fs
+        ? 'plantilla-turnos-comida.xlsx'
+        : 'plantilla-actividades.xlsx';
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': 'attachment; filename="plantilla-actividades.xlsx"',
+      'Content-Disposition': `attachment; filename="${filename}"`,
     });
     res.send(buffer);
   }

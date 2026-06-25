@@ -253,4 +253,14 @@ export class ActivitiesService {
       formData,
     );
   }
+
+  downloadTemplate(opts: { is_preaching_shift?: boolean; is_food_shift?: boolean } = {}) {
+    let params = new HttpParams();
+    if (opts.is_preaching_shift) params = params.set('is_preaching_shift', 'true');
+    if (opts.is_food_shift) params = params.set('is_food_shift', 'true');
+    return this.http.get('/api/activities/import/template', {
+      params,
+      responseType: 'blob',
+    });
+  }
 }

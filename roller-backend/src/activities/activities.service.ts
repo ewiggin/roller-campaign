@@ -1660,10 +1660,31 @@ export class ActivitiesService {
     'status',
   ] as const;
 
-  generateExcelTemplate(): Buffer {
+  generateExcelTemplate(
+    isPreachingShift = false,
+    isFoodShift = false,
+  ): Buffer {
+    const sampleRow = [
+      'Nombre de la actividad',
+      '2025-01-15',
+      '09:00',
+      '12:00',
+      'Nombre de la región',
+      'Nombre de la congregación',
+      '',
+      '',
+      '',
+      isPreachingShift ? 'TRUE' : 'FALSE',
+      isFoodShift ? 'TRUE' : 'FALSE',
+      'FALSE',
+      '',
+      '',
+      'draft',
+    ];
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([
       [...this.ACTIVITY_EXCEL_COLUMNS],
+      sampleRow,
     ]);
     XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));

@@ -156,17 +156,26 @@ export class ActivitiesListComponent implements OnInit {
   readonly importModalOpen = signal(false);
   readonly exporting = signal(false);
   readonly exportingExcel = signal(false);
+  readonly downloadingTemplate = signal(false);
 
-  readonly archivoMenuItems = computed<MenuItem[]>(() => [
+  readonly jsonMenuItems = computed<MenuItem[]>(() => [
     {
       label: this.exporting() ? 'Exporting…' : 'Export JSON',
       action: () => this.exportAll(),
       disabled: this.exporting(),
     },
+  ]);
+
+  readonly excelMenuItems = computed<MenuItem[]>(() => [
     {
       label: this.exportingExcel() ? 'Exporting…' : 'Export Excel',
       action: () => this.exportAllExcel(),
       disabled: this.exportingExcel(),
+    },
+    {
+      label: this.downloadingTemplate() ? 'Downloading…' : 'Download template',
+      action: () => this.downloadExcelTemplate(),
+      disabled: this.downloadingTemplate(),
     },
     { label: 'Import', action: () => this.importModalOpen.set(true) },
   ]);
@@ -237,6 +246,27 @@ export class ActivitiesListComponent implements OnInit {
           this.exportingExcel.set(false);
         },
         error: () => this.exportingExcel.set(false),
+      });
+  }
+
+  downloadExcelTemplate() {
+    this.downloadingTemplate.set(true);
+    this.svc
+      .downloadTemplate({
+        is_preaching_shift: this.preachingShiftsOnly ? true : undefined,
+        is_food_shift: this.foodShiftsOnly ? true : undefined,
+      })
+      .subscribe({
+        next: async blob => {
+          const filename = this.preachingShiftsOnly
+            ? 'plantilla-turnos-predicacion.xlsx'
+            : this.foodShiftsOnly
+              ? 'plantilla-turnos-comida.xlsx'
+              : 'plantilla-actividades.xlsx';
+          await downloadFile(blob as Blob, filename);
+          this.downloadingTemplate.set(false);
+        },
+        error: () => this.downloadingTemplate.set(false),
       });
   }
 
