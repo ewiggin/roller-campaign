@@ -1883,8 +1883,8 @@ export class ActivitiesService {
     const address = this.parseXlsxString(row['host_person_address']);
     const phone = this.parseXlsxString(row['host_person_phone']);
     if (!name && !address && !phone) return this.parseXlsxString(row['description']);
-    let desc = 'Estais invitados';
-    if (name) desc += ` a casa de ${name}`;
+    let desc = 'Estais invitados a comer';
+    if (name) desc += ` en casa de ${name}`;
     if (address) desc += ` en ${address}`;
     desc += '.';
     if (phone) desc += ` Su tel. es ${phone}.`;
