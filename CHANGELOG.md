@@ -1,9 +1,14 @@
 # Changelog
 
-## [0.2.11] - 2026-06-25
+## [0.2.12] - 2026-06-25
 
 ### Añadido
-- **Importación/exportación Excel de actividades, turnos de predicación y turnos de comida**: los tres listados incluyen ahora dos dropdowns separados: **JSON** (solo Export JSON) y **Excel** (Export Excel · Download template · Import). El modal de importación acepta `.json` y `.xlsx`; al seleccionar un Excel el backend resuelve `region_name` → `region_id` y `host_name` → `host_id`, y las actividades resultantes pasan al paso de revisión y selección de secciones. Las filas con errores se muestran como advertencias sin bloquear las demás. La plantilla descargable incluye una fila de ejemplo con los flags de tipo pre-rellenados (`is_preaching_shift=TRUE` en Preaching Shifts, `is_food_shift=TRUE` en Food Shifts). Nuevos endpoints: `GET /activities/import/template` (acepta `is_preaching_shift` / `is_food_shift`), `GET /activities/export/excel` y `POST /activities/import/parse-excel`
+- **Importación/exportación Excel de actividades, turnos de predicación y turnos de comida**: los tres listados incluyen ahora dos dropdowns separados: **JSON** (solo Export JSON) y **Excel** (Export Excel · Download template), más un botón independiente **Import** (acepta `.json` y `.xlsx`). Al seleccionar un Excel el backend resuelve `region_name` → `region_id` y `host_name` → `host_id`, y las actividades resultantes pasan al paso de revisión y selección de secciones. Las filas con errores se muestran como advertencias sin bloquear las demás
+- **Plantillas Excel por tipo de actividad**: la plantilla de cada sección omite las columnas `is_preaching_shift` / `is_food_shift` (su valor se fuerza automáticamente al importar según el contexto). La plantilla de Food Shifts sustituye `description` por tres columnas específicas (`host_person_name`, `host_person_address`, `host_person_phone`) que al importar generan automáticamente la descripción: `Estais invitados a comer en casa de {nombre} en {dirección}. Su tel. es {teléfono}.`
+- Nuevos endpoints: `GET /activities/import/template`, `GET /activities/export/excel` y `POST /activities/import/parse-excel`
+
+### Corregido
+- **is_food_shift no se enviaba al crear/actualizar actividades desde el import modal**: el payload de creación y actualización omitía el flag `is_food_shift`, por lo que los turnos de comida importados se guardaban como actividades generales
 
 ---
 
