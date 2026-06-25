@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.12] - 2026-06-25
+## [0.3.0] - 2026-06-25
 
 ### Añadido
 - **Importación/exportación Excel de actividades, turnos de predicación y turnos de comida**: los tres listados incluyen ahora dos dropdowns separados: **JSON** (solo Export JSON) y **Excel** (Export Excel · Download template), más un botón independiente **Import** (acepta `.json` y `.xlsx`). Al seleccionar un Excel el backend resuelve `region_name` → `region_id` y `host_name` → `host_id`, y las actividades resultantes pasan al paso de revisión y selección de secciones. Las filas con errores se muestran como advertencias sin bloquear las demás
