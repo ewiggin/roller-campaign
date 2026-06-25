@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import * as XLSX from 'xlsx';
 import type { Content } from 'pdfmake/interfaces';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { createPdfBuffer } from '../common/pdf/pdf.util';
@@ -100,6 +101,7 @@ export class ActivitiesService {
       end_time: dto.end_time,
       activity_locations: dto.activity_locations ?? null,
       is_preaching_shift: dto.is_preaching_shift ?? false,
+      is_food_shift: dto.is_food_shift ?? false,
       request_attendance: dto.request_attendance ?? false,
       status: 'draft',
       volunteers: [],
@@ -138,6 +140,7 @@ export class ActivitiesService {
             end_time: dto.end_time,
             activity_locations: dto.activity_locations ?? null,
             is_preaching_shift: dto.is_preaching_shift ?? false,
+            is_food_shift: dto.is_food_shift ?? false,
             request_attendance: dto.request_attendance ?? false,
             status: 'draft',
             volunteers: [],
@@ -172,12 +175,14 @@ export class ActivitiesService {
   }> {
     const {
       regionId,
+      name,
       date,
       dateFrom,
       dateTo,
       hostId,
       volunteerId,
       is_preaching_shift,
+      is_food_shift,
       page = 1,
       limit = 50,
     } = query;
@@ -201,6 +206,8 @@ export class ActivitiesService {
         qb.andWhere('a.is_preaching_shift = :isPreachingShift', {
           isPreachingShift: is_preaching_shift,
         });
+      if (is_food_shift !== undefined)
+        qb.andWhere('a.is_food_shift = :isFoodShift', { isFoodShift: is_food_shift });
       const total = await qb.getCount();
       const activities = await qb
         .skip((page - 1) * limit)
@@ -237,6 +244,7 @@ export class ActivitiesService {
       qb.where('a.region_id = :regionId', { regionId });
     }
 
+    if (name) qb.andWhere('LOWER(a.name) LIKE :name', { name: `%${name.toLowerCase()}%` });
     if (date) qb.andWhere('a.date = :date', { date });
     if (dateFrom) qb.andWhere('a.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('a.date <= :dateTo', { dateTo });
@@ -247,6 +255,8 @@ export class ActivitiesService {
       qb.andWhere('a.is_preaching_shift = :isPreachingShift', {
         isPreachingShift: is_preaching_shift,
       });
+    if (is_food_shift !== undefined)
+      qb.andWhere('a.is_food_shift = :isFoodShift', { isFoodShift: is_food_shift });
 
     const total = await qb.getCount();
     const activities = await qb
@@ -997,10 +1007,14 @@ export class ActivitiesService {
   ): Promise<AvailableVolunteerForActivityDto[]> {
     const activity = await this.activitiesRepo.findOne({
       where: { id },
-      relations: { volunteers: true },
+      relations: { volunteers: true, host: true },
     });
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const activityLoc = activity.activity_locations?.[0] ?? null;
+    const srcLat = activityLoc?.lat ?? activity.host?.lat ?? null;
+    const srcLng = activityLoc?.lng ?? activity.host?.lng ?? null;
 
     const assignedToThis = new Set(activity.volunteers.map((v) => v.id));
 
@@ -1039,6 +1053,7 @@ export class ActivitiesService {
         regionId: activity.region_id,
       })
       .leftJoinAndSelect('v.roles', 'roles')
+      .leftJoinAndSelect('v.host', 'host')
       .where('v.is_active = true')
       .andWhere(
         `(NOT EXISTS (
@@ -1056,16 +1071,28 @@ export class ActivitiesService {
 
     return volunteers
       .filter((v) => !assignedToThis.has(v.id))
-      .map((v) => ({
-        id: v.id,
-        volunteer_code: v.volunteer_code,
-        full_name: v.full_name,
-        roles: (v.roles ?? []).map((role) => ({
-          id: role.id,
-          name: role.name,
-        })),
-        already_in_activity: conflictingIds.has(v.id),
-      }));
+      .map((v) => {
+        const hasOwnCoords = v.lat !== null && v.lng !== null;
+        const volLat = v.lat ?? v.host?.lat ?? null;
+        const volLng = v.lng ?? v.host?.lng ?? null;
+        const distance_km =
+          srcLat !== null && srcLng !== null && volLat !== null && volLng !== null
+            ? Math.round(this.haversineKm(srcLat, srcLng, volLat, volLng) * 10) / 10
+            : null;
+        return {
+          id: v.id,
+          volunteer_code: v.volunteer_code,
+          full_name: v.full_name,
+          roles: (v.roles ?? []).map((role) => ({
+            id: role.id,
+            name: role.name,
+          })),
+          already_in_activity: conflictingIds.has(v.id),
+          distance_km,
+          distance_from_congregation: !hasOwnCoords && distance_km !== null,
+          congregation_name: v.host?.name ?? null,
+        };
+      });
   }
 
   private getAvailabilityDayLabel(
@@ -1173,10 +1200,26 @@ export class ActivitiesService {
       preachingCountRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
     );
 
+    // For food shifts: only groups with a morning preaching shift (start < 12:00) that day
+    let morningPreachingGroupIds: Set<string> | null = null;
+    if (activity.is_food_shift) {
+      const morningRows = await this.activitiesRepo
+        .createQueryBuilder('a')
+        .innerJoin('a.guestGroups', 'gg')
+        .select('gg.id', 'groupId')
+        .where('a.is_preaching_shift = :yes', { yes: true })
+        .andWhere('a.region_id = :regionId', { regionId: activity.region_id })
+        .andWhere('a.date = :date', { date: activity.date })
+        .andWhere('a.start_time < :noon', { noon: '12:00' })
+        .getRawMany<{ groupId: string }>();
+      morningPreachingGroupIds = new Set(morningRows.map((r) => r.groupId));
+    }
+
     const result: AvailableGroupForActivityDto[] = [];
 
     for (const group of groups) {
       if (assignedIds.has(group.id)) continue;
+      if (morningPreachingGroupIds !== null && !morningPreachingGroupIds.has(group.id)) continue;
 
       // Filter by the group's own availability window
       if (group.available_from && activity.date < group.available_from)
@@ -1564,6 +1607,7 @@ export class ActivitiesService {
     activity_locations: activity.activity_locations ?? null,
     image_key: activity.image_key ?? null,
     is_preaching_shift: activity.is_preaching_shift,
+    is_food_shift: activity.is_food_shift,
     request_attendance: activity.request_attendance,
     volunteers: (activity.volunteers ?? []).map((v) => {
       const vr = volunteerRoles.get(v.id);
@@ -1596,6 +1640,257 @@ export class ActivitiesService {
     updated_at: activity.updated_at,
   });
 
+  // ── Excel import / export ─────────────────────────────────────────────────
+
+  private readonly ACTIVITY_EXCEL_COLUMNS = [
+    'name',
+    'date',
+    'start_time',
+    'end_time',
+    'region_name',
+    'host_name',
+    'description',
+    'required_volunteers',
+    'max_guests',
+    'is_preaching_shift',
+    'is_food_shift',
+    'request_attendance',
+    'icon',
+    'location_address',
+    'status',
+  ] as const;
+
+  generateExcelTemplate(
+    isPreachingShift = false,
+    isFoodShift = false,
+  ): Buffer {
+    let columns: string[];
+    let sampleRow: (string | number)[];
+
+    if (isFoodShift) {
+      // Food shifts: replace 'description' with the three host-person columns
+      columns = [
+        'name', 'date', 'start_time', 'end_time', 'region_name', 'host_name',
+        'host_person_name', 'host_person_address', 'host_person_phone',
+        'required_volunteers', 'max_guests', 'request_attendance',
+        'icon', 'location_address', 'status',
+      ];
+      sampleRow = [
+        'Nombre del turno', '2025-01-15', '09:00', '12:00',
+        'Nombre de la región', 'Nombre de la congregación',
+        'Nombre del anfitrión', 'Dirección del anfitrión', '+34 600 000 000',
+        '', '', 'FALSE', '', '', 'draft',
+      ];
+    } else if (isPreachingShift) {
+      columns = this.ACTIVITY_EXCEL_COLUMNS.filter(
+        (c) => c !== 'is_preaching_shift' && c !== 'is_food_shift',
+      ) as string[];
+      sampleRow = [
+        'Nombre del turno', '2025-01-15', '09:00', '12:00',
+        'Nombre de la región', 'Nombre de la congregación',
+        '', '', '', 'FALSE', '', '', 'draft',
+      ];
+    } else {
+      columns = [...this.ACTIVITY_EXCEL_COLUMNS] as string[];
+      sampleRow = [
+        'Nombre de la actividad', '2025-01-15', '09:00', '12:00',
+        'Nombre de la región', 'Nombre de la congregación',
+        '', '', '', 'FALSE', 'FALSE', 'FALSE', '', '', 'draft',
+      ];
+    }
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([columns, sampleRow]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  async exportActivitiesToExcel(
+    query: ActivityListQueryDto,
+    user: JwtPayload,
+  ): Promise<Buffer> {
+    const result = await this.findAll({ ...query, limit: 10000, page: 1 }, user);
+
+    const regionIds = [...new Set(result.data.map((a) => a.region_id))];
+    const regions = regionIds.length
+      ? await this.regionsRepo.findBy({ id: In(regionIds) })
+      : [];
+    const regionMap = new Map(regions.map((r) => [r.id, r.name]));
+
+    const rows = result.data.map((a) => [
+      a.name,
+      a.date,
+      a.start_time,
+      a.end_time,
+      regionMap.get(a.region_id) ?? '',
+      a.host_name ?? '',
+      a.description ?? '',
+      a.required_volunteers ?? '',
+      a.max_guests ?? '',
+      a.is_preaching_shift ? 'TRUE' : 'FALSE',
+      a.is_food_shift ? 'TRUE' : 'FALSE',
+      a.request_attendance ? 'TRUE' : 'FALSE',
+      a.icon ?? '',
+      a.activity_locations?.[0]?.address ?? '',
+      a.status,
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      [...this.ACTIVITY_EXCEL_COLUMNS],
+      ...rows,
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  async parseExcelImport(
+    buffer: Buffer,
+    user: JwtPayload,
+    forcePreachingShift = false,
+    forceFoodShift = false,
+  ): Promise<{ activities: ActivityResponseDto[]; errors: string[] }> {
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      raw: false,
+      defval: null,
+    });
+
+    let accessibleRegions: Region[];
+    if (user.role === 'superadmin') {
+      accessibleRegions = await this.regionsRepo.find();
+    } else {
+      const dbUser = await this.usersRepo.findOne({
+        where: { id: user.sub },
+        relations: { regions: true },
+      });
+      accessibleRegions = dbUser?.regions ?? [];
+    }
+
+    const hosts = await this.hostsRepo.find();
+    const errors: string[] = [];
+    const activities: ActivityResponseDto[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2;
+      const rowErrors: string[] = [];
+
+      const name = this.parseXlsxString(row['name']);
+      const date = this.parseXlsxString(row['date']);
+      const start_time = this.parseXlsxString(row['start_time']);
+      const end_time = this.parseXlsxString(row['end_time']);
+      const regionName = this.parseXlsxString(row['region_name']);
+
+      if (!name) rowErrors.push('name es obligatorio');
+      if (!date) rowErrors.push('date es obligatorio');
+      if (!start_time) rowErrors.push('start_time es obligatorio');
+      if (!end_time) rowErrors.push('end_time es obligatorio');
+      if (!regionName) rowErrors.push('region_name es obligatorio');
+
+      if (rowErrors.length > 0) {
+        errors.push(`Fila ${rowNum}: ${rowErrors.join(', ')}`);
+        continue;
+      }
+
+      const region = accessibleRegions.find(
+        (r) => r.name.toLowerCase() === regionName!.toLowerCase(),
+      );
+      if (!region) {
+        errors.push(`Fila ${rowNum}: región '${regionName}' no encontrada`);
+        continue;
+      }
+
+      const hostName = this.parseXlsxString(row['host_name']);
+      let host_id: string | null = null;
+      let host_name: string | null = null;
+      if (hostName) {
+        const host = hosts.find(
+          (h) => h.name.toLowerCase() === hostName.toLowerCase(),
+        );
+        if (host) {
+          host_id = host.id;
+          host_name = host.name;
+        } else {
+          errors.push(
+            `Fila ${rowNum}: congregación '${hostName}' no encontrada (se omite)`,
+          );
+        }
+      }
+
+      activities.push({
+        id: crypto.randomUUID(),
+        region_id: region.id,
+        series_id: null,
+        name: name!,
+        icon: this.parseXlsxString(row['icon']),
+        description: this.parseFoodShiftDescription(row, forceFoodShift),
+        status:
+          this.parseXlsxString(row['status']) === 'published'
+            ? 'published'
+            : 'draft',
+        host_id,
+        host_name,
+        date: date!,
+        start_time: start_time!,
+        end_time: end_time!,
+        activity_locations: null,
+        image_key: null,
+        is_preaching_shift: forcePreachingShift || (!forceFoodShift && this.parseXlsxBool(row['is_preaching_shift'])),
+        is_food_shift: forceFoodShift || (!forcePreachingShift && this.parseXlsxBool(row['is_food_shift'])),
+        request_attendance: this.parseXlsxBool(row['request_attendance']),
+        volunteers: [],
+        volunteer_count: 0,
+        required_volunteers: this.parseXlsxInt(row['required_volunteers']),
+        guest_groups: [],
+        total_guests_assigned: 0,
+        preaching_groups: [],
+        requests: [],
+        max_guests: this.parseXlsxInt(row['max_guests']),
+        created_at: new Date(),
+        updated_at: new Date(),
+      } as ActivityResponseDto);
+    }
+
+    return { activities, errors };
+  }
+
+  private parseXlsxString(val: unknown): string | null {
+    if (val === null || val === undefined || val === '') return null;
+    return String(val).trim() || null;
+  }
+
+  private parseXlsxBool(val: unknown): boolean {
+    if (val === null || val === undefined) return false;
+    if (typeof val === 'boolean') return val;
+    const s = String(val).trim().toLowerCase().normalize('NFC');
+    return s === 'true' || s === '1' || s === 'yes' || s === 'sí' || s === 'si';
+  }
+
+  private parseXlsxInt(val: unknown): number | null {
+    if (val === null || val === undefined || val === '') return null;
+    const n = parseInt(String(val), 10);
+    return isNaN(n) ? null : n;
+  }
+
+  private parseFoodShiftDescription(
+    row: Record<string, unknown>,
+    forceFoodShift: boolean,
+  ): string | null {
+    if (!forceFoodShift) return this.parseXlsxString(row['description']);
+    const name = this.parseXlsxString(row['host_person_name']);
+    const address = this.parseXlsxString(row['host_person_address']);
+    const phone = this.parseXlsxString(row['host_person_phone']);
+    if (!name && !address && !phone) return this.parseXlsxString(row['description']);
+    let desc = 'Estais invitados a comer';
+    if (name) desc += ` en casa de ${name}`;
+    if (address) desc += ` en ${address}`;
+    desc += '.';
+    if (phone) desc += ` Su tel. es ${phone}.`;
+    return desc;
+  }
+
   // ── Schedule PDF export ───────────────────────────────────────────────────
 
   private congregationMeetings(
@@ -1620,6 +1915,7 @@ export class ActivitiesService {
             description: null,
             locations: [],
             is_preaching_shift: false,
+            is_food_shift: false,
             preaching_group_name: null,
             is_congregation_meeting: true,
             congregation_address: host.address,
@@ -1659,6 +1955,7 @@ export class ActivitiesService {
       description: a.description,
       locations: a.activity_locations ?? [],
       is_preaching_shift: a.is_preaching_shift,
+      is_food_shift: a.is_food_shift,
       preaching_group_name: a.is_preaching_shift
         ? turnoNames.get(a.id) ?? null
         : null,

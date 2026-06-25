@@ -15,11 +15,13 @@ import { VolunteerRole } from './entities/volunteer-role.entity';
 import { VolunteerAvailability } from './entities/volunteer-availability.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
+import { Host } from '../hosts/entities/host.entity';
 import { CreateVolunteerDto } from './dto/create-volunteer.dto';
 import { UpdateVolunteerDto } from './dto/update-volunteer.dto';
 import { VolunteerListQueryDto } from './dto/volunteer-list-query.dto';
 import {
   VolunteerActivityDto,
+  VolunteerCongregationDto,
   VolunteerResponseDto,
   VolunteerRoleDto,
   VolunteerRegionDto,
@@ -53,6 +55,7 @@ const HEADER_TO_FIELD: Record<string, string> = {
   'Email': 'email',
   'Teléfono': 'phone',
   'Región de participación': 'region_name',
+  'Congregación': 'congregation',
   'Plazas de coche disponibles': 'car_seats',
   'Dirección': 'hosting_address',
   'Lat': 'lat',
@@ -93,6 +96,7 @@ export class VolunteersService {
     private readonly availRepo: Repository<VolunteerAvailability>,
     @InjectRepository(Region) private readonly regionsRepo: Repository<Region>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
+    @InjectRepository(Host) private readonly hostsRepo: Repository<Host>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
   ) {}
@@ -191,7 +195,8 @@ export class VolunteersService {
     const qb = this.volunteersRepo
       .createQueryBuilder('v')
       .leftJoinAndSelect('v.roles', 'roles')
-      .leftJoinAndSelect('v.regions', 'regions');
+      .leftJoinAndSelect('v.regions', 'regions')
+      .leftJoinAndSelect('v.host', 'host');
 
     let effectiveRegionId: string | null = null;
 
@@ -272,7 +277,7 @@ export class VolunteersService {
   ): Promise<VolunteerResponseDto> {
     const v = await this.volunteersRepo.findOne({
       where: { id },
-      relations: { roles: true, regions: true },
+      relations: { roles: true, regions: true, host: true },
     });
     if (!v) throw new NotFoundException('Voluntario no encontrado');
     await this.assertAccess(v, currentUser);
@@ -286,7 +291,7 @@ export class VolunteersService {
   ): Promise<VolunteerResponseDto> {
     const v = await this.volunteersRepo.findOne({
       where: { id },
-      relations: { roles: true, regions: true },
+      relations: { roles: true, regions: true, host: true },
     });
     if (!v) throw new NotFoundException('Voluntario no encontrado');
     await this.assertAccess(v, currentUser);
@@ -308,6 +313,16 @@ export class VolunteersService {
       v.regions = dto.region_ids.length
         ? await this.regionsRepo.find({ where: { id: In(dto.region_ids) } })
         : [];
+    }
+    if (dto.host_id !== undefined) {
+      if (dto.host_id) {
+        const host = await this.hostsRepo.findOne({ where: { id: dto.host_id } });
+        v.host = host ?? null;
+        v.host_id = host ? dto.host_id : v.host_id;
+      } else {
+        v.host = null;
+        v.host_id = null;
+      }
     }
 
     Object.assign(v, {
@@ -594,6 +609,11 @@ export class VolunteersService {
       allRegions.map((r) => [r.name.trim().toLowerCase(), r]),
     );
 
+    const allHosts = await this.hostsRepo.find();
+    const hostByName = new Map(
+      allHosts.map((h) => [h.name.trim().toLowerCase(), h]),
+    );
+
     const resolveRoles = async (
       roleNamesStr: string | null | undefined,
     ): Promise<VolunteerRole[]> => {
@@ -650,6 +670,9 @@ export class VolunteersService {
       const roles = await resolveRoles(row.role_names);
       const namedRegions = resolveRegions(row.region_name);
       const regions = namedRegions.length ? namedRegions : fallbackRegions;
+      const host = row.congregation
+        ? (hostByName.get(row.congregation.trim().toLowerCase()) ?? null)
+        : null;
 
       await this.volunteersRepo.save(
         this.volunteersRepo.create({
@@ -660,6 +683,8 @@ export class VolunteersService {
           is_active: row.is_active ?? true,
           roles,
           regions,
+          host: host ?? undefined,
+          host_id: host?.id ?? null,
           car_seats: row.car_seats ?? null,
           hosting_address: row.hosting_address ?? null,
           lat: row.lat ?? null,
@@ -749,6 +774,14 @@ export class VolunteersService {
         if (regions.length > 0) v.regions = regions;
       }
 
+      if (!updateCols || updateCols.has('congregation')) {
+        const host = row.congregation
+          ? (hostByName.get(row.congregation.trim().toLowerCase()) ?? null)
+          : null;
+        v.host = host;
+        v.host_id = host?.id ?? null;
+      }
+
       await this.volunteersRepo.save(v);
       updated++;
     }
@@ -789,7 +822,7 @@ export class VolunteersService {
   async getMe(currentUser: JwtPayload): Promise<VolunteerResponseDto> {
     const v = await this.volunteersRepo.findOne({
       where: { user_id: currentUser.sub },
-      relations: { roles: true, regions: true },
+      relations: { roles: true, regions: true, host: true },
     });
     if (!v)
       throw new NotFoundException(
@@ -844,6 +877,7 @@ export class VolunteersService {
       'Email',
       'Teléfono',
       'Región de participación',
+      'Congregación',
       'Plazas de coche disponibles',
       'Dirección',
       'Maps',
@@ -876,6 +910,7 @@ export class VolunteersService {
       'mario@example.com',
       '+34 600 000 000',
       'Costa Brava',
+      'Congregación Olot',
       '3',
       'Passatge Bernat Metge, 14, 17800 Olot',
       'https://www.google.com/maps?q=42.18,2.47',
@@ -924,7 +959,8 @@ export class VolunteersService {
     const qb = this.volunteersRepo
       .createQueryBuilder('v')
       .leftJoinAndSelect('v.roles', 'roles')
-      .leftJoinAndSelect('v.regions', 'regions');
+      .leftJoinAndSelect('v.regions', 'regions')
+      .leftJoinAndSelect('v.host', 'host');
 
     if (currentUser.role !== 'superadmin') {
       const user = await this.usersRepo.findOne({
@@ -972,6 +1008,7 @@ export class VolunteersService {
       'Activo',
       'Región de participación',
       'Roles',
+      'Congregación',
       'Plazas de coche disponibles',
       'Dirección',
       'Lat',
@@ -1012,6 +1049,7 @@ export class VolunteersService {
       v.is_active ? 'Sí' : 'No',
       (v.regions ?? []).map((r) => r.name).join(', '),
       (v.roles ?? []).map((r) => r.name).join(', '),
+      v.host?.name ?? '',
       v.car_seats ?? '',
       v.hosting_address ?? '',
       v.lat ?? '',
@@ -1084,6 +1122,9 @@ export class VolunteersService {
       event_start_date: r.event_start_date ?? null,
       event_end_date: r.event_end_date ?? null,
     })),
+    congregation: v.host
+      ? { id: v.host.id, name: v.host.name, address: v.host.address, lat: v.host.lat, lng: v.host.lng }
+      : null,
     hosting_address: v.hosting_address,
     lat: v.lat,
     lng: v.lng,
@@ -1264,7 +1305,7 @@ export class VolunteersService {
     const volunteerCode = this.verifyVolunteerToken(token);
     const v = await this.volunteersRepo.findOne({
       where: { volunteer_code: volunteerCode },
-      relations: { roles: true, regions: true },
+      relations: { roles: true, regions: true, host: true },
     });
     if (!v) throw new NotFoundException('Voluntario no encontrado');
     return this.toDto(v);

@@ -6,6 +6,7 @@ import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { downloadFile } from '../../../core/utils/download-file';
+import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
 import type {
   Host,
   ImportHostRow,
@@ -18,7 +19,7 @@ type ModalMode = 'create' | 'edit' | null;
 
 @Component({
   selector: 'app-hosts-list',
-  imports: [ReactiveFormsModule, RouterLink, SearchableSelectComponent],
+  imports: [ReactiveFormsModule, RouterLink, SearchableSelectComponent, MenuButtonComponent],
   templateUrl: './hosts-list.html',
 })
 export class HostsListComponent implements OnInit {
@@ -28,6 +29,12 @@ export class HostsListComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
+
+  readonly excelMenuItems = computed<MenuItem[]>(() => [
+    { label: 'Export Excel', action: () => this.downloadExcel() },
+    { label: 'Template', action: () => this.downloadTemplate() },
+    { label: 'Import Excel', action: () => this.openImport() },
+  ]);
 
   readonly regions = signal<Region[]>([]);
   readonly hosts = signal<Host[]>([]);

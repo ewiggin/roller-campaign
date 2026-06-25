@@ -7,6 +7,7 @@ import { VolunteerRole } from './entities/volunteer-role.entity';
 import { VolunteerAvailability } from './entities/volunteer-availability.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
+import { Host } from '../hosts/entities/host.entity';
 import { VolunteersService } from './volunteers.service';
 import { VolunteersController } from './volunteers.controller';
 import { VolunteerAccessController } from './volunteer-access.controller';
@@ -19,6 +20,7 @@ import { VolunteerAccessController } from './volunteer-access.controller';
       VolunteerAvailability,
       Region,
       User,
+      Host,
     ]),
     JwtModule.registerAsync({
       inject: [ConfigService],

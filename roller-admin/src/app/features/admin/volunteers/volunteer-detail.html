@@ -219,6 +219,78 @@
       </div>
     </div>
 
+    <!-- Congregation -->
+    <div
+      class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden lg:col-span-2"
+    >
+      <div
+        class="px-5 py-3 bg-gray-50 dark:bg-[#27272a] border-b border-gray-200 dark:border-zinc-700 flex items-center justify-between"
+      >
+        <span class="text-sm font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+          >Congregation</span
+        >
+        <button
+          (click)="openEdit('identity')"
+          class="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
+          title="Edit congregation"
+        >
+          <svg
+            class="w-3.5 h-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+            />
+          </svg>
+        </button>
+      </div>
+      <dl class="divide-y divide-gray-100 dark:divide-zinc-800">
+        <div class="px-5 py-3 flex gap-4">
+          <dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Name</dt>
+          <dd class="text-sm text-gray-900 dark:text-zinc-100">
+            {{ volunteer()!.congregation?.name ?? '—' }}
+          </dd>
+        </div>
+        <div class="px-5 py-3 flex gap-4">
+          <dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Address</dt>
+          <dd class="text-sm text-gray-900 dark:text-zinc-100">
+            {{ volunteer()!.congregation?.address ?? '—' }}
+          </dd>
+        </div>
+        <div class="px-5 py-3 flex gap-4">
+          <dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Coordinates</dt>
+          <dd class="text-sm text-gray-900 dark:text-zinc-100 font-mono text-xs">
+            {{
+              volunteer()!.congregation?.lat
+                ? volunteer()!.congregation!.lat + ', ' + volunteer()!.congregation!.lng
+                : '—'
+            }}
+          </dd>
+        </div>
+        <div class="px-5 py-3 flex gap-4">
+          <dt class="w-36 shrink-0 text-xs text-gray-400 dark:text-zinc-500 pt-0.5">Maps</dt>
+          <dd class="text-sm">
+            @if (congregationMapsLink()) {
+              <a
+                [href]="congregationMapsLink()!"
+                target="_blank"
+                rel="noopener"
+                class="text-blue-500 hover:underline"
+                >Open in Google Maps</a
+              >
+            } @else {
+              <span class="text-gray-900 dark:text-zinc-100">—</span>
+            }
+          </dd>
+        </div>
+      </dl>
+    </div>
+
     <!-- Location -->
     <div
       class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden lg:col-span-2"
@@ -654,15 +726,28 @@
           </button>
         </div>
         <div class="overflow-y-auto flex-1 p-5 space-y-4">
-          <form [formGroup]="identityForm">
-            <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
-              >Volunteer code</label
-            >
-            <input
-              formControlName="volunteer_code"
-              type="text"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
-            />
+          <form [formGroup]="identityForm" class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+                >Volunteer code</label
+              >
+              <input
+                formControlName="volunteer_code"
+                type="text"
+                class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400 mb-1"
+                >Congregation</label
+              >
+              <app-searchable-select
+                formControlName="host_id"
+                [items]="congregationItems()"
+                placeholder="— None —"
+                emptyLabel="— None —"
+              />
+            </div>
           </form>
           <div>
             <p class="text-xs font-medium text-gray-600 dark:text-zinc-400 mb-2">Regions</p>

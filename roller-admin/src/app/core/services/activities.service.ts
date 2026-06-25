@@ -18,23 +18,28 @@ export class ActivitiesService {
   getAll(
     query: {
       regionId?: string;
+      name?: string;
       date?: string;
       dateFrom?: string;
       dateTo?: string;
       hostId?: string;
       is_preaching_shift?: boolean;
+      is_food_shift?: boolean;
       page?: number;
       limit?: number;
     } = {},
   ) {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
+    if (query.name) params = params.set('name', query.name);
     if (query.date) params = params.set('date', query.date);
     if (query.dateFrom) params = params.set('dateFrom', query.dateFrom);
     if (query.dateTo) params = params.set('dateTo', query.dateTo);
     if (query.hostId) params = params.set('hostId', query.hostId);
     if (query.is_preaching_shift !== undefined)
       params = params.set('is_preaching_shift', String(query.is_preaching_shift));
+    if (query.is_food_shift !== undefined)
+      params = params.set('is_food_shift', String(query.is_food_shift));
     if (query.page) params = params.set('page', String(query.page));
     if (query.limit) params = params.set('limit', String(query.limit));
     return this.http.get<ActivityListResponse>('/api/activities', { params });
@@ -209,6 +214,59 @@ export class ActivitiesService {
 
   exportHostSchedulesPdf(hostId: string) {
     return this.http.get(`/api/activities/export/schedule-pdf?hostId=${hostId}`, {
+      responseType: 'blob',
+    });
+  }
+
+  // ── Excel import / export ─────────────────────────────────────────────────
+
+  exportExcel(
+    query: {
+      regionId?: string;
+      name?: string;
+      date?: string;
+      hostId?: string;
+      is_preaching_shift?: boolean;
+      is_food_shift?: boolean;
+    } = {},
+  ) {
+    let params = new HttpParams();
+    if (query.regionId) params = params.set('regionId', query.regionId);
+    if (query.name) params = params.set('name', query.name);
+    if (query.date) params = params.set('date', query.date);
+    if (query.hostId) params = params.set('hostId', query.hostId);
+    if (query.is_preaching_shift !== undefined)
+      params = params.set('is_preaching_shift', String(query.is_preaching_shift));
+    if (query.is_food_shift !== undefined)
+      params = params.set('is_food_shift', String(query.is_food_shift));
+    return this.http.get('/api/activities/export/excel', {
+      params,
+      responseType: 'blob',
+    });
+  }
+
+  parseExcelImport(
+    file: File,
+    opts: { is_preaching_shift?: boolean; is_food_shift?: boolean } = {},
+  ) {
+    let params = new HttpParams();
+    if (opts.is_preaching_shift) params = params.set('is_preaching_shift', 'true');
+    if (opts.is_food_shift) params = params.set('is_food_shift', 'true');
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ activities: Activity[]; errors: string[] }>(
+      '/api/activities/import/parse-excel',
+      formData,
+      { params },
+    );
+  }
+
+  downloadTemplate(opts: { is_preaching_shift?: boolean; is_food_shift?: boolean } = {}) {
+    let params = new HttpParams();
+    if (opts.is_preaching_shift) params = params.set('is_preaching_shift', 'true');
+    if (opts.is_food_shift) params = params.set('is_food_shift', 'true');
+    return this.http.get('/api/activities/import/template', {
+      params,
       responseType: 'blob',
     });
   }

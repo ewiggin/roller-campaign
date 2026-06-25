@@ -104,5 +104,10 @@ export class CreateActivityDto {
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
+  is_food_shift?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
   request_attendance?: boolean;
 }

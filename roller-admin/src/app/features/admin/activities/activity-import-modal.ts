@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, inject, signal, computed } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, signal, computed } from '@angular/core';
 import { Observable, catchError, concatMap, from, last, map, of } from 'rxjs';
 import type { Activity, PreachingGroup } from '../../../core/models/activity.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
@@ -29,6 +29,8 @@ interface ImportEntry {
 export class ActivityImportModalComponent {
   @Output() imported = new EventEmitter<void>();
   @Output() close = new EventEmitter<void>();
+  @Input() isPreachingShift = false;
+  @Input() isFoodShift = false;
 
   private readonly svc = inject(ActivitiesService);
   private readonly toast = inject(ToastService);
@@ -36,6 +38,7 @@ export class ActivityImportModalComponent {
   readonly step = signal<'file' | 'merge'>('file');
   readonly entries = signal<ImportEntry[]>([]);
   readonly fileError = signal('');
+  readonly parseErrors = signal<string[]>([]);
   readonly importing = signal(false);
 
   readonly processedCount = computed(() =>
@@ -52,17 +55,38 @@ export class ActivityImportModalComponent {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
     this.fileError.set('');
+    this.parseErrors.set([]);
 
-    let activities: Activity[];
-    try {
-      const parsed = JSON.parse(await file.text());
-      activities = Array.isArray(parsed) ? parsed : [parsed];
-      if (!activities.length || !activities[0]?.id) throw new Error();
-    } catch {
-      this.fileError.set('El archivo no contiene actividades válidas.');
-      return;
+    if (file.name.toLowerCase().endsWith('.xlsx')) {
+      this.svc.parseExcelImport(file, {
+        is_preaching_shift: this.isPreachingShift || undefined,
+        is_food_shift: this.isFoodShift || undefined,
+      }).subscribe({
+        next: ({ activities, errors }) => {
+          this.parseErrors.set(errors);
+          if (!activities.length) {
+            this.fileError.set('El archivo no contiene filas válidas.');
+            return;
+          }
+          this.buildEntries(activities);
+        },
+        error: () => this.fileError.set('Error al procesar el archivo Excel.'),
+      });
+    } else {
+      let activities: Activity[];
+      try {
+        const parsed = JSON.parse(await file.text());
+        activities = Array.isArray(parsed) ? parsed : [parsed];
+        if (!activities.length || !activities[0]?.id) throw new Error();
+      } catch {
+        this.fileError.set('El archivo no contiene actividades válidas.');
+        return;
+      }
+      this.buildEntries(activities);
     }
+  }
 
+  private buildEntries(activities: Activity[]) {
     this.svc.getAll({ limit: 500 }).subscribe({
       next: res => {
         const localIds = new Set(res.data.map(a => a.id));
@@ -165,6 +189,7 @@ export class ActivityImportModalComponent {
           max_guests: activity.max_guests,
           activity_locations: activity.activity_locations,
           is_preaching_shift: activity.is_preaching_shift,
+          is_food_shift: activity.is_food_shift,
           request_attendance: activity.request_attendance,
         }),
       );
@@ -182,6 +207,7 @@ export class ActivityImportModalComponent {
           max_guests: activity.max_guests,
           activity_locations: activity.activity_locations,
           is_preaching_shift: activity.is_preaching_shift,
+          is_food_shift: activity.is_food_shift,
           request_attendance: activity.request_attendance,
         }),
       );

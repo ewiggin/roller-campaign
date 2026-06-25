@@ -56,18 +56,14 @@
           </svg>
         </button>
       </div>
+      <app-menu-button label="JSON" [items]="jsonMenuItems()" />
+      <app-menu-button label="Excel" [items]="excelMenuItems()" />
       <button
-        (click)="exportAll()"
-        [disabled]="exporting()"
-        class="rounded-lg border border-gray-300 dark:border-zinc-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
-      >
-        @if (exporting()) { Exportando… } @else { Exportar }
-      </button>
-      <button
+        type="button"
         (click)="importModalOpen.set(true)"
-        class="rounded-lg border border-gray-300 dark:border-zinc-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+        class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-600 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
       >
-        Importar
+        Import
       </button>
       <button
         (click)="openCreate()"
@@ -82,7 +78,7 @@
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4"
   >
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-6">
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
           >Region</label
@@ -113,7 +109,7 @@
         >
         <select
           [ngModel]="filterStatus()"
-          (ngModelChange)="filterStatus.set($event)"
+          (ngModelChange)="onStatusFilterChange($event)"
           class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
           <option value="">All statuses</option>
@@ -130,9 +126,19 @@
           class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
       </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Name</label>
+        <input
+          type="text"
+          [ngModel]="filterName()"
+          (ngModelChange)="filterName.set($event); applyFilters()"
+          placeholder="Search by name…"
+          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+      </div>
       <div class="flex items-end">
         <button
-          (click)="filterDate.set(''); filterStatus.set(''); filterHost.set(''); applyFilters()"
+          (click)="clearFilters()"
           class="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 dark:text-zinc-400 border border-gray-300 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
         >
           Clear
@@ -321,28 +327,30 @@
                     }
                   </p>
                   <div class="flex items-center gap-2 mt-0.5">
-                    @if (activity.required_volunteers) {
-                      <span
-                        class="text-xs font-medium"
-                        [class]="
-                          activity.volunteer_count >= activity.required_volunteers
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-amber-600 dark:text-amber-400'
-                        "
-                      >
-                        {{ activity.volunteer_count }} de
-                        {{ activity.required_volunteers }} volunteer{{
-                          activity.required_volunteers !== 1 ? 's' : ''
-                        }}
-                      </span>
-                    } @else {
-                      <span class="text-xs text-gray-400 dark:text-zinc-500">
-                        {{ activity.volunteer_count }} volunteer{{
-                          activity.volunteer_count !== 1 ? 's' : ''
-                        }}
-                      </span>
+                    @if (!activity.is_food_shift) {
+                      @if (activity.required_volunteers) {
+                        <span
+                          class="text-xs font-medium"
+                          [class]="
+                            activity.volunteer_count >= activity.required_volunteers
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-amber-600 dark:text-amber-400'
+                          "
+                        >
+                          {{ activity.volunteer_count }} de
+                          {{ activity.required_volunteers }} volunteer{{
+                            activity.required_volunteers !== 1 ? 's' : ''
+                          }}
+                        </span>
+                      } @else {
+                        <span class="text-xs text-gray-400 dark:text-zinc-500">
+                          {{ activity.volunteer_count }} volunteer{{
+                            activity.volunteer_count !== 1 ? 's' : ''
+                          }}
+                        </span>
+                      }
+                      <span class="text-gray-300 dark:text-zinc-600">·</span>
                     }
-                    <span class="text-gray-300 dark:text-zinc-600">·</span>
                     <span class="text-xs text-gray-400 dark:text-zinc-500">
                       {{ activity.guest_groups.length }} group{{
                         activity.guest_groups.length !== 1 ? 's' : ''
@@ -573,22 +581,24 @@
               />
             </div>
             <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-                  >Volunteers needed
-                  <span class="font-normal text-gray-400 dark:text-zinc-600"
-                    >(optional)</span
-                  ></label
-                >
-                <input
-                  type="number"
-                  formControlName="required_volunteers"
-                  min="1"
-                  max="999"
-                  placeholder="—"
-                  class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
-                />
-              </div>
+              @if (!foodShiftsOnly) {
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+                    >Volunteers needed
+                    <span class="font-normal text-gray-400 dark:text-zinc-600"
+                      >(optional)</span
+                    ></label
+                  >
+                  <input
+                    type="number"
+                    formControlName="required_volunteers"
+                    min="1"
+                    max="999"
+                    placeholder="—"
+                    class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+                  />
+                </div>
+              }
               <div>
                 <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
                   >Max guests
@@ -625,22 +635,24 @@
           </div>
 
           <!-- Request attendance -->
-          <label
-            class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
-          >
-            <div>
-              <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Request attendance</p>
-              <p class="text-xs text-gray-400 dark:text-zinc-500">
-                Group captains can sign up for this activity from the enrollment form
-              </p>
-            </div>
-            <div class="relative inline-flex items-center shrink-0 ml-4">
-              <input type="checkbox" formControlName="request_attendance" class="sr-only peer" />
-              <div
-                class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
-              ></div>
-            </div>
-          </label>
+          @if (!preachingShiftsOnly && !foodShiftsOnly) {
+            <label
+              class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
+            >
+              <div>
+                <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">Request attendance</p>
+                <p class="text-xs text-gray-400 dark:text-zinc-500">
+                  Group captains can sign up for this activity from the enrollment form
+                </p>
+              </div>
+              <div class="relative inline-flex items-center shrink-0 ml-4">
+                <input type="checkbox" formControlName="request_attendance" class="sr-only peer" />
+                <div
+                  class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
+                ></div>
+              </div>
+            </label>
+          }
 
           <!-- Activity locations -->
           <div>
@@ -1009,22 +1021,24 @@
                 />
               </div>
               <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
-                    >Volunteers needed
-                    <span class="font-normal text-gray-400 dark:text-zinc-600"
-                      >(optional)</span
-                    ></label
-                  >
-                  <input
-                    type="number"
-                    formControlName="required_volunteers"
-                    min="1"
-                    max="999"
-                    placeholder="—"
-                    class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
-                  />
-                </div>
+                @if (!selectedActivity()?.is_food_shift) {
+                  <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+                      >Volunteers needed
+                      <span class="font-normal text-gray-400 dark:text-zinc-600"
+                        >(optional)</span
+                      ></label
+                    >
+                    <input
+                      type="number"
+                      formControlName="required_volunteers"
+                      min="1"
+                      max="999"
+                      placeholder="—"
+                      class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+                    />
+                  </div>
+                }
                 <div>
                   <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
                     >Max guests
@@ -1044,24 +1058,26 @@
             </div>
 
             <!-- Request attendance -->
-            <label
-              class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
-            >
-              <div>
-                <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">
-                  Request attendance
-                </p>
-                <p class="text-xs text-gray-400 dark:text-zinc-500">
-                  Group captains can sign up for this activity from the enrollment form
-                </p>
-              </div>
-              <div class="relative inline-flex items-center shrink-0 ml-4">
-                <input type="checkbox" formControlName="request_attendance" class="sr-only peer" />
-                <div
-                  class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
-                ></div>
-              </div>
-            </label>
+            @if (!selectedActivity()?.is_preaching_shift && !selectedActivity()?.is_food_shift) {
+              <label
+                class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
+              >
+                <div>
+                  <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">
+                    Request attendance
+                  </p>
+                  <p class="text-xs text-gray-400 dark:text-zinc-500">
+                    Group captains can sign up for this activity from the enrollment form
+                  </p>
+                </div>
+                <div class="relative inline-flex items-center shrink-0 ml-4">
+                  <input type="checkbox" formControlName="request_attendance" class="sr-only peer" />
+                  <div
+                    class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
+                  ></div>
+                </div>
+              </label>
+            }
 
             <div class="grid grid-cols-2 gap-3">
               <div>
@@ -1234,6 +1250,7 @@
             </div>
 
             <!-- Image -->
+            @if (!selectedActivity()?.is_food_shift) {
             <div>
               <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-2">
                 Image
@@ -1315,6 +1332,7 @@
                 </label>
               }
             </div>
+            }
           </form>
         }
 
@@ -1619,7 +1637,7 @@
                 No preaching groups yet.
               </p>
             } @else {
-              @for (group of selectedActivity()!.preaching_groups; track group.id) {
+              @for (group of sortedPreachingGroups(); track group.id) {
                 <div
                   class="rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden"
                 >
@@ -1873,18 +1891,19 @@
                           <app-searchable-select
                             class="flex-1"
                             [items]="ungroupedVolunteerItemsFor(group.id)"
-                            placeholder="Select volunteer…"
+                            placeholder="Select volunteers…"
                             [compact]="true"
-                            [selected]="pickedVolunteerFor(group.id)"
-                            (selectedChange)="setPickedVolunteerFor(group.id, $event)"
+                            [multi]="true"
+                            [selectedItems]="pickedVolunteerFor(group.id)"
+                            (selectedItemsChange)="setPickedVolunteerFor(group.id, $event)"
                           />
                           <button
                             type="button"
                             (click)="addVolunteerToGroup(group.id)"
-                            [disabled]="!pickedVolunteerFor(group.id) || detailSaving()"
+                            [disabled]="!pickedVolunteerFor(group.id).length || detailSaving()"
                             class="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
                           >
-                            Add
+                            Add {{ pickedVolunteerFor(group.id).length > 1 ? pickedVolunteerFor(group.id).length : '' }}
                           </button>
                         </div>
                       </div>
@@ -2237,6 +2256,8 @@
 
 @if (importModalOpen()) {
   <app-activity-import-modal
+    [isPreachingShift]="preachingShiftsOnly"
+    [isFoodShift]="foodShiftsOnly"
     (imported)="onImportDone()"
     (close)="importModalOpen.set(false)"
   />

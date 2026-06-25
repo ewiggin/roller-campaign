@@ -53,6 +53,11 @@ export class CreateVolunteerDto {
   @IsUUID(undefined, { each: true })
   region_ids?: string[];
 
+  @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsOptional()
+  @IsUUID()
+  host_id?: string | null;
+
   @ApiPropertyOptional({ example: 'Passatge Bernat Metge, 14, 17800 Olot' })
   @IsOptional()
   @IsString()

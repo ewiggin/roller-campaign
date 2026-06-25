@@ -4,7 +4,9 @@ import {
   IsISO8601,
   IsInt,
   IsOptional,
+  IsString,
   IsUUID,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
@@ -14,6 +16,12 @@ export class ActivityListQueryDto {
   @IsOptional()
   @IsUUID()
   regionId?: string;
+
+  @ApiPropertyOptional({ example: 'Campaign kickoff' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  name?: string;
 
   @ApiPropertyOptional({ example: '2024-06-15' })
   @IsOptional()
@@ -45,6 +53,12 @@ export class ActivityListQueryDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   is_preaching_shift?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  is_food_shift?: boolean;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()

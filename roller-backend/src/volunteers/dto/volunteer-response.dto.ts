@@ -23,6 +23,23 @@ export class VolunteerRegionDto {
   event_end_date: string | null;
 }
 
+export class VolunteerCongregationDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({ example: 'Congregación Olot' })
+  name: string;
+
+  @ApiPropertyOptional({ example: 'Carrer Major, 1, 17800 Olot', nullable: true })
+  address: string | null;
+
+  @ApiPropertyOptional({ example: 42.1837, nullable: true })
+  lat: number | null;
+
+  @ApiPropertyOptional({ example: 2.4775, nullable: true })
+  lng: number | null;
+}
+
 export class VolunteerResponseDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
@@ -50,6 +67,9 @@ export class VolunteerResponseDto {
 
   @ApiProperty({ type: [VolunteerRegionDto] })
   regions: VolunteerRegionDto[];
+
+  @ApiPropertyOptional({ type: VolunteerCongregationDto, nullable: true })
+  congregation: VolunteerCongregationDto | null;
 
   @ApiPropertyOptional({ example: 'Calle Mayor 1, Barcelona', nullable: true })
   hosting_address: string | null;

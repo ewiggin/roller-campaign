@@ -28,6 +28,7 @@ import { GuestsService } from '../../../core/services/guests.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { downloadFile } from '../../../core/utils/download-file';
+import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 type ActiveModal = 'create' | 'guests' | 'import' | 'assign-host' | 'edit' | 'truncate' | null;
@@ -40,7 +41,7 @@ export const COMPOSITION_LABELS: Record<GroupComposition, string> = {
 
 @Component({
   selector: 'app-guest-groups-list',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, DecimalPipe, SearchableSelectComponent],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, DecimalPipe, SearchableSelectComponent, MenuButtonComponent],
   templateUrl: './guest-groups-list.html',
 })
 export class GuestGroupsListComponent implements OnInit {
@@ -55,6 +56,12 @@ export class GuestGroupsListComponent implements OnInit {
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
   readonly compositionOptions = Object.entries(COMPOSITION_LABELS) as [GroupComposition, string][];
+
+  readonly excelMenuItems = computed<MenuItem[]>(() => [
+    { label: 'Export Excel', action: () => this.downloadExcel() },
+    { label: 'Template', action: () => this.downloadTemplate() },
+    { label: 'Import Excel', action: () => this.openImport() },
+  ]);
 
   readonly regions = signal<Region[]>([]);
   readonly groups = signal<GuestGroup[]>([]);

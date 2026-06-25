@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { downloadFile } from '../../../core/utils/download-file';
+import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
 import type {
   Region,
   ImportRegionRow,
@@ -16,7 +17,7 @@ type ModalMode = 'create' | 'edit' | 'coordinators' | null;
 
 @Component({
   selector: 'app-regions-list',
-  imports: [ReactiveFormsModule, DatePipe],
+  imports: [ReactiveFormsModule, DatePipe, MenuButtonComponent],
   templateUrl: './regions-list.html',
 })
 export class RegionsListComponent implements OnInit {
@@ -25,6 +26,12 @@ export class RegionsListComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
+
+  readonly excelMenuItems = computed<MenuItem[]>(() => [
+    { label: 'Export Excel', action: () => this.downloadExcel() },
+    { label: 'Template', action: () => this.downloadTemplate() },
+    { label: 'Import Excel', action: () => this.openImport() },
+  ]);
 
   readonly regions = signal<Region[]>([]);
   readonly loading = signal(true);

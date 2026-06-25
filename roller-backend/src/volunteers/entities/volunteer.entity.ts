@@ -2,8 +2,10 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   JoinTable,
   ManyToMany,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -11,6 +13,7 @@ import {
 import { Region } from '../../regions/entities/region.entity';
 import { VolunteerRole } from './volunteer-role.entity';
 import { VolunteerAvailability } from './volunteer-availability.entity';
+import { Host } from '../../hosts/entities/host.entity';
 
 @Entity('volunteers')
 export class Volunteer {
@@ -45,6 +48,13 @@ export class Volunteer {
 
   @OneToMany(() => VolunteerAvailability, (a) => a.volunteer)
   availability: VolunteerAvailability[];
+
+  @ManyToOne(() => Host, { nullable: true, onDelete: 'SET NULL', eager: false })
+  @JoinColumn({ name: 'host_id' })
+  host: Host | null;
+
+  @Column({ type: 'uuid', nullable: true, default: null })
+  host_id: string | null;
 
   @Column({ type: 'varchar', nullable: true, default: null })
   hosting_address: string | null;

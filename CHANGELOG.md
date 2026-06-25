@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0] - 2026-06-25
+
+### Añadido
+- **Importación/exportación Excel de actividades, turnos de predicación y turnos de comida**: los tres listados incluyen ahora dos dropdowns separados: **JSON** (solo Export JSON) y **Excel** (Export Excel · Download template), más un botón independiente **Import** (acepta `.json` y `.xlsx`). Al seleccionar un Excel el backend resuelve `region_name` → `region_id` y `host_name` → `host_id`, y las actividades resultantes pasan al paso de revisión y selección de secciones. Las filas con errores se muestran como advertencias sin bloquear las demás
+- **Plantillas Excel por tipo de actividad**: la plantilla de cada sección omite las columnas `is_preaching_shift` / `is_food_shift` (su valor se fuerza automáticamente al importar según el contexto). La plantilla de Food Shifts sustituye `description` por tres columnas específicas (`host_person_name`, `host_person_address`, `host_person_phone`) que al importar generan automáticamente la descripción: `Estais invitados a comer en casa de {nombre} en {dirección}. Su tel. es {teléfono}.`
+- Nuevos endpoints: `GET /activities/import/template`, `GET /activities/export/excel` y `POST /activities/import/parse-excel`
+- **Congregación en voluntarios**: nuevo campo que vincula a cada voluntario con su congregación (host del sistema). La ficha del voluntario muestra el nombre, dirección, coordenadas y enlace a Google Maps de la congregación asignada. Es editable desde el modal de identidad con un selector con búsqueda filtrado por las regiones del voluntario. Importable y exportable mediante la columna "Congregación" del Excel (resuelve por nombre del host ignorando mayúsculas; si no hay coincidencia deja el campo vacío)
+- **Distancia y congregación en el selector de voluntarios de actividad**: al asignar voluntarios a un grupo de predicación, cada voluntario muestra su distancia en km a la ubicación de la actividad (o al anfitrión como fallback) y el nombre de su congregación. Si el voluntario no tiene dirección propia pero sí congregación, la distancia se calcula desde las coordenadas de la congregación y aparece entre paréntesis junto al nombre de ésta
+- **Selección múltiple de voluntarios en grupos de predicación**: el selector de voluntarios para añadir a un grupo de predicación admite ahora selección múltiple, permitiendo añadir varios voluntarios de una sola vez
+- **Filtro por nombre en actividades**: nueva caja de búsqueda en la lista de actividades y turnos de predicación que filtra por nombre (búsqueda insensible a mayúsculas en backend)
+
+### Mejorado
+- **Filtros de actividades persistentes**: los filtros de la lista de actividades (región, anfitrión, estado, fecha, nombre) se guardan en `sessionStorage` para sobrevivir la navegación SPA; el botón "Clear" los resetea. Los filtros de turnos de predicación se guardan de forma independiente
+
+### Corregido
+- **is_food_shift no se enviaba al crear/actualizar actividades desde el import modal**: el payload de creación y actualización omitía el flag `is_food_shift`, por lo que los turnos de comida importados se guardaban como actividades generales
+
+---
+
 ## [0.2.9] - 2026-06-22
 
 ### Añadido

@@ -100,6 +100,23 @@ export class AvailableVolunteerForActivityDto {
     description: 'True if assigned to another overlapping activity',
   })
   already_in_activity: boolean;
+
+  @ApiPropertyOptional({
+    example: 3.2,
+    nullable: true,
+    description:
+      'Distance in km from activity location to volunteer home (or congregation if volunteer has no coordinates). Null if either location is missing.',
+  })
+  distance_km: number | null;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'True when distance_km was calculated from the congregation coordinates, not the volunteer own coordinates.',
+  })
+  distance_from_congregation: boolean;
+
+  @ApiPropertyOptional({ example: 'Congregation Norte', nullable: true })
+  congregation_name: string | null;
 }
 
 export class AvailableGroupForActivityDto {
@@ -283,6 +300,9 @@ export class ActivityResponseDto {
 
   @ApiProperty({ example: false })
   is_preaching_shift: boolean;
+
+  @ApiProperty({ example: false })
+  is_food_shift: boolean;
 
   @ApiProperty({ example: false })
   request_attendance: boolean;

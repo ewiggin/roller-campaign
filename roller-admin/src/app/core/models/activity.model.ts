@@ -80,6 +80,7 @@ export interface Activity {
   activity_locations: LocationPoint[] | null;
   image_key: string | null;
   is_preaching_shift: boolean;
+  is_food_shift: boolean;
   request_attendance: boolean;
   volunteers: ActivityVolunteer[];
   volunteer_count: number;
@@ -99,6 +100,9 @@ export interface AvailableVolunteerForActivity {
   full_name: string;
   roles: { id: string; name: string }[];
   already_in_activity: boolean;
+  distance_km: number | null;
+  distance_from_congregation: boolean;
+  congregation_name: string | null;
 }
 
 export interface AvailableGroupForActivity {
@@ -152,5 +156,6 @@ export interface CreateActivityPayload {
   activity_locations?: LocationPoint[] | null;
   image_key?: string | null;
   is_preaching_shift?: boolean;
+  is_food_shift?: boolean;
   request_attendance?: boolean;
 }

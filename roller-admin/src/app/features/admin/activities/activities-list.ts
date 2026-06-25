@@ -28,6 +28,7 @@ import {
   type PlaceResult,
 } from '../../../shared/components/location-picker/location-picker';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
+import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
 import { ActivityImportModalComponent } from './activity-import-modal';
 
 type ActiveModal = 'create' | 'detail' | null;
@@ -50,6 +51,7 @@ interface LocationSlot {
     EmojiPickerComponent,
     CalendarComponent,
     ActivityImportModalComponent,
+    MenuButtonComponent,
   ],
   templateUrl: './activities-list.html',
 })
@@ -65,12 +67,27 @@ export class ActivitiesListComponent implements OnInit {
   // pre-filtered to is_preaching_shift = true and new activities created
   // here are implicitly preaching shifts (no need for a manual toggle).
   readonly preachingShiftsOnly = this.route.snapshot.data['preachingShiftsOnly'] === true;
+  readonly foodShiftsOnly = this.route.snapshot.data['foodShiftsOnly'] === true;
 
-  readonly pageTitle = this.preachingShiftsOnly ? 'Preaching Shifts' : 'Activities';
-  readonly newActivityLabel = this.preachingShiftsOnly ? 'New preaching shift' : 'New activity';
+  private readonly storageKey = `roller-filter-activities-${
+    this.preachingShiftsOnly ? 'preaching' : this.foodShiftsOnly ? 'food' : 'all'
+  }`;
+
+  readonly pageTitle = this.preachingShiftsOnly
+    ? 'Preaching Shifts'
+    : this.foodShiftsOnly
+      ? 'Food Shifts'
+      : 'Activities';
+  readonly newActivityLabel = this.preachingShiftsOnly
+    ? 'New preaching shift'
+    : this.foodShiftsOnly
+      ? 'New food shift'
+      : 'New activity';
   readonly emptyActivitiesLabel = this.preachingShiftsOnly
     ? 'No preaching shifts found.'
-    : 'No activities found.';
+    : this.foodShiftsOnly
+      ? 'No food shifts found.'
+      : 'No activities found.';
 
   // filter hosts (separate from modal hosts)
   readonly filterHosts = signal<Host[]>([]);
@@ -138,15 +155,40 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly importModalOpen = signal(false);
   readonly exporting = signal(false);
+  readonly exportingExcel = signal(false);
+  readonly downloadingTemplate = signal(false);
+
+  readonly jsonMenuItems = computed<MenuItem[]>(() => [
+    {
+      label: this.exporting() ? 'Exporting…' : 'Export JSON',
+      action: () => this.exportAll(),
+      disabled: this.exporting(),
+    },
+  ]);
+
+  readonly excelMenuItems = computed<MenuItem[]>(() => [
+    {
+      label: this.exportingExcel() ? 'Exporting…' : 'Export Excel',
+      action: () => this.exportAllExcel(),
+      disabled: this.exportingExcel(),
+    },
+    {
+      label: this.downloadingTemplate() ? 'Downloading…' : 'Download template',
+      action: () => this.downloadExcelTemplate(),
+      disabled: this.downloadingTemplate(),
+    },
+  ]);
 
   exportAll() {
     this.exporting.set(true);
     this.svc
       .getAll({
         regionId: this.filterRegion() || undefined,
+        name: this.filterName() || undefined,
         date: this.filterDate() || undefined,
         hostId: this.filterHost() || undefined,
         is_preaching_shift: this.preachingShiftsOnly ? true : undefined,
+        is_food_shift: this.foodShiftsOnly ? true : undefined,
         limit: 10000,
       })
       .pipe(
@@ -174,6 +216,56 @@ export class ActivitiesListComponent implements OnInit {
           this.exporting.set(false);
         },
         error: () => this.exporting.set(false),
+      });
+  }
+
+  exportAllExcel() {
+    this.exportingExcel.set(true);
+    this.svc
+      .exportExcel({
+        regionId: this.filterRegion() || undefined,
+        name: this.filterName() || undefined,
+        date: this.filterDate() || undefined,
+        hostId: this.filterHost() || undefined,
+        is_preaching_shift: this.preachingShiftsOnly ? true : undefined,
+        is_food_shift: this.foodShiftsOnly ? true : undefined,
+      })
+      .subscribe({
+        next: async blob => {
+          const parts: string[] = [
+            this.preachingShiftsOnly ? 'turnos' : this.foodShiftsOnly ? 'comida' : 'actividades',
+          ];
+          const regionName = this.regions().find(r => r.id === this.filterRegion())?.name;
+          if (regionName) parts.push(regionName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
+          const hostName = this.filterHosts().find(h => h.id === this.filterHost())?.name;
+          if (hostName) parts.push(hostName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
+          if (this.filterDate()) parts.push(this.filterDate());
+          parts.push(new Date().toISOString().slice(0, 10));
+          await downloadFile(blob as Blob, `${parts.join('-')}.xlsx`);
+          this.exportingExcel.set(false);
+        },
+        error: () => this.exportingExcel.set(false),
+      });
+  }
+
+  downloadExcelTemplate() {
+    this.downloadingTemplate.set(true);
+    this.svc
+      .downloadTemplate({
+        is_preaching_shift: this.preachingShiftsOnly ? true : undefined,
+        is_food_shift: this.foodShiftsOnly ? true : undefined,
+      })
+      .subscribe({
+        next: async blob => {
+          const filename = this.preachingShiftsOnly
+            ? 'plantilla-turnos-predicacion.xlsx'
+            : this.foodShiftsOnly
+              ? 'plantilla-turnos-comida.xlsx'
+              : 'plantilla-actividades.xlsx';
+          await downloadFile(blob as Blob, filename);
+          this.downloadingTemplate.set(false);
+        },
+        error: () => this.downloadingTemplate.set(false),
       });
   }
 
@@ -269,6 +361,7 @@ export class ActivitiesListComponent implements OnInit {
   readonly filterRegion = signal('');
   readonly filterStatus = signal<ActivityStatus | ''>('');
   readonly filterDate = signal('');
+  readonly filterName = signal('');
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 
@@ -328,6 +421,7 @@ export class ActivitiesListComponent implements OnInit {
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
     is_preaching_shift: [false],
+    is_food_shift: [false],
     request_attendance: [false],
     preaching_groups_count: [null as number | null, [Validators.min(1), Validators.max(50)]],
   });
@@ -343,6 +437,14 @@ export class ActivitiesListComponent implements OnInit {
   // ── Detail modal ──────────────────────────────────────────────────────────
 
   readonly selectedActivity = signal<Activity | null>(null);
+
+  private readonly naturalCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  readonly sortedPreachingGroups = computed(() =>
+    [...(this.selectedActivity()?.preaching_groups ?? [])].sort((a, b) =>
+      this.naturalCollator.compare(a.name ?? '', b.name ?? ''),
+    ),
+  );
+
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
   readonly detailError = signal('');
@@ -360,6 +462,7 @@ export class ActivitiesListComponent implements OnInit {
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
     is_preaching_shift: [false],
+    is_food_shift: [false],
     request_attendance: [false],
   });
 
@@ -443,6 +546,26 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly availableVolunteerRoles = computed(() => this.allVolunteerRoles());
 
+  private volunteerMeta(v: {
+    distance_km: number | null;
+    distance_from_congregation: boolean;
+    congregation_name: string | null;
+    volunteer_code: string;
+  }): string {
+    const congregation = v.congregation_name
+      ? v.distance_from_congregation && v.distance_km !== null
+        ? `${v.congregation_name} (${v.distance_km} km)`
+        : v.congregation_name
+      : null;
+    return [
+      !v.distance_from_congregation && v.distance_km !== null ? `${v.distance_km} km` : null,
+      congregation,
+      v.volunteer_code,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
   readonly filteredVolunteersList = computed(() => {
     const role = this.filterVolunteerRole();
     if (!role) return this.availableVolunteersList();
@@ -454,7 +577,7 @@ export class ActivitiesListComponent implements OnInit {
       value: v.id,
       label: v.full_name,
       disabled: v.already_in_activity,
-      meta: v.already_in_activity ? 'Already in another activity' : v.volunteer_code,
+      meta: v.already_in_activity ? 'Already in another activity' : this.volunteerMeta(v),
     })),
   );
 
@@ -487,13 +610,16 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly detailTabs = computed(() => {
     const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
-    return isPreachingShift
-      ? ([['info', 'Info'] as const, ['preaching-groups', 'Preaching groups'] as const] as const)
-      : ([
-          ['info', 'Info'] as const,
-          ['volunteers', 'Volunteers'] as const,
-          ['groups', 'Groups'] as const,
-        ] as const);
+    const isFoodShift = this.selectedActivity()?.is_food_shift ?? false;
+    if (isPreachingShift)
+      return [['info', 'Info'] as const, ['preaching-groups', 'Preaching groups'] as const] as const;
+    if (isFoodShift)
+      return [['info', 'Info'] as const, ['groups', 'Groups'] as const] as const;
+    return [
+      ['info', 'Info'] as const,
+      ['volunteers', 'Volunteers'] as const,
+      ['groups', 'Groups'] as const,
+    ] as const;
   });
 
   readonly pickRoleByGroup = signal<Record<string, string>>({});
@@ -504,8 +630,8 @@ export class ActivitiesListComponent implements OnInit {
 
   setPickedRoleFor(groupId: string, value: string) {
     this.pickRoleByGroup.update((m) => ({ ...m, [groupId]: value }));
-    // The selected volunteer may no longer match the new role filter
-    this.setPickedVolunteerFor(groupId, '');
+    // The selected volunteers may no longer match the new role filter
+    this.setPickedVolunteerFor(groupId, []);
   }
 
   ungroupedVolunteerItemsFor(groupId: string) {
@@ -513,7 +639,11 @@ export class ActivitiesListComponent implements OnInit {
     return this.availableVolunteersList()
       .filter((v) => !v.already_in_activity)
       .filter((v) => !role || v.roles?.some((r) => r.id === role))
-      .map((v) => ({ value: v.id, label: v.full_name, meta: v.volunteer_code }));
+      .map((v) => ({
+        value: v.id,
+        label: v.full_name,
+        meta: this.volunteerMeta(v),
+      }));
   }
 
   readonly ungroupedGroupItems = computed(() => {
@@ -539,15 +669,15 @@ export class ActivitiesListComponent implements OnInit {
       }));
   });
 
-  readonly pickVolunteerByGroup = signal<Record<string, string>>({});
+  readonly pickVolunteerByGroup = signal<Record<string, string[]>>({});
   readonly pickGuestGroupByGroup = signal<Record<string, string[]>>({});
   readonly pickCartByGroup = signal<Record<string, string>>({});
 
-  pickedVolunteerFor(groupId: string): string {
-    return this.pickVolunteerByGroup()[groupId] ?? '';
+  pickedVolunteerFor(groupId: string): string[] {
+    return this.pickVolunteerByGroup()[groupId] ?? [];
   }
 
-  setPickedVolunteerFor(groupId: string, value: string) {
+  setPickedVolunteerFor(groupId: string, value: string[]) {
     this.pickVolunteerByGroup.update((m) => ({ ...m, [groupId]: value }));
   }
 
@@ -577,7 +707,51 @@ export class ActivitiesListComponent implements OnInit {
     this.expandedGroupIds.update((m) => ({ ...m, [groupId]: !this.isGroupExpanded(groupId) }));
   }
 
+  private saveFilters() {
+    sessionStorage.setItem(
+      this.storageKey,
+      JSON.stringify({
+        region: this.filterRegion(),
+        host: this.filterHost(),
+        status: this.filterStatus(),
+        date: this.filterDate(),
+        name: this.filterName(),
+      }),
+    );
+  }
+
+  private loadSavedFilters() {
+    try {
+      const raw = sessionStorage.getItem(this.storageKey);
+      if (!raw) return;
+      const { region, host, status, date, name } = JSON.parse(raw);
+      if (region) this.filterRegion.set(region);
+      if (host) this.filterHost.set(host);
+      if (status) this.filterStatus.set(status as ActivityStatus);
+      if (date) this.filterDate.set(date);
+      if (name) this.filterName.set(name);
+    } catch {
+      sessionStorage.removeItem(this.storageKey);
+    }
+  }
+
+  clearFilters() {
+    this.filterDate.set('');
+    this.filterStatus.set('');
+    this.filterHost.set('');
+    this.filterName.set('');
+    this.saveFilters();
+    this.applyFilters();
+  }
+
+  onStatusFilterChange(status: string) {
+    this.filterStatus.set(status as ActivityStatus | '');
+    this.saveFilters();
+  }
+
   ngOnInit() {
+    this.loadSavedFilters();
+
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
         this.regions.set(r);
@@ -620,9 +794,11 @@ export class ActivitiesListComponent implements OnInit {
     this.svc
       .getAll({
         regionId: this.filterRegion() || undefined,
+        name: this.filterName() || undefined,
         date: this.filterDate() || undefined,
         hostId: this.filterHost() || undefined,
         is_preaching_shift: this.preachingShiftsOnly,
+        is_food_shift: this.foodShiftsOnly,
         page: this.page(),
         limit: this.limit,
       })
@@ -645,6 +821,7 @@ export class ActivitiesListComponent implements OnInit {
     this.load();
     if (this.viewMode() === 'calendar' && this.calendarPeriod)
       this.fetchCalendar(this.calendarPeriod);
+    this.saveFilters();
   }
 
   onRegionFilterChange(regionId: string) {
@@ -736,8 +913,10 @@ export class ActivitiesListComponent implements OnInit {
     this.svc
       .getAll({
         regionId: this.filterRegion() || undefined,
+        name: this.filterName() || undefined,
         hostId: this.filterHost() || undefined,
         is_preaching_shift: this.preachingShiftsOnly,
+        is_food_shift: this.foodShiftsOnly,
         dateFrom: period.dateFrom,
         dateTo: period.dateTo,
         limit: 500,
@@ -805,6 +984,7 @@ export class ActivitiesListComponent implements OnInit {
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
       request_attendance: v.request_attendance ?? false,
       is_preaching_shift: this.preachingShiftsOnly,
+      is_food_shift: this.foodShiftsOnly,
     };
 
     const groupsToCreate =
@@ -912,6 +1092,7 @@ export class ActivitiesListComponent implements OnInit {
       required_volunteers: activity.required_volunteers,
       max_guests: activity.max_guests,
       is_preaching_shift: activity.is_preaching_shift,
+      is_food_shift: activity.is_food_shift,
       request_attendance: activity.request_attendance,
     });
     this.editDescLen.set(activity.description?.length ?? 0);
@@ -1049,6 +1230,7 @@ export class ActivitiesListComponent implements OnInit {
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
       request_attendance: v.request_attendance ?? false,
       is_preaching_shift: this.selectedActivity()?.is_preaching_shift ?? false,
+      is_food_shift: this.selectedActivity()?.is_food_shift ?? false,
     };
   }
 
@@ -1427,23 +1609,30 @@ export class ActivitiesListComponent implements OnInit {
 
   addVolunteerToGroup(groupId: string) {
     const activity = this.selectedActivity();
-    const volunteerId = this.pickedVolunteerFor(groupId);
-    if (!activity || !volunteerId) return;
+    const volunteerIds = this.pickedVolunteerFor(groupId);
+    if (!activity || !volunteerIds.length) return;
     const roleId = this.pickedRoleFor(groupId) || null;
     this.detailSaving.set(true);
-    this.svc.assignVolunteerToGroup(activity.id, groupId, volunteerId, roleId).subscribe({
-      next: (updated) => {
-        this.selectedActivity.set(updated);
-        this.setPickedVolunteerFor(groupId, '');
-        this.detailSaving.set(false);
-        this.reloadAvailableVolunteers();
-        this.load();
-      },
-      error: () => {
-        this.detailError.set('Error assigning volunteer.');
-        this.detailSaving.set(false);
-      },
-    });
+    from(volunteerIds)
+      .pipe(
+        concatMap((volunteerId) =>
+          this.svc.assignVolunteerToGroup(activity.id, groupId, volunteerId, roleId),
+        ),
+        last(),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.selectedActivity.set(updated);
+          this.setPickedVolunteerFor(groupId, []);
+          this.detailSaving.set(false);
+          this.reloadAvailableVolunteers();
+          this.load();
+        },
+        error: () => {
+          this.detailError.set('Error assigning volunteer.');
+          this.detailSaving.set(false);
+        },
+      });
   }
 
   updateGroupVolunteerDescription(groupId: string, volunteerId: string, description: string) {

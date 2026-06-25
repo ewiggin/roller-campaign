@@ -103,6 +103,12 @@ export class AdminLayoutComponent implements OnInit {
       screen: 'activities',
       paths: ICONS['calendar-plain'],
     },
+    {
+      label: 'Food Shifts',
+      path: '/admin/food-shifts',
+      screen: 'activities',
+      paths: ICONS['calendar-plain'],
+    },
   ];
 
   protected readonly adminNavItems: NavItem[] = [

@@ -26,8 +26,11 @@
     @if (step() === 'file') {
       <div class="p-6 space-y-4">
         <p class="text-sm text-gray-600 dark:text-zinc-400">
-          Selecciona un archivo <code class="font-mono text-xs bg-gray-100 dark:bg-zinc-800 px-1 py-0.5 rounded">.json</code>
-          exportado desde esta aplicación. Podrás elegir qué datos de cada actividad importar.
+          Selecciona un archivo
+          <code class="font-mono text-xs bg-gray-100 dark:bg-zinc-800 px-1 py-0.5 rounded">.json</code>
+          exportado desde esta aplicación, o un archivo
+          <code class="font-mono text-xs bg-gray-100 dark:bg-zinc-800 px-1 py-0.5 rounded">.xlsx</code>
+          con los datos base de las actividades.
         </p>
         <label
           class="flex flex-col items-center justify-center gap-2 w-full border-2 border-dashed border-gray-300 dark:border-zinc-600 rounded-xl py-10 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
@@ -36,7 +39,8 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
           </svg>
           <span class="text-sm text-gray-500 dark:text-zinc-400">Haz clic para seleccionar un archivo</span>
-          <input type="file" accept=".json" class="hidden" (change)="onFileChange($event)" />
+          <span class="text-xs text-gray-400 dark:text-zinc-500">.json · .xlsx</span>
+          <input type="file" accept=".json,.xlsx" class="hidden" (change)="onFileChange($event)" />
         </label>
         @if (fileError()) {
           <p class="text-sm text-red-600 dark:text-red-400">{{ fileError() }}</p>
@@ -47,6 +51,16 @@
     <!-- Step: merge -->
     @if (step() === 'merge') {
       <div class="overflow-y-auto flex-1 px-6 py-4 space-y-3">
+        @if (parseErrors().length) {
+          <div class="rounded-xl border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950/30 p-4 space-y-1">
+            <p class="text-xs font-semibold text-yellow-700 dark:text-yellow-400">
+              {{ parseErrors().length }} fila{{ parseErrors().length !== 1 ? 's' : '' }} con advertencias (se omiten):
+            </p>
+            @for (err of parseErrors(); track $index) {
+              <p class="text-xs text-yellow-600 dark:text-yellow-500">{{ err }}</p>
+            }
+          </div>
+        }
         @for (entry of entries(); track entry.activity.id; let i = $index) {
           <div
             class="rounded-xl border p-4 space-y-3 transition-colors"
