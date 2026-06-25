@@ -217,4 +217,40 @@ export class ActivitiesService {
       responseType: 'blob',
     });
   }
+
+  // ── Excel import / export ─────────────────────────────────────────────────
+
+  exportExcel(
+    query: {
+      regionId?: string;
+      name?: string;
+      date?: string;
+      hostId?: string;
+      is_preaching_shift?: boolean;
+      is_food_shift?: boolean;
+    } = {},
+  ) {
+    let params = new HttpParams();
+    if (query.regionId) params = params.set('regionId', query.regionId);
+    if (query.name) params = params.set('name', query.name);
+    if (query.date) params = params.set('date', query.date);
+    if (query.hostId) params = params.set('hostId', query.hostId);
+    if (query.is_preaching_shift !== undefined)
+      params = params.set('is_preaching_shift', String(query.is_preaching_shift));
+    if (query.is_food_shift !== undefined)
+      params = params.set('is_food_shift', String(query.is_food_shift));
+    return this.http.get('/api/activities/export/excel', {
+      params,
+      responseType: 'blob',
+    });
+  }
+
+  parseExcelImport(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ activities: Activity[]; errors: string[] }>(
+      '/api/activities/import/parse-excel',
+      formData,
+    );
+  }
 }

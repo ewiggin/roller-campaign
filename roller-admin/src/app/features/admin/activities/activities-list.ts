@@ -155,12 +155,18 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly importModalOpen = signal(false);
   readonly exporting = signal(false);
+  readonly exportingExcel = signal(false);
 
   readonly archivoMenuItems = computed<MenuItem[]>(() => [
     {
-      label: this.exporting() ? 'Exporting…' : 'Export',
+      label: this.exporting() ? 'Exporting…' : 'Export JSON',
       action: () => this.exportAll(),
       disabled: this.exporting(),
+    },
+    {
+      label: this.exportingExcel() ? 'Exporting…' : 'Export Excel',
+      action: () => this.exportAllExcel(),
+      disabled: this.exportingExcel(),
     },
     { label: 'Import', action: () => this.importModalOpen.set(true) },
   ]);
@@ -202,6 +208,35 @@ export class ActivitiesListComponent implements OnInit {
           this.exporting.set(false);
         },
         error: () => this.exporting.set(false),
+      });
+  }
+
+  exportAllExcel() {
+    this.exportingExcel.set(true);
+    this.svc
+      .exportExcel({
+        regionId: this.filterRegion() || undefined,
+        name: this.filterName() || undefined,
+        date: this.filterDate() || undefined,
+        hostId: this.filterHost() || undefined,
+        is_preaching_shift: this.preachingShiftsOnly ? true : undefined,
+        is_food_shift: this.foodShiftsOnly ? true : undefined,
+      })
+      .subscribe({
+        next: async blob => {
+          const parts: string[] = [
+            this.preachingShiftsOnly ? 'turnos' : this.foodShiftsOnly ? 'comida' : 'actividades',
+          ];
+          const regionName = this.regions().find(r => r.id === this.filterRegion())?.name;
+          if (regionName) parts.push(regionName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
+          const hostName = this.filterHosts().find(h => h.id === this.filterHost())?.name;
+          if (hostName) parts.push(hostName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
+          if (this.filterDate()) parts.push(this.filterDate());
+          parts.push(new Date().toISOString().slice(0, 10));
+          await downloadFile(blob as Blob, `${parts.join('-')}.xlsx`);
+          this.exportingExcel.set(false);
+        },
+        error: () => this.exportingExcel.set(false),
       });
   }
 

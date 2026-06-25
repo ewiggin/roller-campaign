@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import * as XLSX from 'xlsx';
 import type { Content } from 'pdfmake/interfaces';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { createPdfBuffer } from '../common/pdf/pdf.util';
@@ -1638,6 +1639,202 @@ export class ActivitiesService {
     created_at: activity.created_at,
     updated_at: activity.updated_at,
   });
+
+  // ── Excel import / export ─────────────────────────────────────────────────
+
+  private readonly ACTIVITY_EXCEL_COLUMNS = [
+    'name',
+    'date',
+    'start_time',
+    'end_time',
+    'region_name',
+    'host_name',
+    'description',
+    'required_volunteers',
+    'max_guests',
+    'is_preaching_shift',
+    'is_food_shift',
+    'request_attendance',
+    'icon',
+    'location_address',
+    'status',
+  ] as const;
+
+  generateExcelTemplate(): Buffer {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      [...this.ACTIVITY_EXCEL_COLUMNS],
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  async exportActivitiesToExcel(
+    query: ActivityListQueryDto,
+    user: JwtPayload,
+  ): Promise<Buffer> {
+    const result = await this.findAll({ ...query, limit: 10000, page: 1 }, user);
+
+    const regionIds = [...new Set(result.data.map((a) => a.region_id))];
+    const regions = regionIds.length
+      ? await this.regionsRepo.findBy({ id: In(regionIds) })
+      : [];
+    const regionMap = new Map(regions.map((r) => [r.id, r.name]));
+
+    const rows = result.data.map((a) => [
+      a.name,
+      a.date,
+      a.start_time,
+      a.end_time,
+      regionMap.get(a.region_id) ?? '',
+      a.host_name ?? '',
+      a.description ?? '',
+      a.required_volunteers ?? '',
+      a.max_guests ?? '',
+      a.is_preaching_shift ? 'TRUE' : 'FALSE',
+      a.is_food_shift ? 'TRUE' : 'FALSE',
+      a.request_attendance ? 'TRUE' : 'FALSE',
+      a.icon ?? '',
+      a.activity_locations?.[0]?.address ?? '',
+      a.status,
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      [...this.ACTIVITY_EXCEL_COLUMNS],
+      ...rows,
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  async parseExcelImport(
+    buffer: Buffer,
+    user: JwtPayload,
+  ): Promise<{ activities: ActivityResponseDto[]; errors: string[] }> {
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      raw: false,
+      defval: null,
+    });
+
+    let accessibleRegions: Region[];
+    if (user.role === 'superadmin') {
+      accessibleRegions = await this.regionsRepo.find();
+    } else {
+      const dbUser = await this.usersRepo.findOne({
+        where: { id: user.sub },
+        relations: { regions: true },
+      });
+      accessibleRegions = dbUser?.regions ?? [];
+    }
+
+    const hosts = await this.hostsRepo.find();
+    const errors: string[] = [];
+    const activities: ActivityResponseDto[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2;
+      const rowErrors: string[] = [];
+
+      const name = this.parseXlsxString(row['name']);
+      const date = this.parseXlsxString(row['date']);
+      const start_time = this.parseXlsxString(row['start_time']);
+      const end_time = this.parseXlsxString(row['end_time']);
+      const regionName = this.parseXlsxString(row['region_name']);
+
+      if (!name) rowErrors.push('name es obligatorio');
+      if (!date) rowErrors.push('date es obligatorio');
+      if (!start_time) rowErrors.push('start_time es obligatorio');
+      if (!end_time) rowErrors.push('end_time es obligatorio');
+      if (!regionName) rowErrors.push('region_name es obligatorio');
+
+      if (rowErrors.length > 0) {
+        errors.push(`Fila ${rowNum}: ${rowErrors.join(', ')}`);
+        continue;
+      }
+
+      const region = accessibleRegions.find(
+        (r) => r.name.toLowerCase() === regionName!.toLowerCase(),
+      );
+      if (!region) {
+        errors.push(`Fila ${rowNum}: región '${regionName}' no encontrada`);
+        continue;
+      }
+
+      const hostName = this.parseXlsxString(row['host_name']);
+      let host_id: string | null = null;
+      let host_name: string | null = null;
+      if (hostName) {
+        const host = hosts.find(
+          (h) => h.name.toLowerCase() === hostName.toLowerCase(),
+        );
+        if (host) {
+          host_id = host.id;
+          host_name = host.name;
+        } else {
+          errors.push(
+            `Fila ${rowNum}: congregación '${hostName}' no encontrada (se omite)`,
+          );
+        }
+      }
+
+      activities.push({
+        id: crypto.randomUUID(),
+        region_id: region.id,
+        series_id: null,
+        name: name!,
+        icon: this.parseXlsxString(row['icon']),
+        description: this.parseXlsxString(row['description']),
+        status:
+          this.parseXlsxString(row['status']) === 'published'
+            ? 'published'
+            : 'draft',
+        host_id,
+        host_name,
+        date: date!,
+        start_time: start_time!,
+        end_time: end_time!,
+        activity_locations: null,
+        image_key: null,
+        is_preaching_shift: this.parseXlsxBool(row['is_preaching_shift']),
+        is_food_shift: this.parseXlsxBool(row['is_food_shift']),
+        request_attendance: this.parseXlsxBool(row['request_attendance']),
+        volunteers: [],
+        volunteer_count: 0,
+        required_volunteers: this.parseXlsxInt(row['required_volunteers']),
+        guest_groups: [],
+        total_guests_assigned: 0,
+        preaching_groups: [],
+        requests: [],
+        max_guests: this.parseXlsxInt(row['max_guests']),
+        created_at: new Date(),
+        updated_at: new Date(),
+      } as ActivityResponseDto);
+    }
+
+    return { activities, errors };
+  }
+
+  private parseXlsxString(val: unknown): string | null {
+    if (val === null || val === undefined || val === '') return null;
+    return String(val).trim() || null;
+  }
+
+  private parseXlsxBool(val: unknown): boolean {
+    if (val === null || val === undefined) return false;
+    if (typeof val === 'boolean') return val;
+    const s = String(val).trim().toLowerCase().normalize('NFC');
+    return s === 'true' || s === '1' || s === 'yes' || s === 'sí' || s === 'si';
+  }
+
+  private parseXlsxInt(val: unknown): number | null {
+    if (val === null || val === undefined || val === '') return null;
+    const n = parseInt(String(val), 10);
+    return isNaN(n) ? null : n;
+  }
 
   // ── Schedule PDF export ───────────────────────────────────────────────────
 

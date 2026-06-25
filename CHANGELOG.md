@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.11] - 2026-06-25
+
+### Añadido
+- **Importación/exportación Excel de actividades, turnos de predicación y turnos de comida**: los tres listados incluyen ahora una opción "Export Excel" en el menú Archivo que descarga un `.xlsx` con los datos base de las actividades filtradas. El modal de importación acepta tanto `.json` (flujo anterior intacto) como `.xlsx`; al seleccionar un Excel el backend resuelve `region_name` → `region_id` y `host_name` → `host_id`, y las actividades resultantes pasan al mismo paso de revisión y selección de secciones que el JSON. Las filas con errores (región no encontrada, campos obligatorios vacíos…) se muestran como advertencias sin bloquear las demás. Nuevos endpoints: `GET /activities/import/template` (plantilla vacía), `GET /activities/export/excel` (exportación filtrada) y `POST /activities/import/parse-excel` (parseo del fichero)
+
+---
+
 ## [0.2.10] - 2026-06-25
 
 ### Añadido

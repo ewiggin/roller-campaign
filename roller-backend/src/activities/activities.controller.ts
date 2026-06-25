@@ -12,11 +12,16 @@ import {
   Post,
   Query,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
@@ -111,6 +116,55 @@ export class ActivitiesController {
     });
     res.send(buffer);
   }
+
+  // ── Excel import / export ─────────────────────────────────────────────────
+
+  @Get('import/template')
+  @ApiOkResponse({ description: 'Plantilla Excel para importación de actividades' })
+  getImportTemplate(@Res() res: Response): void {
+    const buffer = this.svc.generateExcelTemplate();
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="plantilla-actividades.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Get('export/excel')
+  @ApiOkResponse({ description: 'Excel con listado de actividades' })
+  async exportExcel(
+    @Query() query: ActivityListQueryDto,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.svc.exportActivitiesToExcel(query, user);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="actividades.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Post('import/parse-excel')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOkResponse({ description: 'Actividades parseadas del Excel' })
+  async parseExcelImport(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ activities: ActivityResponseDto[]; errors: string[] }> {
+    if (!file) throw new BadRequestException('No se recibió ningún archivo');
+    return this.svc.parseExcelImport(file.buffer, user);
+  }
+
+  // ── CRUD ──────────────────────────────────────────────────────────────────
 
   @Get(':id')
   @ApiOkResponse({ type: ActivityResponseDto })
