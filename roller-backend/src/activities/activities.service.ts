@@ -1664,28 +1664,40 @@ export class ActivitiesService {
     isPreachingShift = false,
     isFoodShift = false,
   ): Buffer {
-    // When the type is fixed by context, omit those columns — no need to fill them in
-    const typed = isPreachingShift || isFoodShift;
-    const columns = typed
-      ? this.ACTIVITY_EXCEL_COLUMNS.filter(
-          (c) => c !== 'is_preaching_shift' && c !== 'is_food_shift',
-        )
-      : [...this.ACTIVITY_EXCEL_COLUMNS];
+    let columns: string[];
+    let sampleRow: (string | number)[];
 
-    const baseRow: (string | number)[] = [
-      'Nombre de la actividad',
-      '2025-01-15',
-      '09:00',
-      '12:00',
-      'Nombre de la región',
-      'Nombre de la congregación',
-      '',
-      '',
-      '',
-    ];
-    const sampleRow = typed
-      ? [...baseRow, 'FALSE', '', '', 'draft']
-      : [...baseRow, 'FALSE', 'FALSE', 'FALSE', '', '', 'draft'];
+    if (isFoodShift) {
+      // Food shifts: replace 'description' with the three host-person columns
+      columns = [
+        'name', 'date', 'start_time', 'end_time', 'region_name', 'host_name',
+        'host_person_name', 'host_person_address', 'host_person_phone',
+        'required_volunteers', 'max_guests', 'request_attendance',
+        'icon', 'location_address', 'status',
+      ];
+      sampleRow = [
+        'Nombre del turno', '2025-01-15', '09:00', '12:00',
+        'Nombre de la región', 'Nombre de la congregación',
+        'Nombre del anfitrión', 'Dirección del anfitrión', '+34 600 000 000',
+        '', '', 'FALSE', '', '', 'draft',
+      ];
+    } else if (isPreachingShift) {
+      columns = this.ACTIVITY_EXCEL_COLUMNS.filter(
+        (c) => c !== 'is_preaching_shift' && c !== 'is_food_shift',
+      ) as string[];
+      sampleRow = [
+        'Nombre del turno', '2025-01-15', '09:00', '12:00',
+        'Nombre de la región', 'Nombre de la congregación',
+        '', '', '', 'FALSE', '', '', 'draft',
+      ];
+    } else {
+      columns = [...this.ACTIVITY_EXCEL_COLUMNS] as string[];
+      sampleRow = [
+        'Nombre de la actividad', '2025-01-15', '09:00', '12:00',
+        'Nombre de la región', 'Nombre de la congregación',
+        '', '', '', 'FALSE', 'FALSE', 'FALSE', '', '', 'draft',
+      ];
+    }
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([columns, sampleRow]);
@@ -1813,7 +1825,7 @@ export class ActivitiesService {
         series_id: null,
         name: name!,
         icon: this.parseXlsxString(row['icon']),
-        description: this.parseXlsxString(row['description']),
+        description: this.parseFoodShiftDescription(row, forceFoodShift),
         status:
           this.parseXlsxString(row['status']) === 'published'
             ? 'published'
@@ -1860,6 +1872,23 @@ export class ActivitiesService {
     if (val === null || val === undefined || val === '') return null;
     const n = parseInt(String(val), 10);
     return isNaN(n) ? null : n;
+  }
+
+  private parseFoodShiftDescription(
+    row: Record<string, unknown>,
+    forceFoodShift: boolean,
+  ): string | null {
+    if (!forceFoodShift) return this.parseXlsxString(row['description']);
+    const name = this.parseXlsxString(row['host_person_name']);
+    const address = this.parseXlsxString(row['host_person_address']);
+    const phone = this.parseXlsxString(row['host_person_phone']);
+    if (!name && !address && !phone) return this.parseXlsxString(row['description']);
+    let desc = 'Estais invitados';
+    if (name) desc += ` a casa de ${name}`;
+    if (address) desc += ` en ${address}`;
+    desc += '.';
+    if (phone) desc += ` Su tel. es ${phone}.`;
+    return desc;
   }
 
   // ── Schedule PDF export ───────────────────────────────────────────────────
