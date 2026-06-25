@@ -245,12 +245,19 @@ export class ActivitiesService {
     });
   }
 
-  parseExcelImport(file: File) {
+  parseExcelImport(
+    file: File,
+    opts: { is_preaching_shift?: boolean; is_food_shift?: boolean } = {},
+  ) {
+    let params = new HttpParams();
+    if (opts.is_preaching_shift) params = params.set('is_preaching_shift', 'true');
+    if (opts.is_food_shift) params = params.set('is_food_shift', 'true');
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<{ activities: Activity[]; errors: string[] }>(
       '/api/activities/import/parse-excel',
       formData,
+      { params },
     );
   }
 

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, inject, signal, computed } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, signal, computed } from '@angular/core';
 import { Observable, catchError, concatMap, from, last, map, of } from 'rxjs';
 import type { Activity, PreachingGroup } from '../../../core/models/activity.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
@@ -29,6 +29,8 @@ interface ImportEntry {
 export class ActivityImportModalComponent {
   @Output() imported = new EventEmitter<void>();
   @Output() close = new EventEmitter<void>();
+  @Input() isPreachingShift = false;
+  @Input() isFoodShift = false;
 
   private readonly svc = inject(ActivitiesService);
   private readonly toast = inject(ToastService);
@@ -56,7 +58,10 @@ export class ActivityImportModalComponent {
     this.parseErrors.set([]);
 
     if (file.name.toLowerCase().endsWith('.xlsx')) {
-      this.svc.parseExcelImport(file).subscribe({
+      this.svc.parseExcelImport(file, {
+        is_preaching_shift: this.isPreachingShift || undefined,
+        is_food_shift: this.isFoodShift || undefined,
+      }).subscribe({
         next: ({ activities, errors }) => {
           this.parseErrors.set(errors);
           if (!activities.length) {

@@ -169,10 +169,17 @@ export class ActivitiesController {
   @ApiOkResponse({ description: 'Actividades parseadas del Excel' })
   async parseExcelImport(
     @UploadedFile() file: Express.Multer.File,
+    @Query('is_preaching_shift') isPreachingShift: string | undefined,
+    @Query('is_food_shift') isFoodShift: string | undefined,
     @CurrentUser() user: JwtPayload,
   ): Promise<{ activities: ActivityResponseDto[]; errors: string[] }> {
     if (!file) throw new BadRequestException('No se recibió ningún archivo');
-    return this.svc.parseExcelImport(file.buffer, user);
+    return this.svc.parseExcelImport(
+      file.buffer,
+      user,
+      isPreachingShift === 'true',
+      isFoodShift === 'true',
+    );
   }
 
   // ── CRUD ──────────────────────────────────────────────────────────────────

@@ -2256,6 +2256,8 @@
 
 @if (importModalOpen()) {
   <app-activity-import-modal
+    [isPreachingShift]="preachingShiftsOnly"
+    [isFoodShift]="foodShiftsOnly"
     (imported)="onImportDone()"
     (close)="importModalOpen.set(false)"
   />

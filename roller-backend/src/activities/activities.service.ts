@@ -1664,7 +1664,15 @@ export class ActivitiesService {
     isPreachingShift = false,
     isFoodShift = false,
   ): Buffer {
-    const sampleRow = [
+    // When the type is fixed by context, omit those columns — no need to fill them in
+    const typed = isPreachingShift || isFoodShift;
+    const columns = typed
+      ? this.ACTIVITY_EXCEL_COLUMNS.filter(
+          (c) => c !== 'is_preaching_shift' && c !== 'is_food_shift',
+        )
+      : [...this.ACTIVITY_EXCEL_COLUMNS];
+
+    const baseRow: (string | number)[] = [
       'Nombre de la actividad',
       '2025-01-15',
       '09:00',
@@ -1674,18 +1682,13 @@ export class ActivitiesService {
       '',
       '',
       '',
-      isPreachingShift ? 'TRUE' : 'FALSE',
-      isFoodShift ? 'TRUE' : 'FALSE',
-      'FALSE',
-      '',
-      '',
-      'draft',
     ];
+    const sampleRow = typed
+      ? [...baseRow, 'FALSE', '', '', 'draft']
+      : [...baseRow, 'FALSE', 'FALSE', 'FALSE', '', '', 'draft'];
+
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([
-      [...this.ACTIVITY_EXCEL_COLUMNS],
-      sampleRow,
-    ]);
+    const ws = XLSX.utils.aoa_to_sheet([columns, sampleRow]);
     XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
@@ -1732,6 +1735,8 @@ export class ActivitiesService {
   async parseExcelImport(
     buffer: Buffer,
     user: JwtPayload,
+    forcePreachingShift = false,
+    forceFoodShift = false,
   ): Promise<{ activities: ActivityResponseDto[]; errors: string[] }> {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -1820,8 +1825,8 @@ export class ActivitiesService {
         end_time: end_time!,
         activity_locations: null,
         image_key: null,
-        is_preaching_shift: this.parseXlsxBool(row['is_preaching_shift']),
-        is_food_shift: this.parseXlsxBool(row['is_food_shift']),
+        is_preaching_shift: forcePreachingShift || (!forceFoodShift && this.parseXlsxBool(row['is_preaching_shift'])),
+        is_food_shift: forceFoodShift || (!forcePreachingShift && this.parseXlsxBool(row['is_food_shift'])),
         request_attendance: this.parseXlsxBool(row['request_attendance']),
         volunteers: [],
         volunteer_count: 0,
