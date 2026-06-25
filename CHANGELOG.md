@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.10] - 2026-06-25
+
+### Añadido
+- **Congregación en voluntarios**: nuevo campo que vincula a cada voluntario con su congregación (host del sistema). La ficha del voluntario muestra el nombre, dirección, coordenadas y enlace a Google Maps de la congregación asignada. Es editable desde el modal de identidad con un selector con búsqueda filtrado por las regiones del voluntario. Importable y exportable mediante la columna "Congregación" del Excel (resuelve por nombre del host ignorando mayúsculas; si no hay coincidencia deja el campo vacío)
+- **Distancia y congregación en el selector de voluntarios de actividad**: al asignar voluntarios a un grupo de predicación, cada voluntario muestra su distancia en km a la ubicación de la actividad (o al anfitrión como fallback) y el nombre de su congregación
+- **Selección múltiple de voluntarios en grupos de predicación**: el selector de voluntarios para añadir a un grupo de predicación admite ahora selección múltiple, permitiendo añadir varios voluntarios de una sola vez
+- **Filtro por nombre en actividades**: nueva caja de búsqueda en la lista de actividades y turnos de predicación que filtra por nombre (búsqueda insensible a mayúsculas en backend)
+
+### Mejorado
+- **Filtros de actividades persistentes**: los filtros de la lista de actividades (región, anfitrión, estado, fecha, nombre) se guardan en `sessionStorage` para sobrevivir la navegación SPA; el botón "Clear" los resetea. Los filtros de turnos de predicación se guardan de forma independiente
+
+---
+
 ## [0.2.9] - 2026-06-22
 
 ### Añadido

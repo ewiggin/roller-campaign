@@ -999,10 +999,14 @@ export class ActivitiesService {
   ): Promise<AvailableVolunteerForActivityDto[]> {
     const activity = await this.activitiesRepo.findOne({
       where: { id },
-      relations: { volunteers: true },
+      relations: { volunteers: true, host: true },
     });
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const activityLoc = activity.activity_locations?.[0] ?? null;
+    const srcLat = activityLoc?.lat ?? activity.host?.lat ?? null;
+    const srcLng = activityLoc?.lng ?? activity.host?.lng ?? null;
 
     const assignedToThis = new Set(activity.volunteers.map((v) => v.id));
 
@@ -1041,6 +1045,7 @@ export class ActivitiesService {
         regionId: activity.region_id,
       })
       .leftJoinAndSelect('v.roles', 'roles')
+      .leftJoinAndSelect('v.host', 'host')
       .where('v.is_active = true')
       .andWhere(
         `(NOT EXISTS (
@@ -1058,16 +1063,24 @@ export class ActivitiesService {
 
     return volunteers
       .filter((v) => !assignedToThis.has(v.id))
-      .map((v) => ({
-        id: v.id,
-        volunteer_code: v.volunteer_code,
-        full_name: v.full_name,
-        roles: (v.roles ?? []).map((role) => ({
-          id: role.id,
-          name: role.name,
-        })),
-        already_in_activity: conflictingIds.has(v.id),
-      }));
+      .map((v) => {
+        const distance_km =
+          srcLat !== null && srcLng !== null && v.lat !== null && v.lng !== null
+            ? Math.round(this.haversineKm(srcLat, srcLng, v.lat, v.lng) * 10) / 10
+            : null;
+        return {
+          id: v.id,
+          volunteer_code: v.volunteer_code,
+          full_name: v.full_name,
+          roles: (v.roles ?? []).map((role) => ({
+            id: role.id,
+            name: role.name,
+          })),
+          already_in_activity: conflictingIds.has(v.id),
+          distance_km,
+          congregation_name: v.host?.name ?? null,
+        };
+      });
   }
 
   private getAvailabilityDayLabel(

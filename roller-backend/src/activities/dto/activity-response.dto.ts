@@ -100,6 +100,17 @@ export class AvailableVolunteerForActivityDto {
     description: 'True if assigned to another overlapping activity',
   })
   already_in_activity: boolean;
+
+  @ApiPropertyOptional({
+    example: 3.2,
+    nullable: true,
+    description:
+      'Distance in km from activity location to volunteer home. Null if either location is missing.',
+  })
+  distance_km: number | null;
+
+  @ApiPropertyOptional({ example: 'Congregation Norte', nullable: true })
+  congregation_name: string | null;
 }
 
 export class AvailableGroupForActivityDto {

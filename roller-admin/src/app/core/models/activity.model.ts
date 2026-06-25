@@ -99,6 +99,8 @@ export interface AvailableVolunteerForActivity {
   full_name: string;
   roles: { id: string; name: string }[];
   already_in_activity: boolean;
+  distance_km: number | null;
+  congregation_name: string | null;
 }
 
 export interface AvailableGroupForActivity {

@@ -8,6 +8,14 @@ export interface VolunteerRegion {
   name: string;
 }
 
+export interface VolunteerCongregation {
+  id: string;
+  name: string;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
 export interface Volunteer {
   id: string;
   volunteer_code: string;
@@ -18,6 +26,7 @@ export interface Volunteer {
   user_id: string | null;
   roles: VolunteerRole[];
   regions: VolunteerRegion[];
+  congregation: VolunteerCongregation | null;
   hosting_address: string | null;
   lat: number | null;
   lng: number | null;
@@ -95,6 +104,7 @@ export interface ImportVolunteerRow {
   phone?: string | null;
   region_name?: string | null;
   role_names?: string | null;
+  congregation?: string | null;
   is_active?: boolean;
   car_seats?: number | null;
   hosting_address?: string | null;

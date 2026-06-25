@@ -4,12 +4,18 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { Region } from '../../../core/models/region.model';
 import type { Volunteer, VolunteerRole } from '../../../core/models/volunteer.model';
+import type { Host } from '../../../core/models/host.model';
 import {
   LocationPickerComponent,
   type PlaceResult,
 } from '../../../shared/components/location-picker/location-picker';
+import {
+  SearchableSelectComponent,
+  type SearchableSelectItem,
+} from '../../../shared/components/searchable-select/searchable-select';
 import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
+import { HostsService } from '../../../core/services/hosts.service';
 
 type EditSection = 'contact' | 'identity' | 'roles' | 'location' | 'schedule' | null;
 
@@ -72,7 +78,7 @@ const DAYS: {
 
 @Component({
   selector: 'app-volunteer-detail',
-  imports: [RouterLink, ReactiveFormsModule, LocationPickerComponent, DatePipe],
+  imports: [RouterLink, ReactiveFormsModule, LocationPickerComponent, SearchableSelectComponent, DatePipe],
   providers: [DatePipe],
   templateUrl: './volunteer-detail.html',
 })
@@ -80,6 +86,7 @@ export class VolunteerDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly svc = inject(VolunteersService);
   private readonly regionsSvc = inject(RegionsService);
+  private readonly hostsSvc = inject(HostsService);
   private readonly fb = inject(FormBuilder);
   private readonly datePipe = inject(DatePipe);
 
@@ -93,6 +100,7 @@ export class VolunteerDetailComponent implements OnInit {
   readonly selectedRoleIds = signal<string[]>([]);
   readonly allRegions = signal<Region[]>([]);
   readonly selectedRegionIds = signal<string[]>([]);
+  readonly allHosts = signal<Host[]>([]);
   readonly locationResult = signal<PlaceResult | null>(null);
 
   readonly days = DAYS;
@@ -103,6 +111,7 @@ export class VolunteerDetailComponent implements OnInit {
 
   readonly identityForm = this.fb.nonNullable.group({
     volunteer_code: [''],
+    host_id: [''],
   });
 
   readonly contactForm = this.fb.nonNullable.group({
@@ -145,10 +154,32 @@ export class VolunteerDetailComponent implements OnInit {
     return `https://www.google.com/maps?q=${v.lat},${v.lng}`;
   });
 
+  readonly congregationMapsLink = computed(() => {
+    const c = this.volunteer()?.congregation;
+    if (!c?.lat || !c?.lng) return null;
+    return `https://www.google.com/maps?q=${c.lat},${c.lng}`;
+  });
+
+  readonly availableHosts = computed(() => {
+    const v = this.volunteer();
+    if (!v?.regions?.length) return this.allHosts();
+    const regionIds = new Set(v.regions.map((r) => r.id));
+    return this.allHosts().filter((h) => regionIds.has(h.region_id));
+  });
+
+  readonly congregationItems = computed<SearchableSelectItem[]>(() =>
+    this.availableHosts().map((h) => ({
+      value: h.id,
+      label: h.name,
+      meta: h.address ?? undefined,
+    })),
+  );
+
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.svc.getRoles().subscribe({ next: (r) => this.allRoles.set(r) });
     this.regionsSvc.getAll().subscribe({ next: (r) => this.allRegions.set(r) });
+    this.hostsSvc.getAll().subscribe({ next: (h) => this.allHosts.set(h) });
     this.loadVolunteer(id);
   }
 
@@ -172,7 +203,10 @@ export class VolunteerDetailComponent implements OnInit {
     this.saveError.set('');
 
     if (section === 'identity') {
-      this.identityForm.setValue({ volunteer_code: v.volunteer_code });
+      this.identityForm.setValue({
+        volunteer_code: v.volunteer_code,
+        host_id: v.congregation?.id ?? '',
+      });
       this.selectedRegionIds.set(v.regions.map((r) => r.id));
     } else if (section === 'contact') {
       this.contactForm.setValue({
@@ -250,9 +284,11 @@ export class VolunteerDetailComponent implements OnInit {
     let payload: Record<string, unknown> = {};
 
     if (section === 'identity') {
+      const raw = this.identityForm.getRawValue();
       payload = {
-        volunteer_code: this.identityForm.getRawValue().volunteer_code.trim(),
+        volunteer_code: raw.volunteer_code.trim(),
         region_ids: this.selectedRegionIds(),
+        host_id: raw.host_id || null,
       };
     } else if (section === 'contact') {
       const raw = this.contactForm.getRawValue();

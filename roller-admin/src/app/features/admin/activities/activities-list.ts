@@ -458,7 +458,15 @@ export class ActivitiesListComponent implements OnInit {
       value: v.id,
       label: v.full_name,
       disabled: v.already_in_activity,
-      meta: v.already_in_activity ? 'Already in another activity' : v.volunteer_code,
+      meta: v.already_in_activity
+        ? 'Already in another activity'
+        : [
+            v.distance_km !== null ? `${v.distance_km} km` : null,
+            v.congregation_name ?? null,
+            v.volunteer_code,
+          ]
+            .filter(Boolean)
+            .join(' · '),
     })),
   );
 
@@ -508,8 +516,8 @@ export class ActivitiesListComponent implements OnInit {
 
   setPickedRoleFor(groupId: string, value: string) {
     this.pickRoleByGroup.update((m) => ({ ...m, [groupId]: value }));
-    // The selected volunteer may no longer match the new role filter
-    this.setPickedVolunteerFor(groupId, '');
+    // The selected volunteers may no longer match the new role filter
+    this.setPickedVolunteerFor(groupId, []);
   }
 
   ungroupedVolunteerItemsFor(groupId: string) {
@@ -517,7 +525,17 @@ export class ActivitiesListComponent implements OnInit {
     return this.availableVolunteersList()
       .filter((v) => !v.already_in_activity)
       .filter((v) => !role || v.roles?.some((r) => r.id === role))
-      .map((v) => ({ value: v.id, label: v.full_name, meta: v.volunteer_code }));
+      .map((v) => ({
+        value: v.id,
+        label: v.full_name,
+        meta: [
+          v.distance_km !== null ? `${v.distance_km} km` : null,
+          v.congregation_name ?? null,
+          v.volunteer_code,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      }));
   }
 
   readonly ungroupedGroupItems = computed(() => {
@@ -543,15 +561,15 @@ export class ActivitiesListComponent implements OnInit {
       }));
   });
 
-  readonly pickVolunteerByGroup = signal<Record<string, string>>({});
+  readonly pickVolunteerByGroup = signal<Record<string, string[]>>({});
   readonly pickGuestGroupByGroup = signal<Record<string, string[]>>({});
   readonly pickCartByGroup = signal<Record<string, string>>({});
 
-  pickedVolunteerFor(groupId: string): string {
-    return this.pickVolunteerByGroup()[groupId] ?? '';
+  pickedVolunteerFor(groupId: string): string[] {
+    return this.pickVolunteerByGroup()[groupId] ?? [];
   }
 
-  setPickedVolunteerFor(groupId: string, value: string) {
+  setPickedVolunteerFor(groupId: string, value: string[]) {
     this.pickVolunteerByGroup.update((m) => ({ ...m, [groupId]: value }));
   }
 
@@ -1478,23 +1496,30 @@ export class ActivitiesListComponent implements OnInit {
 
   addVolunteerToGroup(groupId: string) {
     const activity = this.selectedActivity();
-    const volunteerId = this.pickedVolunteerFor(groupId);
-    if (!activity || !volunteerId) return;
+    const volunteerIds = this.pickedVolunteerFor(groupId);
+    if (!activity || !volunteerIds.length) return;
     const roleId = this.pickedRoleFor(groupId) || null;
     this.detailSaving.set(true);
-    this.svc.assignVolunteerToGroup(activity.id, groupId, volunteerId, roleId).subscribe({
-      next: (updated) => {
-        this.selectedActivity.set(updated);
-        this.setPickedVolunteerFor(groupId, '');
-        this.detailSaving.set(false);
-        this.reloadAvailableVolunteers();
-        this.load();
-      },
-      error: () => {
-        this.detailError.set('Error assigning volunteer.');
-        this.detailSaving.set(false);
-      },
-    });
+    from(volunteerIds)
+      .pipe(
+        concatMap((volunteerId) =>
+          this.svc.assignVolunteerToGroup(activity.id, groupId, volunteerId, roleId),
+        ),
+        last(),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.selectedActivity.set(updated);
+          this.setPickedVolunteerFor(groupId, []);
+          this.detailSaving.set(false);
+          this.reloadAvailableVolunteers();
+          this.load();
+        },
+        error: () => {
+          this.detailError.set('Error assigning volunteer.');
+          this.detailSaving.set(false);
+        },
+      });
   }
 
   updateGroupVolunteerDescription(groupId: string, volunteerId: string, description: string) {
