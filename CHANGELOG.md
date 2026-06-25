@@ -4,7 +4,7 @@
 
 ### Añadido
 - **Congregación en voluntarios**: nuevo campo que vincula a cada voluntario con su congregación (host del sistema). La ficha del voluntario muestra el nombre, dirección, coordenadas y enlace a Google Maps de la congregación asignada. Es editable desde el modal de identidad con un selector con búsqueda filtrado por las regiones del voluntario. Importable y exportable mediante la columna "Congregación" del Excel (resuelve por nombre del host ignorando mayúsculas; si no hay coincidencia deja el campo vacío)
-- **Distancia y congregación en el selector de voluntarios de actividad**: al asignar voluntarios a un grupo de predicación, cada voluntario muestra su distancia en km a la ubicación de la actividad (o al anfitrión como fallback) y el nombre de su congregación
+- **Distancia y congregación en el selector de voluntarios de actividad**: al asignar voluntarios a un grupo de predicación, cada voluntario muestra su distancia en km a la ubicación de la actividad (o al anfitrión como fallback) y el nombre de su congregación. Si el voluntario no tiene dirección propia pero sí congregación, la distancia se calcula desde las coordenadas de la congregación y aparece entre paréntesis junto al nombre de ésta
 - **Selección múltiple de voluntarios en grupos de predicación**: el selector de voluntarios para añadir a un grupo de predicación admite ahora selección múltiple, permitiendo añadir varios voluntarios de una sola vez
 - **Filtro por nombre en actividades**: nueva caja de búsqueda en la lista de actividades y turnos de predicación que filtra por nombre (búsqueda insensible a mayúsculas en backend)
 
