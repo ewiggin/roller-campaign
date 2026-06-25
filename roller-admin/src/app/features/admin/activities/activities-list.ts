@@ -177,7 +177,6 @@ export class ActivitiesListComponent implements OnInit {
       action: () => this.downloadExcelTemplate(),
       disabled: this.downloadingTemplate(),
     },
-    { label: 'Import', action: () => this.importModalOpen.set(true) },
   ]);
 
   exportAll() {
