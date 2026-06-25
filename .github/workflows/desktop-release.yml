@@ -1,5 +1,5 @@
-# Builds the Roller Admin desktop installers (Windows .msi, macOS .dmg,
-# Linux .AppImage) in parallel and uploads them to a GitHub Release.
+# Builds the Roller Admin desktop installers (Windows .msi, macOS .dmg)
+# in parallel and uploads them to a GitHub Release.
 #
 # Trigger: push a tag like `desktop-v0.1.0`, or run manually from the
 # Actions tab (workflow_dispatch). The release is created automatically
@@ -29,29 +29,11 @@ jobs:
         include:
           - platform: macos-latest # Apple Silicon (aarch64-apple-darwin)
             bundles: dmg
-          - platform: ubuntu-22.04 # oldest available glibc = AppImage runs on more distros
-            bundles: appimage
           - platform: windows-latest
             bundles: msi
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Linux dependencies (Tauri v2 prerequisites)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf
 
       - uses: actions/setup-node@v4
         with:
