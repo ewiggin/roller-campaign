@@ -189,6 +189,7 @@ export class ActivityImportModalComponent {
           max_guests: activity.max_guests,
           activity_locations: activity.activity_locations,
           is_preaching_shift: activity.is_preaching_shift,
+          is_food_shift: activity.is_food_shift,
           request_attendance: activity.request_attendance,
         }),
       );
@@ -206,6 +207,7 @@ export class ActivityImportModalComponent {
           max_guests: activity.max_guests,
           activity_locations: activity.activity_locations,
           is_preaching_shift: activity.is_preaching_shift,
+          is_food_shift: activity.is_food_shift,
           request_attendance: activity.request_attendance,
         }),
       );
