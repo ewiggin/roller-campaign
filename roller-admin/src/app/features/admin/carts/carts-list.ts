@@ -49,9 +49,9 @@ export class CartsListComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
 
   readonly excelMenuItems = computed<MenuItem[]>(() => [
-    { label: 'Exportar Excel', action: () => this.downloadExcel() },
-    { label: 'Descargar plantilla', action: () => this.downloadTemplate() },
-    { label: 'Importar Excel', action: () => this.openImport() },
+    { label: 'Export Excel', action: () => this.downloadExcel() },
+    { label: 'Template', action: () => this.downloadTemplate() },
+    { label: 'Import Excel', action: () => this.openImport() },
   ]);
 
   readonly carts = signal<Cart[]>([]);

@@ -145,11 +145,11 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly archivoMenuItems = computed<MenuItem[]>(() => [
     {
-      label: this.exporting() ? 'Exportando…' : 'Exportar',
+      label: this.exporting() ? 'Exporting…' : 'Export',
       action: () => this.exportAll(),
       disabled: this.exporting(),
     },
-    { label: 'Importar', action: () => this.importModalOpen.set(true) },
+    { label: 'Import', action: () => this.importModalOpen.set(true) },
   ]);
 
   exportAll() {

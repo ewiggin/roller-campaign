@@ -16,13 +16,14 @@ import { GuestGroupsService } from '../../../core/services/guest-groups.service'
 import { GuestsService } from '../../../core/services/guests.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { downloadFile } from '../../../core/utils/download-file';
+import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 const STATUSES: GuestStatus[] = ['pending', 'confirmed', 'cancelled', 'arrived', 'blocked'];
 
 @Component({
   selector: 'app-guests-list',
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, DatePipe, SearchableSelectComponent],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, DatePipe, SearchableSelectComponent, MenuButtonComponent],
   templateUrl: './guests-list.html',
 })
 export class GuestsListComponent implements OnInit {
@@ -34,6 +35,12 @@ export class GuestsListComponent implements OnInit {
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
   readonly statuses = STATUSES;
+
+  readonly excelMenuItems = computed<MenuItem[]>(() => [
+    { label: 'Export Excel', action: () => this.downloadExcel() },
+    { label: 'Template', action: () => this.downloadTemplate() },
+    { label: 'Import Excel', action: () => this.openImport() },
+  ]);
 
   readonly regions = signal<Region[]>([]);
   readonly groups = signal<GuestGroup[]>([]);

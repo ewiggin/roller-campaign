@@ -55,9 +55,9 @@ export class VolunteersListComponent implements OnInit {
   readonly isSuperAdmin = this.auth.isSuperAdmin;
 
   readonly excelMenuItems = computed<MenuItem[]>(() => [
-    { label: 'Exportar Excel', action: () => this.downloadExcel() },
-    { label: 'Descargar plantilla', action: () => this.downloadTemplate() },
-    { label: 'Importar Excel', action: () => this.openImport() },
+    { label: 'Export Excel', action: () => this.downloadExcel() },
+    { label: 'Template', action: () => this.downloadTemplate() },
+    { label: 'Import Excel', action: () => this.openImport() },
   ]);
 
   readonly regions = signal<Region[]>([]);
