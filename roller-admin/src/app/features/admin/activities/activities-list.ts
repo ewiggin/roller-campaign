@@ -28,6 +28,7 @@ import {
   type PlaceResult,
 } from '../../../shared/components/location-picker/location-picker';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
+import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
 import { ActivityImportModalComponent } from './activity-import-modal';
 
 type ActiveModal = 'create' | 'detail' | null;
@@ -50,6 +51,7 @@ interface LocationSlot {
     EmojiPickerComponent,
     CalendarComponent,
     ActivityImportModalComponent,
+    MenuButtonComponent,
   ],
   templateUrl: './activities-list.html',
 })
@@ -140,6 +142,15 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly importModalOpen = signal(false);
   readonly exporting = signal(false);
+
+  readonly archivoMenuItems = computed<MenuItem[]>(() => [
+    {
+      label: this.exporting() ? 'Exportando…' : 'Exportar',
+      action: () => this.exportAll(),
+      disabled: this.exporting(),
+    },
+    { label: 'Importar', action: () => this.importModalOpen.set(true) },
+  ]);
 
   exportAll() {
     this.exporting.set(true);

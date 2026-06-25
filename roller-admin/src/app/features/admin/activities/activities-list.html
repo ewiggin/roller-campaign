@@ -56,19 +56,7 @@
           </svg>
         </button>
       </div>
-      <button
-        (click)="exportAll()"
-        [disabled]="exporting()"
-        class="rounded-lg border border-gray-300 dark:border-zinc-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
-      >
-        @if (exporting()) { Exportando… } @else { Exportar }
-      </button>
-      <button
-        (click)="importModalOpen.set(true)"
-        class="rounded-lg border border-gray-300 dark:border-zinc-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
-      >
-        Importar
-      </button>
+      <app-menu-button label="Archivo" [items]="archivoMenuItems()" />
       <button
         (click)="openCreate()"
         class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"

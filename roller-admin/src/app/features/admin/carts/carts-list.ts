@@ -16,6 +16,7 @@ import {
   type PlaceResult,
 } from '../../../shared/components/location-picker/location-picker';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
+import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
 import { CartsService } from '../../../core/services/carts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { HostsService } from '../../../core/services/hosts.service';
@@ -34,7 +35,7 @@ type ModalMode = 'create' | 'edit' | null;
 
 @Component({
   selector: 'app-carts-list',
-  imports: [ReactiveFormsModule, LocationPickerComponent, SearchableSelectComponent],
+  imports: [ReactiveFormsModule, LocationPickerComponent, SearchableSelectComponent, MenuButtonComponent],
   templateUrl: './carts-list.html',
 })
 export class CartsListComponent implements OnInit, OnDestroy {
@@ -46,6 +47,12 @@ export class CartsListComponent implements OnInit, OnDestroy {
   private readonly hostsSvc = inject(HostsService);
   private readonly storageSvc = inject(StorageService);
   private readonly fb = inject(FormBuilder);
+
+  readonly excelMenuItems = computed<MenuItem[]>(() => [
+    { label: 'Exportar Excel', action: () => this.downloadExcel() },
+    { label: 'Descargar plantilla', action: () => this.downloadTemplate() },
+    { label: 'Importar Excel', action: () => this.openImport() },
+  ]);
 
   readonly carts = signal<Cart[]>([]);
   readonly regions = signal<Region[]>([]);

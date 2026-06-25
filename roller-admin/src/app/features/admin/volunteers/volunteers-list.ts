@@ -14,6 +14,7 @@ import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
+import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
 
 type ActiveModal = 'create' | 'import' | 'truncate' | null;
 
@@ -42,7 +43,7 @@ const AVAILABILITY_OPTIONS = [
 
 @Component({
   selector: 'app-volunteers-list',
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, SearchableSelectComponent],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, SearchableSelectComponent, MenuButtonComponent],
   templateUrl: './volunteers-list.html',
 })
 export class VolunteersListComponent implements OnInit {
@@ -52,6 +53,12 @@ export class VolunteersListComponent implements OnInit {
   private readonly auth = inject(AuthService);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
+
+  readonly excelMenuItems = computed<MenuItem[]>(() => [
+    { label: 'Exportar Excel', action: () => this.downloadExcel() },
+    { label: 'Descargar plantilla', action: () => this.downloadTemplate() },
+    { label: 'Importar Excel', action: () => this.openImport() },
+  ]);
 
   readonly regions = signal<Region[]>([]);
   readonly roles = signal<VolunteerRole[]>([]);
