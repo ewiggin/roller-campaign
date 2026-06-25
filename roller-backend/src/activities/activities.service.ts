@@ -1064,9 +1064,12 @@ export class ActivitiesService {
     return volunteers
       .filter((v) => !assignedToThis.has(v.id))
       .map((v) => {
+        const hasOwnCoords = v.lat !== null && v.lng !== null;
+        const volLat = v.lat ?? v.host?.lat ?? null;
+        const volLng = v.lng ?? v.host?.lng ?? null;
         const distance_km =
-          srcLat !== null && srcLng !== null && v.lat !== null && v.lng !== null
-            ? Math.round(this.haversineKm(srcLat, srcLng, v.lat, v.lng) * 10) / 10
+          srcLat !== null && srcLng !== null && volLat !== null && volLng !== null
+            ? Math.round(this.haversineKm(srcLat, srcLng, volLat, volLng) * 10) / 10
             : null;
         return {
           id: v.id,
@@ -1078,6 +1081,7 @@ export class ActivitiesService {
           })),
           already_in_activity: conflictingIds.has(v.id),
           distance_km,
+          distance_from_congregation: !hasOwnCoords && distance_km !== null,
           congregation_name: v.host?.name ?? null,
         };
       });

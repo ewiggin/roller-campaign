@@ -105,9 +105,15 @@ export class AvailableVolunteerForActivityDto {
     example: 3.2,
     nullable: true,
     description:
-      'Distance in km from activity location to volunteer home. Null if either location is missing.',
+      'Distance in km from activity location to volunteer home (or congregation if volunteer has no coordinates). Null if either location is missing.',
   })
   distance_km: number | null;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'True when distance_km was calculated from the congregation coordinates, not the volunteer own coordinates.',
+  })
+  distance_from_congregation: boolean;
 
   @ApiPropertyOptional({ example: 'Congregation Norte', nullable: true })
   congregation_name: string | null;

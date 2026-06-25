@@ -347,6 +347,14 @@ export class ActivitiesListComponent implements OnInit {
   // ── Detail modal ──────────────────────────────────────────────────────────
 
   readonly selectedActivity = signal<Activity | null>(null);
+
+  private readonly naturalCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  readonly sortedPreachingGroups = computed(() =>
+    [...(this.selectedActivity()?.preaching_groups ?? [])].sort((a, b) =>
+      this.naturalCollator.compare(a.name ?? '', b.name ?? ''),
+    ),
+  );
+
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
   readonly detailError = signal('');
@@ -447,6 +455,26 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly availableVolunteerRoles = computed(() => this.allVolunteerRoles());
 
+  private volunteerMeta(v: {
+    distance_km: number | null;
+    distance_from_congregation: boolean;
+    congregation_name: string | null;
+    volunteer_code: string;
+  }): string {
+    const congregation = v.congregation_name
+      ? v.distance_from_congregation && v.distance_km !== null
+        ? `${v.congregation_name} (${v.distance_km} km)`
+        : v.congregation_name
+      : null;
+    return [
+      !v.distance_from_congregation && v.distance_km !== null ? `${v.distance_km} km` : null,
+      congregation,
+      v.volunteer_code,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
   readonly filteredVolunteersList = computed(() => {
     const role = this.filterVolunteerRole();
     if (!role) return this.availableVolunteersList();
@@ -458,15 +486,7 @@ export class ActivitiesListComponent implements OnInit {
       value: v.id,
       label: v.full_name,
       disabled: v.already_in_activity,
-      meta: v.already_in_activity
-        ? 'Already in another activity'
-        : [
-            v.distance_km !== null ? `${v.distance_km} km` : null,
-            v.congregation_name ?? null,
-            v.volunteer_code,
-          ]
-            .filter(Boolean)
-            .join(' · '),
+      meta: v.already_in_activity ? 'Already in another activity' : this.volunteerMeta(v),
     })),
   );
 
@@ -528,13 +548,7 @@ export class ActivitiesListComponent implements OnInit {
       .map((v) => ({
         value: v.id,
         label: v.full_name,
-        meta: [
-          v.distance_km !== null ? `${v.distance_km} km` : null,
-          v.congregation_name ?? null,
-          v.volunteer_code,
-        ]
-          .filter(Boolean)
-          .join(' · '),
+        meta: this.volunteerMeta(v),
       }));
   }
 

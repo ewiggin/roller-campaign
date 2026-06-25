@@ -100,6 +100,7 @@ export interface AvailableVolunteerForActivity {
   roles: { id: string; name: string }[];
   already_in_activity: boolean;
   distance_km: number | null;
+  distance_from_congregation: boolean;
   congregation_name: string | null;
 }
 
