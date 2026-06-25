@@ -302,6 +302,9 @@ export class ActivityResponseDto {
   is_preaching_shift: boolean;
 
   @ApiProperty({ example: false })
+  is_food_shift: boolean;
+
+  @ApiProperty({ example: false })
   request_attendance: boolean;
 
   @ApiProperty({ type: [ActivityVolunteerDto] })

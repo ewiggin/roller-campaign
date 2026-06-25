@@ -80,6 +80,7 @@ export interface Activity {
   activity_locations: LocationPoint[] | null;
   image_key: string | null;
   is_preaching_shift: boolean;
+  is_food_shift: boolean;
   request_attendance: boolean;
   volunteers: ActivityVolunteer[];
   volunteer_count: number;
@@ -155,5 +156,6 @@ export interface CreateActivityPayload {
   activity_locations?: LocationPoint[] | null;
   image_key?: string | null;
   is_preaching_shift?: boolean;
+  is_food_shift?: boolean;
   request_attendance?: boolean;
 }

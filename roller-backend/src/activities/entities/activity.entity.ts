@@ -78,6 +78,9 @@ export class Activity {
   is_preaching_shift: boolean;
 
   @Column({ type: 'boolean', default: false })
+  is_food_shift: boolean;
+
+  @Column({ type: 'boolean', default: false })
   request_attendance: boolean;
 
   @ManyToMany(() => Volunteer, (v) => v.activities, { eager: false })

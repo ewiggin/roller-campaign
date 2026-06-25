@@ -67,14 +67,27 @@ export class ActivitiesListComponent implements OnInit {
   // pre-filtered to is_preaching_shift = true and new activities created
   // here are implicitly preaching shifts (no need for a manual toggle).
   readonly preachingShiftsOnly = this.route.snapshot.data['preachingShiftsOnly'] === true;
+  readonly foodShiftsOnly = this.route.snapshot.data['foodShiftsOnly'] === true;
 
-  private readonly storageKey = `roller-filter-activities-${this.preachingShiftsOnly ? 'preaching' : 'all'}`;
+  private readonly storageKey = `roller-filter-activities-${
+    this.preachingShiftsOnly ? 'preaching' : this.foodShiftsOnly ? 'food' : 'all'
+  }`;
 
-  readonly pageTitle = this.preachingShiftsOnly ? 'Preaching Shifts' : 'Activities';
-  readonly newActivityLabel = this.preachingShiftsOnly ? 'New preaching shift' : 'New activity';
+  readonly pageTitle = this.preachingShiftsOnly
+    ? 'Preaching Shifts'
+    : this.foodShiftsOnly
+      ? 'Food Shifts'
+      : 'Activities';
+  readonly newActivityLabel = this.preachingShiftsOnly
+    ? 'New preaching shift'
+    : this.foodShiftsOnly
+      ? 'New food shift'
+      : 'New activity';
   readonly emptyActivitiesLabel = this.preachingShiftsOnly
     ? 'No preaching shifts found.'
-    : 'No activities found.';
+    : this.foodShiftsOnly
+      ? 'No food shifts found.'
+      : 'No activities found.';
 
   // filter hosts (separate from modal hosts)
   readonly filterHosts = signal<Host[]>([]);
@@ -161,6 +174,7 @@ export class ActivitiesListComponent implements OnInit {
         date: this.filterDate() || undefined,
         hostId: this.filterHost() || undefined,
         is_preaching_shift: this.preachingShiftsOnly ? true : undefined,
+        is_food_shift: this.foodShiftsOnly ? true : undefined,
         limit: 10000,
       })
       .pipe(
@@ -343,6 +357,7 @@ export class ActivitiesListComponent implements OnInit {
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
     is_preaching_shift: [false],
+    is_food_shift: [false],
     request_attendance: [false],
     preaching_groups_count: [null as number | null, [Validators.min(1), Validators.max(50)]],
   });
@@ -383,6 +398,7 @@ export class ActivitiesListComponent implements OnInit {
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
     is_preaching_shift: [false],
+    is_food_shift: [false],
     request_attendance: [false],
   });
 
@@ -530,13 +546,16 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly detailTabs = computed(() => {
     const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
-    return isPreachingShift
-      ? ([['info', 'Info'] as const, ['preaching-groups', 'Preaching groups'] as const] as const)
-      : ([
-          ['info', 'Info'] as const,
-          ['volunteers', 'Volunteers'] as const,
-          ['groups', 'Groups'] as const,
-        ] as const);
+    const isFoodShift = this.selectedActivity()?.is_food_shift ?? false;
+    if (isPreachingShift)
+      return [['info', 'Info'] as const, ['preaching-groups', 'Preaching groups'] as const] as const;
+    if (isFoodShift)
+      return [['info', 'Info'] as const, ['groups', 'Groups'] as const] as const;
+    return [
+      ['info', 'Info'] as const,
+      ['volunteers', 'Volunteers'] as const,
+      ['groups', 'Groups'] as const,
+    ] as const;
   });
 
   readonly pickRoleByGroup = signal<Record<string, string>>({});
@@ -715,6 +734,7 @@ export class ActivitiesListComponent implements OnInit {
         date: this.filterDate() || undefined,
         hostId: this.filterHost() || undefined,
         is_preaching_shift: this.preachingShiftsOnly,
+        is_food_shift: this.foodShiftsOnly,
         page: this.page(),
         limit: this.limit,
       })
@@ -832,6 +852,7 @@ export class ActivitiesListComponent implements OnInit {
         name: this.filterName() || undefined,
         hostId: this.filterHost() || undefined,
         is_preaching_shift: this.preachingShiftsOnly,
+        is_food_shift: this.foodShiftsOnly,
         dateFrom: period.dateFrom,
         dateTo: period.dateTo,
         limit: 500,
@@ -899,6 +920,7 @@ export class ActivitiesListComponent implements OnInit {
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
       request_attendance: v.request_attendance ?? false,
       is_preaching_shift: this.preachingShiftsOnly,
+      is_food_shift: this.foodShiftsOnly,
     };
 
     const groupsToCreate =
@@ -1006,6 +1028,7 @@ export class ActivitiesListComponent implements OnInit {
       required_volunteers: activity.required_volunteers,
       max_guests: activity.max_guests,
       is_preaching_shift: activity.is_preaching_shift,
+      is_food_shift: activity.is_food_shift,
       request_attendance: activity.request_attendance,
     });
     this.editDescLen.set(activity.description?.length ?? 0);
@@ -1143,6 +1166,7 @@ export class ActivitiesListComponent implements OnInit {
       activity_locations: activityLocs.length > 0 ? activityLocs : null,
       request_attendance: v.request_attendance ?? false,
       is_preaching_shift: this.selectedActivity()?.is_preaching_shift ?? false,
+      is_food_shift: this.selectedActivity()?.is_food_shift ?? false,
     };
   }
 

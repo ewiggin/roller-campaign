@@ -117,6 +117,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'food-shifts',
+        data: { screen: 'activities', foodShiftsOnly: true },
+        canActivate: [permissionsGuard],
+        loadComponent: () =>
+          import('./features/admin/activities/activities-list').then(
+            (m) => m.ActivitiesListComponent,
+          ),
+      },
+      {
         path: 'carts',
         data: { screen: 'carts' },
         canActivate: [permissionsGuard],

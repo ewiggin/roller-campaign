@@ -1669,4 +1669,255 @@ describe('Activities (e2e)', () => {
       ).toBe(true);
     });
   });
+
+  // ── is_food_shift field ───────────────────────────────────────────────────
+
+  describe('is_food_shift field', () => {
+    it('defaults to false when not provided', async () => {
+      const res = await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send(baseTurn())
+        .expect(201);
+      expect(res.body.is_food_shift).toBe(false);
+    });
+
+    it('persists true when provided', async () => {
+      const res = await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), is_food_shift: true })
+        .expect(201);
+      expect(res.body.is_food_shift).toBe(true);
+    });
+
+    it('can be toggled via PATCH', async () => {
+      const created = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send(baseTurn())
+      ).body;
+
+      const updated = (
+        await request(server)
+          .patch(`/api/activities/${created.id}`)
+          .set('Authorization', auth())
+          .send({ is_food_shift: true })
+          .expect(200)
+      ).body;
+      expect(updated.is_food_shift).toBe(true);
+
+      const reverted = (
+        await request(server)
+          .patch(`/api/activities/${created.id}`)
+          .set('Authorization', auth())
+          .send({ is_food_shift: false })
+          .expect(200)
+      ).body;
+      expect(reverted.is_food_shift).toBe(false);
+    });
+
+    it('is included in batch create', async () => {
+      const res = await request(server)
+        .post('/api/activities/batch')
+        .set('Authorization', auth())
+        .send({
+          ...baseTurn(),
+          date: '2024-12-10',
+          is_food_shift: true,
+          repetition: { type: 'daily', count: 2 },
+        })
+        .expect(201);
+      expect(
+        res.body.every((a: { is_food_shift: boolean }) => a.is_food_shift === true),
+      ).toBe(true);
+    });
+
+    it('filters by is_food_shift=true', async () => {
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), date: '2024-12-20', is_food_shift: true });
+
+      const res = await request(server)
+        .get('/api/activities')
+        .query({ regionId, is_food_shift: true })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(
+        res.body.data.every((a: { is_food_shift: boolean }) => a.is_food_shift === true),
+      ).toBe(true);
+    });
+
+    it('filters by is_food_shift=false', async () => {
+      const res = await request(server)
+        .get('/api/activities')
+        .query({ regionId, is_food_shift: false })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(
+        res.body.data.every((a: { is_food_shift: boolean }) => a.is_food_shift === false),
+      ).toBe(true);
+    });
+  });
+
+  // ── Food shift: available-groups filter ───────────────────────────────────
+
+  describe('Food shift: available-groups morning preaching filter', () => {
+    const DATE = '2024-08-15';
+
+    let groupWithMorningShiftId: string;
+    let groupWithAfternoonShiftId: string;
+    let groupWithShiftDifferentDayId: string;
+    let groupWithNoShiftId: string;
+    let foodShiftId: string;
+
+    beforeAll(async () => {
+      // Create four guest groups
+      groupWithMorningShiftId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `FS-MORN-${Date.now()}`, region_id: regionId })
+      ).body.id;
+
+      groupWithAfternoonShiftId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `FS-AFT-${Date.now()}`, region_id: regionId })
+      ).body.id;
+
+      groupWithShiftDifferentDayId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `FS-OTHER-${Date.now()}`, region_id: regionId })
+      ).body.id;
+
+      groupWithNoShiftId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `FS-NONE-${Date.now()}`, region_id: regionId })
+      ).body.id;
+
+      // Morning preaching shift on DATE (09:00 < 12:00) → group qualifies
+      const morningShift = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Turno predicación mañana',
+            date: DATE,
+            start_time: '09:00',
+            end_time: '11:00',
+            is_preaching_shift: true,
+          })
+      ).body;
+      await request(server)
+        .post(`/api/activities/${morningShift.id}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: groupWithMorningShiftId });
+
+      // Afternoon preaching shift on DATE (14:00 >= 12:00) → group does NOT qualify
+      const afternoonShift = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Turno predicación tarde',
+            date: DATE,
+            start_time: '14:00',
+            end_time: '16:00',
+            is_preaching_shift: true,
+          })
+      ).body;
+      await request(server)
+        .post(`/api/activities/${afternoonShift.id}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: groupWithAfternoonShiftId });
+
+      // Morning preaching shift on a DIFFERENT day → group does NOT qualify
+      const otherDayShift = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Turno predicación otro día',
+            date: '2024-08-16',
+            start_time: '09:00',
+            end_time: '11:00',
+            is_preaching_shift: true,
+          })
+      ).body;
+      await request(server)
+        .post(`/api/activities/${otherDayShift.id}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: groupWithShiftDifferentDayId });
+
+      // groupWithNoShiftId has no preaching shift at all
+
+      // The food shift we'll query available groups for
+      foodShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Turno de comida',
+            date: DATE,
+            start_time: '12:30',
+            end_time: '14:00',
+            is_food_shift: true,
+          })
+      ).body.id;
+    });
+
+    it('includes only the group with a morning preaching shift that day', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${foodShiftId}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const ids: string[] = res.body.map((g: { id: string }) => g.id);
+      expect(ids).toContain(groupWithMorningShiftId);
+      expect(ids).not.toContain(groupWithAfternoonShiftId);
+      expect(ids).not.toContain(groupWithShiftDifferentDayId);
+      expect(ids).not.toContain(groupWithNoShiftId);
+    });
+
+    it('does not apply morning filter for a regular (non-food-shift) activity', async () => {
+      const regularActivity = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Actividad normal',
+            date: DATE,
+            start_time: '15:00',
+            end_time: '17:00',
+          })
+      ).body;
+
+      const res = await request(server)
+        .get(`/api/activities/${regularActivity.id}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const ids: string[] = res.body.map((g: { id: string }) => g.id);
+      // All four groups should be eligible (no morning-shift filter)
+      expect(ids).toContain(groupWithMorningShiftId);
+      expect(ids).toContain(groupWithAfternoonShiftId);
+      expect(ids).toContain(groupWithShiftDifferentDayId);
+      expect(ids).toContain(groupWithNoShiftId);
+    });
+  });
 });

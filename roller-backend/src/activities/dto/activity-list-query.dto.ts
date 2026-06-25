@@ -54,6 +54,12 @@ export class ActivityListQueryDto {
   @IsBoolean()
   is_preaching_shift?: boolean;
 
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  is_food_shift?: boolean;
+
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @Type(() => Number)

@@ -100,6 +100,7 @@ export class ActivitiesService {
       end_time: dto.end_time,
       activity_locations: dto.activity_locations ?? null,
       is_preaching_shift: dto.is_preaching_shift ?? false,
+      is_food_shift: dto.is_food_shift ?? false,
       request_attendance: dto.request_attendance ?? false,
       status: 'draft',
       volunteers: [],
@@ -138,6 +139,7 @@ export class ActivitiesService {
             end_time: dto.end_time,
             activity_locations: dto.activity_locations ?? null,
             is_preaching_shift: dto.is_preaching_shift ?? false,
+            is_food_shift: dto.is_food_shift ?? false,
             request_attendance: dto.request_attendance ?? false,
             status: 'draft',
             volunteers: [],
@@ -179,6 +181,7 @@ export class ActivitiesService {
       hostId,
       volunteerId,
       is_preaching_shift,
+      is_food_shift,
       page = 1,
       limit = 50,
     } = query;
@@ -202,6 +205,8 @@ export class ActivitiesService {
         qb.andWhere('a.is_preaching_shift = :isPreachingShift', {
           isPreachingShift: is_preaching_shift,
         });
+      if (is_food_shift !== undefined)
+        qb.andWhere('a.is_food_shift = :isFoodShift', { isFoodShift: is_food_shift });
       const total = await qb.getCount();
       const activities = await qb
         .skip((page - 1) * limit)
@@ -249,6 +254,8 @@ export class ActivitiesService {
       qb.andWhere('a.is_preaching_shift = :isPreachingShift', {
         isPreachingShift: is_preaching_shift,
       });
+    if (is_food_shift !== undefined)
+      qb.andWhere('a.is_food_shift = :isFoodShift', { isFoodShift: is_food_shift });
 
     const total = await qb.getCount();
     const activities = await qb
@@ -1192,10 +1199,26 @@ export class ActivitiesService {
       preachingCountRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
     );
 
+    // For food shifts: only groups with a morning preaching shift (start < 12:00) that day
+    let morningPreachingGroupIds: Set<string> | null = null;
+    if (activity.is_food_shift) {
+      const morningRows = await this.activitiesRepo
+        .createQueryBuilder('a')
+        .innerJoin('a.guestGroups', 'gg')
+        .select('gg.id', 'groupId')
+        .where('a.is_preaching_shift = :yes', { yes: true })
+        .andWhere('a.region_id = :regionId', { regionId: activity.region_id })
+        .andWhere('a.date = :date', { date: activity.date })
+        .andWhere('a.start_time < :noon', { noon: '12:00' })
+        .getRawMany<{ groupId: string }>();
+      morningPreachingGroupIds = new Set(morningRows.map((r) => r.groupId));
+    }
+
     const result: AvailableGroupForActivityDto[] = [];
 
     for (const group of groups) {
       if (assignedIds.has(group.id)) continue;
+      if (morningPreachingGroupIds !== null && !morningPreachingGroupIds.has(group.id)) continue;
 
       // Filter by the group's own availability window
       if (group.available_from && activity.date < group.available_from)
@@ -1583,6 +1606,7 @@ export class ActivitiesService {
     activity_locations: activity.activity_locations ?? null,
     image_key: activity.image_key ?? null,
     is_preaching_shift: activity.is_preaching_shift,
+    is_food_shift: activity.is_food_shift,
     request_attendance: activity.request_attendance,
     volunteers: (activity.volunteers ?? []).map((v) => {
       const vr = volunteerRoles.get(v.id);
@@ -1639,6 +1663,7 @@ export class ActivitiesService {
             description: null,
             locations: [],
             is_preaching_shift: false,
+            is_food_shift: false,
             preaching_group_name: null,
             is_congregation_meeting: true,
             congregation_address: host.address,
@@ -1678,6 +1703,7 @@ export class ActivitiesService {
       description: a.description,
       locations: a.activity_locations ?? [],
       is_preaching_shift: a.is_preaching_shift,
+      is_food_shift: a.is_food_shift,
       preaching_group_name: a.is_preaching_shift
         ? turnoNames.get(a.id) ?? null
         : null,

@@ -15,6 +15,7 @@ export interface ScheduleActivityItem {
   description: string | null;
   locations: LocationPoint[];
   is_preaching_shift: boolean;
+  is_food_shift: boolean;
   preaching_group_name: string | null;
   is_congregation_meeting?: boolean;
   congregation_address?: string | null;
@@ -171,7 +172,7 @@ export function buildGroupScheduleContent(
       ];
       if (activity.is_preaching_shift && activity.preaching_group_name) {
         nameStack.push({
-          text: `Turno: ${activity.preaching_group_name}`,
+          text: activity.preaching_group_name,
           style: 'activityMeta',
         });
       }

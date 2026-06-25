@@ -24,6 +24,7 @@ export class ActivitiesService {
       dateTo?: string;
       hostId?: string;
       is_preaching_shift?: boolean;
+      is_food_shift?: boolean;
       page?: number;
       limit?: number;
     } = {},
@@ -37,6 +38,8 @@ export class ActivitiesService {
     if (query.hostId) params = params.set('hostId', query.hostId);
     if (query.is_preaching_shift !== undefined)
       params = params.set('is_preaching_shift', String(query.is_preaching_shift));
+    if (query.is_food_shift !== undefined)
+      params = params.set('is_food_shift', String(query.is_food_shift));
     if (query.page) params = params.set('page', String(query.page));
     if (query.limit) params = params.set('limit', String(query.limit));
     return this.http.get<ActivityListResponse>('/api/activities', { params });
