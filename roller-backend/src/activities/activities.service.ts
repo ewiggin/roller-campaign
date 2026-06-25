@@ -172,6 +172,7 @@ export class ActivitiesService {
   }> {
     const {
       regionId,
+      name,
       date,
       dateFrom,
       dateTo,
@@ -237,6 +238,7 @@ export class ActivitiesService {
       qb.where('a.region_id = :regionId', { regionId });
     }
 
+    if (name) qb.andWhere('LOWER(a.name) LIKE :name', { name: `%${name.toLowerCase()}%` });
     if (date) qb.andWhere('a.date = :date', { date });
     if (dateFrom) qb.andWhere('a.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('a.date <= :dateTo', { dateTo });

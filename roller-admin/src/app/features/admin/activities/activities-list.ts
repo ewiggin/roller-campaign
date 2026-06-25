@@ -66,6 +66,8 @@ export class ActivitiesListComponent implements OnInit {
   // here are implicitly preaching shifts (no need for a manual toggle).
   readonly preachingShiftsOnly = this.route.snapshot.data['preachingShiftsOnly'] === true;
 
+  private readonly storageKey = `roller-filter-activities-${this.preachingShiftsOnly ? 'preaching' : 'all'}`;
+
   readonly pageTitle = this.preachingShiftsOnly ? 'Preaching Shifts' : 'Activities';
   readonly newActivityLabel = this.preachingShiftsOnly ? 'New preaching shift' : 'New activity';
   readonly emptyActivitiesLabel = this.preachingShiftsOnly
@@ -144,6 +146,7 @@ export class ActivitiesListComponent implements OnInit {
     this.svc
       .getAll({
         regionId: this.filterRegion() || undefined,
+        name: this.filterName() || undefined,
         date: this.filterDate() || undefined,
         hostId: this.filterHost() || undefined,
         is_preaching_shift: this.preachingShiftsOnly ? true : undefined,
@@ -269,6 +272,7 @@ export class ActivitiesListComponent implements OnInit {
   readonly filterRegion = signal('');
   readonly filterStatus = signal<ActivityStatus | ''>('');
   readonly filterDate = signal('');
+  readonly filterName = signal('');
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 
@@ -577,7 +581,51 @@ export class ActivitiesListComponent implements OnInit {
     this.expandedGroupIds.update((m) => ({ ...m, [groupId]: !this.isGroupExpanded(groupId) }));
   }
 
+  private saveFilters() {
+    sessionStorage.setItem(
+      this.storageKey,
+      JSON.stringify({
+        region: this.filterRegion(),
+        host: this.filterHost(),
+        status: this.filterStatus(),
+        date: this.filterDate(),
+        name: this.filterName(),
+      }),
+    );
+  }
+
+  private loadSavedFilters() {
+    try {
+      const raw = sessionStorage.getItem(this.storageKey);
+      if (!raw) return;
+      const { region, host, status, date, name } = JSON.parse(raw);
+      if (region) this.filterRegion.set(region);
+      if (host) this.filterHost.set(host);
+      if (status) this.filterStatus.set(status as ActivityStatus);
+      if (date) this.filterDate.set(date);
+      if (name) this.filterName.set(name);
+    } catch {
+      sessionStorage.removeItem(this.storageKey);
+    }
+  }
+
+  clearFilters() {
+    this.filterDate.set('');
+    this.filterStatus.set('');
+    this.filterHost.set('');
+    this.filterName.set('');
+    this.saveFilters();
+    this.applyFilters();
+  }
+
+  onStatusFilterChange(status: string) {
+    this.filterStatus.set(status as ActivityStatus | '');
+    this.saveFilters();
+  }
+
   ngOnInit() {
+    this.loadSavedFilters();
+
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
         this.regions.set(r);
@@ -620,6 +668,7 @@ export class ActivitiesListComponent implements OnInit {
     this.svc
       .getAll({
         regionId: this.filterRegion() || undefined,
+        name: this.filterName() || undefined,
         date: this.filterDate() || undefined,
         hostId: this.filterHost() || undefined,
         is_preaching_shift: this.preachingShiftsOnly,
@@ -645,6 +694,7 @@ export class ActivitiesListComponent implements OnInit {
     this.load();
     if (this.viewMode() === 'calendar' && this.calendarPeriod)
       this.fetchCalendar(this.calendarPeriod);
+    this.saveFilters();
   }
 
   onRegionFilterChange(regionId: string) {
@@ -736,6 +786,7 @@ export class ActivitiesListComponent implements OnInit {
     this.svc
       .getAll({
         regionId: this.filterRegion() || undefined,
+        name: this.filterName() || undefined,
         hostId: this.filterHost() || undefined,
         is_preaching_shift: this.preachingShiftsOnly,
         dateFrom: period.dateFrom,

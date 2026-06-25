@@ -18,6 +18,7 @@ export class ActivitiesService {
   getAll(
     query: {
       regionId?: string;
+      name?: string;
       date?: string;
       dateFrom?: string;
       dateTo?: string;
@@ -29,6 +30,7 @@ export class ActivitiesService {
   ) {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
+    if (query.name) params = params.set('name', query.name);
     if (query.date) params = params.set('date', query.date);
     if (query.dateFrom) params = params.set('dateFrom', query.dateFrom);
     if (query.dateTo) params = params.set('dateTo', query.dateTo);
