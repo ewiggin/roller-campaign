@@ -2028,6 +2028,67 @@ export class ActivitiesService {
     return new Map(groups.map((g) => [g.activity_id, g.name]));
   }
 
+  private async getVolunteerPreachingGroupNames(
+    activityIds: string[],
+    volunteerId: string,
+  ): Promise<Map<string, string | null>> {
+    if (activityIds.length === 0) return new Map();
+
+    const groups = await this.preachingGroupsRepo
+      .createQueryBuilder('pg')
+      .innerJoin(
+        ActivityPreachingGroupVolunteer,
+        'pgv',
+        'pgv.preaching_group_id = pg.id AND pgv.volunteer_id = :volunteerId',
+        { volunteerId },
+      )
+      .where('pg.activity_id IN (:...activityIds)', { activityIds })
+      .getMany();
+
+    return new Map(groups.map((g) => [g.activity_id, g.name]));
+  }
+
+  async getVolunteerScheduleJson(
+    volunteerId: string,
+    currentUser: JwtPayload,
+  ): Promise<{ days: string[]; activities: ScheduleActivityItem[] }> {
+    const activities = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.volunteers', 'vol', 'vol.id = :volunteerId', { volunteerId })
+      .orderBy('a.date', 'ASC')
+      .addOrderBy('a.start_time', 'ASC')
+      .getMany();
+
+    let filtered = activities;
+    if (currentUser.role !== 'superadmin') {
+      const user = await this.usersRepo.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      const allowedIds = new Set((user?.regions ?? []).map((r) => r.id));
+      filtered = activities.filter((a) => allowedIds.has(a.region_id));
+    }
+
+    const preachingShiftIds = filtered.filter((a) => a.is_preaching_shift).map((a) => a.id);
+    const turnoNames = await this.getVolunteerPreachingGroupNames(preachingShiftIds, volunteerId);
+
+    const items: ScheduleActivityItem[] = filtered.map((a) => ({
+      date: a.date,
+      start_time: a.start_time,
+      end_time: a.end_time,
+      name: a.name,
+      description: a.description,
+      locations: a.activity_locations ?? [],
+      is_preaching_shift: a.is_preaching_shift,
+      is_food_shift: a.is_food_shift,
+      preaching_group_name: a.is_preaching_shift ? turnoNames.get(a.id) ?? null : null,
+      status: a.status as 'draft' | 'published',
+    }));
+
+    const days = this.computeScheduleDays(null, items);
+    return { days, activities: items };
+  }
+
   private computeScheduleDays(
     region: Region | null,
     activities: ScheduleActivityItem[],

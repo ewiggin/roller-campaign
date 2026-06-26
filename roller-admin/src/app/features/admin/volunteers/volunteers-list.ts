@@ -9,6 +9,7 @@ import type {
   VolunteerRole,
   VolunteerSummary,
 } from '../../../core/models/volunteer.model';
+import { ActivitiesService, type GroupScheduleActivity } from '../../../core/services/activities.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
@@ -17,6 +18,13 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
 
 type ActiveModal = 'create' | 'import' | 'truncate' | null;
+
+interface VolScheduleState {
+  days: string[];
+  activities: GroupScheduleActivity[];
+  loading: boolean;
+  error: string;
+}
 
 const AVAILABILITY_OPTIONS = [
   { value: 'saturday_prev_morning', label: 'Sat (prev) – morning' },
@@ -48,6 +56,7 @@ const AVAILABILITY_OPTIONS = [
 })
 export class VolunteersListComponent implements OnInit {
   private readonly svc = inject(VolunteersService);
+  private readonly activitiesSvc = inject(ActivitiesService);
   private readonly regionsSvc = inject(RegionsService);
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
@@ -85,6 +94,11 @@ export class VolunteersListComponent implements OnInit {
   readonly availabilityOptions = AVAILABILITY_OPTIONS;
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
+
+  // Planning mode
+  readonly planningMode = signal(false);
+  readonly expandedScheduleIds = signal<Set<string>>(new Set());
+  readonly volSchedules = signal<Map<string, VolScheduleState>>(new Map());
 
   // Modal
   readonly activeModal = signal<ActiveModal>(null);
@@ -494,5 +508,82 @@ export class VolunteersListComponent implements OnInit {
       },
       error: () => this.truncating.set(false),
     });
+  }
+
+  // ── Planning mode ─────────────────────────────────────────────────────────
+
+  togglePlanningMode() {
+    if (this.planningMode()) {
+      this.planningMode.set(false);
+      this.expandedScheduleIds.set(new Set());
+    } else {
+      this.planningMode.set(true);
+    }
+  }
+
+  expandAllSchedules() {
+    const vols = this.volunteers();
+    this.expandedScheduleIds.set(new Set(vols.map((v) => v.id)));
+    for (const v of vols) this.loadScheduleIfNeeded(v.id);
+  }
+
+  collapseAllSchedules() {
+    this.expandedScheduleIds.set(new Set());
+  }
+
+  toggleGroupSchedule(volunteerId: string) {
+    const next = new Set(this.expandedScheduleIds());
+    if (next.has(volunteerId)) {
+      next.delete(volunteerId);
+    } else {
+      next.add(volunteerId);
+      this.loadScheduleIfNeeded(volunteerId);
+    }
+    this.expandedScheduleIds.set(next);
+  }
+
+  isScheduleExpanded(volunteerId: string): boolean {
+    return this.expandedScheduleIds().has(volunteerId);
+  }
+
+  getScheduleForVol(volunteerId: string): VolScheduleState | undefined {
+    return this.volSchedules().get(volunteerId);
+  }
+
+  private loadScheduleIfNeeded(volunteerId: string) {
+    const existing = this.volSchedules().get(volunteerId);
+    if (existing && !existing.error) return;
+
+    const m = new Map(this.volSchedules());
+    m.set(volunteerId, { days: [], activities: [], loading: true, error: '' });
+    this.volSchedules.set(m);
+
+    this.activitiesSvc.getVolunteerSchedule(volunteerId).subscribe({
+      next: (data) => {
+        const m2 = new Map(this.volSchedules());
+        m2.set(volunteerId, { ...data, loading: false, error: '' });
+        this.volSchedules.set(m2);
+      },
+      error: () => {
+        const m2 = new Map(this.volSchedules());
+        m2.set(volunteerId, { days: [], activities: [], loading: false, error: 'Error al cargar el planning.' });
+        this.volSchedules.set(m2);
+      },
+    });
+  }
+
+  scheduleTimeslots(activities: GroupScheduleActivity[]): string[] {
+    const times = new Set(activities.map((a) => a.start_time));
+    return [...times].sort();
+  }
+
+  getActivitiesForCell(activities: GroupScheduleActivity[], day: string, time: string): GroupScheduleActivity[] {
+    return activities.filter((a) => a.date === day && a.start_time === time);
+  }
+
+  shortDayLabel(iso: string): string {
+    const d = new Date(iso + 'T00:00:00');
+    const names = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return `${names[d.getDay()]} ${d.getDate()}`;
   }
 }

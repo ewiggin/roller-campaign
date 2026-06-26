@@ -233,6 +233,13 @@ export class ActivitiesService {
     );
   }
 
+  getVolunteerSchedule(volunteerId: string) {
+    return this.http.get<GroupScheduleResponse>(
+      `/api/activities/volunteer-schedule`,
+      { params: new HttpParams().set('volunteerId', volunteerId) },
+    );
+  }
+
   // ── Schedule PDF export ───────────────────────────────────────────────────
 
   exportGroupSchedulePdf(groupId: string) {
