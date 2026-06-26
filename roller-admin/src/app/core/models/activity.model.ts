@@ -117,6 +117,8 @@ export interface AvailableGroupForActivity {
   already_in_activity: boolean;
   host_schedule_conflict: boolean;
   preaching_shifts_count: number;
+  same_day_preaching_shift: boolean;
+  activities_count: number;
 }
 
 export interface ActivityListResponse {

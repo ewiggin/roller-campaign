@@ -1539,30 +1539,28 @@
             }
 
             <!-- Add group -->
-            @if (selectedActivity()!.guest_groups.length === 0) {
-              <div class="flex gap-2">
-                @if (groupsLoading()) {
-                  <div
-                    class="flex-1 animate-pulse h-9 bg-gray-100 dark:bg-zinc-800 rounded-lg"
-                  ></div>
-                } @else {
-                  <app-searchable-select
-                    class="flex-1"
-                    [items]="availableGroupItems()"
-                    placeholder="Select groups…"
-                    [multi]="true"
-                    [(selectedItems)]="selectedGroupIds"
-                  />
-                }
-                <button
-                  (click)="addGroups()"
-                  [disabled]="!selectedGroupIds().length || detailSaving()"
-                  class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
-                >
-                  Add {{ selectedGroupIds().length > 1 ? selectedGroupIds().length : '' }}
-                </button>
-              </div>
-            }
+            <div class="flex gap-2">
+              @if (groupsLoading()) {
+                <div
+                  class="flex-1 animate-pulse h-9 bg-gray-100 dark:bg-zinc-800 rounded-lg"
+                ></div>
+              } @else {
+                <app-searchable-select
+                  class="flex-1"
+                  [items]="availableGroupItems()"
+                  placeholder="Select groups…"
+                  [multi]="true"
+                  [(selectedItems)]="selectedGroupIds"
+                />
+              }
+              <button
+                (click)="addGroups()"
+                [disabled]="!selectedGroupIds().length || detailSaving()"
+                class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50 transition-colors shrink-0"
+              >
+                Add {{ selectedGroupIds().length > 1 ? selectedGroupIds().length : '' }}
+              </button>
+            </div>
 
             <!-- Assigned groups -->
             @if (selectedActivity()!.guest_groups.length === 0) {

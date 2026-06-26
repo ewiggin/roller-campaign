@@ -1,8 +1,29 @@
 # Changelog
 
+## [0.4.0] - 2026-06-26
+
+### Añadido
+
+- **Vista de planificación semanal inline en grupos de anfitriones**: nuevo toggle en la cabecera del listado que oculta los botones de edición y muestra un calendario semanal colapsable bajo cada grupo, con columnas por día y filas por franja horaria; las actividades muestran badge de borrador/publicado. Carga perezosa por grupo con atajos de expandir/colapsar todo. Nuevo endpoint `GET /api/activities/group-schedule`
+- **Vista de planificación semanal inline en voluntarios**: idéntica al calendario de grupos de anfitriones pero filtrada por voluntario. Nuevo endpoint `GET /api/activities/volunteer-schedule?volunteerId=`
+
+- **Bloqueo de grupos de predicación con turno el mismo día**: el endpoint de grupos disponibles incluye ahora el campo `same_day_preaching_shift`, y el frontend deshabilita y etiqueta estos grupos tanto en el selector general como en el selector por grupo de predicación
+
+### Mejorado
+
+- **Grupos de anfitriones deshabilitados con 3 o más actividades normales**: el selector de grupos para un turno de predicación deshabilita los grupos que ya tienen 3 o más actividades normales asignadas, mostrando el motivo, en lugar de ocultarlos
+- **Grupos con límite de predicación visibles pero deshabilitados**: en lugar de ocultar los grupos que han alcanzado el máximo de turnos de predicación o tienen conflicto en el mismo día, el selector los muestra deshabilitados con el motivo, para que los usuarios sepan por qué no están disponibles en lugar de pensar que no existen
+
+### Corregido
+
+- **Selector de grupos siempre visible en turnos de comida**: eliminada la condición `@if(guest_groups.length === 0)` que ocultaba el selector/botón de añadir grupo una vez se habían asignado grupos, impidiendo añadir más
+
+---
+
 ## [0.3.0] - 2026-06-25
 
 ### Añadido
+
 - **Importación/exportación Excel de actividades, turnos de predicación y turnos de comida**: los tres listados incluyen ahora dos dropdowns separados: **JSON** (solo Export JSON) y **Excel** (Export Excel · Download template), más un botón independiente **Import** (acepta `.json` y `.xlsx`). Al seleccionar un Excel el backend resuelve `region_name` → `region_id` y `host_name` → `host_id`, y las actividades resultantes pasan al paso de revisión y selección de secciones. Las filas con errores se muestran como advertencias sin bloquear las demás
 - **Plantillas Excel por tipo de actividad**: la plantilla de cada sección omite las columnas `is_preaching_shift` / `is_food_shift` (su valor se fuerza automáticamente al importar según el contexto). La plantilla de Food Shifts sustituye `description` por tres columnas específicas (`host_person_name`, `host_person_address`, `host_person_phone`) que al importar generan automáticamente la descripción: `Estais invitados a comer en casa de {nombre} en {dirección}. Su tel. es {teléfono}.`
 - Nuevos endpoints: `GET /activities/import/template`, `GET /activities/export/excel` y `POST /activities/import/parse-excel`
@@ -12,9 +33,11 @@
 - **Filtro por nombre en actividades**: nueva caja de búsqueda en la lista de actividades y turnos de predicación que filtra por nombre (búsqueda insensible a mayúsculas en backend)
 
 ### Mejorado
+
 - **Filtros de actividades persistentes**: los filtros de la lista de actividades (región, anfitrión, estado, fecha, nombre) se guardan en `sessionStorage` para sobrevivir la navegación SPA; el botón "Clear" los resetea. Los filtros de turnos de predicación se guardan de forma independiente
 
 ### Corregido
+
 - **is_food_shift no se enviaba al crear/actualizar actividades desde el import modal**: el payload de creación y actualización omitía el flag `is_food_shift`, por lo que los turnos de comida importados se guardaban como actividades generales
 
 ---
@@ -22,10 +45,12 @@
 ## [0.2.9] - 2026-06-22
 
 ### Añadido
+
 - **Distancia y congregación en grupos de anfitriones**: el selector de grupos disponibles para un turno de predicación muestra ahora todos los grupos de la región ordenados por distancia (calculada desde la ubicación de la actividad, o la del anfitrión como fallback, hasta las coordenadas medias de los invitados del grupo), en lugar de filtrar solo por el anfitrión de la actividad
 - **Información ampliada en grupos ya asignados**: `ActivityGuestGroupDto` incluye ahora `host_name` y `distance_km`, de modo que los grupos ya asignados muestran los mismos datos que el selector
 
 ### Mejorado
+
 - **Selector de grupos multi-selección**: el desplegable para añadir grupos a un turno de predicación permite ahora seleccionar varios grupos a la vez y oculta los grupos sin invitados
 - **Asignación entre congregaciones**: eliminada la validación que impedía asignar a un turno grupos de una congregación distinta a la del anfitrión de la actividad
 
@@ -34,6 +59,7 @@
 ## [0.2.8] - 2026-06-22
 
 ### Añadido
+
 - **Selector de región al editar grupo**: el formulario de edición de grupos de anfitriones incluye ahora un selector de región, permitiendo cambiar la región asignada al guardar los cambios
 
 ---
@@ -41,11 +67,13 @@
 ## [0.2.7] - 2026-06-19
 
 ### Añadido
+
 - **Reuniones de congregación en el PDF de horarios**: el PDF del grupo incluye ahora las reuniones semanales del anfitrión (día de semana y fin de semana), ordenadas cronológicamente junto al resto de actividades, con la dirección y enlace a Google Maps
 - **Selector de ubicación con autocompletado**: el `location-picker` ahora usa un desplegable de sugerencias de Places API en lugar del mapa interactivo de Google Maps, con un mapa estático como vista previa tras seleccionar una dirección; nuevo módulo `places` en el backend y comando Tauri asociado
 - **Exportación de todas las actividades**: el botón "Exportar" en la lista de actividades exporta ahora todas las actividades que cumplan los filtros activos (región, fecha, anfitrión…) en lugar de solo las seleccionadas; el nombre del fichero incluye la región y fecha filtradas si las hay
 
 ### Mejorado
+
 - **Importación de voluntarios refactorizada**: el proceso de importación admite ahora columnas adicionales (región, roles, disponibilidad por días/franjas, datos de alojamiento, coordenadas…), detecta duplicados con vista previa de filas, permite actualizar voluntarios existentes (actualización parcial por columnas), y expone un endpoint `/volunteers/truncate` para borrado completo
 
 ---
@@ -53,11 +81,13 @@
 ## [0.2.6] - 2026-06-18
 
 ### Añadido
+
 - **Crear grupos de predicación al crear actividad**: al crear una nueva actividad se generan automáticamente los grupos de predicación correspondientes
 - **Zona de peligro en configuración**: nueva sección en Ajustes con opción de resetear completamente la base de datos (requiere escribir CONFIRMAR para habilitar el botón)
 - **Versión visible en el menú**: la versión de la app ahora se muestra en el menú lateral
 
 ### Corregido
+
 - **Importación de booleanos**: SQLite3 no puede vincular valores booleanos directamente; se convierten a 0/1 en `buildInsertQuery` para evitar errores al importar la base de datos
 
 ---
@@ -65,10 +95,12 @@
 ## [0.2.5] - 2026-06-18
 
 ### Añadido
+
 - **Exportación e importación de actividades** con UI de merge para resolver conflictos al importar
 - **Comprobación de versión en el escritorio**: la app avisa con un toast cuando hay una versión más reciente disponible para descargar
 - **Importación de anfitriones con días de reunión**: el proceso de importación ahora acepta y aplica los días de reunión de cada anfitrión
 - **Mejoras en la importación de grupos**: flujo de importación más robusto con nuevos DTOs de validación, respuesta de parseo y commit
 
 ### Corregido
+
 - El toast de nueva versión ahora solo se muestra cuando la versión remota es estrictamente más nueva que la local

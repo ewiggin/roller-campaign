@@ -21,7 +21,7 @@ import type {
 import type { Guest } from '../../../core/models/guest.model';
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
-import { ActivitiesService } from '../../../core/services/activities.service';
+import { ActivitiesService, type GroupScheduleActivity } from '../../../core/services/activities.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { GuestGroupsService } from '../../../core/services/guest-groups.service';
 import { GuestsService } from '../../../core/services/guests.service';
@@ -38,6 +38,13 @@ export const COMPOSITION_LABELS: Record<GroupComposition, string> = {
   mixed: 'Mixed',
   women_only: 'Women only',
 };
+
+interface GroupScheduleState {
+  days: string[];
+  activities: GroupScheduleActivity[];
+  loading: boolean;
+  error: string;
+}
 
 @Component({
   selector: 'app-guest-groups-list',
@@ -84,6 +91,11 @@ export class GuestGroupsListComponent implements OnInit {
   readonly truncateConfirmText = signal('');
   readonly recomputing = signal(false);
   readonly downloadingSchedulePdf = signal<string | null>(null);
+
+  // Planning mode
+  readonly planningMode = signal(false);
+  readonly expandedScheduleIds = signal<Set<string>>(new Set());
+  readonly groupSchedules = signal<Map<string, GroupScheduleState>>(new Map());
 
   // Host assignment modal
   readonly hostAssignGroup = signal<GuestGroup | null>(null);
@@ -548,6 +560,81 @@ export class GuestGroupsListComponent implements OnInit {
       },
       error: () => this.downloadingSchedulePdf.set(null),
     });
+  }
+
+  togglePlanningMode() {
+    if (this.planningMode()) {
+      this.planningMode.set(false);
+      this.expandedScheduleIds.set(new Set());
+    } else {
+      this.planningMode.set(true);
+    }
+  }
+
+  expandAllSchedules() {
+    const groups = this.groups();
+    this.expandedScheduleIds.set(new Set(groups.map((g) => g.id)));
+    for (const g of groups) this.loadScheduleIfNeeded(g.id);
+  }
+
+  collapseAllSchedules() {
+    this.expandedScheduleIds.set(new Set());
+  }
+
+  toggleGroupSchedule(groupId: string) {
+    const next = new Set(this.expandedScheduleIds());
+    if (next.has(groupId)) {
+      next.delete(groupId);
+    } else {
+      next.add(groupId);
+      this.loadScheduleIfNeeded(groupId);
+    }
+    this.expandedScheduleIds.set(next);
+  }
+
+  isScheduleExpanded(groupId: string): boolean {
+    return this.expandedScheduleIds().has(groupId);
+  }
+
+  getScheduleForGroup(groupId: string): GroupScheduleState | undefined {
+    return this.groupSchedules().get(groupId);
+  }
+
+  private loadScheduleIfNeeded(groupId: string) {
+    const existing = this.groupSchedules().get(groupId);
+    if (existing && !existing.error) return;
+
+    const m = new Map(this.groupSchedules());
+    m.set(groupId, { days: [], activities: [], loading: true, error: '' });
+    this.groupSchedules.set(m);
+
+    this.activitiesSvc.getGroupSchedule(groupId).subscribe({
+      next: (data) => {
+        const m2 = new Map(this.groupSchedules());
+        m2.set(groupId, { ...data, loading: false, error: '' });
+        this.groupSchedules.set(m2);
+      },
+      error: () => {
+        const m2 = new Map(this.groupSchedules());
+        m2.set(groupId, { days: [], activities: [], loading: false, error: 'Error al cargar el planning.' });
+        this.groupSchedules.set(m2);
+      },
+    });
+  }
+
+  scheduleTimeslots(activities: GroupScheduleActivity[]): string[] {
+    const times = new Set(activities.map((a) => a.start_time));
+    return [...times].sort();
+  }
+
+  getActivitiesForCell(activities: GroupScheduleActivity[], day: string, time: string): GroupScheduleActivity[] {
+    return activities.filter((a) => a.date === day && a.start_time === time);
+  }
+
+  shortDayLabel(iso: string): string {
+    const d = new Date(iso + 'T00:00:00');
+    const names = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return `${names[d.getDay()]} ${d.getDate()}`;
   }
 
   openGuests(group: GuestGroup) {

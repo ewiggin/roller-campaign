@@ -11,6 +11,26 @@ import type {
   UpdateActivityPayload,
 } from '../models/activity.model';
 
+export interface GroupScheduleActivity {
+  date: string;
+  start_time: string;
+  end_time: string;
+  name: string;
+  description: string | null;
+  locations: { address: string }[];
+  is_preaching_shift: boolean;
+  is_food_shift: boolean;
+  preaching_group_name: string | null;
+  is_congregation_meeting?: boolean;
+  congregation_address?: string | null;
+  status?: 'draft' | 'published';
+}
+
+export interface GroupScheduleResponse {
+  days: string[];
+  activities: GroupScheduleActivity[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ActivitiesService {
   private readonly http = inject(HttpClient);
@@ -202,6 +222,22 @@ export class ActivitiesService {
 
   unpublish(id: string) {
     return this.http.post<Activity>(`/api/activities/${id}/unpublish`, {});
+  }
+
+  // ── Group schedule (JSON) ─────────────────────────────────────────────────
+
+  getGroupSchedule(groupId: string) {
+    return this.http.get<GroupScheduleResponse>(
+      `/api/activities/group-schedule`,
+      { params: new HttpParams().set('groupId', groupId) },
+    );
+  }
+
+  getVolunteerSchedule(volunteerId: string) {
+    return this.http.get<GroupScheduleResponse>(
+      `/api/activities/volunteer-schedule`,
+      { params: new HttpParams().set('volunteerId', volunteerId) },
+    );
   }
 
   // ── Schedule PDF export ───────────────────────────────────────────────────

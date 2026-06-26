@@ -21,6 +21,7 @@ export interface ScheduleActivityItem {
   congregation_address?: string | null;
   congregation_lat?: number | null;
   congregation_lng?: number | null;
+  status?: 'draft' | 'published';
 }
 
 export interface ScheduleGroupInfo {

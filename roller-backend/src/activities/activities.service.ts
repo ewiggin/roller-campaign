@@ -593,6 +593,19 @@ export class ActivitiesService {
           'El grupo ya tiene 3 turnos de predicación asignados',
         );
       }
+    } else {
+      const activitiesCount = await this.activitiesRepo
+        .createQueryBuilder('a')
+        .innerJoin('a.guestGroups', 'g')
+        .where('g.id = :groupId', { groupId })
+        .andWhere('a.id != :actId', { actId: activity.id })
+        .andWhere('a.is_preaching_shift = :no', { no: false })
+        .getCount();
+      if (activitiesCount >= 3) {
+        throw new BadRequestException(
+          'El grupo ya tiene 3 actividades asignadas',
+        );
+      }
     }
 
     if (!activity.guestGroups.some((g) => g.id === groupId)) {
@@ -1200,6 +1213,35 @@ export class ActivitiesService {
       preachingCountRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
     );
 
+    const activitiesCountRows = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'gg')
+      .select('gg.id', 'groupId')
+      .addSelect('COUNT(a.id)', 'count')
+      .where('a.is_preaching_shift = :no', { no: false })
+      .andWhere('a.id != :actId', { actId: activity.id })
+      .andWhere('gg.region_id = :regionId', { regionId: activity.region_id })
+      .groupBy('gg.id')
+      .getRawMany<{ groupId: string; count: string }>();
+    const activitiesCountMap = new Map(
+      activitiesCountRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
+    );
+
+    // Groups that already have any preaching shift on the same date
+    let sameDayPreachingGroupIds: Set<string> | null = null;
+    if (activity.is_preaching_shift) {
+      const sameDayRows = await this.activitiesRepo
+        .createQueryBuilder('a')
+        .innerJoin('a.guestGroups', 'gg')
+        .select('gg.id', 'groupId')
+        .where('a.is_preaching_shift = :yes', { yes: true })
+        .andWhere('a.region_id = :regionId', { regionId: activity.region_id })
+        .andWhere('a.date = :date', { date: activity.date })
+        .andWhere('a.id != :actId', { actId: activity.id })
+        .getRawMany<{ groupId: string }>();
+      sameDayPreachingGroupIds = new Set(sameDayRows.map((r) => r.groupId));
+    }
+
     // For food shifts: only groups with a morning preaching shift (start < 12:00) that day
     let morningPreachingGroupIds: Set<string> | null = null;
     if (activity.is_food_shift) {
@@ -1281,6 +1323,9 @@ export class ActivitiesService {
           host,
         ),
         preaching_shifts_count: preachingCountMap.get(group.id) ?? 0,
+        same_day_preaching_shift:
+          sameDayPreachingGroupIds !== null && sameDayPreachingGroupIds.has(group.id),
+        activities_count: activitiesCountMap.get(group.id) ?? 0,
       });
     }
 
@@ -1930,14 +1975,19 @@ export class ActivitiesService {
 
   private async getGroupScheduleActivities(
     groupId: string,
+    allStatuses = false,
   ): Promise<ScheduleActivityItem[]> {
-    const activities = await this.activitiesRepo
+    let qb = this.activitiesRepo
       .createQueryBuilder('a')
       .innerJoin('a.guestGroups', 'gg', 'gg.id = :groupId', { groupId })
-      .where('a.status = :status', { status: 'published' })
       .orderBy('a.date', 'ASC')
-      .addOrderBy('a.start_time', 'ASC')
-      .getMany();
+      .addOrderBy('a.start_time', 'ASC');
+
+    if (!allStatuses) {
+      qb = qb.where('a.status = :status', { status: 'published' });
+    }
+
+    const activities = await qb.getMany();
 
     const preachingShiftIds = activities
       .filter((a) => a.is_preaching_shift)
@@ -1959,6 +2009,7 @@ export class ActivitiesService {
       preaching_group_name: a.is_preaching_shift
         ? turnoNames.get(a.id) ?? null
         : null,
+      status: a.status as 'draft' | 'published',
     }));
   }
 
@@ -1975,6 +2026,67 @@ export class ActivitiesService {
       .getMany();
 
     return new Map(groups.map((g) => [g.activity_id, g.name]));
+  }
+
+  private async getVolunteerPreachingGroupNames(
+    activityIds: string[],
+    volunteerId: string,
+  ): Promise<Map<string, string | null>> {
+    if (activityIds.length === 0) return new Map();
+
+    const groups = await this.preachingGroupsRepo
+      .createQueryBuilder('pg')
+      .innerJoin(
+        ActivityPreachingGroupVolunteer,
+        'pgv',
+        'pgv.preaching_group_id = pg.id AND pgv.volunteer_id = :volunteerId',
+        { volunteerId },
+      )
+      .where('pg.activity_id IN (:...activityIds)', { activityIds })
+      .getMany();
+
+    return new Map(groups.map((g) => [g.activity_id, g.name]));
+  }
+
+  async getVolunteerScheduleJson(
+    volunteerId: string,
+    currentUser: JwtPayload,
+  ): Promise<{ days: string[]; activities: ScheduleActivityItem[] }> {
+    const activities = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.volunteers', 'vol', 'vol.id = :volunteerId', { volunteerId })
+      .orderBy('a.date', 'ASC')
+      .addOrderBy('a.start_time', 'ASC')
+      .getMany();
+
+    let filtered = activities;
+    if (currentUser.role !== 'superadmin') {
+      const user = await this.usersRepo.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      const allowedIds = new Set((user?.regions ?? []).map((r) => r.id));
+      filtered = activities.filter((a) => allowedIds.has(a.region_id));
+    }
+
+    const preachingShiftIds = filtered.filter((a) => a.is_preaching_shift).map((a) => a.id);
+    const turnoNames = await this.getVolunteerPreachingGroupNames(preachingShiftIds, volunteerId);
+
+    const items: ScheduleActivityItem[] = filtered.map((a) => ({
+      date: a.date,
+      start_time: a.start_time,
+      end_time: a.end_time,
+      name: a.name,
+      description: a.description,
+      locations: a.activity_locations ?? [],
+      is_preaching_shift: a.is_preaching_shift,
+      is_food_shift: a.is_food_shift,
+      preaching_group_name: a.is_preaching_shift ? turnoNames.get(a.id) ?? null : null,
+      status: a.status as 'draft' | 'published',
+    }));
+
+    const days = this.computeScheduleDays(null, items);
+    return { days, activities: items };
   }
 
   private computeScheduleDays(
@@ -1996,6 +2108,31 @@ export class ActivitiesService {
       days.push(d);
     }
     return days;
+  }
+
+  async getGroupScheduleJson(
+    groupId: string,
+    currentUser: JwtPayload,
+  ): Promise<{ days: string[]; activities: ScheduleActivityItem[] }> {
+    const group = await this.groupsRepo.findOne({
+      where: { id: groupId },
+      relations: { host: true },
+    });
+    if (!group) throw new NotFoundException('Grupo no encontrado');
+    await this.assertRegionAccess(group.region_id, currentUser);
+
+    const region = await this.regionsRepo.findOne({ where: { id: group.region_id } });
+    const activities = await this.getGroupScheduleActivities(groupId, true);
+    const days = this.computeScheduleDays(region, activities);
+
+    const meetings = group.host ? this.congregationMeetings(group.host, days) : [];
+    const allActivities = [...activities, ...meetings].sort((a, b) =>
+      a.date !== b.date
+        ? a.date.localeCompare(b.date)
+        : a.start_time.localeCompare(b.start_time),
+    );
+
+    return { days, activities: allActivities };
   }
 
   async exportGroupSchedulePdf(
