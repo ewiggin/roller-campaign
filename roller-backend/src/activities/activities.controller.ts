@@ -89,6 +89,16 @@ export class ActivitiesController {
     return this.svc.findAll(query, user);
   }
 
+  @Get('group-schedule')
+  @ApiOkResponse({ description: 'JSON con el calendario de actividades de un grupo' })
+  getGroupSchedule(
+    @Query('groupId') groupId: string | undefined,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (!groupId) throw new BadRequestException('groupId es obligatorio');
+    return this.svc.getGroupScheduleJson(groupId, user);
+  }
+
   @Get('export/schedule-pdf')
   @ApiOkResponse({
     description:

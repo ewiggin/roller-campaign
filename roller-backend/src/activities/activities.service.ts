@@ -1975,14 +1975,19 @@ export class ActivitiesService {
 
   private async getGroupScheduleActivities(
     groupId: string,
+    allStatuses = false,
   ): Promise<ScheduleActivityItem[]> {
-    const activities = await this.activitiesRepo
+    let qb = this.activitiesRepo
       .createQueryBuilder('a')
       .innerJoin('a.guestGroups', 'gg', 'gg.id = :groupId', { groupId })
-      .where('a.status = :status', { status: 'published' })
       .orderBy('a.date', 'ASC')
-      .addOrderBy('a.start_time', 'ASC')
-      .getMany();
+      .addOrderBy('a.start_time', 'ASC');
+
+    if (!allStatuses) {
+      qb = qb.where('a.status = :status', { status: 'published' });
+    }
+
+    const activities = await qb.getMany();
 
     const preachingShiftIds = activities
       .filter((a) => a.is_preaching_shift)
@@ -2004,6 +2009,7 @@ export class ActivitiesService {
       preaching_group_name: a.is_preaching_shift
         ? turnoNames.get(a.id) ?? null
         : null,
+      status: a.status as 'draft' | 'published',
     }));
   }
 
@@ -2041,6 +2047,31 @@ export class ActivitiesService {
       days.push(d);
     }
     return days;
+  }
+
+  async getGroupScheduleJson(
+    groupId: string,
+    currentUser: JwtPayload,
+  ): Promise<{ days: string[]; activities: ScheduleActivityItem[] }> {
+    const group = await this.groupsRepo.findOne({
+      where: { id: groupId },
+      relations: { host: true },
+    });
+    if (!group) throw new NotFoundException('Grupo no encontrado');
+    await this.assertRegionAccess(group.region_id, currentUser);
+
+    const region = await this.regionsRepo.findOne({ where: { id: group.region_id } });
+    const activities = await this.getGroupScheduleActivities(groupId, true);
+    const days = this.computeScheduleDays(region, activities);
+
+    const meetings = group.host ? this.congregationMeetings(group.host, days) : [];
+    const allActivities = [...activities, ...meetings].sort((a, b) =>
+      a.date !== b.date
+        ? a.date.localeCompare(b.date)
+        : a.start_time.localeCompare(b.start_time),
+    );
+
+    return { days, activities: allActivities };
   }
 
   async exportGroupSchedulePdf(
