@@ -1200,6 +1200,21 @@ export class ActivitiesService {
       preachingCountRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
     );
 
+    // Groups that already have any preaching shift on the same date
+    let sameDayPreachingGroupIds: Set<string> | null = null;
+    if (activity.is_preaching_shift) {
+      const sameDayRows = await this.activitiesRepo
+        .createQueryBuilder('a')
+        .innerJoin('a.guestGroups', 'gg')
+        .select('gg.id', 'groupId')
+        .where('a.is_preaching_shift = :yes', { yes: true })
+        .andWhere('a.region_id = :regionId', { regionId: activity.region_id })
+        .andWhere('a.date = :date', { date: activity.date })
+        .andWhere('a.id != :actId', { actId: activity.id })
+        .getRawMany<{ groupId: string }>();
+      sameDayPreachingGroupIds = new Set(sameDayRows.map((r) => r.groupId));
+    }
+
     // For food shifts: only groups with a morning preaching shift (start < 12:00) that day
     let morningPreachingGroupIds: Set<string> | null = null;
     if (activity.is_food_shift) {
@@ -1281,6 +1296,8 @@ export class ActivitiesService {
           host,
         ),
         preaching_shifts_count: preachingCountMap.get(group.id) ?? 0,
+        same_day_preaching_shift:
+          sameDayPreachingGroupIds !== null && sameDayPreachingGroupIds.has(group.id),
       });
     }
 

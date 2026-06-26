@@ -585,23 +585,26 @@ export class ActivitiesListComponent implements OnInit {
     const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
     return this.availableGroups().map((g) => {
       const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= 3;
+      const sameDayConflict = isPreachingShift && g.same_day_preaching_shift;
       return {
         value: g.id,
         label: g.group_code,
-        disabled: g.already_in_activity || g.host_schedule_conflict || preachingLimitReached,
+        disabled: g.already_in_activity || g.host_schedule_conflict || preachingLimitReached || sameDayConflict,
         meta: g.already_in_activity
           ? 'Already in another activity'
           : g.host_schedule_conflict
             ? 'Host meeting conflict'
-            : preachingLimitReached
-              ? `Max preaching shifts (${g.preaching_shifts_count}/3)`
-              : [
-                  g.distance_km !== null ? `${g.distance_km} km` : null,
-                  g.host_name ?? null,
-                  `${g.guest_count} guests`,
-                ]
-                  .filter(Boolean)
-                  .join(' · '),
+            : sameDayConflict
+              ? 'Already has a preaching shift today'
+              : preachingLimitReached
+                ? `Max preaching shifts (${g.preaching_shifts_count}/3)`
+                : [
+                    g.distance_km !== null ? `${g.distance_km} km` : null,
+                    g.host_name ?? null,
+                    `${g.guest_count} guests`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · '),
       };
     });
   });
@@ -656,17 +659,23 @@ export class ActivitiesListComponent implements OnInit {
           !(isPreachingShift && g.preaching_shifts_count >= 3) &&
           g.guest_count > 0,
       )
-      .map((g) => ({
-        value: g.id,
-        label: g.group_code,
-        meta: [
-          g.distance_km !== null ? `${g.distance_km} km` : null,
-          g.host_name ?? null,
-          `${g.guest_count} guests`,
-        ]
-          .filter(Boolean)
-          .join(' · '),
-      }));
+      .map((g) => {
+        const sameDayConflict = isPreachingShift && g.same_day_preaching_shift;
+        return {
+          value: g.id,
+          label: g.group_code,
+          disabled: sameDayConflict,
+          meta: sameDayConflict
+            ? 'Already has a preaching shift today'
+            : [
+                g.distance_km !== null ? `${g.distance_km} km` : null,
+                g.host_name ?? null,
+                `${g.guest_count} guests`,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+        };
+      });
   });
 
   readonly pickVolunteerByGroup = signal<Record<string, string[]>>({});
