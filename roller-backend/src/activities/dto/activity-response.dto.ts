@@ -179,6 +179,13 @@ export class AvailableGroupForActivityDto {
       'True if the group already has a preaching shift on the same date (only relevant when the activity is a preaching shift)',
   })
   same_day_preaching_shift: boolean;
+
+  @ApiProperty({
+    example: 1,
+    description:
+      'Number of normal (non-preaching-shift) activities this group is already assigned to (excluding this activity)',
+  })
+  activities_count: number;
 }
 
 export class PreachingGroupVolunteerDto {

@@ -586,10 +586,11 @@ export class ActivitiesListComponent implements OnInit {
     return this.availableGroups().map((g) => {
       const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= 3;
       const sameDayConflict = isPreachingShift && g.same_day_preaching_shift;
+      const activitiesLimitReached = !isPreachingShift && g.activities_count >= 3;
       return {
         value: g.id,
         label: g.group_code,
-        disabled: g.already_in_activity || g.host_schedule_conflict || preachingLimitReached || sameDayConflict,
+        disabled: g.already_in_activity || g.host_schedule_conflict || preachingLimitReached || sameDayConflict || activitiesLimitReached,
         meta: g.already_in_activity
           ? 'Already in another activity'
           : g.host_schedule_conflict
@@ -598,13 +599,15 @@ export class ActivitiesListComponent implements OnInit {
               ? 'Already has a preaching shift today'
               : preachingLimitReached
                 ? `Max preaching shifts (${g.preaching_shifts_count}/3)`
-                : [
-                    g.distance_km !== null ? `${g.distance_km} km` : null,
-                    g.host_name ?? null,
-                    `${g.guest_count} guests`,
-                  ]
-                    .filter(Boolean)
-                    .join(' · '),
+                : activitiesLimitReached
+                  ? `Max activities (${g.activities_count}/3)`
+                  : [
+                      g.distance_km !== null ? `${g.distance_km} km` : null,
+                      g.host_name ?? null,
+                      `${g.guest_count} guests`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · '),
       };
     });
   });

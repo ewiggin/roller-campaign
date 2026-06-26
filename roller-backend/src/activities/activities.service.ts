@@ -593,6 +593,19 @@ export class ActivitiesService {
           'El grupo ya tiene 3 turnos de predicación asignados',
         );
       }
+    } else {
+      const activitiesCount = await this.activitiesRepo
+        .createQueryBuilder('a')
+        .innerJoin('a.guestGroups', 'g')
+        .where('g.id = :groupId', { groupId })
+        .andWhere('a.id != :actId', { actId: activity.id })
+        .andWhere('a.is_preaching_shift = :no', { no: false })
+        .getCount();
+      if (activitiesCount >= 3) {
+        throw new BadRequestException(
+          'El grupo ya tiene 3 actividades asignadas',
+        );
+      }
     }
 
     if (!activity.guestGroups.some((g) => g.id === groupId)) {
@@ -1200,6 +1213,20 @@ export class ActivitiesService {
       preachingCountRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
     );
 
+    const activitiesCountRows = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'gg')
+      .select('gg.id', 'groupId')
+      .addSelect('COUNT(a.id)', 'count')
+      .where('a.is_preaching_shift = :no', { no: false })
+      .andWhere('a.id != :actId', { actId: activity.id })
+      .andWhere('gg.region_id = :regionId', { regionId: activity.region_id })
+      .groupBy('gg.id')
+      .getRawMany<{ groupId: string; count: string }>();
+    const activitiesCountMap = new Map(
+      activitiesCountRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
+    );
+
     // Groups that already have any preaching shift on the same date
     let sameDayPreachingGroupIds: Set<string> | null = null;
     if (activity.is_preaching_shift) {
@@ -1298,6 +1325,7 @@ export class ActivitiesService {
         preaching_shifts_count: preachingCountMap.get(group.id) ?? 0,
         same_day_preaching_shift:
           sameDayPreachingGroupIds !== null && sameDayPreachingGroupIds.has(group.id),
+        activities_count: activitiesCountMap.get(group.id) ?? 0,
       });
     }
 
