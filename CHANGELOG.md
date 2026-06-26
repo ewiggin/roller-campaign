@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.1] - 2026-06-26
+
+### Mejorado
+- **Grupos con límite de predicación visibles pero deshabilitados**: en lugar de ocultar los grupos que han alcanzado el máximo de turnos de predicación o tienen conflicto en el mismo día, el selector los muestra deshabilitados con el motivo, para que los usuarios sepan por qué no están disponibles en lugar de pensar que no existen
+
+### Añadido
+- **Bloqueo de grupos de predicación con turno el mismo día**: el endpoint de grupos disponibles incluye ahora el campo `same_day_preaching_shift`, y el frontend deshabilita y etiqueta estos grupos tanto en el selector general como en el selector por grupo de predicación
+
+### Corregido
+- **Selector de grupos siempre visible en turnos de comida**: eliminada la condición `@if(guest_groups.length === 0)` que ocultaba el selector/botón de añadir grupo una vez se habían asignado grupos, impidiendo añadir más
+
+---
+
 ## [0.3.0] - 2026-06-25
 
 ### Añadido
