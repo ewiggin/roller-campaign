@@ -652,28 +652,25 @@ export class ActivitiesListComponent implements OnInit {
   readonly ungroupedGroupItems = computed(() => {
     const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
     return this.availableGroups()
-      .filter(
-        (g) =>
-          !g.already_in_activity &&
-          !g.host_schedule_conflict &&
-          !(isPreachingShift && g.preaching_shifts_count >= 3) &&
-          g.guest_count > 0,
-      )
+      .filter((g) => !g.already_in_activity && !g.host_schedule_conflict)
       .map((g) => {
         const sameDayConflict = isPreachingShift && g.same_day_preaching_shift;
+        const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= 3;
         return {
           value: g.id,
           label: g.group_code,
-          disabled: sameDayConflict,
+          disabled: sameDayConflict || preachingLimitReached,
           meta: sameDayConflict
             ? 'Already has a preaching shift today'
-            : [
-                g.distance_km !== null ? `${g.distance_km} km` : null,
-                g.host_name ?? null,
-                `${g.guest_count} guests`,
-              ]
-                .filter(Boolean)
-                .join(' · '),
+            : preachingLimitReached
+              ? `Max preaching shifts (${g.preaching_shifts_count}/3)`
+              : [
+                  g.distance_km !== null ? `${g.distance_km} km` : null,
+                  g.host_name ?? null,
+                  `${g.guest_count} guests`,
+                ]
+                  .filter(Boolean)
+                  .join(' · '),
         };
       });
   });
