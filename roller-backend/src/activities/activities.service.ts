@@ -37,6 +37,7 @@ import {
   PreachingGroupDto,
   PreachingGroupVolunteerDto,
 } from './dto/activity-response.dto';
+import type { LocationPoint } from './dto/location-point.dto';
 import {
   CreateActivityBatchDto,
   RepetitionDto,
@@ -1924,6 +1925,7 @@ export class ActivitiesService {
       const hostName = this.parseXlsxString(row['host_name']);
       let host_id: string | null = null;
       let host_name: string | null = null;
+      let activity_locations: LocationPoint[] | null = null;
       if (hostName) {
         const host = hosts.find(
           (h) => h.name.toLowerCase() === hostName.toLowerCase(),
@@ -1931,6 +1933,13 @@ export class ActivitiesService {
         if (host) {
           host_id = host.id;
           host_name = host.name;
+          const isFoodShiftRow =
+            forceFoodShift || this.parseXlsxBool(row['is_food_shift']);
+          if (isFoodShiftRow && host.lat !== null && host.lng !== null) {
+            activity_locations = [
+              { address: host.address ?? '', lat: host.lat, lng: host.lng },
+            ];
+          }
         } else {
           errors.push(
             `Fila ${rowNum}: congregación '${hostName}' no encontrada (se omite)`,
@@ -1954,7 +1963,7 @@ export class ActivitiesService {
         date: date!,
         start_time: start_time!,
         end_time: end_time!,
-        activity_locations: null,
+        activity_locations,
         image_key: null,
         is_preaching_shift:
           forcePreachingShift ||

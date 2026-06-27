@@ -106,7 +106,7 @@ export class SettingsService {
       row = this.campaignRepo.create({
         id: CAMPAIGN_ID,
         max_activities_per_group: 4,
-        max_preaching_shifts_per_group: 4,
+        max_preaching_shifts_per_group: 3,
       });
       row = await this.campaignRepo.save(row);
     }
