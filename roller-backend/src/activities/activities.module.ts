@@ -12,11 +12,13 @@ import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { Cart } from '../carts/entities/cart.entity';
+import { SettingsModule } from '../settings/settings.module';
 import { ActivitiesService } from './activities.service';
 import { ActivitiesController } from './activities.controller';
 
 @Module({
   imports: [
+    SettingsModule,
     TypeOrmModule.forFeature([
       Activity,
       ActivityVolunteerRole,

@@ -9,7 +9,7 @@ import { In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import type { Content } from 'pdfmake/interfaces';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { createPdfBuffer } from '../common/pdf/pdf.util';
+import { buildScheduleHeader, createPdfBuffer } from '../common/pdf/pdf.util';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { GroupActivityRequest } from '../group-access/entities/group-activity-request.entity';
 import { Guest } from '../guests/entities/guest.entity';
@@ -37,6 +37,7 @@ import {
   PreachingGroupDto,
   PreachingGroupVolunteerDto,
 } from './dto/activity-response.dto';
+import type { LocationPoint } from './dto/location-point.dto';
 import {
   CreateActivityBatchDto,
   RepetitionDto,
@@ -49,6 +50,7 @@ import {
 } from './dto/preaching-group.dto';
 import { AssignGroupVolunteerDto } from './dto/assign-group-volunteer.dto';
 import { Activity } from './entities/activity.entity';
+import { SettingsService } from '../settings/settings.service';
 
 const ACTIVITY_RELATIONS = { volunteers: true, guestGroups: true, host: true };
 
@@ -76,6 +78,7 @@ export class ActivitiesService {
     private readonly cartsRepo: Repository<Cart>,
     @InjectRepository(Host)
     private readonly hostsRepo: Repository<Host>,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async create(
@@ -588,6 +591,7 @@ export class ActivitiesService {
       );
     }
 
+    const limits = await this.settingsService.getCampaignLimits();
     if (activity.is_preaching_shift) {
       const preachingCount = await this.activitiesRepo
         .createQueryBuilder('a')
@@ -596,9 +600,9 @@ export class ActivitiesService {
         .andWhere('a.id != :actId', { actId: activity.id })
         .andWhere('a.is_preaching_shift = :yes', { yes: true })
         .getCount();
-      if (preachingCount >= 3) {
+      if (preachingCount >= limits.maxPreachingShiftsPerGroup) {
         throw new BadRequestException(
-          'El grupo ya tiene 3 turnos de predicación asignados',
+          `El grupo ya tiene ${limits.maxPreachingShiftsPerGroup} turnos de predicación asignados`,
         );
       }
     } else {
@@ -609,9 +613,9 @@ export class ActivitiesService {
         .andWhere('a.id != :actId', { actId: activity.id })
         .andWhere('a.is_preaching_shift = :no', { no: false })
         .getCount();
-      if (activitiesCount >= 3) {
+      if (activitiesCount >= limits.maxActivitiesPerGroup) {
         throw new BadRequestException(
-          'El grupo ya tiene 3 actividades asignadas',
+          `El grupo ya tiene ${limits.maxActivitiesPerGroup} actividades asignadas`,
         );
       }
     }
@@ -1273,33 +1277,37 @@ export class ActivitiesService {
     const result: AvailableGroupForActivityDto[] = [];
 
     for (const group of groups) {
-      if (assignedIds.has(group.id)) continue;
-      if (
-        morningPreachingGroupIds !== null &&
-        !morningPreachingGroupIds.has(group.id)
-      )
-        continue;
-
-      // Filter by the group's own availability window
-      if (group.available_from && activity.date < group.available_from)
-        continue;
-      if (group.available_to && activity.date > group.available_to) continue;
+      const isAssignedHere = assignedIds.has(group.id);
 
       const groupGuests = guestsByGroup.get(group.id) ?? [];
-      if (groupGuests.length > 0 && activity.date) {
-        const hasAvailabilityData = groupGuests.some(
-          (g) => g.available_from || g.available_to,
-        );
-        if (hasAvailabilityData) {
-          const anyAvailable = groupGuests.some((g) => {
-            if (g.available_from && activity.date > g.available_from === false)
-              return false;
-            if (g.available_from && activity.date < g.available_from)
-              return false;
-            if (g.available_to && activity.date > g.available_to) return false;
-            return true;
-          });
-          if (!anyAvailable) continue;
+
+      if (!isAssignedHere) {
+        if (
+          morningPreachingGroupIds !== null &&
+          !morningPreachingGroupIds.has(group.id)
+        )
+          continue;
+
+        // Filter by the group's own availability window
+        if (group.available_from && activity.date < group.available_from)
+          continue;
+        if (group.available_to && activity.date > group.available_to) continue;
+
+        if (groupGuests.length > 0 && activity.date) {
+          const hasAvailabilityData = groupGuests.some(
+            (g) => g.available_from || g.available_to,
+          );
+          if (hasAvailabilityData) {
+            const anyAvailable = groupGuests.some((g) => {
+              if (g.available_from && activity.date > g.available_from === false)
+                return false;
+              if (g.available_from && activity.date < g.available_from)
+                return false;
+              if (g.available_to && activity.date > g.available_to) return false;
+              return true;
+            });
+            if (!anyAvailable) continue;
+          }
         }
       }
 
@@ -1327,12 +1335,12 @@ export class ActivitiesService {
         group_code: group.group_code,
         host_id: group.host_id,
         host_name: host?.name ?? null,
-        host_lat: host?.lat ?? null,
-        host_lng: host?.lng ?? null,
+        host_lat: dstLat,
+        host_lng: dstLng,
         distance_km:
           distance_km !== null ? Math.round(distance_km * 10) / 10 : null,
         guest_count: groupGuests.length,
-        already_in_activity: conflictingGroupIds.has(group.id),
+        already_in_activity: isAssignedHere || conflictingGroupIds.has(group.id),
         host_schedule_conflict: this.hasHostScheduleConflict(
           activity.date,
           activity.start_time,
@@ -1917,6 +1925,7 @@ export class ActivitiesService {
       const hostName = this.parseXlsxString(row['host_name']);
       let host_id: string | null = null;
       let host_name: string | null = null;
+      let activity_locations: LocationPoint[] | null = null;
       if (hostName) {
         const host = hosts.find(
           (h) => h.name.toLowerCase() === hostName.toLowerCase(),
@@ -1924,6 +1933,13 @@ export class ActivitiesService {
         if (host) {
           host_id = host.id;
           host_name = host.name;
+          const isFoodShiftRow =
+            forceFoodShift || this.parseXlsxBool(row['is_food_shift']);
+          if (isFoodShiftRow && host.lat !== null && host.lng !== null) {
+            activity_locations = [
+              { address: host.address ?? '', lat: host.lat, lng: host.lng },
+            ];
+          }
         } else {
           errors.push(
             `Fila ${rowNum}: congregación '${hostName}' no encontrada (se omite)`,
@@ -1947,7 +1963,7 @@ export class ActivitiesService {
         date: date!,
         start_time: start_time!,
         end_time: end_time!,
-        activity_locations: null,
+        activity_locations,
         image_key: null,
         is_preaching_shift:
           forcePreachingShift ||
@@ -2261,6 +2277,7 @@ export class ActivitiesService {
     const buffer = await createPdfBuffer({
       content,
       styles: SCHEDULE_PDF_STYLES,
+      header: buildScheduleHeader(region?.name),
       footer: (currentPage, pageCount) => ({
         text: `${currentPage} / ${pageCount}`,
         alignment: 'center',
@@ -2334,6 +2351,7 @@ export class ActivitiesService {
     const buffer = await createPdfBuffer({
       content,
       styles: SCHEDULE_PDF_STYLES,
+      header: buildScheduleHeader(region?.name),
       footer: (currentPage, pageCount) => ({
         text: `${currentPage} / ${pageCount}`,
         alignment: 'center',
@@ -2412,6 +2430,7 @@ export class ActivitiesService {
     const buffer = await createPdfBuffer({
       content,
       styles: SCHEDULE_PDF_STYLES,
+      header: buildScheduleHeader(),
       footer: (currentPage, pageCount) => ({
         text: `${currentPage} / ${pageCount}`,
         alignment: 'center',

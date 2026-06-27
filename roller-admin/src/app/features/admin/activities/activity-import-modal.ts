@@ -72,7 +72,12 @@ export class ActivityImportModalComponent {
             }
             this.buildEntries(activities);
           },
-          error: () => this.fileError.set('Error al procesar el archivo Excel.'),
+          error: (err: unknown) => {
+            const errBody = (err as { error?: { message?: string | string[] } })?.error;
+            const raw = errBody?.message;
+            const detail = Array.isArray(raw) ? raw.join('; ') : raw;
+            this.fileError.set(detail ? `Error: ${detail}` : 'Error al procesar el archivo Excel.');
+          },
         });
     } else {
       let activities: Activity[];
@@ -164,8 +169,9 @@ export class ActivityImportModalComponent {
         this.processNext(index + 1);
       },
       error: (err: unknown) => {
-        const msg =
-          (err as { error?: { message?: string } })?.error?.message ?? 'Error desconocido';
+        const errBody = (err as { error?: { message?: string | string[]; error?: string } })?.error;
+        const raw = errBody?.message;
+        const msg = Array.isArray(raw) ? raw.join('; ') : (raw ?? errBody?.error ?? 'Error desconocido');
         this.entries.update((list) => {
           const copy = [...list];
           copy[index] = { ...copy[index], status: 'error', error: msg };

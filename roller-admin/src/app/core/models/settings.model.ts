@@ -62,6 +62,17 @@ export interface UpdatePermissionsPayload {
   host_manager?: string[];
 }
 
+export interface CampaignSettings {
+  max_activities_per_group: number;
+  max_preaching_shifts_per_group: number;
+  updated_at: string;
+}
+
+export interface UpdateCampaignSettingsPayload {
+  max_activities_per_group?: number;
+  max_preaching_shifts_per_group?: number;
+}
+
 export interface DatabaseImportResult {
   tables: number;
   rows: number;

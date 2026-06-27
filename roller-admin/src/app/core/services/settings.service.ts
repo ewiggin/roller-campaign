@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import type {
+  CampaignSettings,
+  UpdateCampaignSettingsPayload,
   SmtpSettings,
   UpdateSmtpSettingsPayload,
   RolePermissions,
@@ -30,6 +32,14 @@ export class SettingsService {
 
   updatePermissions(payload: UpdatePermissionsPayload) {
     return this.http.patch<RolePermissions>('/api/settings/permissions', payload);
+  }
+
+  getCampaignSettings() {
+    return this.http.get<CampaignSettings>('/api/settings/campaign');
+  }
+
+  updateCampaignSettings(payload: UpdateCampaignSettingsPayload) {
+    return this.http.patch<CampaignSettings>('/api/settings/campaign', payload);
   }
 
   exportDatabase() {
