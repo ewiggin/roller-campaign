@@ -1,6 +1,6 @@
 {
   "name": "roller-desktop",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Roller Admin desktop bundle (Tauri v2 + NestJS sidecar)",
   "private": true,
   "scripts": {

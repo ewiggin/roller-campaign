@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.2] - 2026-06-27
+
+### Añadido
+
+- **Mapas desplegables en listados de actividades, turnos de predicación, turnos de comida y carros**: panel de mapa colapsable en la cabecera de cada listado que muestra las ubicaciones filtradas como puntos azules con el estilo de punto personalizado; mismo estilo aplicado al mapa de carros existente
+- **Mapa de grupos en el detalle de actividad**: diseño en dos columnas dentro de la pestaña Grupos (columna derecha de 440px, altura 520px fija); los grupos asignados se muestran como puntos naranja con líneas discontinuas y etiquetas de distancia al primer punto de la actividad; los grupos disponibles (no deshabilitados) aparecen como puntos grises y al clicar en uno se despliega una tarjeta de asignación bajo el mapa
+- **Sub-pestañas y mapa de invitados en grupos de predicación**: cada grupo de predicación expandido tiene ahora pestañas Voluntarios / Invitados / Carros en lugar del diseño apilado anterior; la pestaña Invitados usa el mismo diseño lista+mapa que la pestaña de grupos de la actividad
+- **Límites de actividad por grupo configurables desde Ajustes**: los superadmins pueden configurar `max_activities_per_group` y `max_preaching_shifts_per_group` desde la página de Ajustes; los valores se almacenan en la nueva tabla `campaign_settings` (migración incluida, valores por defecto 4); el backend valida los límites al asignar y devuelve los contadores al frontend para deshabilitar selectores y filtrar marcadores del mapa
+- **Logo y cabecera en PDFs de horario**: los PDFs de horario de grupo y de voluntario incluyen ahora logo y cabecera
+
+### Mejorado
+
+- **Importación de turnos de comida**: al importar un turno de comida, las coordenadas y dirección de la congregación coincidente se copian automáticamente en `activity_locations`; los mensajes de error del servidor (incluidos arrays de validación) se muestran correctamente en el modal de importación
+- **PDFs de horario**: la columna Lugar queda vacía para turnos de comida, ya que la dirección aparece en el campo de descripción
+- **Marcadores solapados distribuidos en espiral**: cuando varios grupos comparten las mismas coordenadas, los marcadores se distribuyen en espiral usando el ángulo dorado (137,5°) para que sean individualmente clicables; los marcadores grises y naranjas comparten el mismo contador de coordenadas para no solaparse entre sí
+- **Columnas Roles y Activo en la plantilla de importación de voluntarios**: ambas columnas estaban soportadas por el parser pero no se incluían en la plantilla generada; Roles acepta nombres separados por coma; Activo acepta Sí/Si/yes/1/true
+- **Límite por defecto de turnos de predicación corregido a 3**: `max_preaching_shifts_per_group` tenía un valor por defecto incorrecto de 4; se corrige a 3 en la migración, el servicio y los tests (el límite de actividades generales permanece en 4)
+
+---
+
 ## [0.4.1] - 2026-06-27
 
 ### Añadido
