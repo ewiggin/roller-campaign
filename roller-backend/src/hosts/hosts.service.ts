@@ -34,7 +34,15 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 const WEEKDAY_LABELS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 const DAY_ABBR_MAP: Record<string, number> = {
-  lun: 1, mar: 2, 'mié': 3, mie: 3, jue: 4, vie: 5, 'sáb': 6, sab: 6, dom: 7,
+  lun: 1,
+  mar: 2,
+  mié: 3,
+  mie: 3,
+  jue: 4,
+  vie: 5,
+  sáb: 6,
+  sab: 6,
+  dom: 7,
 };
 
 function parseMeetingDay(value: unknown): number | null {
@@ -59,7 +67,7 @@ function formatMeetingSchedule(
   day: number | null,
   time: string | null,
 ): string | null {
-  const label = day ? WEEKDAY_LABELS[day] ?? '' : '';
+  const label = day ? (WEEKDAY_LABELS[day] ?? '') : '';
   if (!time) return label || null;
   return label ? `${label} ${time}` : time;
 }
@@ -498,9 +506,13 @@ export class HostsService {
       h.address ?? '',
       h.lat ?? '',
       h.lng ?? '',
-      h.weekday_meeting_day ? WEEKDAY_LABELS[h.weekday_meeting_day] ?? '' : '',
+      h.weekday_meeting_day
+        ? (WEEKDAY_LABELS[h.weekday_meeting_day] ?? '')
+        : '',
       h.weekday_meeting_time ?? '',
-      h.weekend_meeting_day ? WEEKDAY_LABELS[h.weekend_meeting_day] ?? '' : '',
+      h.weekend_meeting_day
+        ? (WEEKDAY_LABELS[h.weekend_meeting_day] ?? '')
+        : '',
       h.weekend_meeting_time ?? '',
       h.capacity ?? '',
       h.group_count,

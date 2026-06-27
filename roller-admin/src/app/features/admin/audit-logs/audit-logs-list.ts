@@ -151,8 +151,8 @@ export class AuditLogsListComponent implements OnInit {
           );
           const csv = [headers.join(','), ...rows].join('\n');
           const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-          void downloadFile(blob, `audit-log-${new Date().toISOString().slice(0, 10)}.csv`).then(() =>
-            this.exporting.set(false),
+          void downloadFile(blob, `audit-log-${new Date().toISOString().slice(0, 10)}.csv`).then(
+            () => this.exporting.set(false),
           );
         },
         error: () => {

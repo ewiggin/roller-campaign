@@ -41,14 +41,14 @@ export class ActivityImportModalComponent {
   readonly parseErrors = signal<string[]>([]);
   readonly importing = signal(false);
 
-  readonly processedCount = computed(() =>
-    this.entries().filter(e => e.status === 'done' || e.status === 'error').length,
+  readonly processedCount = computed(
+    () => this.entries().filter((e) => e.status === 'done' || e.status === 'error').length,
   );
 
-  readonly errorCount = computed(() => this.entries().filter(e => e.status === 'error').length);
+  readonly errorCount = computed(() => this.entries().filter((e) => e.status === 'error').length);
 
-  readonly activeCount = computed(() =>
-    this.entries().filter(e => Object.values(e.sections).some(Boolean)).length,
+  readonly activeCount = computed(
+    () => this.entries().filter((e) => Object.values(e.sections).some(Boolean)).length,
   );
 
   async onFileChange(event: Event) {
@@ -58,20 +58,22 @@ export class ActivityImportModalComponent {
     this.parseErrors.set([]);
 
     if (file.name.toLowerCase().endsWith('.xlsx')) {
-      this.svc.parseExcelImport(file, {
-        is_preaching_shift: this.isPreachingShift || undefined,
-        is_food_shift: this.isFoodShift || undefined,
-      }).subscribe({
-        next: ({ activities, errors }) => {
-          this.parseErrors.set(errors);
-          if (!activities.length) {
-            this.fileError.set('El archivo no contiene filas válidas.');
-            return;
-          }
-          this.buildEntries(activities);
-        },
-        error: () => this.fileError.set('Error al procesar el archivo Excel.'),
-      });
+      this.svc
+        .parseExcelImport(file, {
+          is_preaching_shift: this.isPreachingShift || undefined,
+          is_food_shift: this.isFoodShift || undefined,
+        })
+        .subscribe({
+          next: ({ activities, errors }) => {
+            this.parseErrors.set(errors);
+            if (!activities.length) {
+              this.fileError.set('El archivo no contiene filas válidas.');
+              return;
+            }
+            this.buildEntries(activities);
+          },
+          error: () => this.fileError.set('Error al procesar el archivo Excel.'),
+        });
     } else {
       let activities: Activity[];
       try {
@@ -88,10 +90,10 @@ export class ActivityImportModalComponent {
 
   private buildEntries(activities: Activity[]) {
     this.svc.getAll({ limit: 500 }).subscribe({
-      next: res => {
-        const localIds = new Set(res.data.map(a => a.id));
+      next: (res) => {
+        const localIds = new Set(res.data.map((a) => a.id));
         this.entries.set(
-          activities.map(a => {
+          activities.map((a) => {
             const hasVols = (a.volunteers?.length ?? 0) > 0;
             const hasGroups = (a.guest_groups?.length ?? 0) > 0;
             const hasPG = (a.preaching_groups?.length ?? 0) > 0;
@@ -101,7 +103,12 @@ export class ActivityImportModalComponent {
               hasVolunteers: hasVols,
               hasGuestGroups: hasGroups,
               hasPreachingGroups: hasPG,
-              sections: { base: true, volunteers: hasVols, guestGroups: hasGroups, preachingGroups: hasPG },
+              sections: {
+                base: true,
+                volunteers: hasVols,
+                guestGroups: hasGroups,
+                preachingGroups: hasPG,
+              },
               status: 'idle',
               error: '',
             };
@@ -114,7 +121,7 @@ export class ActivityImportModalComponent {
   }
 
   toggleSection(index: number, section: keyof ImportSection) {
-    this.entries.update(list => {
+    this.entries.update((list) => {
       const copy = [...list];
       copy[index] = {
         ...copy[index],
@@ -159,7 +166,7 @@ export class ActivityImportModalComponent {
       error: (err: unknown) => {
         const msg =
           (err as { error?: { message?: string } })?.error?.message ?? 'Error desconocido';
-        this.entries.update(list => {
+        this.entries.update((list) => {
           const copy = [...list];
           copy[index] = { ...copy[index], status: 'error', error: msg };
           return copy;
@@ -226,39 +233,42 @@ export class ActivityImportModalComponent {
     }
 
     if (!ops.length) return of(null);
-    return from(ops).pipe(concatMap(op => op), last());
+    return from(ops).pipe(
+      concatMap((op) => op),
+      last(),
+    );
   }
 
   private importVolunteers(activity: Activity): Observable<unknown> {
     return this.svc.getAvailableVolunteers(activity.id).pipe(
-      concatMap(available => {
+      concatMap((available) => {
         const ops = (activity.volunteers ?? [])
-          .map(v => available.find(a => a.volunteer_code === v.volunteer_code))
+          .map((v) => available.find((a) => a.volunteer_code === v.volunteer_code))
           .filter((v): v is NonNullable<typeof v> => !!v)
-          .map(v =>
-            this.svc
-              .assignVolunteer(activity.id, v.id)
-              .pipe(catchError(() => of(null))),
-          );
+          .map((v) => this.svc.assignVolunteer(activity.id, v.id).pipe(catchError(() => of(null))));
         if (!ops.length) return of(null);
-        return from(ops).pipe(concatMap(op => op), last());
+        return from(ops).pipe(
+          concatMap((op) => op),
+          last(),
+        );
       }),
     );
   }
 
   private importGuestGroups(activity: Activity): Observable<unknown> {
     return this.svc.getAvailableGroups(activity.id).pipe(
-      concatMap(available => {
+      concatMap((available) => {
         const ops = (activity.guest_groups ?? [])
-          .map(g => available.find(a => a.group_code === g.group_code))
+          .map((g) => available.find((a) => a.group_code === g.group_code))
           .filter((g): g is NonNullable<typeof g> => !!g)
-          .map(g =>
-            this.svc
-              .assignGuestGroup(activity.id, g.id)
-              .pipe(catchError(() => of(null))),
+          .map((g) =>
+            this.svc.assignGuestGroup(activity.id, g.id).pipe(catchError(() => of(null))),
           );
         if (!ops.length) return of(null);
-        return from(ops).pipe(concatMap(op => op), last());
+        return from(ops).pipe(
+          concatMap((op) => op),
+          last(),
+        );
       }),
     );
   }
@@ -268,14 +278,14 @@ export class ActivityImportModalComponent {
   // so it includes any assignments done in the base/volunteers/groups steps above).
   private importPreachingGroups(activity: Activity): Observable<unknown> {
     return this.svc.getOne(activity.id).pipe(
-      concatMap(localActivity => {
-        const volMap = new Map(localActivity.volunteers.map(v => [v.volunteer_code, v.id]));
-        const groupMap = new Map(localActivity.guest_groups.map(g => [g.group_code, g.id]));
+      concatMap((localActivity) => {
+        const volMap = new Map(localActivity.volunteers.map((v) => [v.volunteer_code, v.id]));
+        const groupMap = new Map(localActivity.guest_groups.map((g) => [g.group_code, g.id]));
 
         return (activity.preaching_groups ?? []).reduce(
           (acc$: Observable<Activity>, importedGroup) =>
             acc$.pipe(
-              concatMap(current =>
+              concatMap((current) =>
                 this.importSinglePreachingGroup(current, importedGroup, volMap, groupMap),
               ),
             ),
@@ -291,16 +301,16 @@ export class ActivityImportModalComponent {
     volMap: Map<string, string>,
     groupMap: Map<string, string>,
   ): Observable<Activity> {
-    const existing = localActivity.preaching_groups.find(g => g.name === importedGroup.name);
+    const existing = localActivity.preaching_groups.find((g) => g.name === importedGroup.name);
 
     const ensureGroup$: Observable<{ groupId: string; current: Activity }> = existing
       ? of({ groupId: existing.id, current: localActivity })
       : this.svc.addPreachingGroup(localActivity.id, importedGroup.name).pipe(
-          map(updated => {
+          map((updated) => {
             const created = updated.preaching_groups.find(
-              g =>
+              (g) =>
                 g.name === importedGroup.name &&
-                !localActivity.preaching_groups.some(e => e.id === g.id),
+                !localActivity.preaching_groups.some((e) => e.id === g.id),
             );
             return { groupId: created?.id ?? '', current: updated };
           }),
@@ -309,26 +319,26 @@ export class ActivityImportModalComponent {
     return ensureGroup$.pipe(
       concatMap(({ groupId, current }) => {
         if (!groupId) return of(current);
-        const currentGroup = current.preaching_groups.find(g => g.id === groupId);
+        const currentGroup = current.preaching_groups.find((g) => g.id === groupId);
         if (!currentGroup) return of(current);
 
-        const existingVolCodes = new Set(currentGroup.volunteers.map(v => v.volunteer_code));
+        const existingVolCodes = new Set(currentGroup.volunteers.map((v) => v.volunteer_code));
         const volOps = importedGroup.volunteers
-          .filter(v => !existingVolCodes.has(v.volunteer_code))
-          .map(v => volMap.get(v.volunteer_code))
+          .filter((v) => !existingVolCodes.has(v.volunteer_code))
+          .map((v) => volMap.get(v.volunteer_code))
           .filter((id): id is string => !!id)
-          .map(id =>
+          .map((id) =>
             this.svc
               .assignVolunteerToGroup(localActivity.id, groupId, id)
               .pipe(catchError(() => of(current))),
           );
 
-        const existingGroupCodes = new Set(currentGroup.guest_groups.map(g => g.group_code));
+        const existingGroupCodes = new Set(currentGroup.guest_groups.map((g) => g.group_code));
         const groupOps = importedGroup.guest_groups
-          .filter(g => !existingGroupCodes.has(g.group_code))
-          .map(g => groupMap.get(g.group_code))
+          .filter((g) => !existingGroupCodes.has(g.group_code))
+          .map((g) => groupMap.get(g.group_code))
           .filter((id): id is string => !!id)
-          .map(id =>
+          .map((id) =>
             this.svc
               .assignGuestGroupToGroup(localActivity.id, groupId, id)
               .pipe(catchError(() => of(current))),
@@ -337,16 +347,16 @@ export class ActivityImportModalComponent {
         const allOps = [...volOps, ...groupOps];
         if (!allOps.length) return of(current);
         return from(allOps).pipe(
-          concatMap(op => op),
+          concatMap((op) => op),
           last(),
-          map(result => (result as Activity) ?? current),
+          map((result) => (result as Activity) ?? current),
         );
       }),
     );
   }
 
   private setStatus(index: number, status: ImportEntry['status']) {
-    this.entries.update(list => {
+    this.entries.update((list) => {
       const copy = [...list];
       copy[index] = { ...copy[index], status };
       return copy;

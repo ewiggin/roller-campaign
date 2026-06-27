@@ -1730,7 +1730,9 @@ describe('Activities (e2e)', () => {
         })
         .expect(201);
       expect(
-        res.body.every((a: { is_food_shift: boolean }) => a.is_food_shift === true),
+        res.body.every(
+          (a: { is_food_shift: boolean }) => a.is_food_shift === true,
+        ),
       ).toBe(true);
     });
 
@@ -1747,7 +1749,9 @@ describe('Activities (e2e)', () => {
         .expect(200);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
       expect(
-        res.body.data.every((a: { is_food_shift: boolean }) => a.is_food_shift === true),
+        res.body.data.every(
+          (a: { is_food_shift: boolean }) => a.is_food_shift === true,
+        ),
       ).toBe(true);
     });
 
@@ -1759,7 +1763,9 @@ describe('Activities (e2e)', () => {
         .expect(200);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
       expect(
-        res.body.data.every((a: { is_food_shift: boolean }) => a.is_food_shift === false),
+        res.body.data.every(
+          (a: { is_food_shift: boolean }) => a.is_food_shift === false,
+        ),
       ).toBe(true);
     });
   });

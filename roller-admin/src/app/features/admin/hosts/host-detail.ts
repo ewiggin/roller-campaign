@@ -159,7 +159,10 @@ export class HostDetailComponent implements OnInit {
     this.downloading.set(true);
     this.svc.downloadGuestsExcel(h.id).subscribe({
       next: async (blob) => {
-        await downloadFile(blob, `invitados-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.xlsx`);
+        await downloadFile(
+          blob,
+          `invitados-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.xlsx`,
+        );
         this.downloading.set(false);
       },
       error: () => this.downloading.set(false),
@@ -172,7 +175,10 @@ export class HostDetailComponent implements OnInit {
     this.downloadingSchedulePdf.set(true);
     this.activitiesSvc.exportHostSchedulesPdf(h.id).subscribe({
       next: async (blob) => {
-        await downloadFile(blob, `calendario-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
+        await downloadFile(
+          blob,
+          `calendario-${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`,
+        );
         this.downloadingSchedulePdf.set(false);
       },
       error: () => this.downloadingSchedulePdf.set(false),

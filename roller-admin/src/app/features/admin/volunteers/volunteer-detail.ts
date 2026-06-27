@@ -78,7 +78,13 @@ const DAYS: {
 
 @Component({
   selector: 'app-volunteer-detail',
-  imports: [RouterLink, ReactiveFormsModule, LocationPickerComponent, SearchableSelectComponent, DatePipe],
+  imports: [
+    RouterLink,
+    ReactiveFormsModule,
+    LocationPickerComponent,
+    SearchableSelectComponent,
+    DatePipe,
+  ],
   providers: [DatePipe],
   templateUrl: './volunteer-detail.html',
 })

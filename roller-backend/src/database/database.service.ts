@@ -75,7 +75,11 @@ export class DatabaseService {
     }
     const dataByTable = new Map<string, Record<string, unknown>[]>();
     for (const table of (data as DatabaseExport).tables) {
-      if (!table || typeof table.name !== 'string' || !Array.isArray(table.rows)) {
+      if (
+        !table ||
+        typeof table.name !== 'string' ||
+        !Array.isArray(table.rows)
+      ) {
         throw new BadRequestException(
           'El archivo de importación no es válido.',
         );
@@ -104,7 +108,9 @@ export class DatabaseService {
         if (!rows || rows.length === 0) continue;
         const columns = meta.columns
           .map((c) => c.databaseName)
-          .filter((name) => Object.prototype.hasOwnProperty.call(rows[0], name));
+          .filter((name) =>
+            Object.prototype.hasOwnProperty.call(rows[0], name),
+          );
         if (columns.length === 0) continue;
 
         for (let i = 0; i < rows.length; i += INSERT_CHUNK_SIZE) {

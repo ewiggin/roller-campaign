@@ -76,7 +76,8 @@ describe('Places (e2e)', () => {
 
     it('returns empty array on ZERO_RESULTS', async () => {
       fetchSpy.mockResolvedValue({
-        json: () => Promise.resolve({ status: 'ZERO_RESULTS', predictions: [] }),
+        json: () =>
+          Promise.resolve({ status: 'ZERO_RESULTS', predictions: [] }),
       } as Response);
 
       const res = await request(server)

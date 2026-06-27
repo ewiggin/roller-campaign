@@ -30,7 +30,10 @@ export class VolunteerCongregationDto {
   @ApiProperty({ example: 'Congregación Olot' })
   name: string;
 
-  @ApiPropertyOptional({ example: 'Carrer Major, 1, 17800 Olot', nullable: true })
+  @ApiPropertyOptional({
+    example: 'Carrer Major, 1, 17800 Olot',
+    nullable: true,
+  })
   address: string | null;
 
   @ApiPropertyOptional({ example: 42.1837, nullable: true })
