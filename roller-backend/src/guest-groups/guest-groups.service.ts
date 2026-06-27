@@ -90,6 +90,8 @@ export class GuestGroupsService {
     languages: string[] = [],
     compositions: string[] = [],
     hasCars?: boolean,
+    hostId?: string,
+    noHost?: boolean,
   ): Promise<{
     data: GuestGroupResponseDto[];
     total: number;
@@ -165,6 +167,12 @@ export class GuestGroupsService {
       query.andWhere('gg.car_count IS NOT NULL AND gg.car_count > 0');
     } else if (hasCars === false) {
       query.andWhere('(gg.car_count IS NULL OR gg.car_count = 0)');
+    }
+
+    if (noHost) {
+      query.andWhere('gg.host_id IS NULL');
+    } else if (hostId) {
+      query.andWhere('gg.host_id = :hostId', { hostId });
     }
 
     const [total, availableLanguages] = await Promise.all([

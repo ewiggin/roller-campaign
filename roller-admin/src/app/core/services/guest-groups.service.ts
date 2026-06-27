@@ -31,6 +31,8 @@ export class GuestGroupsService {
       languages?: string[];
       compositions?: string[];
       hasCars?: boolean;
+      hostId?: string;
+      noHost?: boolean;
     } = {},
   ) {
     let params = new HttpParams();
@@ -43,6 +45,8 @@ export class GuestGroupsService {
     if (query.compositions?.length)
       params = params.set('compositions', query.compositions.join(','));
     if (query.hasCars !== undefined) params = params.set('hasCars', String(query.hasCars));
+    if (query.noHost) params = params.set('noHost', 'true');
+    else if (query.hostId) params = params.set('hostId', query.hostId);
     return this.http.get<GuestGroupListResponse>('/api/guest-groups', { params });
   }
 

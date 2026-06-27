@@ -92,6 +92,14 @@ export class GuestGroupsListComponent implements OnInit {
   readonly recomputing = signal(false);
   readonly downloadingSchedulePdf = signal<string | null>(null);
 
+  // Congregation filter
+  readonly filterHost = signal('');
+  readonly filterHosts = signal<Host[]>([]);
+  readonly filterHostItems = computed(() => [
+    { value: '__none__', label: 'None' },
+    ...this.filterHosts().map((h) => ({ value: h.id, label: h.name })),
+  ]);
+
   // Planning mode
   readonly planningMode = signal(false);
   readonly expandedScheduleIds = signal<Set<string>>(new Set());
@@ -227,6 +235,7 @@ export class GuestGroupsListComponent implements OnInit {
   readonly compDropdownOpen = signal(false);
   readonly hasActiveFilters = computed(
     () =>
+      !!this.filterHost() ||
       this.minCarSeats() > 0 ||
       this.selectedLanguages().length > 0 ||
       this.selectedCompositions().length > 0 ||
@@ -263,6 +272,7 @@ export class GuestGroupsListComponent implements OnInit {
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
         this.regions.set(r);
+        this.loadFilterHosts();
         this.loadGroups();
       },
       error: () => {
@@ -270,6 +280,11 @@ export class GuestGroupsListComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  private loadFilterHosts() {
+    const regionId = this.selectedRegionId() || undefined;
+    this.hostsSvc.getAll(regionId).subscribe({ next: (h) => this.filterHosts.set(h) });
   }
 
   onSearchInput(value: string) {
@@ -281,9 +296,10 @@ export class GuestGroupsListComponent implements OnInit {
     }, 300);
   }
 
-  private loadGroups() {
+  loadGroups() {
     this.loading.set(true);
     const search = this.searchCode().trim() || undefined;
+    const host = this.filterHost();
     this.svc
       .getAll({
         regionId: this.selectedRegionId() || undefined,
@@ -295,6 +311,8 @@ export class GuestGroupsListComponent implements OnInit {
         compositions:
           this.selectedCompositions().length > 0 ? this.selectedCompositions() : undefined,
         hasCars: this.hasCars(),
+        hostId: host && host !== '__none__' ? host : undefined,
+        noHost: host === '__none__' ? true : undefined,
       })
       .subscribe({
         next: (res) => {
@@ -312,11 +330,13 @@ export class GuestGroupsListComponent implements OnInit {
 
   selectRegion(id: string) {
     this.selectedRegionId.set(id);
+    this.filterHost.set('');
     this.page.set(1);
     this.searchCode.set('');
     this.selectedLanguages.set([]);
     this.selectedCompositions.set([]);
     this.minCarSeats.set(0);
+    this.loadFilterHosts();
     this.loadGroups();
   }
 
@@ -353,6 +373,7 @@ export class GuestGroupsListComponent implements OnInit {
   }
 
   clearFilters() {
+    this.filterHost.set('');
     this.minCarSeats.set(0);
     this.selectedLanguages.set([]);
     this.selectedCompositions.set([]);
