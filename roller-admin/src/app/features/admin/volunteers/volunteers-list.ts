@@ -95,6 +95,8 @@ export class VolunteersListComponent implements OnInit {
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
 
+  readonly downloadingSchedulePdf = signal<string | null>(null);
+
   // Planning mode
   readonly planningMode = signal(false);
   readonly expandedScheduleIds = signal<Set<string>>(new Set());
@@ -389,6 +391,18 @@ export class VolunteersListComponent implements OnInit {
           );
         },
       });
+  }
+
+  downloadSchedulePdf(vol: VolunteerSummary) {
+    if (this.downloadingSchedulePdf()) return;
+    this.downloadingSchedulePdf.set(vol.id);
+    this.activitiesSvc.exportVolunteerSchedulePdf(vol.id).subscribe({
+      next: async (blob) => {
+        await downloadFile(blob, `calendario-${vol.volunteer_code.toLowerCase()}.pdf`);
+        this.downloadingSchedulePdf.set(null);
+      },
+      error: () => this.downloadingSchedulePdf.set(null),
+    });
   }
 
   // ── Import modal ───────────────────────────────────────────────────────────

@@ -248,6 +248,12 @@ export class ActivitiesService {
     });
   }
 
+  exportVolunteerSchedulePdf(volunteerId: string) {
+    return this.http.get(`/api/activities/export/schedule-pdf?volunteerId=${volunteerId}`, {
+      responseType: 'blob',
+    });
+  }
+
   exportHostSchedulesPdf(hostId: string) {
     return this.http.get(`/api/activities/export/schedule-pdf?hostId=${hostId}`, {
       responseType: 'blob',

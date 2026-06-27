@@ -70,6 +70,11 @@ function locationsText(locations: LocationPoint[]): string {
   return locations.map((l) => l.address).join('\n');
 }
 
+export interface ScheduleVolunteerInfo {
+  volunteer_code: string;
+  full_name: string;
+}
+
 export interface BuildGroupScheduleContentOptions {
   /** Show composition, guest count and host as a subtitle under the group title. Defaults to true. */
   showGroupInfo?: boolean;
@@ -176,6 +181,83 @@ export function buildGroupScheduleContent(
           text: activity.preaching_group_name,
           style: 'activityMeta',
         });
+      }
+      if (activity.description) {
+        nameStack.push({ text: activity.description, style: 'activityMeta' });
+      }
+
+      body.push([
+        { text: timeText, style: 'tableCell' },
+        { stack: nameStack },
+        { text: locationsText(activity.locations), style: 'tableCell' },
+      ]);
+    }
+  }
+
+  content.push({
+    table: { headerRows: 1, widths: [70, '*', '*'], body },
+    layout: cellLayout,
+    margin: [0, 0, 0, 12],
+  });
+
+  return content;
+}
+
+export function buildVolunteerScheduleContent(
+  volunteer: ScheduleVolunteerInfo,
+  days: string[],
+  activities: ScheduleActivityItem[],
+): Content[] {
+  const content: Content[] = [];
+
+  content.push({ text: `${volunteer.volunteer_code} – ${volunteer.full_name}`, style: 'groupTitle' });
+  content.push({ text: '', style: 'groupSubtitle' });
+
+  if (days.length === 0) {
+    content.push({ text: 'No hay actividades programadas para este voluntario.' });
+    return content;
+  }
+
+  const activitiesByDay = new Map<string, ScheduleActivityItem[]>();
+  for (const activity of activities) {
+    const list = activitiesByDay.get(activity.date) ?? [];
+    list.push(activity);
+    activitiesByDay.set(activity.date, list);
+  }
+
+  const body: ContentTable['table']['body'] = [
+    [
+      { text: 'Hora', style: 'tableHeader' },
+      { text: 'Actividad', style: 'tableHeader' },
+      { text: 'Lugar', style: 'tableHeader' },
+    ],
+  ];
+
+  for (const day of days) {
+    body.push([
+      { text: dayLabel(day), style: 'dayHeader', colSpan: 3 },
+      {},
+      {},
+    ]);
+
+    const dayActivities = activitiesByDay.get(day) ?? [];
+    if (dayActivities.length === 0) {
+      body.push([
+        { text: 'Sin actividades programadas', style: 'emptyCell', colSpan: 3 },
+        {},
+        {},
+      ]);
+      continue;
+    }
+
+    for (const activity of dayActivities) {
+      const timeText = activity.end_time
+        ? `${activity.start_time} - ${activity.end_time}`
+        : activity.start_time;
+
+      const nameStack: Content[] = [{ text: activity.name, style: 'activityName' }];
+      if (activity.is_preaching_shift && activity.preaching_group_name) {
+        nameStack.push({ text: activity.preaching_group_name, style: 'activityMeta' });
       }
       if (activity.description) {
         nameStack.push({ text: activity.description, style: 'activityMeta' });

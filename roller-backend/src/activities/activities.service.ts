@@ -19,6 +19,7 @@ import { User } from '../users/entities/user.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import {
   buildGroupScheduleContent,
+  buildVolunteerScheduleContent,
   SCHEDULE_PDF_STYLES,
   ScheduleActivityItem,
 } from './schedule-pdf.util';
@@ -2258,5 +2259,69 @@ export class ActivitiesService {
 
     const safeName = host.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     return { buffer, filename: `calendario-${safeName}.pdf` };
+  }
+
+  async exportVolunteerSchedulePdf(
+    volunteerId: string,
+    currentUser: JwtPayload,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const volunteer = await this.volunteersRepo.findOne({ where: { id: volunteerId } });
+    if (!volunteer) throw new NotFoundException('Voluntario no encontrado');
+
+    const activities = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.volunteers', 'vol', 'vol.id = :volunteerId', { volunteerId })
+      .orderBy('a.date', 'ASC')
+      .addOrderBy('a.start_time', 'ASC')
+      .getMany();
+
+    let filtered = activities;
+    if (currentUser.role !== 'superadmin') {
+      const user = await this.usersRepo.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      const allowedIds = new Set((user?.regions ?? []).map((r) => r.id));
+      filtered = activities.filter((a) => allowedIds.has(a.region_id));
+    }
+
+    const preachingShiftIds = filtered.filter((a) => a.is_preaching_shift).map((a) => a.id);
+    const turnoNames = await this.getVolunteerPreachingGroupNames(preachingShiftIds, volunteerId);
+
+    const items: ScheduleActivityItem[] = filtered.map((a) => ({
+      date: a.date,
+      start_time: a.start_time,
+      end_time: a.end_time,
+      name: a.name,
+      description: a.description,
+      locations: a.activity_locations ?? [],
+      is_preaching_shift: a.is_preaching_shift,
+      is_food_shift: a.is_food_shift,
+      preaching_group_name: a.is_preaching_shift ? turnoNames.get(a.id) ?? null : null,
+      status: a.status as 'draft' | 'published',
+    }));
+
+    const days = this.computeScheduleDays(null, items);
+
+    const content = buildVolunteerScheduleContent(
+      { volunteer_code: volunteer.volunteer_code, full_name: volunteer.full_name },
+      days,
+      items,
+    );
+
+    const buffer = await createPdfBuffer({
+      content,
+      styles: SCHEDULE_PDF_STYLES,
+      footer: (currentPage, pageCount) => ({
+        text: `${currentPage} / ${pageCount}`,
+        alignment: 'center',
+        fontSize: 8,
+        color: '#999999',
+        margin: [0, 10, 0, 0],
+      }),
+    });
+
+    const safeCode = volunteer.volunteer_code.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return { buffer, filename: `calendario-${safeCode}.pdf` };
   }
 }

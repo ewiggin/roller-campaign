@@ -113,22 +113,30 @@ export class ActivitiesController {
   @ApiOkResponse({
     description:
       'PDF con el calendario de actividades y turnos de predicación. ' +
-      'Usar groupId para un grupo concreto o hostId para todos los grupos ' +
-      'de una congregación (una página por grupo).',
+      'Usar groupId para un grupo concreto, hostId para todos los grupos ' +
+      'de una congregación (una página por grupo), o volunteerId para un voluntario.',
   })
   async exportSchedulePdf(
     @Query('groupId') groupId: string | undefined,
     @Query('hostId') hostId: string | undefined,
+    @Query('volunteerId') volunteerId: string | undefined,
     @CurrentUser() user: JwtPayload,
     @Res() res: Response,
   ): Promise<void> {
-    if (!groupId && !hostId) {
-      throw new BadRequestException('groupId o hostId es obligatorio');
+    if (!groupId && !hostId && !volunteerId) {
+      throw new BadRequestException('groupId, hostId o volunteerId es obligatorio');
     }
 
-    const { buffer, filename } = groupId
-      ? await this.svc.exportGroupSchedulePdf(groupId, user)
-      : await this.svc.exportHostSchedulesPdf(hostId!, user);
+    let buffer: Buffer;
+    let filename: string;
+
+    if (groupId) {
+      ({ buffer, filename } = await this.svc.exportGroupSchedulePdf(groupId, user));
+    } else if (volunteerId) {
+      ({ buffer, filename } = await this.svc.exportVolunteerSchedulePdf(volunteerId, user));
+    } else {
+      ({ buffer, filename } = await this.svc.exportHostSchedulesPdf(hostId!, user));
+    }
 
     res.set({
       'Content-Type': 'application/pdf',
