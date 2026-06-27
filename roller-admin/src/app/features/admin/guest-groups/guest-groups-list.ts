@@ -21,17 +21,31 @@ import type {
 import type { Guest } from '../../../core/models/guest.model';
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
-import { ActivitiesService, type GroupScheduleActivity } from '../../../core/services/activities.service';
+import {
+  ActivitiesService,
+  type GroupScheduleActivity,
+} from '../../../core/services/activities.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { GuestGroupsService } from '../../../core/services/guest-groups.service';
 import { GuestsService } from '../../../core/services/guests.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { downloadFile } from '../../../core/utils/download-file';
-import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
+import {
+  MenuButtonComponent,
+  type MenuItem,
+} from '../../../shared/components/menu-button/menu-button';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
-type ActiveModal = 'create' | 'guests' | 'import' | 'assign-host' | 'edit' | 'truncate' | null;
+type ActiveModal =
+  | 'create'
+  | 'guests'
+  | 'import'
+  | 'assign-host'
+  | 'edit'
+  | 'truncate'
+  | 'delete-filtered'
+  | null;
 
 export const COMPOSITION_LABELS: Record<GroupComposition, string> = {
   men_only: 'Men only',
@@ -48,7 +62,14 @@ interface GroupScheduleState {
 
 @Component({
   selector: 'app-guest-groups-list',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, DecimalPipe, SearchableSelectComponent, MenuButtonComponent],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    DatePipe,
+    DecimalPipe,
+    SearchableSelectComponent,
+    MenuButtonComponent,
+  ],
   templateUrl: './guest-groups-list.html',
 })
 export class GuestGroupsListComponent implements OnInit {
@@ -70,6 +91,11 @@ export class GuestGroupsListComponent implements OnInit {
     { label: 'Import Excel', action: () => this.openImport() },
   ]);
 
+  readonly deleteMenuItems = computed<MenuItem[]>(() => [
+    { label: 'Delete all', action: () => this.openTruncate() },
+    { label: 'Delete current filter', action: () => this.openDeleteFiltered() },
+  ]);
+
   readonly regions = signal<Region[]>([]);
   readonly groups = signal<GuestGroup[]>([]);
   readonly loading = signal(true);
@@ -89,8 +115,32 @@ export class GuestGroupsListComponent implements OnInit {
   readonly formError = signal('');
   readonly truncating = signal(false);
   readonly truncateConfirmText = signal('');
+
+  readonly activeFilterSummary = computed(() => {
+    const parts: string[] = [];
+    const region = this.regionName();
+    if (region) parts.push(`Region: ${region}`);
+    const search = this.searchCode().trim();
+    if (search) parts.push(`Search: "${search}"`);
+    const hostVal = this.filterHost();
+    if (hostVal === '__none__') {
+      parts.push('Congregation: None');
+    } else if (hostVal) {
+      const name = this.filterHosts().find((h) => h.id === hostVal)?.name;
+      if (name) parts.push(`Congregation: ${name}`);
+    }
+    return parts.join(' · ');
+  });
   readonly recomputing = signal(false);
   readonly downloadingSchedulePdf = signal<string | null>(null);
+
+  // Congregation filter
+  readonly filterHost = signal('');
+  readonly filterHosts = signal<Host[]>([]);
+  readonly filterHostItems = computed(() => [
+    { value: '__none__', label: 'None' },
+    ...this.filterHosts().map((h) => ({ value: h.id, label: h.name })),
+  ]);
 
   // Planning mode
   readonly planningMode = signal(false);
@@ -227,6 +277,7 @@ export class GuestGroupsListComponent implements OnInit {
   readonly compDropdownOpen = signal(false);
   readonly hasActiveFilters = computed(
     () =>
+      !!this.filterHost() ||
       this.minCarSeats() > 0 ||
       this.selectedLanguages().length > 0 ||
       this.selectedCompositions().length > 0 ||
@@ -263,6 +314,7 @@ export class GuestGroupsListComponent implements OnInit {
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
         this.regions.set(r);
+        this.loadFilterHosts();
         this.loadGroups();
       },
       error: () => {
@@ -270,6 +322,11 @@ export class GuestGroupsListComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  private loadFilterHosts() {
+    const regionId = this.selectedRegionId() || undefined;
+    this.hostsSvc.getAll(regionId).subscribe({ next: (h) => this.filterHosts.set(h) });
   }
 
   onSearchInput(value: string) {
@@ -281,9 +338,10 @@ export class GuestGroupsListComponent implements OnInit {
     }, 300);
   }
 
-  private loadGroups() {
+  loadGroups() {
     this.loading.set(true);
     const search = this.searchCode().trim() || undefined;
+    const host = this.filterHost();
     this.svc
       .getAll({
         regionId: this.selectedRegionId() || undefined,
@@ -295,6 +353,8 @@ export class GuestGroupsListComponent implements OnInit {
         compositions:
           this.selectedCompositions().length > 0 ? this.selectedCompositions() : undefined,
         hasCars: this.hasCars(),
+        hostId: host && host !== '__none__' ? host : undefined,
+        noHost: host === '__none__' ? true : undefined,
       })
       .subscribe({
         next: (res) => {
@@ -312,11 +372,13 @@ export class GuestGroupsListComponent implements OnInit {
 
   selectRegion(id: string) {
     this.selectedRegionId.set(id);
+    this.filterHost.set('');
     this.page.set(1);
     this.searchCode.set('');
     this.selectedLanguages.set([]);
     this.selectedCompositions.set([]);
     this.minCarSeats.set(0);
+    this.loadFilterHosts();
     this.loadGroups();
   }
 
@@ -353,6 +415,7 @@ export class GuestGroupsListComponent implements OnInit {
   }
 
   clearFilters() {
+    this.filterHost.set('');
     this.minCarSeats.set(0);
     this.selectedLanguages.set([]);
     this.selectedCompositions.set([]);
@@ -616,7 +679,12 @@ export class GuestGroupsListComponent implements OnInit {
       },
       error: () => {
         const m2 = new Map(this.groupSchedules());
-        m2.set(groupId, { days: [], activities: [], loading: false, error: 'Error al cargar el planning.' });
+        m2.set(groupId, {
+          days: [],
+          activities: [],
+          loading: false,
+          error: 'Error al cargar el planning.',
+        });
         this.groupSchedules.set(m2);
       },
     });
@@ -627,7 +695,11 @@ export class GuestGroupsListComponent implements OnInit {
     return [...times].sort();
   }
 
-  getActivitiesForCell(activities: GroupScheduleActivity[], day: string, time: string): GroupScheduleActivity[] {
+  getActivitiesForCell(
+    activities: GroupScheduleActivity[],
+    day: string,
+    time: string,
+  ): GroupScheduleActivity[] {
     return activities.filter((a) => a.date === day && a.start_time === time);
   }
 
@@ -710,6 +782,11 @@ export class GuestGroupsListComponent implements OnInit {
     this.activeModal.set('truncate');
   }
 
+  openDeleteFiltered() {
+    this.truncateConfirmText.set('');
+    this.activeModal.set('delete-filtered');
+  }
+
   confirmTruncate() {
     if (this.truncateConfirmText() !== 'DELETE' || this.truncating()) return;
     this.truncating.set(true);
@@ -721,6 +798,27 @@ export class GuestGroupsListComponent implements OnInit {
       },
       error: () => this.truncating.set(false),
     });
+  }
+
+  confirmDeleteFiltered() {
+    if (this.truncateConfirmText() !== 'DELETE' || this.truncating()) return;
+    this.truncating.set(true);
+    const host = this.filterHost();
+    this.svc
+      .deleteFiltered({
+        regionId: this.selectedRegionId() || undefined,
+        search: this.searchCode().trim() || undefined,
+        hostId: host && host !== '__none__' ? host : undefined,
+        noHost: host === '__none__' ? true : undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.truncating.set(false);
+          this.activeModal.set(null);
+          this.loadGroups();
+        },
+        error: () => this.truncating.set(false),
+      });
   }
 
   closeModal() {

@@ -227,23 +227,27 @@ export class ActivitiesService {
   // ── Group schedule (JSON) ─────────────────────────────────────────────────
 
   getGroupSchedule(groupId: string) {
-    return this.http.get<GroupScheduleResponse>(
-      `/api/activities/group-schedule`,
-      { params: new HttpParams().set('groupId', groupId) },
-    );
+    return this.http.get<GroupScheduleResponse>(`/api/activities/group-schedule`, {
+      params: new HttpParams().set('groupId', groupId),
+    });
   }
 
   getVolunteerSchedule(volunteerId: string) {
-    return this.http.get<GroupScheduleResponse>(
-      `/api/activities/volunteer-schedule`,
-      { params: new HttpParams().set('volunteerId', volunteerId) },
-    );
+    return this.http.get<GroupScheduleResponse>(`/api/activities/volunteer-schedule`, {
+      params: new HttpParams().set('volunteerId', volunteerId),
+    });
   }
 
   // ── Schedule PDF export ───────────────────────────────────────────────────
 
   exportGroupSchedulePdf(groupId: string) {
     return this.http.get(`/api/activities/export/schedule-pdf?groupId=${groupId}`, {
+      responseType: 'blob',
+    });
+  }
+
+  exportVolunteerSchedulePdf(volunteerId: string) {
+    return this.http.get(`/api/activities/export/schedule-pdf?volunteerId=${volunteerId}`, {
       responseType: 'blob',
     });
   }

@@ -316,7 +316,12 @@
           [class.pointer-events-none]="dbImporting()"
         >
           {{ dbImporting() ? 'Importando…' : 'Importar base de datos' }}
-          <input type="file" accept=".json" class="hidden" (change)="onImportFileSelected($event)" />
+          <input
+            type="file"
+            accept=".json"
+            class="hidden"
+            (change)="onImportFileSelected($event)"
+          />
         </label>
         @if (dbImportError()) {
           <p class="mt-3 text-sm text-red-600 dark:text-red-400">{{ dbImportError() }}</p>
@@ -374,15 +379,17 @@
       </h3>
       <p class="text-sm text-gray-500 dark:text-zinc-400 mb-4">
         Borra
-        <span class="font-semibold text-red-600 dark:text-red-400">absolutamente todos los datos</span>:
-        usuarios, configuración, regiones, invitados, voluntarios, actividades y demás. La aplicación
-        quedará como recién instalada. Esta acción es irreversible.
+        <span class="font-semibold text-red-600 dark:text-red-400"
+          >absolutamente todos los datos</span
+        >: usuarios, configuración, regiones, invitados, voluntarios, actividades y demás. La
+        aplicación quedará como recién instalada. Esta acción es irreversible.
       </p>
 
       @if (!dbResetDone()) {
         <div class="space-y-3">
           <label class="block text-xs font-medium text-gray-600 dark:text-zinc-400">
-            Escribe <span class="font-mono font-bold text-red-600 dark:text-red-400">CONFIRMAR</span>
+            Escribe
+            <span class="font-mono font-bold text-red-600 dark:text-red-400">CONFIRMAR</span>
             para habilitar el botón
           </label>
           <input
@@ -408,7 +415,9 @@
           }
         </div>
       } @else {
-        <div class="rounded-lg bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800 px-4 py-3">
+        <div
+          class="rounded-lg bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800 px-4 py-3"
+        >
           <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-1">
             Base de datos reiniciada correctamente.
           </p>

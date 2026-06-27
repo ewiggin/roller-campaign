@@ -15,6 +15,20 @@ roller-campaign/
 
 ---
 
+## Idioma de la interfaz
+
+Todo el texto visible en la UI (labels, botones, mensajes, placeholders, títulos de modal, confirmaciones) debe estar en **inglés**. Esto aplica a roller-admin, roller-client y cualquier otro frontend del monorepo.
+
+---
+
+## Antes de hacer commit
+
+1. **Formatear** el código de los proyectos modificados (`npm run format`).
+2. **Pasar los tests** de los proyectos modificados (`npm test -- --run` en frontend, `npm test` en backend). No hacer commit si algún test falla.
+3. **Comprobar TypeScript** sin errores (`npx tsc --noEmit`).
+
+---
+
 ## Formato
 
 Después de escribir o modificar código, ejecuta siempre el formateador del proyecto afectado:

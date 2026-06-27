@@ -16,14 +16,24 @@ import { GuestGroupsService } from '../../../core/services/guest-groups.service'
 import { GuestsService } from '../../../core/services/guests.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { downloadFile } from '../../../core/utils/download-file';
-import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
+import {
+  MenuButtonComponent,
+  type MenuItem,
+} from '../../../shared/components/menu-button/menu-button';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 const STATUSES: GuestStatus[] = ['pending', 'confirmed', 'cancelled', 'arrived', 'blocked'];
 
 @Component({
   selector: 'app-guests-list',
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, DatePipe, SearchableSelectComponent, MenuButtonComponent],
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    RouterLink,
+    DatePipe,
+    SearchableSelectComponent,
+    MenuButtonComponent,
+  ],
   templateUrl: './guests-list.html',
 })
 export class GuestsListComponent implements OnInit {

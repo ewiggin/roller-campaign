@@ -36,7 +36,9 @@ export class DatabaseController {
 
   @Get('export')
   @Audit('export', 'settings')
-  @ApiOkResponse({ description: 'Volcado completo de la base de datos en JSON' })
+  @ApiOkResponse({
+    description: 'Volcado completo de la base de datos en JSON',
+  })
   async export(@Res() res: Response): Promise<void> {
     const data = await this.databaseService.exportAll();
     const date = new Date().toISOString().slice(0, 10);

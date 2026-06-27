@@ -1,6 +1,7 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 import type {
   ImportVolunteerCommitResponse,
@@ -9,13 +10,20 @@ import type {
   VolunteerRole,
   VolunteerSummary,
 } from '../../../core/models/volunteer.model';
-import { ActivitiesService, type GroupScheduleActivity } from '../../../core/services/activities.service';
+import {
+  ActivitiesService,
+  type GroupScheduleActivity,
+} from '../../../core/services/activities.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
-import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
+import {
+  MenuButtonComponent,
+  type MenuItem,
+} from '../../../shared/components/menu-button/menu-button';
 
 type ActiveModal = 'create' | 'import' | 'truncate' | null;
 
@@ -51,13 +59,20 @@ const AVAILABILITY_OPTIONS = [
 
 @Component({
   selector: 'app-volunteers-list',
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, SearchableSelectComponent, MenuButtonComponent],
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    RouterLink,
+    SearchableSelectComponent,
+    MenuButtonComponent,
+  ],
   templateUrl: './volunteers-list.html',
 })
 export class VolunteersListComponent implements OnInit {
   private readonly svc = inject(VolunteersService);
   private readonly activitiesSvc = inject(ActivitiesService);
   private readonly regionsSvc = inject(RegionsService);
+  private readonly hostsSvc = inject(HostsService);
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
 
@@ -71,6 +86,7 @@ export class VolunteersListComponent implements OnInit {
 
   readonly regions = signal<Region[]>([]);
   readonly roles = signal<VolunteerRole[]>([]);
+  readonly hosts = signal<Host[]>([]);
   readonly volunteers = signal<VolunteerSummary[]>([]);
   readonly total = signal(0);
   readonly loading = signal(true);
@@ -78,6 +94,7 @@ export class VolunteersListComponent implements OnInit {
 
   readonly filterRegion = signal('');
   readonly filterRole = signal('');
+  readonly filterHost = signal('');
   readonly filterMinCarSeats = signal('');
   readonly filterAvailability = signal<string[]>([]);
   readonly filterTermsAccepted = signal<'' | 'true' | 'false'>('');
@@ -91,9 +108,16 @@ export class VolunteersListComponent implements OnInit {
 
   readonly roleItems = computed(() => this.roles().map((r) => ({ value: r.id, label: r.name })));
 
+  readonly hostItems = computed(() => [
+    { value: '__none__', label: 'None' },
+    ...this.hosts().map((h) => ({ value: h.id, label: h.name })),
+  ]);
+
   readonly availabilityOptions = AVAILABILITY_OPTIONS;
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.limit)));
+
+  readonly downloadingSchedulePdf = signal<string | null>(null);
 
   // Planning mode
   readonly planningMode = signal(false);
@@ -242,16 +266,32 @@ export class VolunteersListComponent implements OnInit {
   ngOnInit() {
     this.regionsSvc.getAll().subscribe({ next: (r) => this.regions.set(r) });
     this.svc.getRoles().subscribe({ next: (r) => this.roles.set(r) });
+    this.loadHosts();
     this.load();
+  }
+
+  private loadHosts() {
+    const regionId = this.filterRegion() || undefined;
+    this.hostsSvc.getAll(regionId).subscribe({ next: (h) => this.hosts.set(h) });
+  }
+
+  onRegionChange(regionId: string) {
+    this.filterRegion.set(regionId);
+    this.filterHost.set('');
+    this.loadHosts();
+    this.applyFilters();
   }
 
   private buildQuery() {
     const minSeats = this.filterMinCarSeats();
     const slots = this.filterAvailability();
     const terms = this.filterTermsAccepted();
+    const host = this.filterHost();
     return {
       regionId: this.filterRegion() || undefined,
       roleId: this.filterRole() || undefined,
+      hostId: host && host !== '__none__' ? host : undefined,
+      noHost: host === '__none__' ? true : undefined,
       search: this.filterSearch() || undefined,
       min_car_seats: minSeats ? parseInt(minSeats, 10) : undefined,
       available_slots: slots.length ? slots : undefined,
@@ -282,10 +322,12 @@ export class VolunteersListComponent implements OnInit {
   clearFilters() {
     this.filterRegion.set('');
     this.filterRole.set('');
+    this.filterHost.set('');
     this.filterMinCarSeats.set('');
     this.filterAvailability.set([]);
     this.filterTermsAccepted.set('');
     this.filterSearch.set('');
+    this.loadHosts();
     this.applyFilters();
   }
 
@@ -293,6 +335,7 @@ export class VolunteersListComponent implements OnInit {
     () =>
       !!this.filterRegion() ||
       !!this.filterRole() ||
+      !!this.filterHost() ||
       !!this.filterMinCarSeats() ||
       this.filterAvailability().length > 0 ||
       this.filterTermsAccepted() !== '' ||
@@ -389,6 +432,18 @@ export class VolunteersListComponent implements OnInit {
           );
         },
       });
+  }
+
+  downloadSchedulePdf(vol: VolunteerSummary) {
+    if (this.downloadingSchedulePdf()) return;
+    this.downloadingSchedulePdf.set(vol.id);
+    this.activitiesSvc.exportVolunteerSchedulePdf(vol.id).subscribe({
+      next: async (blob) => {
+        await downloadFile(blob, `calendario-${vol.volunteer_code.toLowerCase()}.pdf`);
+        this.downloadingSchedulePdf.set(null);
+      },
+      error: () => this.downloadingSchedulePdf.set(null),
+    });
   }
 
   // ── Import modal ───────────────────────────────────────────────────────────
@@ -566,7 +621,12 @@ export class VolunteersListComponent implements OnInit {
       },
       error: () => {
         const m2 = new Map(this.volSchedules());
-        m2.set(volunteerId, { days: [], activities: [], loading: false, error: 'Error al cargar el planning.' });
+        m2.set(volunteerId, {
+          days: [],
+          activities: [],
+          loading: false,
+          error: 'Error al cargar el planning.',
+        });
         this.volSchedules.set(m2);
       },
     });
@@ -577,7 +637,11 @@ export class VolunteersListComponent implements OnInit {
     return [...times].sort();
   }
 
-  getActivitiesForCell(activities: GroupScheduleActivity[], day: string, time: string): GroupScheduleActivity[] {
+  getActivitiesForCell(
+    activities: GroupScheduleActivity[],
+    day: string,
+    time: string,
+  ): GroupScheduleActivity[] {
     return activities.filter((a) => a.date === day && a.start_time === time);
   }
 

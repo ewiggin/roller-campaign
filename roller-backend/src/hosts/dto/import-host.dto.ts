@@ -70,7 +70,9 @@ export class ImportHostParseResponseDto {
   @ApiProperty({ example: { total: 10, valid: 8, duplicates: 1, errors: 1 } })
   summary: { total: number; valid: number; duplicates: number; errors: number };
 
-  @ApiProperty({ example: ['name', 'region_name', 'address', 'weekday_meeting_day'] })
+  @ApiProperty({
+    example: ['name', 'region_name', 'address', 'weekday_meeting_day'],
+  })
   columns: string[];
 }
 

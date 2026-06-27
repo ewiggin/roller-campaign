@@ -90,6 +90,8 @@ export class GuestGroupsService {
     languages: string[] = [],
     compositions: string[] = [],
     hasCars?: boolean,
+    hostId?: string,
+    noHost?: boolean,
   ): Promise<{
     data: GuestGroupResponseDto[];
     total: number;
@@ -165,6 +167,12 @@ export class GuestGroupsService {
       query.andWhere('gg.car_count IS NOT NULL AND gg.car_count > 0');
     } else if (hasCars === false) {
       query.andWhere('(gg.car_count IS NULL OR gg.car_count = 0)');
+    }
+
+    if (noHost) {
+      query.andWhere('gg.host_id IS NULL');
+    } else if (hostId) {
+      query.andWhere('gg.host_id = :hostId', { hostId });
     }
 
     const [total, availableLanguages] = await Promise.all([
@@ -330,9 +338,9 @@ export class GuestGroupsService {
   async parseImport(buffer: Buffer): Promise<ParseGroupResponseDto> {
     const wb = XLSX.read(buffer, { type: 'buffer' });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const sheetHeaders = (
-      XLSX.utils.sheet_to_json<string[]>(ws, { header: 1 })[0] ?? []
-    ) as string[];
+    const sheetHeaders = (XLSX.utils.sheet_to_json<string[]>(ws, {
+      header: 1,
+    })[0] ?? []) as string[];
 
     const seenCanonical = new Set<string>();
     const columns: string[] = [];
@@ -358,20 +366,30 @@ export class GuestGroupsService {
       const code = this.parseGroupCode(row);
 
       if (!code) {
-        errors.push({ row: rowNum, group_code: '', reason: 'group_code es obligatorio' });
+        errors.push({
+          row: rowNum,
+          group_code: '',
+          reason: 'group_code es obligatorio',
+        });
         continue;
       }
       if (seenCodes.has(code)) {
-        errors.push({ row: rowNum, group_code: code, reason: 'group_code duplicado en el archivo' });
+        errors.push({
+          row: rowNum,
+          group_code: code,
+          reason: 'group_code duplicado en el archivo',
+        });
         continue;
       }
       seenCodes.add(code);
 
       const avail = this.parseAvailability(row);
       const rawHostName = row['host_name'];
-      const hostName = typeof rawHostName === 'string' ? rawHostName.trim() : null;
+      const hostName =
+        typeof rawHostName === 'string' ? rawHostName.trim() : null;
       const rawRegionName = row['region_name'];
-      const regionName = typeof rawRegionName === 'string' ? rawRegionName.trim() : null;
+      const regionName =
+        typeof rawRegionName === 'string' ? rawRegionName.trim() : null;
 
       valid.push({
         group_code: code,
@@ -431,8 +449,9 @@ export class GuestGroupsService {
     const updateRows = dto.updateRows ?? [];
 
     if (rows.length > 0) {
-      const hasRegionCol = (dto.fileColumns ?? []).includes('region_name')
-        || rows.some((r) => r.region_name != null);
+      const hasRegionCol =
+        (dto.fileColumns ?? []).includes('region_name') ||
+        rows.some((r) => r.region_name != null);
       if (!hasRegionCol && !dto.regionId) {
         throw new BadRequestException(
           'regionId is required when the file has no region_name column',
@@ -440,8 +459,12 @@ export class GuestGroupsService {
       }
     }
 
-    const allRegions = await this.regionsRepository.find({ select: ['id', 'name'] });
-    const regionMap = new Map(allRegions.map((r) => [r.name.toLowerCase(), r.id]));
+    const allRegions = await this.regionsRepository.find({
+      select: ['id', 'name'],
+    });
+    const regionMap = new Map(
+      allRegions.map((r) => [r.name.toLowerCase(), r.id]),
+    );
 
     let accessibleIds: Set<string> | 'all';
     if (currentUser.role === 'superadmin') {
@@ -460,7 +483,10 @@ export class GuestGroupsService {
 
     // Host lookup cache: key = `${regionId}:${hostNameLower}`
     const hostCache = new Map<string, string | null>();
-    const resolveHostId = async (regionId: string, hostName: string | null | undefined): Promise<string | null> => {
+    const resolveHostId = async (
+      regionId: string,
+      hostName: string | null | undefined,
+    ): Promise<string | null> => {
       if (!hostName) return null;
       const cacheKey = `${regionId}:${hostName.toLowerCase()}`;
       if (hostCache.has(cacheKey)) return hostCache.get(cacheKey)!;
@@ -490,8 +516,14 @@ export class GuestGroupsService {
     // ── Create new rows ───────────────────────────────────────────────────
     for (const row of rows) {
       const regionId = resolveRegionId(row);
-      if (!regionId) { regions_not_found++; continue; }
-      if (!isAccessible(regionId)) { regions_not_found++; continue; }
+      if (!regionId) {
+        regions_not_found++;
+        continue;
+      }
+      if (!isAccessible(regionId)) {
+        regions_not_found++;
+        continue;
+      }
 
       const exists = await this.groupsRepository.findOne({
         where: { group_code: row.group_code },
@@ -530,9 +562,12 @@ export class GuestGroupsService {
       const apply = (col: string) => applyAll || updateColumns!.has(col);
 
       const patch: Partial<GuestGroup> = {};
-      if (apply('available_from')) patch.available_from = row.available_from ?? null;
+      if (apply('available_from'))
+        patch.available_from = row.available_from ?? null;
       if (apply('available_to')) patch.available_to = row.available_to ?? null;
-      if (apply('composition')) patch.composition = (row.composition as GuestGroup['composition']) ?? null;
+      if (apply('composition'))
+        patch.composition =
+          (row.composition as GuestGroup['composition']) ?? null;
       if (apply('car_count')) patch.car_count = row.car_count ?? null;
 
       if (apply('host_name')) {
@@ -543,7 +578,8 @@ export class GuestGroupsService {
 
       if (apply('region_name') && row.region_name) {
         const newRegionId = regionMap.get(row.region_name.toLowerCase());
-        if (newRegionId && isAccessible(newRegionId)) patch.region_id = newRegionId;
+        if (newRegionId && isAccessible(newRegionId))
+          patch.region_id = newRegionId;
       }
 
       Object.assign(group, patch);
@@ -985,6 +1021,45 @@ export class GuestGroupsService {
       .createQueryBuilder()
       .delete()
       .execute();
+    return {
+      deleted_guests: guestResult.affected ?? 0,
+      deleted_groups: groupResult.affected ?? 0,
+    };
+  }
+
+  async deleteFiltered(
+    regionId?: string,
+    search?: string,
+    hostId?: string,
+    noHost?: boolean,
+  ): Promise<{ deleted_guests: number; deleted_groups: number }> {
+    const qb = this.groupsRepository
+      .createQueryBuilder('gg')
+      .select('gg.id', 'id');
+
+    if (regionId) qb.where('gg.region_id = :regionId', { regionId });
+    if (search)
+      qb.andWhere('gg.group_code LIKE :search', { search: `%${search}%` });
+    if (noHost) qb.andWhere('gg.host_id IS NULL');
+    else if (hostId) qb.andWhere('gg.host_id = :hostId', { hostId });
+
+    const groups = await qb.getRawMany<{ id: string }>();
+    const ids = groups.map((g) => g.id);
+
+    if (ids.length === 0) return { deleted_guests: 0, deleted_groups: 0 };
+
+    const guestResult = await this.guestsRepository
+      .createQueryBuilder()
+      .delete()
+      .where('group_id IN (:...ids)', { ids })
+      .execute();
+
+    const groupResult = await this.groupsRepository
+      .createQueryBuilder()
+      .delete()
+      .where('id IN (:...ids)', { ids })
+      .execute();
+
     return {
       deleted_guests: guestResult.affected ?? 0,
       deleted_groups: groupResult.affected ?? 0,

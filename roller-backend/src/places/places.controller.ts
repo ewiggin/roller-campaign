@@ -8,11 +8,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import {
-  PlaceDetails,
-  PlacePrediction,
-  PlacesService,
-} from './places.service';
+import { PlaceDetails, PlacePrediction, PlacesService } from './places.service';
 
 @ApiTags('places')
 @ApiBearerAuth()

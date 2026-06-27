@@ -42,7 +42,9 @@
         <span class="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-sm">✓</span>
       }
       @if (loadingSuggestions()) {
-        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs animate-pulse">…</span>
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs animate-pulse"
+          >…</span
+        >
       }
 
       <!-- Suggestions dropdown -->
@@ -120,7 +122,11 @@
         </p>
       } @else {
         <div class="flex justify-end">
-          <button type="button" (click)="clearResult()" class="text-xs text-blue-500 hover:underline">
+          <button
+            type="button"
+            (click)="clearResult()"
+            class="text-xs text-blue-500 hover:underline"
+          >
             Clear
           </button>
         </div>

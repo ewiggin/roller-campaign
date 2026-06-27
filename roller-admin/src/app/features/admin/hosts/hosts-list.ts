@@ -6,7 +6,10 @@ import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { downloadFile } from '../../../core/utils/download-file';
-import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
+import {
+  MenuButtonComponent,
+  type MenuItem,
+} from '../../../shared/components/menu-button/menu-button';
 import type {
   Host,
   ImportHostRow,

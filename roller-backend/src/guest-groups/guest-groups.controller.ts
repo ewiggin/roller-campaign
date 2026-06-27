@@ -158,6 +158,8 @@ export class GuestGroupsController {
     @Query('languages') languagesRaw: string | undefined,
     @Query('compositions') compositionsRaw: string | undefined,
     @Query('hasCars') hasCarsRaw: string | undefined,
+    @Query('hostId') hostId: string | undefined,
+    @Query('noHost') noHostRaw: string | undefined,
     @CurrentUser() user: JwtPayload,
   ) {
     const languages = languagesRaw
@@ -168,6 +170,7 @@ export class GuestGroupsController {
       : [];
     const hasCars =
       hasCarsRaw === 'true' ? true : hasCarsRaw === 'false' ? false : undefined;
+    const noHost = noHostRaw === 'true' ? true : undefined;
     return this.service.findAll(
       regionId,
       user,
@@ -178,6 +181,8 @@ export class GuestGroupsController {
       languages,
       compositions,
       hasCars,
+      hostId,
+      noHost,
     );
   }
 
@@ -214,6 +219,22 @@ export class GuestGroupsController {
   @ApiOkResponse({ description: 'Deleted guests and guest-groups counts' })
   truncate(): Promise<{ deleted_guests: number; deleted_groups: number }> {
     return this.service.truncate();
+  }
+
+  @Delete('delete-filtered')
+  @Audit('delete', 'guest_group')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description: 'Deleted guests and guest-groups counts for matching filter',
+  })
+  deleteFiltered(
+    @Query('regionId') regionId: string | undefined,
+    @Query('search') search: string | undefined,
+    @Query('hostId') hostId: string | undefined,
+    @Query('noHost') noHostRaw: string | undefined,
+  ): Promise<{ deleted_guests: number; deleted_groups: number }> {
+    const noHost = noHostRaw === 'true' ? true : undefined;
+    return this.service.deleteFiltered(regionId, search, hostId, noHost);
   }
 
   @Delete(':id')

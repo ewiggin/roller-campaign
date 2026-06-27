@@ -19,6 +19,7 @@ import { User } from '../users/entities/user.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import {
   buildGroupScheduleContent,
+  buildVolunteerScheduleContent,
   SCHEDULE_PDF_STYLES,
   ScheduleActivityItem,
 } from './schedule-pdf.util';
@@ -207,7 +208,9 @@ export class ActivitiesService {
           isPreachingShift: is_preaching_shift,
         });
       if (is_food_shift !== undefined)
-        qb.andWhere('a.is_food_shift = :isFoodShift', { isFoodShift: is_food_shift });
+        qb.andWhere('a.is_food_shift = :isFoodShift', {
+          isFoodShift: is_food_shift,
+        });
       const total = await qb.getCount();
       const activities = await qb
         .skip((page - 1) * limit)
@@ -244,7 +247,10 @@ export class ActivitiesService {
       qb.where('a.region_id = :regionId', { regionId });
     }
 
-    if (name) qb.andWhere('LOWER(a.name) LIKE :name', { name: `%${name.toLowerCase()}%` });
+    if (name)
+      qb.andWhere('LOWER(a.name) LIKE :name', {
+        name: `%${name.toLowerCase()}%`,
+      });
     if (date) qb.andWhere('a.date = :date', { date });
     if (dateFrom) qb.andWhere('a.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('a.date <= :dateTo', { dateTo });
@@ -256,7 +262,9 @@ export class ActivitiesService {
         isPreachingShift: is_preaching_shift,
       });
     if (is_food_shift !== undefined)
-      qb.andWhere('a.is_food_shift = :isFoodShift', { isFoodShift: is_food_shift });
+      qb.andWhere('a.is_food_shift = :isFoodShift', {
+        isFoodShift: is_food_shift,
+      });
 
     const total = await qb.getCount();
     const activities = await qb
@@ -1089,8 +1097,13 @@ export class ActivitiesService {
         const volLat = v.lat ?? v.host?.lat ?? null;
         const volLng = v.lng ?? v.host?.lng ?? null;
         const distance_km =
-          srcLat !== null && srcLng !== null && volLat !== null && volLng !== null
-            ? Math.round(this.haversineKm(srcLat, srcLng, volLat, volLng) * 10) / 10
+          srcLat !== null &&
+          srcLng !== null &&
+          volLat !== null &&
+          volLng !== null
+            ? Math.round(
+                this.haversineKm(srcLat, srcLng, volLat, volLng) * 10,
+              ) / 10
             : null;
         return {
           id: v.id,
@@ -1261,7 +1274,11 @@ export class ActivitiesService {
 
     for (const group of groups) {
       if (assignedIds.has(group.id)) continue;
-      if (morningPreachingGroupIds !== null && !morningPreachingGroupIds.has(group.id)) continue;
+      if (
+        morningPreachingGroupIds !== null &&
+        !morningPreachingGroupIds.has(group.id)
+      )
+        continue;
 
       // Filter by the group's own availability window
       if (group.available_from && activity.date < group.available_from)
@@ -1324,7 +1341,8 @@ export class ActivitiesService {
         ),
         preaching_shifts_count: preachingCountMap.get(group.id) ?? 0,
         same_day_preaching_shift:
-          sameDayPreachingGroupIds !== null && sameDayPreachingGroupIds.has(group.id),
+          sameDayPreachingGroupIds !== null &&
+          sameDayPreachingGroupIds.has(group.id),
         activities_count: activitiesCountMap.get(group.id) ?? 0,
       });
     }
@@ -1457,8 +1475,13 @@ export class ActivitiesService {
         const dstLat = g.agg_avg_lat ?? g.host?.lat ?? null;
         const dstLng = g.agg_avg_lng ?? g.host?.lng ?? null;
         const distance_km =
-          srcLat !== null && srcLng !== null && dstLat !== null && dstLng !== null
-            ? Math.round(this.haversineKm(srcLat, srcLng, dstLat, dstLng) * 10) / 10
+          srcLat !== null &&
+          srcLng !== null &&
+          dstLat !== null &&
+          dstLng !== null
+            ? Math.round(
+                this.haversineKm(srcLat, srcLng, dstLat, dstLng) * 10,
+              ) / 10
             : null;
         return {
           id: g.id,
@@ -1705,42 +1728,83 @@ export class ActivitiesService {
     'status',
   ] as const;
 
-  generateExcelTemplate(
-    isPreachingShift = false,
-    isFoodShift = false,
-  ): Buffer {
+  generateExcelTemplate(isPreachingShift = false, isFoodShift = false): Buffer {
     let columns: string[];
     let sampleRow: (string | number)[];
 
     if (isFoodShift) {
       // Food shifts: replace 'description' with the three host-person columns
       columns = [
-        'name', 'date', 'start_time', 'end_time', 'region_name', 'host_name',
-        'host_person_name', 'host_person_address', 'host_person_phone',
-        'required_volunteers', 'max_guests', 'request_attendance',
-        'icon', 'location_address', 'status',
+        'name',
+        'date',
+        'start_time',
+        'end_time',
+        'region_name',
+        'host_name',
+        'host_person_name',
+        'host_person_address',
+        'host_person_phone',
+        'required_volunteers',
+        'max_guests',
+        'request_attendance',
+        'icon',
+        'location_address',
+        'status',
       ];
       sampleRow = [
-        'Nombre del turno', '2025-01-15', '09:00', '12:00',
-        'Nombre de la región', 'Nombre de la congregación',
-        'Nombre del anfitrión', 'Dirección del anfitrión', '+34 600 000 000',
-        '', '', 'FALSE', '', '', 'draft',
+        'Nombre del turno',
+        '2025-01-15',
+        '09:00',
+        '12:00',
+        'Nombre de la región',
+        'Nombre de la congregación',
+        'Nombre del anfitrión',
+        'Dirección del anfitrión',
+        '+34 600 000 000',
+        '',
+        '',
+        'FALSE',
+        '',
+        '',
+        'draft',
       ];
     } else if (isPreachingShift) {
       columns = this.ACTIVITY_EXCEL_COLUMNS.filter(
         (c) => c !== 'is_preaching_shift' && c !== 'is_food_shift',
       ) as string[];
       sampleRow = [
-        'Nombre del turno', '2025-01-15', '09:00', '12:00',
-        'Nombre de la región', 'Nombre de la congregación',
-        '', '', '', 'FALSE', '', '', 'draft',
+        'Nombre del turno',
+        '2025-01-15',
+        '09:00',
+        '12:00',
+        'Nombre de la región',
+        'Nombre de la congregación',
+        '',
+        '',
+        '',
+        'FALSE',
+        '',
+        '',
+        'draft',
       ];
     } else {
       columns = [...this.ACTIVITY_EXCEL_COLUMNS] as string[];
       sampleRow = [
-        'Nombre de la actividad', '2025-01-15', '09:00', '12:00',
-        'Nombre de la región', 'Nombre de la congregación',
-        '', '', '', 'FALSE', 'FALSE', 'FALSE', '', '', 'draft',
+        'Nombre de la actividad',
+        '2025-01-15',
+        '09:00',
+        '12:00',
+        'Nombre de la región',
+        'Nombre de la congregación',
+        '',
+        '',
+        '',
+        'FALSE',
+        'FALSE',
+        'FALSE',
+        '',
+        '',
+        'draft',
       ];
     }
 
@@ -1754,7 +1818,10 @@ export class ActivitiesService {
     query: ActivityListQueryDto,
     user: JwtPayload,
   ): Promise<Buffer> {
-    const result = await this.findAll({ ...query, limit: 10000, page: 1 }, user);
+    const result = await this.findAll(
+      { ...query, limit: 10000, page: 1 },
+      user,
+    );
 
     const regionIds = [...new Set(result.data.map((a) => a.region_id))];
     const regions = regionIds.length
@@ -1882,8 +1949,12 @@ export class ActivitiesService {
         end_time: end_time!,
         activity_locations: null,
         image_key: null,
-        is_preaching_shift: forcePreachingShift || (!forceFoodShift && this.parseXlsxBool(row['is_preaching_shift'])),
-        is_food_shift: forceFoodShift || (!forcePreachingShift && this.parseXlsxBool(row['is_food_shift'])),
+        is_preaching_shift:
+          forcePreachingShift ||
+          (!forceFoodShift && this.parseXlsxBool(row['is_preaching_shift'])),
+        is_food_shift:
+          forceFoodShift ||
+          (!forcePreachingShift && this.parseXlsxBool(row['is_food_shift'])),
         request_attendance: this.parseXlsxBool(row['request_attendance']),
         volunteers: [],
         volunteer_count: 0,
@@ -1927,7 +1998,8 @@ export class ActivitiesService {
     const name = this.parseXlsxString(row['host_person_name']);
     const address = this.parseXlsxString(row['host_person_address']);
     const phone = this.parseXlsxString(row['host_person_phone']);
-    if (!name && !address && !phone) return this.parseXlsxString(row['description']);
+    if (!name && !address && !phone)
+      return this.parseXlsxString(row['description']);
     let desc = 'Estais invitados a comer';
     if (name) desc += ` en casa de ${name}`;
     if (address) desc += ` en ${address}`;
@@ -2007,7 +2079,7 @@ export class ActivitiesService {
       is_preaching_shift: a.is_preaching_shift,
       is_food_shift: a.is_food_shift,
       preaching_group_name: a.is_preaching_shift
-        ? turnoNames.get(a.id) ?? null
+        ? (turnoNames.get(a.id) ?? null)
         : null,
       status: a.status as 'draft' | 'published',
     }));
@@ -2054,7 +2126,9 @@ export class ActivitiesService {
   ): Promise<{ days: string[]; activities: ScheduleActivityItem[] }> {
     const activities = await this.activitiesRepo
       .createQueryBuilder('a')
-      .innerJoin('a.volunteers', 'vol', 'vol.id = :volunteerId', { volunteerId })
+      .innerJoin('a.volunteers', 'vol', 'vol.id = :volunteerId', {
+        volunteerId,
+      })
       .orderBy('a.date', 'ASC')
       .addOrderBy('a.start_time', 'ASC')
       .getMany();
@@ -2069,8 +2143,13 @@ export class ActivitiesService {
       filtered = activities.filter((a) => allowedIds.has(a.region_id));
     }
 
-    const preachingShiftIds = filtered.filter((a) => a.is_preaching_shift).map((a) => a.id);
-    const turnoNames = await this.getVolunteerPreachingGroupNames(preachingShiftIds, volunteerId);
+    const preachingShiftIds = filtered
+      .filter((a) => a.is_preaching_shift)
+      .map((a) => a.id);
+    const turnoNames = await this.getVolunteerPreachingGroupNames(
+      preachingShiftIds,
+      volunteerId,
+    );
 
     const items: ScheduleActivityItem[] = filtered.map((a) => ({
       date: a.date,
@@ -2081,7 +2160,9 @@ export class ActivitiesService {
       locations: a.activity_locations ?? [],
       is_preaching_shift: a.is_preaching_shift,
       is_food_shift: a.is_food_shift,
-      preaching_group_name: a.is_preaching_shift ? turnoNames.get(a.id) ?? null : null,
+      preaching_group_name: a.is_preaching_shift
+        ? (turnoNames.get(a.id) ?? null)
+        : null,
       status: a.status as 'draft' | 'published',
     }));
 
@@ -2121,11 +2202,15 @@ export class ActivitiesService {
     if (!group) throw new NotFoundException('Grupo no encontrado');
     await this.assertRegionAccess(group.region_id, currentUser);
 
-    const region = await this.regionsRepo.findOne({ where: { id: group.region_id } });
+    const region = await this.regionsRepo.findOne({
+      where: { id: group.region_id },
+    });
     const activities = await this.getGroupScheduleActivities(groupId, true);
     const days = this.computeScheduleDays(region, activities);
 
-    const meetings = group.host ? this.congregationMeetings(group.host, days) : [];
+    const meetings = group.host
+      ? this.congregationMeetings(group.host, days)
+      : [];
     const allActivities = [...activities, ...meetings].sort((a, b) =>
       a.date !== b.date
         ? a.date.localeCompare(b.date)
@@ -2152,7 +2237,9 @@ export class ActivitiesService {
     const activities = await this.getGroupScheduleActivities(groupId);
     const days = this.computeScheduleDays(region, activities);
 
-    const meetings = group.host ? this.congregationMeetings(group.host, days) : [];
+    const meetings = group.host
+      ? this.congregationMeetings(group.host, days)
+      : [];
     const allActivities = [...activities, ...meetings].sort((a, b) =>
       a.date !== b.date
         ? a.date.localeCompare(b.date)
@@ -2258,5 +2345,85 @@ export class ActivitiesService {
 
     const safeName = host.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     return { buffer, filename: `calendario-${safeName}.pdf` };
+  }
+
+  async exportVolunteerSchedulePdf(
+    volunteerId: string,
+    currentUser: JwtPayload,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const volunteer = await this.volunteersRepo.findOne({
+      where: { id: volunteerId },
+    });
+    if (!volunteer) throw new NotFoundException('Voluntario no encontrado');
+
+    const activities = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.volunteers', 'vol', 'vol.id = :volunteerId', {
+        volunteerId,
+      })
+      .orderBy('a.date', 'ASC')
+      .addOrderBy('a.start_time', 'ASC')
+      .getMany();
+
+    let filtered = activities;
+    if (currentUser.role !== 'superadmin') {
+      const user = await this.usersRepo.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      const allowedIds = new Set((user?.regions ?? []).map((r) => r.id));
+      filtered = activities.filter((a) => allowedIds.has(a.region_id));
+    }
+
+    const preachingShiftIds = filtered
+      .filter((a) => a.is_preaching_shift)
+      .map((a) => a.id);
+    const turnoNames = await this.getVolunteerPreachingGroupNames(
+      preachingShiftIds,
+      volunteerId,
+    );
+
+    const items: ScheduleActivityItem[] = filtered.map((a) => ({
+      date: a.date,
+      start_time: a.start_time,
+      end_time: a.end_time,
+      name: a.name,
+      description: a.description,
+      locations: a.activity_locations ?? [],
+      is_preaching_shift: a.is_preaching_shift,
+      is_food_shift: a.is_food_shift,
+      preaching_group_name: a.is_preaching_shift
+        ? (turnoNames.get(a.id) ?? null)
+        : null,
+      status: a.status as 'draft' | 'published',
+    }));
+
+    const days = this.computeScheduleDays(null, items);
+
+    const content = buildVolunteerScheduleContent(
+      {
+        volunteer_code: volunteer.volunteer_code,
+        full_name: volunteer.full_name,
+      },
+      days,
+      items,
+    );
+
+    const buffer = await createPdfBuffer({
+      content,
+      styles: SCHEDULE_PDF_STYLES,
+      footer: (currentPage, pageCount) => ({
+        text: `${currentPage} / ${pageCount}`,
+        alignment: 'center',
+        fontSize: 8,
+        color: '#999999',
+        margin: [0, 10, 0, 0],
+      }),
+    });
+
+    const safeCode = volunteer.volunteer_code
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-');
+    return { buffer, filename: `calendario-${safeCode}.pdf` };
   }
 }

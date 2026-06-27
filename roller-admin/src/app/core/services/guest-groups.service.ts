@@ -31,6 +31,8 @@ export class GuestGroupsService {
       languages?: string[];
       compositions?: string[];
       hasCars?: boolean;
+      hostId?: string;
+      noHost?: boolean;
     } = {},
   ) {
     let params = new HttpParams();
@@ -43,6 +45,8 @@ export class GuestGroupsService {
     if (query.compositions?.length)
       params = params.set('compositions', query.compositions.join(','));
     if (query.hasCars !== undefined) params = params.set('hasCars', String(query.hasCars));
+    if (query.noHost) params = params.set('noHost', 'true');
+    else if (query.hostId) params = params.set('hostId', query.hostId);
     return this.http.get<GuestGroupListResponse>('/api/guest-groups', { params });
   }
 
@@ -119,6 +123,18 @@ export class GuestGroupsService {
   truncate() {
     return this.http.delete<{ deleted_guests: number; deleted_groups: number }>(
       '/api/guest-groups/truncate',
+    );
+  }
+
+  deleteFiltered(query: { regionId?: string; search?: string; hostId?: string; noHost?: boolean }) {
+    let params = new HttpParams();
+    if (query.regionId) params = params.set('regionId', query.regionId);
+    if (query.search) params = params.set('search', query.search);
+    if (query.noHost) params = params.set('noHost', 'true');
+    else if (query.hostId) params = params.set('hostId', query.hostId);
+    return this.http.delete<{ deleted_guests: number; deleted_groups: number }>(
+      '/api/guest-groups/delete-filtered',
+      { params },
     );
   }
 }

@@ -26,25 +26,7 @@
           </svg>
           {{ recomputing() ? 'Recomputing…' : 'Recompute snapshot' }}
         </button>
-        <button
-          (click)="openTruncate()"
-          class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
-        >
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
-          Truncate
-        </button>
+        <app-menu-button label="Delete" [items]="deleteMenuItems()" variant="danger" />
       }
       <button
         (click)="togglePlanningMode()"
@@ -56,7 +38,11 @@
         title="Mostrar planning de actividades"
       >
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
         </svg>
         Planning
       </button>
@@ -76,7 +62,7 @@
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4"
   >
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-8">
       <!-- Region -->
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
@@ -89,6 +75,21 @@
           [compact]="true"
           [selected]="selectedRegionId()"
           (selectedChange)="selectRegion($event)"
+        />
+      </div>
+
+      <!-- Congregation -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+          >Congregation</label
+        >
+        <app-searchable-select
+          [items]="filterHostItems()"
+          placeholder="All"
+          emptyLabel="All"
+          [compact]="true"
+          [selected]="filterHost()"
+          (selectedChange)="filterHost.set($event); page.set(1); loadGroups()"
         />
       </div>
 
@@ -357,24 +358,144 @@
         <ul class="divide-y divide-gray-100 dark:divide-zinc-800">
           @for (group of groups(); track group.id) {
             <li>
-              <div class="px-5 py-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50">
-              <!-- Group info — clickable to open guests modal -->
-              <button (click)="openGuests(group)" class="flex-1 min-w-0 text-left">
-                <p
-                  class="text-sm font-medium text-gray-900 dark:text-zinc-100 hover:text-blue-500 transition-colors"
-                >
-                  {{ group.group_code }}
-                </p>
-                <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span class="text-xs text-gray-400 dark:text-zinc-500">
-                    {{ group.guest_count }} guest{{ group.guest_count !== 1 ? 's' : '' }}
-                  </span>
-                  @if (group.car_count !== null) {
-                    <span
-                      class="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-zinc-500"
+              <div
+                class="px-5 py-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+              >
+                <!-- Group info — clickable to open guests modal -->
+                <button (click)="openGuests(group)" class="flex-1 min-w-0 text-left">
+                  <p
+                    class="text-sm font-medium text-gray-900 dark:text-zinc-100 hover:text-blue-500 transition-colors"
+                  >
+                    {{ group.group_code }}
+                  </p>
+                  <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span class="text-xs text-gray-400 dark:text-zinc-500">
+                      {{ group.guest_count }} guest{{ group.guest_count !== 1 ? 's' : '' }}
+                    </span>
+                    @if (group.car_count !== null) {
+                      <span
+                        class="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-zinc-500"
+                      >
+                        <svg
+                          class="w-3 h-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
+                          />
+                        </svg>
+                        {{ group.car_count }} car{{ group.car_count !== 1 ? 's' : '' }}
+                      </span>
+                    }
+                    @if (group.total_car_seats > 0) {
+                      <span class="text-xs text-gray-400 dark:text-zinc-500">
+                        {{ group.total_car_seats }} avail. seats
+                      </span>
+                    }
+                    @for (lang of group.languages; track lang) {
+                      <span
+                        class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800"
+                      >
+                        {{ lang }}
+                      </span>
+                    }
+                    @if (group.host_name) {
+                      <span class="text-xs text-purple-600 dark:text-purple-400 font-medium"
+                        >· {{ group.host_name }}</span
+                      >
+                    }
+                    @if (group.composition) {
+                      <span
+                        class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-teal-50 text-teal-700 ring-teal-200 dark:bg-teal-950 dark:text-teal-400 dark:ring-teal-800"
+                      >
+                        {{ compositionLabel(group.composition) }}
+                      </span>
+                    }
+                    @if (group.available_from || group.available_to) {
+                      <span class="text-xs text-gray-400 dark:text-zinc-500">
+                        {{ (group.available_from | date: 'd MMM') ?? '—' }} →
+                        {{
+                          (group.available_to
+                            | date
+                              : 'd
+              MMM') ?? '—'
+                        }}
+                      </span>
+                    }
+                  </div>
+                  <!-- Aggregate snapshot (validation before guest data removal) -->
+                  @if (group.agg_computed_at) {
+                    <div class="flex items-center gap-2 mt-1 flex-wrap">
+                      @if (group.agg_stale === false) {
+                        <span
+                          class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
+                          title="Snapshot matches live guest data"
+                        >
+                          ✓ snapshot
+                        </span>
+                      } @else {
+                        <span
+                          class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-800"
+                          title="Snapshot differs from live guest data — recompute"
+                        >
+                          ⚠ snapshot stale
+                        </span>
+                      }
+                      <span class="text-[11px] text-gray-400 dark:text-zinc-500">
+                        {{ group.agg_guest_count }} active ({{ aggStatusSummary(group) }})
+                        @if (group.agg_minor_count) {
+                          · {{ group.agg_minor_count }} minor{{
+                            group.agg_minor_count !== 1 ? 's' : ''
+                          }}
+                        }
+                        · {{ group.agg_car_seats }} seats
+                        @if (group.agg_languages?.length) {
+                          · {{ group.agg_languages!.join(', ') }}
+                        }
+                        @if (group.agg_avg_lat !== null) {
+                          · {{ group.agg_avg_lat | number: '1.0-4' }},
+                          {{ group.agg_avg_lng | number: '1.0-4' }}
+                        }
+                        · {{ group.agg_computed_at | date: 'd MMM HH:mm' }}
+                      </span>
+                    </div>
+                  }
+                </button>
+
+                <div class="flex items-center gap-1 shrink-0">
+                  <button
+                    (click)="downloadSchedulePdf(group)"
+                    [disabled]="downloadingSchedulePdf() === group.id"
+                    class="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 disabled:opacity-50 transition-colors"
+                    title="Download schedule PDF"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                      />
+                    </svg>
+                  </button>
+                  @if (!planningMode()) {
+                    <button
+                      (click)="openEdit(group)"
+                      class="p-1.5 rounded-md text-gray-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-950 transition-colors"
+                      title="Edit group"
                     >
                       <svg
-                        class="w-3 h-3"
+                        class="w-4 h-4"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -383,226 +504,118 @@
                         <path
                           stroke-linecap="round"
                           stroke-linejoin="round"
-                          d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
+                          d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
                         />
                       </svg>
-                      {{ group.car_count }} car{{ group.car_count !== 1 ? 's' : '' }}
-                    </span>
-                  }
-                  @if (group.total_car_seats > 0) {
-                    <span class="text-xs text-gray-400 dark:text-zinc-500">
-                      {{ group.total_car_seats }} avail. seats
-                    </span>
-                  }
-                  @for (lang of group.languages; track lang) {
-                    <span
-                      class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-blue-50 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:ring-blue-800"
+                    </button>
+                    <button
+                      (click)="openAssignHost(group)"
+                      class="p-1.5 rounded-md text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
+                      title="Assign host"
                     >
-                      {{ lang }}
-                    </span>
+                      <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                        />
+                      </svg>
+                    </button>
                   }
-                  @if (group.host_name) {
-                    <span class="text-xs text-purple-600 dark:text-purple-400 font-medium"
-                      >· {{ group.host_name }}</span
+                  <button
+                    (click)="openGuests(group)"
+                    class="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
+                    title="View guests"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="2"
                     >
-                  }
-                  @if (group.composition) {
-                    <span
-                      class="rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-teal-50 text-teal-700 ring-teal-200 dark:bg-teal-950 dark:text-teal-400 dark:ring-teal-800"
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                  </button>
+                  @if (!planningMode() && isSuperAdmin()) {
+                    <button
+                      (click)="deleteGroup(group)"
+                      class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                      title="Delete"
                     >
-                      {{ compositionLabel(group.composition) }}
-                    </span>
+                      <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
                   }
-                  @if (group.available_from || group.available_to) {
-                    <span class="text-xs text-gray-400 dark:text-zinc-500">
-                      {{ (group.available_from | date: 'd MMM') ?? '—' }} →
-                      {{
-                        (group.available_to
-                          | date
-                            : 'd
-              MMM') ?? '—'
-                      }}
-                    </span>
+                  @if (planningMode()) {
+                    <button
+                      (click)="toggleGroupSchedule(group.id)"
+                      class="p-1.5 rounded-md text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors"
+                      [title]="isScheduleExpanded(group.id) ? 'Ocultar planning' : 'Ver planning'"
+                    >
+                      <svg
+                        class="w-4 h-4 transition-transform"
+                        [class.rotate-180]="isScheduleExpanded(group.id)"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
                   }
                 </div>
-                <!-- Aggregate snapshot (validation before guest data removal) -->
-                @if (group.agg_computed_at) {
-                  <div class="flex items-center gap-2 mt-1 flex-wrap">
-                    @if (group.agg_stale === false) {
-                      <span
-                        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
-                        title="Snapshot matches live guest data"
-                      >
-                        ✓ snapshot
-                      </span>
-                    } @else {
-                      <span
-                        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-800"
-                        title="Snapshot differs from live guest data — recompute"
-                      >
-                        ⚠ snapshot stale
-                      </span>
-                    }
-                    <span class="text-[11px] text-gray-400 dark:text-zinc-500">
-                      {{ group.agg_guest_count }} active ({{ aggStatusSummary(group) }})
-                      @if (group.agg_minor_count) {
-                        · {{ group.agg_minor_count }} minor{{
-                          group.agg_minor_count !== 1 ? 's' : ''
-                        }}
-                      }
-                      · {{ group.agg_car_seats }} seats
-                      @if (group.agg_languages?.length) {
-                        · {{ group.agg_languages!.join(', ') }}
-                      }
-                      @if (group.agg_avg_lat !== null) {
-                        · {{ group.agg_avg_lat | number: '1.0-4' }},
-                        {{ group.agg_avg_lng | number: '1.0-4' }}
-                      }
-                      · {{ group.agg_computed_at | date: 'd MMM HH:mm' }}
-                    </span>
-                  </div>
-                }
-              </button>
-
-              <div class="flex items-center gap-1 shrink-0">
-                <button
-                  (click)="downloadSchedulePdf(group)"
-                  [disabled]="downloadingSchedulePdf() === group.id"
-                  class="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 disabled:opacity-50 transition-colors"
-                  title="Download schedule PDF"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
-                    />
-                  </svg>
-                </button>
-                @if (!planningMode()) {
-                  <button
-                    (click)="openEdit(group)"
-                    class="p-1.5 rounded-md text-gray-400 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-950 transition-colors"
-                    title="Edit group"
-                  >
-                    <svg
-                      class="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    (click)="openAssignHost(group)"
-                    class="p-1.5 rounded-md text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
-                    title="Assign host"
-                  >
-                    <svg
-                      class="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                      />
-                    </svg>
-                  </button>
-                }
-                <button
-                  (click)="openGuests(group)"
-                  class="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
-                  title="View guests"
-                >
-                  <svg
-                    class="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                </button>
-                @if (!planningMode() && isSuperAdmin()) {
-                  <button
-                    (click)="deleteGroup(group)"
-                    class="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
-                    title="Delete"
-                  >
-                    <svg
-                      class="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
-                }
-                @if (planningMode()) {
-                  <button
-                    (click)="toggleGroupSchedule(group.id)"
-                    class="p-1.5 rounded-md text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors"
-                    [title]="isScheduleExpanded(group.id) ? 'Ocultar planning' : 'Ver planning'"
-                  >
-                    <svg
-                      class="w-4 h-4 transition-transform"
-                      [class.rotate-180]="isScheduleExpanded(group.id)"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                }
-              </div>
               </div>
               @if (planningMode() && isScheduleExpanded(group.id)) {
                 @let sched = getScheduleForGroup(group.id);
-                <div class="border-t border-gray-100 dark:border-zinc-800 bg-gray-50/60 dark:bg-zinc-900/40">
+                <div
+                  class="border-t border-gray-100 dark:border-zinc-800 bg-gray-50/60 dark:bg-zinc-900/40"
+                >
                   @if (!sched || sched.loading) {
-                    <div class="px-5 py-3 text-xs text-gray-400 dark:text-zinc-500 italic">Cargando planning…</div>
+                    <div class="px-5 py-3 text-xs text-gray-400 dark:text-zinc-500 italic">
+                      Cargando planning…
+                    </div>
                   } @else if (sched.error) {
                     <div class="px-5 py-3 text-xs text-red-500">{{ sched.error }}</div>
                   } @else if (sched.days.length === 0) {
-                    <div class="px-5 py-3 text-xs text-gray-400 dark:text-zinc-500 italic">Sin actividades programadas.</div>
+                    <div class="px-5 py-3 text-xs text-gray-400 dark:text-zinc-500 italic">
+                      Sin actividades programadas.
+                    </div>
                   } @else {
                     @let timeslots = scheduleTimeslots(sched.activities);
                     <div class="px-5 py-3 overflow-x-auto">
-                      <table class="text-xs border-collapse">
+                      <table class="w-full table-fixed text-xs border-collapse">
                         <thead>
                           <tr>
-                            <th class="pr-3 py-1.5 text-right font-medium text-gray-400 dark:text-zinc-500 w-16"></th>
+                            <th
+                              class="pr-3 py-1.5 text-right font-medium text-gray-400 dark:text-zinc-500 w-16"
+                            ></th>
                             @for (day of sched.days; track day) {
-                              <th class="px-2 py-1.5 text-center font-semibold text-indigo-700 dark:text-indigo-300 whitespace-nowrap border border-gray-200 dark:border-zinc-700 bg-indigo-50 dark:bg-indigo-950 min-w-28">
+                              <th
+                                class="px-2 py-1.5 text-center font-semibold text-indigo-700 dark:text-indigo-300 whitespace-nowrap border border-gray-200 dark:border-zinc-700 bg-indigo-50 dark:bg-indigo-950"
+                              >
                                 {{ shortDayLabel(day) }}
                               </th>
                             }
@@ -611,35 +624,64 @@
                         <tbody>
                           @for (time of timeslots; track time) {
                             <tr>
-                              <td class="pr-3 py-2 text-right font-mono text-gray-400 dark:text-zinc-500 whitespace-nowrap align-top">{{ time }}</td>
+                              <td
+                                class="pr-3 py-2 text-right font-mono text-gray-400 dark:text-zinc-500 whitespace-nowrap align-top"
+                              >
+                                {{ time }}
+                              </td>
                               @for (day of sched.days; track day) {
                                 @let cells = getActivitiesForCell(sched.activities, day, time);
                                 <td
-                                  class="px-2 py-2 border border-gray-200 dark:border-zinc-700 align-top min-w-28"
-                                  [class]="cells.length && cells[0].is_congregation_meeting ? 'bg-amber-50 dark:bg-amber-950' : 'bg-white dark:bg-[#18181b]'"
+                                  class="px-2 py-2 border border-gray-200 dark:border-zinc-700 align-top"
+                                  [class]="
+                                    cells.length && cells[0].is_congregation_meeting
+                                      ? 'bg-amber-50 dark:bg-amber-950'
+                                      : 'bg-white dark:bg-[#18181b]'
+                                  "
                                 >
                                   @for (act of cells; track act.name + act.start_time) {
                                     <div
                                       class="font-medium leading-snug"
-                                      [class]="act.is_congregation_meeting ? 'text-amber-700 dark:text-amber-400' : 'text-gray-800 dark:text-zinc-200'"
-                                    >{{ act.name }}</div>
+                                      [class]="
+                                        act.is_congregation_meeting
+                                          ? 'text-amber-700 dark:text-amber-400'
+                                          : 'text-gray-800 dark:text-zinc-200'
+                                      "
+                                    >
+                                      {{ act.name }}
+                                    </div>
                                     @if (act.status) {
                                       <span
                                         class="inline-block rounded px-1 py-0.5 text-[9px] font-semibold leading-none mt-0.5"
-                                        [class]="act.status === 'draft' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'"
-                                      >{{ act.status === 'draft' ? 'borrador' : 'publicado' }}</span>
+                                        [class]="
+                                          act.status === 'draft'
+                                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
+                                            : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                        "
+                                        >{{
+                                          act.status === 'draft' ? 'borrador' : 'publicado'
+                                        }}</span
+                                      >
                                     }
                                     @if (act.is_preaching_shift && act.preaching_group_name) {
-                                      <div class="text-gray-400 dark:text-zinc-500 italic">{{ act.preaching_group_name }}</div>
+                                      <div class="text-gray-400 dark:text-zinc-500 italic">
+                                        {{ act.preaching_group_name }}
+                                      </div>
                                     }
                                     @if (act.description) {
-                                      <div class="text-gray-400 dark:text-zinc-500 italic">{{ act.description }}</div>
+                                      <div class="text-gray-400 dark:text-zinc-500 italic">
+                                        {{ act.description }}
+                                      </div>
                                     }
                                     @if (!act.is_congregation_meeting && act.locations.length) {
-                                      <div class="text-gray-400 dark:text-zinc-500">{{ act.locations[0].address }}</div>
+                                      <div class="text-gray-400 dark:text-zinc-500">
+                                        {{ act.locations[0].address }}
+                                      </div>
                                     }
                                     @if (act.is_congregation_meeting && act.congregation_address) {
-                                      <div class="text-amber-600 dark:text-amber-500">{{ act.congregation_address }}</div>
+                                      <div class="text-amber-600 dark:text-amber-500">
+                                        {{ act.congregation_address }}
+                                      </div>
                                     }
                                   }
                                   @if (!cells.length) {
@@ -831,14 +873,19 @@
             (click)="closeModal()"
             class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-zinc-200"
           >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         <div class="overflow-y-auto flex-1 p-5">
-
           <!-- Step 1: Upload -->
           @if (importStep() === 'upload') {
             <div class="space-y-4">
@@ -847,7 +894,9 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
                   Region
                   <span class="text-xs font-normal text-gray-400 dark:text-zinc-500 ml-1"
-                    >(optional if file has <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code> column)</span
+                    >(optional if file has
+                    <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code>
+                    column)</span
                   >
                 </label>
                 <app-searchable-select
@@ -881,19 +930,31 @@
                     stroke="currentColor"
                     stroke-width="1.5"
                   >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
                   </svg>
                   <p class="text-sm text-gray-500 dark:text-zinc-400">
                     Drop .xlsx or .csv here or <span class="text-blue-500">click to browse</span>
                   </p>
                   <p class="text-xs text-gray-400 dark:text-zinc-500 mt-1">
-                    Required: <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">group_code</code>
-                    · Optional: <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code>
+                    Required:
+                    <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">group_code</code> ·
+                    Optional:
+                    <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">region_name</code>
                     <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded">host_name</code>
                   </p>
                 }
               </div>
-              <input #fileInput type="file" accept=".xlsx,.xls,.csv" class="hidden" (change)="onFileSelected($event)" />
+              <input
+                #fileInput
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                class="hidden"
+                (change)="onFileSelected($event)"
+              />
 
               @if (importError()) {
                 <p class="text-sm text-red-500">{{ importError() }}</p>
@@ -906,19 +967,27 @@
             <div class="space-y-4">
               <!-- Summary badges -->
               <div class="flex flex-wrap gap-2">
-                <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-gray-50 text-gray-700 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">
+                <span
+                  class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-gray-50 text-gray-700 ring-gray-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700"
+                >
                   Total: {{ parseResult()!.summary.total }}
                 </span>
-                <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800">
+                <span
+                  class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-green-50 text-green-700 ring-green-200 dark:bg-green-950 dark:text-green-400 dark:ring-green-800"
+                >
                   New: {{ parseResult()!.summary.valid }}
                 </span>
                 @if (parseResult()!.summary.errors > 0) {
-                  <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800">
+                  <span
+                    class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800"
+                  >
                     Errors: {{ parseResult()!.summary.errors }}
                   </span>
                 }
                 @if (parseResult()!.summary.duplicates > 0) {
-                  <span class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800">
+                  <span
+                    class="rounded-full px-3 py-1 text-xs font-medium ring-1 bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950 dark:text-yellow-400 dark:ring-yellow-800"
+                  >
                     Existing: {{ parseResult()!.summary.duplicates }}
                   </span>
                 }
@@ -927,16 +996,34 @@
               <!-- Column picker -->
               @if (parseResult()!.columns.length > 0) {
                 <div class="rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
-                  <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-[#27272a]">
-                    <span class="text-xs font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+                  <div
+                    class="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-[#27272a]"
+                  >
+                    <span
+                      class="text-xs font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+                    >
                       Columns to import
                       <span class="ml-1 font-normal normal-case text-gray-400 dark:text-zinc-500"
-                        >({{ importSelectedColumns().length }}/{{ parseResult()!.columns.length }})</span
+                        >({{ importSelectedColumns().length }}/{{
+                          parseResult()!.columns.length
+                        }})</span
                       >
                     </span>
                     <div class="flex gap-3">
-                      <button type="button" (click)="selectAllColumns()" class="text-xs text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 font-medium">All</button>
-                      <button type="button" (click)="selectNoColumns()" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 font-medium">Required only</button>
+                      <button
+                        type="button"
+                        (click)="selectAllColumns()"
+                        class="text-xs text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 font-medium"
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        (click)="selectNoColumns()"
+                        class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-zinc-300 font-medium"
+                      >
+                        Required only
+                      </button>
                     </div>
                   </div>
                   <div class="p-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
@@ -954,7 +1041,11 @@
                           (change)="toggleColumn(col)"
                           class="shrink-0 rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400 focus:ring-offset-0"
                         />
-                        <span class="text-xs text-gray-700 dark:text-zinc-300 truncate" [title]="col">{{ columnLabel(col) }}</span>
+                        <span
+                          class="text-xs text-gray-700 dark:text-zinc-300 truncate"
+                          [title]="col"
+                          >{{ columnLabel(col) }}</span
+                        >
                       </label>
                     }
                   </div>
@@ -964,24 +1055,46 @@
               <!-- Errors table -->
               @if (parseResult()!.errors.length > 0) {
                 <div>
-                  <h4 class="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide mb-2">
+                  <h4
+                    class="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide mb-2"
+                  >
                     Rows with errors (will not be imported)
                   </h4>
-                  <div class="rounded-lg border border-red-200 dark:border-red-900 overflow-hidden max-h-32 overflow-y-auto">
+                  <div
+                    class="rounded-lg border border-red-200 dark:border-red-900 overflow-hidden max-h-32 overflow-y-auto"
+                  >
                     <table class="w-full text-xs">
                       <thead class="bg-red-50 dark:bg-red-950">
                         <tr>
-                          <th class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium">Row</th>
-                          <th class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium">Code</th>
-                          <th class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium">Reason</th>
+                          <th
+                            class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium"
+                          >
+                            Row
+                          </th>
+                          <th
+                            class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium"
+                          >
+                            Code
+                          </th>
+                          <th
+                            class="px-3 py-2 text-left text-red-700 dark:text-red-400 font-medium"
+                          >
+                            Reason
+                          </th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-red-100 dark:divide-red-900">
                         @for (err of parseResult()!.errors; track err.row) {
                           <tr class="bg-white dark:bg-[#18181b]">
-                            <td class="px-3 py-1.5 text-gray-500 dark:text-zinc-400">{{ err.row }}</td>
-                            <td class="px-3 py-1.5 font-mono text-gray-700 dark:text-zinc-300">{{ err.group_code }}</td>
-                            <td class="px-3 py-1.5 text-red-600 dark:text-red-400">{{ err.reason }}</td>
+                            <td class="px-3 py-1.5 text-gray-500 dark:text-zinc-400">
+                              {{ err.row }}
+                            </td>
+                            <td class="px-3 py-1.5 font-mono text-gray-700 dark:text-zinc-300">
+                              {{ err.group_code }}
+                            </td>
+                            <td class="px-3 py-1.5 text-red-600 dark:text-red-400">
+                              {{ err.reason }}
+                            </td>
                           </tr>
                         }
                       </tbody>
@@ -994,19 +1107,29 @@
               @if (parseResult()!.valid.length > 0) {
                 <div class="rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden">
                   <div class="px-4 py-2.5 bg-gray-50 dark:bg-[#27272a]">
-                    <span class="text-xs font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide">
+                    <span
+                      class="text-xs font-semibold text-gray-700 dark:text-zinc-200 uppercase tracking-wide"
+                    >
                       {{ parseResult()!.valid.length }} groups to create
                     </span>
                   </div>
-                  <div class="max-h-32 overflow-y-auto divide-y divide-gray-100 dark:divide-zinc-800">
+                  <div
+                    class="max-h-32 overflow-y-auto divide-y divide-gray-100 dark:divide-zinc-800"
+                  >
                     @for (row of parseResult()!.valid; track row.group_code) {
                       <div class="px-4 py-2 flex items-center justify-between gap-3">
-                        <span class="font-mono text-xs text-gray-700 dark:text-zinc-300">{{ row.group_code }}</span>
+                        <span class="font-mono text-xs text-gray-700 dark:text-zinc-300">{{
+                          row.group_code
+                        }}</span>
                         @if (row.host_name) {
-                          <span class="text-xs text-gray-400 dark:text-zinc-500 truncate">{{ row.host_name }}</span>
+                          <span class="text-xs text-gray-400 dark:text-zinc-500 truncate">{{
+                            row.host_name
+                          }}</span>
                         }
                         @if (row.region_name) {
-                          <span class="text-xs text-gray-400 dark:text-zinc-500 shrink-0">{{ row.region_name }}</span>
+                          <span class="text-xs text-gray-400 dark:text-zinc-500 shrink-0">{{
+                            row.region_name
+                          }}</span>
                         }
                       </div>
                     }
@@ -1016,9 +1139,15 @@
 
               <!-- Existing groups (duplicates) -->
               @if (parseResult()!.duplicateRows.length > 0) {
-                <div class="rounded-lg border border-yellow-200 dark:border-yellow-800 overflow-hidden">
-                  <div class="flex items-center justify-between px-4 py-2.5 bg-yellow-50 dark:bg-yellow-950">
-                    <span class="text-xs font-semibold text-yellow-700 dark:text-yellow-400 uppercase tracking-wide">
+                <div
+                  class="rounded-lg border border-yellow-200 dark:border-yellow-800 overflow-hidden"
+                >
+                  <div
+                    class="flex items-center justify-between px-4 py-2.5 bg-yellow-50 dark:bg-yellow-950"
+                  >
+                    <span
+                      class="text-xs font-semibold text-yellow-700 dark:text-yellow-400 uppercase tracking-wide"
+                    >
                       {{ parseResult()!.duplicateRows.length }} already exist in database
                     </span>
                     <div
@@ -1036,12 +1165,20 @@
                     </div>
                   </div>
                   @if (importUpdateExisting()) {
-                    <div class="max-h-32 overflow-y-auto divide-y divide-yellow-100 dark:divide-yellow-900">
+                    <div
+                      class="max-h-32 overflow-y-auto divide-y divide-yellow-100 dark:divide-yellow-900"
+                    >
                       @for (row of parseResult()!.duplicateRows; track row.group_code) {
-                        <div class="px-4 py-2 flex items-center justify-between gap-3 bg-white dark:bg-[#18181b]">
-                          <span class="font-mono text-xs text-gray-700 dark:text-zinc-300">{{ row.group_code }}</span>
+                        <div
+                          class="px-4 py-2 flex items-center justify-between gap-3 bg-white dark:bg-[#18181b]"
+                        >
+                          <span class="font-mono text-xs text-gray-700 dark:text-zinc-300">{{
+                            row.group_code
+                          }}</span>
                           @if (row.host_name) {
-                            <span class="text-xs text-gray-400 dark:text-zinc-500 truncate">{{ row.host_name }}</span>
+                            <span class="text-xs text-gray-400 dark:text-zinc-500 truncate">{{
+                              row.host_name
+                            }}</span>
                           }
                         </div>
                       }
@@ -1052,15 +1189,32 @@
 
               <!-- Delete absent toggle -->
               <div class="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-2.5 bg-red-50 dark:bg-red-950">
+                <div
+                  class="flex items-center justify-between px-4 py-2.5 bg-red-50 dark:bg-red-950"
+                >
                   <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <svg
+                      class="w-4 h-4 text-red-600 dark:text-red-400 shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
                     </svg>
-                    <span class="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">Delete absent groups</span>
+                    <span
+                      class="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide"
+                      >Delete absent groups</span
+                    >
                   </div>
                   <label class="flex items-center gap-2 cursor-pointer select-none">
-                    <span class="text-xs text-gray-600 dark:text-zinc-400">Remove from DB if not in Excel</span>
+                    <span class="text-xs text-gray-600 dark:text-zinc-400"
+                      >Remove from DB if not in Excel</span
+                    >
                     <div
                       class="relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer"
                       [class.bg-red-500]="importDeleteAbsent()"
@@ -1077,9 +1231,12 @@
                   </label>
                 </div>
                 @if (importDeleteAbsent() && (parseResult()?.toDelete?.length ?? 0) > 0) {
-                  <div class="px-4 py-2.5 bg-red-50/60 dark:bg-red-950/60 border-t border-red-200 dark:border-red-800">
+                  <div
+                    class="px-4 py-2.5 bg-red-50/60 dark:bg-red-950/60 border-t border-red-200 dark:border-red-800"
+                  >
                     <p class="text-xs text-red-700 dark:text-red-300">
-                      {{ parseResult()!.toDelete.length }} groups (and their guests) will be permanently deleted.
+                      {{ parseResult()!.toDelete.length }} groups (and their guests) will be
+                      permanently deleted.
                     </p>
                   </div>
                 }
@@ -1093,18 +1250,32 @@
 
           <!-- Step 3: Done -->
           @if (importStep() === 'done' && commitResult()) {
-            <div class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-4 space-y-1">
-              <p class="text-sm font-semibold text-green-700 dark:text-green-400">Import complete</p>
+            <div
+              class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 p-4 space-y-1"
+            >
+              <p class="text-sm font-semibold text-green-700 dark:text-green-400">
+                Import complete
+              </p>
               <p class="text-xs text-green-600 dark:text-green-500">
-                {{ commitResult()!.created }} created · {{ commitResult()!.updated }} updated · {{ commitResult()!.total }} total
+                {{ commitResult()!.created }} created · {{ commitResult()!.updated }} updated ·
+                {{ commitResult()!.total }} total
                 @if (commitResult()!.regions_not_found) {
-                  · <span class="text-orange-600 dark:text-orange-400">{{ commitResult()!.regions_not_found }} skipped (region not found)</span>
+                  ·
+                  <span class="text-orange-600 dark:text-orange-400"
+                    >{{ commitResult()!.regions_not_found }} skipped (region not found)</span
+                  >
                 }
                 @if (commitResult()!.hosts_not_found) {
-                  · <span class="text-orange-600 dark:text-orange-400">{{ commitResult()!.hosts_not_found }} congregation(s) not found</span>
+                  ·
+                  <span class="text-orange-600 dark:text-orange-400"
+                    >{{ commitResult()!.hosts_not_found }} congregation(s) not found</span
+                  >
                 }
                 @if (commitResult()!.deleted) {
-                  · <span class="text-red-600 dark:text-red-400">{{ commitResult()!.deleted }} groups deleted</span>
+                  ·
+                  <span class="text-red-600 dark:text-red-400"
+                    >{{ commitResult()!.deleted }} groups deleted</span
+                  >
                 }
               </p>
             </div>
@@ -1112,7 +1283,9 @@
         </div>
 
         <!-- Footer -->
-        <div class="px-5 py-3 border-t border-gray-200 dark:border-zinc-700 flex justify-between shrink-0 bg-gray-50 dark:bg-[#27272a]">
+        <div
+          class="px-5 py-3 border-t border-gray-200 dark:border-zinc-700 flex justify-between shrink-0 bg-gray-50 dark:bg-[#27272a]"
+        >
           @if (importStep() === 'preview') {
             <button
               (click)="importStep.set('upload')"
@@ -1294,7 +1467,7 @@
       </div>
     }
 
-    <!-- Truncate confirmation modal -->
+    <!-- Delete all modal -->
     @if (activeModal() === 'truncate') {
       <div
         class="w-full max-w-sm bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
@@ -1304,7 +1477,7 @@
           class="px-5 py-3 bg-red-50 dark:bg-red-950 border-b border-red-200 dark:border-red-900 flex items-center justify-between"
         >
           <h3 class="text-sm font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">
-            Truncate all data
+            Delete all data
           </h3>
           <button
             (click)="closeModal()"
@@ -1356,6 +1529,81 @@
               class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {{ truncating() ? 'Deleting…' : 'Delete all' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Delete current filter modal -->
+    @if (activeModal() === 'delete-filtered') {
+      <div
+        class="w-full max-w-sm bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="px-5 py-3 bg-red-50 dark:bg-red-950 border-b border-red-200 dark:border-red-900 flex items-center justify-between"
+        >
+          <h3 class="text-sm font-semibold text-red-700 dark:text-red-400 uppercase tracking-wide">
+            Delete current filter
+          </h3>
+          <button
+            (click)="closeModal()"
+            class="p-1 rounded text-red-400 hover:text-red-600 dark:hover:text-red-300"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="p-5 space-y-4">
+          <p class="text-sm text-gray-700 dark:text-zinc-300">
+            This will permanently delete all guests and guest groups matching the current filter.
+            This action cannot be undone.
+          </p>
+          @if (activeFilterSummary()) {
+            <p
+              class="text-xs text-gray-500 dark:text-zinc-400 bg-gray-50 dark:bg-zinc-800 rounded-lg px-3 py-2"
+            >
+              {{ activeFilterSummary() }}
+            </p>
+          }
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">
+              Type
+              <code class="bg-gray-100 dark:bg-zinc-800 px-1 rounded text-red-600 dark:text-red-400"
+                >DELETE</code
+              >
+              to confirm
+            </label>
+            <input
+              type="text"
+              [value]="truncateConfirmText()"
+              (input)="truncateConfirmText.set($any($event.target).value)"
+              placeholder="DELETE"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 placeholder-gray-400 dark:placeholder-zinc-500"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              (click)="closeModal()"
+              class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              (click)="confirmDeleteFiltered()"
+              [disabled]="truncateConfirmText() !== 'DELETE' || truncating()"
+              class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {{ truncating() ? 'Deleting…' : 'Delete' }}
             </button>
           </div>
         </div>

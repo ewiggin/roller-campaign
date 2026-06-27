@@ -28,7 +28,10 @@ import {
   type PlaceResult,
 } from '../../../shared/components/location-picker/location-picker';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
-import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
+import {
+  MenuButtonComponent,
+  type MenuItem,
+} from '../../../shared/components/menu-button/menu-button';
 import { ActivityImportModalComponent } from './activity-import-modal';
 
 type ActiveModal = 'create' | 'detail' | null;
@@ -192,23 +195,23 @@ export class ActivitiesListComponent implements OnInit {
         limit: 10000,
       })
       .pipe(
-        switchMap(res => {
+        switchMap((res) => {
           if (!res.data.length) return of([] as Activity[]);
           return from(res.data).pipe(
-            concatMap(a => this.svc.getOne(a.id)),
+            concatMap((a) => this.svc.getOne(a.id)),
             toArray(),
           );
         }),
       )
       .subscribe({
-        next: async activities => {
+        next: async (activities) => {
           const blob = new Blob([JSON.stringify(activities, null, 2)], {
             type: 'application/json',
           });
           const parts: string[] = [this.preachingShiftsOnly ? 'turnos' : 'actividades'];
-          const regionName = this.regions().find(r => r.id === this.filterRegion())?.name;
+          const regionName = this.regions().find((r) => r.id === this.filterRegion())?.name;
           if (regionName) parts.push(regionName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
-          const hostName = this.filterHosts().find(h => h.id === this.filterHost())?.name;
+          const hostName = this.filterHosts().find((h) => h.id === this.filterHost())?.name;
           if (hostName) parts.push(hostName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
           if (this.filterDate()) parts.push(this.filterDate());
           parts.push(new Date().toISOString().slice(0, 10));
@@ -231,13 +234,13 @@ export class ActivitiesListComponent implements OnInit {
         is_food_shift: this.foodShiftsOnly ? true : undefined,
       })
       .subscribe({
-        next: async blob => {
+        next: async (blob) => {
           const parts: string[] = [
             this.preachingShiftsOnly ? 'turnos' : this.foodShiftsOnly ? 'comida' : 'actividades',
           ];
-          const regionName = this.regions().find(r => r.id === this.filterRegion())?.name;
+          const regionName = this.regions().find((r) => r.id === this.filterRegion())?.name;
           if (regionName) parts.push(regionName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
-          const hostName = this.filterHosts().find(h => h.id === this.filterHost())?.name;
+          const hostName = this.filterHosts().find((h) => h.id === this.filterHost())?.name;
           if (hostName) parts.push(hostName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
           if (this.filterDate()) parts.push(this.filterDate());
           parts.push(new Date().toISOString().slice(0, 10));
@@ -256,7 +259,7 @@ export class ActivitiesListComponent implements OnInit {
         is_food_shift: this.foodShiftsOnly ? true : undefined,
       })
       .subscribe({
-        next: async blob => {
+        next: async (blob) => {
           const filename = this.preachingShiftsOnly
             ? 'plantilla-turnos-predicacion.xlsx'
             : this.foodShiftsOnly
@@ -438,7 +441,10 @@ export class ActivitiesListComponent implements OnInit {
 
   readonly selectedActivity = signal<Activity | null>(null);
 
-  private readonly naturalCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  private readonly naturalCollator = new Intl.Collator(undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
   readonly sortedPreachingGroups = computed(() =>
     [...(this.selectedActivity()?.preaching_groups ?? [])].sort((a, b) =>
       this.naturalCollator.compare(a.name ?? '', b.name ?? ''),
@@ -590,7 +596,12 @@ export class ActivitiesListComponent implements OnInit {
       return {
         value: g.id,
         label: g.group_code,
-        disabled: g.already_in_activity || g.host_schedule_conflict || preachingLimitReached || sameDayConflict || activitiesLimitReached,
+        disabled:
+          g.already_in_activity ||
+          g.host_schedule_conflict ||
+          preachingLimitReached ||
+          sameDayConflict ||
+          activitiesLimitReached,
         meta: g.already_in_activity
           ? 'Already in another activity'
           : g.host_schedule_conflict
@@ -618,9 +629,11 @@ export class ActivitiesListComponent implements OnInit {
     const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
     const isFoodShift = this.selectedActivity()?.is_food_shift ?? false;
     if (isPreachingShift)
-      return [['info', 'Info'] as const, ['preaching-groups', 'Preaching groups'] as const] as const;
-    if (isFoodShift)
-      return [['info', 'Info'] as const, ['groups', 'Groups'] as const] as const;
+      return [
+        ['info', 'Info'] as const,
+        ['preaching-groups', 'Preaching groups'] as const,
+      ] as const;
+    if (isFoodShift) return [['info', 'Info'] as const, ['groups', 'Groups'] as const] as const;
     return [
       ['info', 'Info'] as const,
       ['volunteers', 'Volunteers'] as const,

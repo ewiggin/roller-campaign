@@ -111,7 +111,8 @@ export class AvailableVolunteerForActivityDto {
 
   @ApiPropertyOptional({
     example: false,
-    description: 'True when distance_km was calculated from the congregation coordinates, not the volunteer own coordinates.',
+    description:
+      'True when distance_km was calculated from the congregation coordinates, not the volunteer own coordinates.',
   })
   distance_from_congregation: boolean;
 
