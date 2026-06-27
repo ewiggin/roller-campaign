@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.1] - 2026-06-27
+
+### Añadido
+
+- **Descarga de PDF de horario para voluntarios**: nuevo botón de descarga (visible solo en modo Planning) en la lista de voluntarios que genera el PDF de actividades y turnos del voluntario, idéntico al existente para grupos de anfitriones
+- **Filtro por congregación en voluntarios**: nuevo desplegable en el panel de filtros de la lista de voluntarios que filtra por congregación asignada; al cambiar de región se actualiza automáticamente. Incluye opción "None" para mostrar solo voluntarios sin congregación asignada
+- **Filtro por congregación en grupos de invitados**: mismo desplegable de congregación en la lista de grupos de invitados, con opción "None" para grupos sin congregación
+- **Dropdown de borrado en grupos de invitados**: el botón "Truncate" ha sido reemplazado por un dropdown "Delete" (solo superadmin) con dos opciones: "Delete all" (equivalente al truncate anterior) y "Delete current filter" (elimina solo los grupos y sus invitados que coincidan con los filtros activos: región, búsqueda y/o congregación). Ambas opciones requieren escribir DELETE para confirmar. Nuevo endpoint `DELETE /api/guest-groups/delete-filtered`
+
+### Mejorado
+
+- **Tablas de planning a ancho completo con columnas equitativas**: las tablas de planificación semanal inline (tanto en grupos de invitados como en voluntarios) ahora ocupan todo el ancho disponible y reparten el espacio en columnas de igual anchura
+- **MenuButtonComponent con variante danger**: el componente de menú desplegable acepta ahora `variant="danger"` para mostrar el botón con estilo rojo
+
+---
+
 ## [0.4.0] - 2026-06-26
 
 ### Añadido
