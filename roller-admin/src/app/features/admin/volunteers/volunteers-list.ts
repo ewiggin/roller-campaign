@@ -96,9 +96,10 @@ export class VolunteersListComponent implements OnInit {
 
   readonly roleItems = computed(() => this.roles().map((r) => ({ value: r.id, label: r.name })));
 
-  readonly hostItems = computed(() =>
-    this.hosts().map((h) => ({ value: h.id, label: h.name })),
-  );
+  readonly hostItems = computed(() => [
+    { value: '__none__', label: 'None' },
+    ...this.hosts().map((h) => ({ value: h.id, label: h.name })),
+  ]);
 
   readonly availabilityOptions = AVAILABILITY_OPTIONS;
 
@@ -273,10 +274,12 @@ export class VolunteersListComponent implements OnInit {
     const minSeats = this.filterMinCarSeats();
     const slots = this.filterAvailability();
     const terms = this.filterTermsAccepted();
+    const host = this.filterHost();
     return {
       regionId: this.filterRegion() || undefined,
       roleId: this.filterRole() || undefined,
-      hostId: this.filterHost() || undefined,
+      hostId: host && host !== '__none__' ? host : undefined,
+      noHost: host === '__none__' ? true : undefined,
       search: this.filterSearch() || undefined,
       min_car_seats: minSeats ? parseInt(minSeats, 10) : undefined,
       available_slots: slots.length ? slots : undefined,

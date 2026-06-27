@@ -104,4 +104,10 @@ export class VolunteerListQueryDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   terms_accepted?: boolean;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  noHost?: boolean;
 }
