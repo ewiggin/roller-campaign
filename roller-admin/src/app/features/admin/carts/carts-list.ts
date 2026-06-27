@@ -196,6 +196,14 @@ export class CartsListComponent implements OnInit, OnDestroy {
           position,
           map: this.map,
           title: cart.number ? `Cart ${cart.number}` : 'Cart',
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 7,
+            fillColor: '#3b82f6',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
+          },
         });
         this.mapMarkers.push(marker);
         bounds.extend(position);

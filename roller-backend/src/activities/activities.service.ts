@@ -1273,33 +1273,37 @@ export class ActivitiesService {
     const result: AvailableGroupForActivityDto[] = [];
 
     for (const group of groups) {
-      if (assignedIds.has(group.id)) continue;
-      if (
-        morningPreachingGroupIds !== null &&
-        !morningPreachingGroupIds.has(group.id)
-      )
-        continue;
-
-      // Filter by the group's own availability window
-      if (group.available_from && activity.date < group.available_from)
-        continue;
-      if (group.available_to && activity.date > group.available_to) continue;
+      const isAssignedHere = assignedIds.has(group.id);
 
       const groupGuests = guestsByGroup.get(group.id) ?? [];
-      if (groupGuests.length > 0 && activity.date) {
-        const hasAvailabilityData = groupGuests.some(
-          (g) => g.available_from || g.available_to,
-        );
-        if (hasAvailabilityData) {
-          const anyAvailable = groupGuests.some((g) => {
-            if (g.available_from && activity.date > g.available_from === false)
-              return false;
-            if (g.available_from && activity.date < g.available_from)
-              return false;
-            if (g.available_to && activity.date > g.available_to) return false;
-            return true;
-          });
-          if (!anyAvailable) continue;
+
+      if (!isAssignedHere) {
+        if (
+          morningPreachingGroupIds !== null &&
+          !morningPreachingGroupIds.has(group.id)
+        )
+          continue;
+
+        // Filter by the group's own availability window
+        if (group.available_from && activity.date < group.available_from)
+          continue;
+        if (group.available_to && activity.date > group.available_to) continue;
+
+        if (groupGuests.length > 0 && activity.date) {
+          const hasAvailabilityData = groupGuests.some(
+            (g) => g.available_from || g.available_to,
+          );
+          if (hasAvailabilityData) {
+            const anyAvailable = groupGuests.some((g) => {
+              if (g.available_from && activity.date > g.available_from === false)
+                return false;
+              if (g.available_from && activity.date < g.available_from)
+                return false;
+              if (g.available_to && activity.date > g.available_to) return false;
+              return true;
+            });
+            if (!anyAvailable) continue;
+          }
         }
       }
 
@@ -1327,12 +1331,12 @@ export class ActivitiesService {
         group_code: group.group_code,
         host_id: group.host_id,
         host_name: host?.name ?? null,
-        host_lat: host?.lat ?? null,
-        host_lng: host?.lng ?? null,
+        host_lat: dstLat,
+        host_lng: dstLng,
         distance_km:
           distance_km !== null ? Math.round(distance_km * 10) / 10 : null,
         guest_count: groupGuests.length,
-        already_in_activity: conflictingGroupIds.has(group.id),
+        already_in_activity: isAssignedHere || conflictingGroupIds.has(group.id),
         host_schedule_conflict: this.hasHostScheduleConflict(
           activity.date,
           activity.start_time,
