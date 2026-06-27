@@ -253,8 +253,20 @@ export class VolunteersListComponent implements OnInit {
   ngOnInit() {
     this.regionsSvc.getAll().subscribe({ next: (r) => this.regions.set(r) });
     this.svc.getRoles().subscribe({ next: (r) => this.roles.set(r) });
-    this.hostsSvc.getAll().subscribe({ next: (h) => this.hosts.set(h) });
+    this.loadHosts();
     this.load();
+  }
+
+  private loadHosts() {
+    const regionId = this.filterRegion() || undefined;
+    this.hostsSvc.getAll(regionId).subscribe({ next: (h) => this.hosts.set(h) });
+  }
+
+  onRegionChange(regionId: string) {
+    this.filterRegion.set(regionId);
+    this.filterHost.set('');
+    this.loadHosts();
+    this.applyFilters();
   }
 
   private buildQuery() {
@@ -300,6 +312,7 @@ export class VolunteersListComponent implements OnInit {
     this.filterAvailability.set([]);
     this.filterTermsAccepted.set('');
     this.filterSearch.set('');
+    this.loadHosts();
     this.applyFilters();
   }
 
