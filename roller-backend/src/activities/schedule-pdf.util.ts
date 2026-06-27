@@ -1,4 +1,8 @@
-import type { Content, ContentTable, TDocumentDefinitions } from 'pdfmake/interfaces';
+import type {
+  Content,
+  ContentTable,
+  TDocumentDefinitions,
+} from 'pdfmake/interfaces';
 import type { LocationPoint } from './dto/location-point.dto';
 
 export const COMPOSITION_LABELS: Record<string, string> = {
@@ -44,19 +48,47 @@ export const SCHEDULE_PDF_STYLES: TDocumentDefinitions['styles'] = {
   groupTitle: { fontSize: 14, bold: true, margin: [0, 0, 0, 2] },
   groupSubtitle: { fontSize: 9, color: '#666666', margin: [0, 0, 0, 12] },
   tableHeader: { fontSize: 9, bold: true, fillColor: '#f0f0f0' },
-  dayHeader: { fontSize: 10, bold: true, fillColor: '#eef2ff', color: '#1e3a8a' },
+  dayHeader: {
+    fontSize: 10,
+    bold: true,
+    fillColor: '#eef2ff',
+    color: '#1e3a8a',
+  },
   tableCell: { fontSize: 9 },
   emptyCell: { fontSize: 9, italics: true, color: '#999999' },
   activityName: { fontSize: 9, bold: true },
   activityMeta: { fontSize: 8, color: '#666666', italics: true },
   meetingCell: { fontSize: 9, fillColor: '#fffbeb', color: '#78350f' },
-  meetingName: { fontSize: 9, bold: true, fillColor: '#fffbeb', color: '#78350f' },
+  meetingName: {
+    fontSize: 9,
+    bold: true,
+    fillColor: '#fffbeb',
+    color: '#78350f',
+  },
 };
 
-const DAYS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const DAYS_ES = [
+  'domingo',
+  'lunes',
+  'martes',
+  'miércoles',
+  'jueves',
+  'viernes',
+  'sábado',
+];
 const MONTHS_ES = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
 ];
 
 function dayLabel(iso: string): string {
@@ -99,7 +131,10 @@ export function buildGroupScheduleContent(
       group.host_name ? `Hospedados en: ${group.host_name}` : null,
     ].filter(Boolean);
 
-    content.push({ text: subtitleParts.join('   ·   '), style: 'groupSubtitle' });
+    content.push({
+      text: subtitleParts.join('   ·   '),
+      style: 'groupSubtitle',
+    });
   } else {
     content.push({ text: '', style: 'groupSubtitle' });
   }
@@ -148,10 +183,17 @@ export function buildGroupScheduleContent(
 
       if (activity.is_congregation_meeting) {
         let locationContent: Content;
-        if (activity.congregation_address && activity.congregation_lat && activity.congregation_lng) {
+        if (
+          activity.congregation_address &&
+          activity.congregation_lat &&
+          activity.congregation_lng
+        ) {
           locationContent = {
             text: [
-              { text: activity.congregation_address + ' ', style: 'meetingCell' },
+              {
+                text: activity.congregation_address + ' ',
+                style: 'meetingCell',
+              },
               {
                 text: '(Maps)',
                 link: `https://www.google.com/maps?q=${activity.congregation_lat},${activity.congregation_lng}`,
@@ -161,7 +203,10 @@ export function buildGroupScheduleContent(
             ],
           } as Content;
         } else if (activity.congregation_address) {
-          locationContent = { text: activity.congregation_address, style: 'meetingCell' };
+          locationContent = {
+            text: activity.congregation_address,
+            style: 'meetingCell',
+          };
         } else {
           locationContent = { text: '—', style: 'meetingCell' };
         }
@@ -210,11 +255,16 @@ export function buildVolunteerScheduleContent(
 ): Content[] {
   const content: Content[] = [];
 
-  content.push({ text: `${volunteer.volunteer_code} – ${volunteer.full_name}`, style: 'groupTitle' });
+  content.push({
+    text: `${volunteer.volunteer_code} – ${volunteer.full_name}`,
+    style: 'groupTitle',
+  });
   content.push({ text: '', style: 'groupSubtitle' });
 
   if (days.length === 0) {
-    content.push({ text: 'No hay actividades programadas para este voluntario.' });
+    content.push({
+      text: 'No hay actividades programadas para este voluntario.',
+    });
     return content;
   }
 
@@ -255,9 +305,14 @@ export function buildVolunteerScheduleContent(
         ? `${activity.start_time} - ${activity.end_time}`
         : activity.start_time;
 
-      const nameStack: Content[] = [{ text: activity.name, style: 'activityName' }];
+      const nameStack: Content[] = [
+        { text: activity.name, style: 'activityName' },
+      ];
       if (activity.is_preaching_shift && activity.preaching_group_name) {
-        nameStack.push({ text: activity.preaching_group_name, style: 'activityMeta' });
+        nameStack.push({
+          text: activity.preaching_group_name,
+          style: 'activityMeta',
+        });
       }
       if (activity.description) {
         nameStack.push({ text: activity.description, style: 'activityMeta' });

@@ -13,6 +13,7 @@ export interface MenuItem {
 export class MenuButtonComponent {
   readonly label = input<string>('Acciones');
   readonly items = input<MenuItem[]>([]);
+  readonly variant = input<'default' | 'danger'>('default');
 
   protected readonly open = signal(false);
 

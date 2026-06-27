@@ -90,17 +90,22 @@ export class ActivitiesController {
   }
 
   @Get('volunteer-schedule')
-  @ApiOkResponse({ description: 'JSON con el calendario de actividades de un voluntario' })
+  @ApiOkResponse({
+    description: 'JSON con el calendario de actividades de un voluntario',
+  })
   getVolunteerSchedule(
     @Query('volunteerId') volunteerId: string | undefined,
     @CurrentUser() user: JwtPayload,
   ) {
-    if (!volunteerId) throw new BadRequestException('volunteerId es obligatorio');
+    if (!volunteerId)
+      throw new BadRequestException('volunteerId es obligatorio');
     return this.svc.getVolunteerScheduleJson(volunteerId, user);
   }
 
   @Get('group-schedule')
-  @ApiOkResponse({ description: 'JSON con el calendario de actividades de un grupo' })
+  @ApiOkResponse({
+    description: 'JSON con el calendario de actividades de un grupo',
+  })
   getGroupSchedule(
     @Query('groupId') groupId: string | undefined,
     @CurrentUser() user: JwtPayload,
@@ -124,18 +129,29 @@ export class ActivitiesController {
     @Res() res: Response,
   ): Promise<void> {
     if (!groupId && !hostId && !volunteerId) {
-      throw new BadRequestException('groupId, hostId o volunteerId es obligatorio');
+      throw new BadRequestException(
+        'groupId, hostId o volunteerId es obligatorio',
+      );
     }
 
     let buffer: Buffer;
     let filename: string;
 
     if (groupId) {
-      ({ buffer, filename } = await this.svc.exportGroupSchedulePdf(groupId, user));
+      ({ buffer, filename } = await this.svc.exportGroupSchedulePdf(
+        groupId,
+        user,
+      ));
     } else if (volunteerId) {
-      ({ buffer, filename } = await this.svc.exportVolunteerSchedulePdf(volunteerId, user));
+      ({ buffer, filename } = await this.svc.exportVolunteerSchedulePdf(
+        volunteerId,
+        user,
+      ));
     } else {
-      ({ buffer, filename } = await this.svc.exportHostSchedulesPdf(hostId!, user));
+      ({ buffer, filename } = await this.svc.exportHostSchedulesPdf(
+        hostId!,
+        user,
+      ));
     }
 
     res.set({
@@ -148,7 +164,9 @@ export class ActivitiesController {
   // ── Excel import / export ─────────────────────────────────────────────────
 
   @Get('import/template')
-  @ApiOkResponse({ description: 'Plantilla Excel para importación de actividades' })
+  @ApiOkResponse({
+    description: 'Plantilla Excel para importación de actividades',
+  })
   getImportTemplate(
     @Query('is_preaching_shift') isPreachingShift: string | undefined,
     @Query('is_food_shift') isFoodShift: string | undefined,
@@ -163,7 +181,8 @@ export class ActivitiesController {
         ? 'plantilla-turnos-comida.xlsx'
         : 'plantilla-actividades.xlsx';
     res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="${filename}"`,
     });
     res.send(buffer);
@@ -178,7 +197,8 @@ export class ActivitiesController {
   ): Promise<void> {
     const buffer = await this.svc.exportActivitiesToExcel(query, user);
     res.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': 'attachment; filename="actividades.xlsx"',
     });
     res.send(buffer);

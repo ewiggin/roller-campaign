@@ -51,18 +51,18 @@ const VOLUNTEER_TOKEN_TYPE = 'volunteer_access';
 
 const HEADER_TO_FIELD: Record<string, string> = {
   'Número de identificación': 'volunteer_code',
-  'Nombre': 'full_name',
-  'Email': 'email',
-  'Teléfono': 'phone',
+  Nombre: 'full_name',
+  Email: 'email',
+  Teléfono: 'phone',
   'Región de participación': 'region_name',
-  'Congregación': 'congregation',
+  Congregación: 'congregation',
   'Plazas de coche disponibles': 'car_seats',
-  'Dirección': 'hosting_address',
-  'Lat': 'lat',
-  'Lon': 'lng',
-  'Maps': 'maps_link',
-  'Activo': 'is_active',
-  'Roles': 'role_names',
+  Dirección: 'hosting_address',
+  Lat: 'lat',
+  Lon: 'lng',
+  Maps: 'maps_link',
+  Activo: 'is_active',
+  Roles: 'role_names',
   'Lu M': 'monday_morning',
   'Lu T': 'monday_afternoon',
   'Ma M': 'tuesday_morning',
@@ -320,7 +320,9 @@ export class VolunteersService {
     }
     if (dto.host_id !== undefined) {
       if (dto.host_id) {
-        const host = await this.hostsRepo.findOne({ where: { id: dto.host_id } });
+        const host = await this.hostsRepo.findOne({
+          where: { id: dto.host_id },
+        });
         v.host = host ?? null;
         v.host_id = host ? dto.host_id : v.host_id;
       } else {
@@ -491,9 +493,9 @@ export class VolunteersService {
     const wb = XLSX.read(buffer, { type: 'buffer', cellDates: false });
     const sheet = wb.Sheets[wb.SheetNames[0]];
 
-    const sheetHeaders = (
-      XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 })[0] ?? []
-    ) as string[];
+    const sheetHeaders = (XLSX.utils.sheet_to_json<string[]>(sheet, {
+      header: 1,
+    })[0] ?? []) as string[];
     const columns = sheetHeaders
       .filter((h) => typeof h === 'string' && h in HEADER_TO_FIELD)
       .map((h) => HEADER_TO_FIELD[h]);
@@ -652,10 +654,9 @@ export class VolunteersService {
     const updateCols =
       dto.partialUpdate && dto.columns ? new Set(dto.columns) : null;
 
-    const fallbackRegions =
-      dto.region_ids?.length
-        ? await this.regionsRepo.find({ where: { id: In(dto.region_ids) } })
-        : [];
+    const fallbackRegions = dto.region_ids?.length
+      ? await this.regionsRepo.find({ where: { id: In(dto.region_ids) } })
+      : [];
 
     let created = 0;
     let updated = 0;
@@ -1127,7 +1128,13 @@ export class VolunteersService {
       event_end_date: r.event_end_date ?? null,
     })),
     congregation: v.host
-      ? { id: v.host.id, name: v.host.name, address: v.host.address, lat: v.host.lat, lng: v.host.lng }
+      ? {
+          id: v.host.id,
+          name: v.host.name,
+          address: v.host.address,
+          lat: v.host.lat,
+          lng: v.host.lng,
+        }
       : null,
     hosting_address: v.hosting_address,
     lat: v.lat,

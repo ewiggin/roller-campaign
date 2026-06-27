@@ -10,14 +10,20 @@ import type {
   VolunteerRole,
   VolunteerSummary,
 } from '../../../core/models/volunteer.model';
-import { ActivitiesService, type GroupScheduleActivity } from '../../../core/services/activities.service';
+import {
+  ActivitiesService,
+  type GroupScheduleActivity,
+} from '../../../core/services/activities.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
-import { MenuButtonComponent, type MenuItem } from '../../../shared/components/menu-button/menu-button';
+import {
+  MenuButtonComponent,
+  type MenuItem,
+} from '../../../shared/components/menu-button/menu-button';
 
 type ActiveModal = 'create' | 'import' | 'truncate' | null;
 
@@ -53,7 +59,13 @@ const AVAILABILITY_OPTIONS = [
 
 @Component({
   selector: 'app-volunteers-list',
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, SearchableSelectComponent, MenuButtonComponent],
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    RouterLink,
+    SearchableSelectComponent,
+    MenuButtonComponent,
+  ],
   templateUrl: './volunteers-list.html',
 })
 export class VolunteersListComponent implements OnInit {
@@ -609,7 +621,12 @@ export class VolunteersListComponent implements OnInit {
       },
       error: () => {
         const m2 = new Map(this.volSchedules());
-        m2.set(volunteerId, { days: [], activities: [], loading: false, error: 'Error al cargar el planning.' });
+        m2.set(volunteerId, {
+          days: [],
+          activities: [],
+          loading: false,
+          error: 'Error al cargar el planning.',
+        });
         this.volSchedules.set(m2);
       },
     });
@@ -620,7 +637,11 @@ export class VolunteersListComponent implements OnInit {
     return [...times].sort();
   }
 
-  getActivitiesForCell(activities: GroupScheduleActivity[], day: string, time: string): GroupScheduleActivity[] {
+  getActivitiesForCell(
+    activities: GroupScheduleActivity[],
+    day: string,
+    time: string,
+  ): GroupScheduleActivity[] {
     return activities.filter((a) => a.date === day && a.start_time === time);
   }
 

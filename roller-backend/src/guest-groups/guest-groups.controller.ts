@@ -221,6 +221,22 @@ export class GuestGroupsController {
     return this.service.truncate();
   }
 
+  @Delete('delete-filtered')
+  @Audit('delete', 'guest_group')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description: 'Deleted guests and guest-groups counts for matching filter',
+  })
+  deleteFiltered(
+    @Query('regionId') regionId: string | undefined,
+    @Query('search') search: string | undefined,
+    @Query('hostId') hostId: string | undefined,
+    @Query('noHost') noHostRaw: string | undefined,
+  ): Promise<{ deleted_guests: number; deleted_groups: number }> {
+    const noHost = noHostRaw === 'true' ? true : undefined;
+    return this.service.deleteFiltered(regionId, search, hostId, noHost);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
