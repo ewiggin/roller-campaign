@@ -905,6 +905,13 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     }
   }
 
+  private spiralOffset(lat: number, lng: number, slot: number): { lat: number; lng: number } {
+    if (slot === 0) return { lat, lng };
+    const r = 0.0003 * Math.ceil(slot / 8);
+    const angle = (slot * 137.508 * Math.PI) / 180;
+    return { lat: lat + r * Math.cos(angle), lng: lng + r * Math.sin(angle) };
+  }
+
   private renderGroupsMarkers(): void {
     if (!this.groupsMap) return;
     this.groupsMapObjects.forEach((o) => o.setMap(null));
@@ -916,6 +923,15 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
     const bounds = new google.maps.LatLngBounds();
     let hasPoints = false;
+
+    // Tracks how many markers have been placed at each rounded coordinate
+    const coordCount = new Map<string, number>();
+    const nextSlot = (lat: number, lng: number): number => {
+      const key = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+      const slot = coordCount.get(key) ?? 0;
+      coordCount.set(key, slot + 1);
+      return slot;
+    };
 
     // ── Activity location (blue) ──────────────────────────────────────────────
     const activityPoints = (activity.activity_locations ?? []).filter(
@@ -957,7 +973,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       if (assignedIds.has(ag.id)) continue;
       if (ag.host_lat == null || ag.host_lng == null) continue;
 
-      const pos = { lat: ag.host_lat, lng: ag.host_lng };
+      const slot = nextSlot(ag.host_lat, ag.host_lng);
+      const pos = this.spiralOffset(ag.host_lat, ag.host_lng, slot);
       const grayMarker = new google.maps.Marker({
         position: pos,
         map: this.groupsMap,
@@ -981,7 +998,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       const av = this.availableGroups().find((ag) => ag.id === g.id);
       if (!av || av.host_lat == null || av.host_lng == null) continue;
 
-      const groupPos = { lat: av.host_lat, lng: av.host_lng };
+      const slot = nextSlot(av.host_lat, av.host_lng);
+      const groupPos = this.spiralOffset(av.host_lat, av.host_lng, slot);
 
       const groupMarker = new google.maps.Marker({
         position: groupPos,
