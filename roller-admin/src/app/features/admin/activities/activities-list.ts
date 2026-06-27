@@ -3,7 +3,9 @@ import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
   ElementRef,
+  QueryList,
   ViewChild,
+  ViewChildren,
   computed,
   effect,
   inject,
@@ -73,6 +75,7 @@ interface LocationSlot {
 export class ActivitiesListComponent implements OnInit, OnDestroy {
   @ViewChild('mapContainer') private mapContainerRef?: ElementRef<HTMLDivElement>;
   @ViewChild('groupsMapContainer') private groupsMapContainerRef?: ElementRef<HTMLDivElement>;
+  @ViewChildren('pgMapContainer') private pgMapContainerRefs!: QueryList<ElementRef<HTMLDivElement>>;
 
   private readonly svc = inject(ActivitiesService);
   private readonly regionsSvc = inject(RegionsService);
@@ -802,11 +805,18 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       void this.availableGroups();
       if (this.groupsMapExpanded() && this.groupsMap) this.renderGroupsMarkers();
     });
+    effect(() => {
+      const openFor = this.pgMapOpenFor();
+      void this.selectedActivity()?.preaching_groups;
+      void this.availableGroups();
+      if (openFor && this.pgMap) this.renderPgMapMarkers(openFor);
+    });
   }
 
   ngOnDestroy() {
     this.mapMarkers.forEach((m) => m.setMap(null));
     this.groupsMapObjects.forEach((o) => o.setMap(null));
+    this.pgMapObjects.forEach((o) => o.setMap(null));
   }
 
   toggleMap() {
@@ -876,6 +886,234 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly groupsMapSelectedGroup = signal<AvailableGroupForActivity | null>(null);
   private groupsMap: google.maps.Map | null = null;
   private groupsMapObjects: Array<{ setMap: (map: google.maps.Map | null) => void }> = [];
+
+  // ── Preaching group sub-tabs & map ───────────────────────────────────────────
+  readonly pgSubTabs = signal<Record<string, 'volunteers' | 'guests' | 'carts'>>({});
+  readonly pgMapOpenFor = signal<string | null>(null);
+  readonly pgMapError = signal<string | null>(null);
+  readonly pgMapSelectedGroup = signal<AvailableGroupForActivity | null>(null);
+  private pgMap: google.maps.Map | null = null;
+  private pgMapObjects: Array<{ setMap: (map: google.maps.Map | null) => void }> = [];
+
+  pgSubTabFor(groupId: string): 'volunteers' | 'guests' | 'carts' {
+    return this.pgSubTabs()[groupId] ?? 'volunteers';
+  }
+
+  setPgSubTab(groupId: string, tab: 'volunteers' | 'guests' | 'carts') {
+    this.pgSubTabs.update((m) => ({ ...m, [groupId]: tab }));
+    if (tab !== 'guests' && this.pgMapOpenFor() === groupId) {
+      this.closePgMap();
+    }
+  }
+
+  togglePgMap(groupId: string) {
+    if (this.pgMapOpenFor() === groupId) {
+      this.closePgMap();
+    } else {
+      this.closePgMap();
+      this.pgMapError.set(null);
+      this.pgMapOpenFor.set(groupId);
+      setTimeout(() => this.initPgMap(groupId), 60);
+    }
+  }
+
+  private closePgMap() {
+    this.pgMapOpenFor.set(null);
+    this.pgMapSelectedGroup.set(null);
+    this.pgMap = null;
+    this.pgMapObjects.forEach((o) => o.setMap(null));
+    this.pgMapObjects = [];
+  }
+
+  private async initPgMap(groupId: string): Promise<void> {
+    const el = this.pgMapContainerRefs?.first?.nativeElement;
+    if (!el) return;
+    setOptions({ key: environment.googleMapsApiKey, v: 'weekly' });
+    try {
+      const { Map } = (await importLibrary('maps')) as google.maps.MapsLibrary;
+      this.pgMap = new Map(el, {
+        center: { lat: 0, lng: 0 },
+        zoom: 2,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
+      this.renderPgMapMarkers(groupId);
+    } catch {
+      this.pgMapError.set('Could not load map.');
+    }
+  }
+
+  private renderPgMapMarkers(pgGroupId: string): void {
+    if (!this.pgMap) return;
+    this.pgMapObjects.forEach((o) => o.setMap(null));
+    this.pgMapObjects = [];
+    this.pgMapSelectedGroup.set(null);
+
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    const pgGroup = activity.preaching_groups.find((g) => g.id === pgGroupId);
+    if (!pgGroup) return;
+
+    const bounds = new google.maps.LatLngBounds();
+    let hasPoints = false;
+
+    const coordCount = new Map<string, number>();
+    const nextSlot = (lat: number, lng: number): number => {
+      const key = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+      const slot = coordCount.get(key) ?? 0;
+      coordCount.set(key, slot + 1);
+      return slot;
+    };
+
+    // ── Activity location (blue) ──────────────────────────────────────────────
+    const activityPoints = (activity.activity_locations ?? []).filter(
+      (loc) => loc.lat != null && loc.lng != null,
+    );
+    for (const loc of activityPoints) {
+      const position = { lat: loc.lat, lng: loc.lng };
+      const marker = new google.maps.Marker({
+        position,
+        map: this.pgMap,
+        title: activity.name || activity.date,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 9,
+          fillColor: '#3b82f6',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2.5,
+        },
+        zIndex: 10,
+      });
+      this.pgMapObjects.push(marker);
+      bounds.extend(position);
+      hasPoints = true;
+    }
+    const firstPoint = activityPoints[0] ?? null;
+
+    // ── Assignable groups (gray): same pool as the non-disabled items in the selector ──
+    const isPreachingShift = activity.is_preaching_shift;
+    const allPgGroupIds = new Set(
+      activity.preaching_groups.flatMap((pg) => pg.guest_groups.map((g) => g.id)),
+    );
+    for (const ag of this.availableGroups()) {
+      if (ag.already_in_activity) continue;
+      if (ag.host_schedule_conflict) continue;
+      if (isPreachingShift && ag.same_day_preaching_shift) continue;
+      if (isPreachingShift && ag.preaching_shifts_count >= 3) continue;
+      if (allPgGroupIds.has(ag.id)) continue;
+      if (ag.host_lat == null || ag.host_lng == null) continue;
+      const slot = nextSlot(ag.host_lat, ag.host_lng);
+      const pos = this.spiralOffset(ag.host_lat, ag.host_lng, slot);
+      const marker = new google.maps.Marker({
+        position: pos,
+        map: this.pgMap,
+        title: ag.group_code,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 6,
+          fillColor: '#94a3b8',
+          fillOpacity: 0.8,
+          strokeColor: '#ffffff',
+          strokeWeight: 1.5,
+        },
+        zIndex: 2,
+      });
+      marker.addListener('click', () => this.pgMapSelectedGroup.set(ag));
+      this.pgMapObjects.push(marker);
+    }
+
+    // ── Assigned groups in this pg (orange) + dashed lines ───────────────────
+    for (const g of pgGroup.guest_groups) {
+      const av = this.availableGroups().find((ag) => ag.id === g.id);
+      if (!av || av.host_lat == null || av.host_lng == null) continue;
+      const slot = nextSlot(av.host_lat, av.host_lng);
+      const groupPos = this.spiralOffset(av.host_lat, av.host_lng, slot);
+
+      const marker = new google.maps.Marker({
+        position: groupPos,
+        map: this.pgMap,
+        title: g.group_code,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 7,
+          fillColor: '#f97316',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+        },
+        zIndex: 5,
+      });
+      this.pgMapObjects.push(marker);
+      bounds.extend(groupPos);
+      hasPoints = true;
+
+      if (firstPoint) {
+        const actPos = { lat: firstPoint.lat, lng: firstPoint.lng };
+        const line = new google.maps.Polyline({
+          path: [groupPos, actPos],
+          strokeColor: '#94a3b8',
+          strokeOpacity: 0,
+          strokeWeight: 0,
+          icons: [
+            {
+              icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3, strokeColor: '#94a3b8' },
+              offset: '0',
+              repeat: '10px',
+            },
+          ],
+          map: this.pgMap,
+          zIndex: 1,
+        });
+        this.pgMapObjects.push(line);
+
+        if (g.distance_km != null) {
+          const midLat = (groupPos.lat + actPos.lat) / 2;
+          const midLng = (groupPos.lng + actPos.lng) / 2;
+          const km =
+            g.distance_km < 10
+              ? g.distance_km.toFixed(1)
+              : Math.round(g.distance_km).toString();
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="18"><rect rx="4" width="52" height="18" fill="white" fill-opacity="0.92" stroke="#cbd5e1" stroke-width="1"/><text x="26" y="13" text-anchor="middle" font-size="10" font-family="sans-serif" fill="#475569" font-weight="600">${km} km</text></svg>`;
+          const labelMarker = new google.maps.Marker({
+            position: { lat: midLat, lng: midLng },
+            map: this.pgMap,
+            icon: {
+              url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+              scaledSize: new google.maps.Size(52, 18),
+              anchor: new google.maps.Point(26, 9),
+            },
+            clickable: false,
+            zIndex: 3,
+          });
+          this.pgMapObjects.push(labelMarker);
+        }
+      }
+    }
+
+    if (hasPoints) this.pgMap.fitBounds(bounds);
+  }
+
+  assignGroupFromPgMap(pgGroupId: string) {
+    const g = this.pgMapSelectedGroup();
+    const activity = this.selectedActivity();
+    if (!g || !activity) return;
+    this.detailSaving.set(true);
+    this.svc.assignGuestGroupToGroup(activity.id, pgGroupId, g.id).subscribe({
+      next: (updated) => {
+        this.selectedActivity.set(updated);
+        this.pgMapSelectedGroup.set(null);
+        this.detailSaving.set(false);
+        this.reloadAvailableGroups();
+        this.load();
+      },
+      error: () => {
+        this.detailError.set('Error assigning group.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
 
   toggleGroupsMap() {
     const next = !this.groupsMapExpanded();
@@ -2128,6 +2366,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     this.groupsMap = null;
     this.groupsMapObjects.forEach((o) => o.setMap(null));
     this.groupsMapObjects = [];
+    this.closePgMap();
+    this.pgSubTabs.set({});
   }
 
   statusBadgeClass(status: ActivityStatus): string {
