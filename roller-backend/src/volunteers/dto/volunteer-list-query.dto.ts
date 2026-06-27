@@ -46,6 +46,11 @@ export class VolunteerListQueryDto {
   @IsUUID()
   roleId?: string;
 
+  @ApiPropertyOptional({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  @IsOptional()
+  @IsUUID()
+  hostId?: string;
+
   @ApiPropertyOptional({ example: 'Carlos' })
   @IsOptional()
   @IsString()

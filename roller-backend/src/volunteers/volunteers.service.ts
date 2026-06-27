@@ -182,6 +182,7 @@ export class VolunteersService {
     const {
       regionId,
       roleId,
+      hostId,
       search,
       is_active,
       date,
@@ -222,6 +223,7 @@ export class VolunteersService {
     }
 
     if (roleId) qb.andWhere('roles.id = :roleId', { roleId });
+    if (hostId) qb.andWhere('v.host_id = :hostId', { hostId });
     if (search)
       qb.andWhere(this.buildSearchCondition('v'), { search: `%${search}%` });
     if (is_active !== undefined)

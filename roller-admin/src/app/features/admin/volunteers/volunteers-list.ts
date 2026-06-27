@@ -1,6 +1,7 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 import type {
   ImportVolunteerCommitResponse,
@@ -11,6 +12,7 @@ import type {
 } from '../../../core/models/volunteer.model';
 import { ActivitiesService, type GroupScheduleActivity } from '../../../core/services/activities.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 import { downloadFile } from '../../../core/utils/download-file';
@@ -58,6 +60,7 @@ export class VolunteersListComponent implements OnInit {
   private readonly svc = inject(VolunteersService);
   private readonly activitiesSvc = inject(ActivitiesService);
   private readonly regionsSvc = inject(RegionsService);
+  private readonly hostsSvc = inject(HostsService);
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
 
@@ -71,6 +74,7 @@ export class VolunteersListComponent implements OnInit {
 
   readonly regions = signal<Region[]>([]);
   readonly roles = signal<VolunteerRole[]>([]);
+  readonly hosts = signal<Host[]>([]);
   readonly volunteers = signal<VolunteerSummary[]>([]);
   readonly total = signal(0);
   readonly loading = signal(true);
@@ -78,6 +82,7 @@ export class VolunteersListComponent implements OnInit {
 
   readonly filterRegion = signal('');
   readonly filterRole = signal('');
+  readonly filterHost = signal('');
   readonly filterMinCarSeats = signal('');
   readonly filterAvailability = signal<string[]>([]);
   readonly filterTermsAccepted = signal<'' | 'true' | 'false'>('');
@@ -90,6 +95,10 @@ export class VolunteersListComponent implements OnInit {
   );
 
   readonly roleItems = computed(() => this.roles().map((r) => ({ value: r.id, label: r.name })));
+
+  readonly hostItems = computed(() =>
+    this.hosts().map((h) => ({ value: h.id, label: h.name })),
+  );
 
   readonly availabilityOptions = AVAILABILITY_OPTIONS;
 
@@ -244,6 +253,7 @@ export class VolunteersListComponent implements OnInit {
   ngOnInit() {
     this.regionsSvc.getAll().subscribe({ next: (r) => this.regions.set(r) });
     this.svc.getRoles().subscribe({ next: (r) => this.roles.set(r) });
+    this.hostsSvc.getAll().subscribe({ next: (h) => this.hosts.set(h) });
     this.load();
   }
 
@@ -254,6 +264,7 @@ export class VolunteersListComponent implements OnInit {
     return {
       regionId: this.filterRegion() || undefined,
       roleId: this.filterRole() || undefined,
+      hostId: this.filterHost() || undefined,
       search: this.filterSearch() || undefined,
       min_car_seats: minSeats ? parseInt(minSeats, 10) : undefined,
       available_slots: slots.length ? slots : undefined,
@@ -284,6 +295,7 @@ export class VolunteersListComponent implements OnInit {
   clearFilters() {
     this.filterRegion.set('');
     this.filterRole.set('');
+    this.filterHost.set('');
     this.filterMinCarSeats.set('');
     this.filterAvailability.set([]);
     this.filterTermsAccepted.set('');
@@ -295,6 +307,7 @@ export class VolunteersListComponent implements OnInit {
     () =>
       !!this.filterRegion() ||
       !!this.filterRole() ||
+      !!this.filterHost() ||
       !!this.filterMinCarSeats() ||
       this.filterAvailability().length > 0 ||
       this.filterTermsAccepted() !== '' ||

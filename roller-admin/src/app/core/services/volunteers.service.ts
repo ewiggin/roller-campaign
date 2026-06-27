@@ -17,6 +17,7 @@ export class VolunteersService {
     query: {
       regionId?: string;
       roleId?: string;
+      hostId?: string;
       search?: string;
       is_active?: boolean;
       min_car_seats?: number;
@@ -29,6 +30,7 @@ export class VolunteersService {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
     if (query.roleId) params = params.set('roleId', query.roleId);
+    if (query.hostId) params = params.set('hostId', query.hostId);
     if (query.search) params = params.set('search', query.search);
     if (query.is_active !== undefined) params = params.set('is_active', String(query.is_active));
     if (query.min_car_seats !== undefined)
@@ -77,6 +79,7 @@ export class VolunteersService {
     query: {
       regionId?: string;
       roleId?: string;
+      hostId?: string;
       search?: string;
       min_car_seats?: number;
       available_slots?: string[];
@@ -86,6 +89,7 @@ export class VolunteersService {
     let params = new HttpParams();
     if (query.regionId) params = params.set('regionId', query.regionId);
     if (query.roleId) params = params.set('roleId', query.roleId);
+    if (query.hostId) params = params.set('hostId', query.hostId);
     if (query.search) params = params.set('search', query.search);
     if (query.min_car_seats !== undefined)
       params = params.set('min_car_seats', String(query.min_car_seats));
