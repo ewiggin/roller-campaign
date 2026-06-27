@@ -6,6 +6,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import { CONFIGURABLE_SCREENS } from '../../../core/models/settings.model';
 import type { DatabaseImportResult, ScreenKey } from '../../../core/models/settings.model';
+import { FormsModule } from '@angular/forms';
 
 type PermGrid = Record<
   'region_admin' | 'volunteer' | 'volunteer_manager' | 'guest_manager' | 'host_manager',
@@ -29,7 +30,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 @Component({
   selector: 'app-settings',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, FormsModule],
   templateUrl: './settings.html',
 })
 export class SettingsComponent implements OnInit {
@@ -79,9 +80,58 @@ export class SettingsComponent implements OnInit {
     host_manager: this.emptyGrid(),
   });
 
+  // ── Campaign limits ───────────────────────────────────────────────────
+
+  readonly campaignLoading = signal(true);
+  readonly campaignSaving = signal(false);
+  readonly campaignSaveSuccess = signal(false);
+  readonly campaignError = signal('');
+  readonly maxActivitiesPerGroup = signal(4);
+  readonly maxPreachingShiftsPerGroup = signal(4);
+
   ngOnInit() {
     this.loadSmtp();
     this.loadPermissions();
+    this.loadCampaignSettings();
+  }
+
+  private loadCampaignSettings() {
+    this.svc.getCampaignSettings().subscribe({
+      next: (s) => {
+        this.maxActivitiesPerGroup.set(s.max_activities_per_group);
+        this.maxPreachingShiftsPerGroup.set(s.max_preaching_shifts_per_group);
+        this.campaignLoading.set(false);
+      },
+      error: () => {
+        this.campaignError.set('Error al cargar la configuración.');
+        this.campaignLoading.set(false);
+      },
+    });
+  }
+
+  saveCampaignSettings() {
+    if (this.campaignSaving()) return;
+    this.campaignSaving.set(true);
+    this.campaignSaveSuccess.set(false);
+    this.campaignError.set('');
+    this.svc
+      .updateCampaignSettings({
+        max_activities_per_group: this.maxActivitiesPerGroup(),
+        max_preaching_shifts_per_group: this.maxPreachingShiftsPerGroup(),
+      })
+      .subscribe({
+        next: (s) => {
+          this.maxActivitiesPerGroup.set(s.max_activities_per_group);
+          this.maxPreachingShiftsPerGroup.set(s.max_preaching_shifts_per_group);
+          this.campaignSaving.set(false);
+          this.campaignSaveSuccess.set(true);
+          setTimeout(() => this.campaignSaveSuccess.set(false), 3000);
+        },
+        error: () => {
+          this.campaignError.set('Error al guardar la configuración.');
+          this.campaignSaving.set(false);
+        },
+      });
   }
 
   private loadSmtp() {

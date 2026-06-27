@@ -49,6 +49,7 @@ import {
 } from './dto/preaching-group.dto';
 import { AssignGroupVolunteerDto } from './dto/assign-group-volunteer.dto';
 import { Activity } from './entities/activity.entity';
+import { SettingsService } from '../settings/settings.service';
 
 const ACTIVITY_RELATIONS = { volunteers: true, guestGroups: true, host: true };
 
@@ -76,6 +77,7 @@ export class ActivitiesService {
     private readonly cartsRepo: Repository<Cart>,
     @InjectRepository(Host)
     private readonly hostsRepo: Repository<Host>,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async create(
@@ -588,6 +590,7 @@ export class ActivitiesService {
       );
     }
 
+    const limits = await this.settingsService.getCampaignLimits();
     if (activity.is_preaching_shift) {
       const preachingCount = await this.activitiesRepo
         .createQueryBuilder('a')
@@ -596,9 +599,9 @@ export class ActivitiesService {
         .andWhere('a.id != :actId', { actId: activity.id })
         .andWhere('a.is_preaching_shift = :yes', { yes: true })
         .getCount();
-      if (preachingCount >= 3) {
+      if (preachingCount >= limits.maxPreachingShiftsPerGroup) {
         throw new BadRequestException(
-          'El grupo ya tiene 3 turnos de predicación asignados',
+          `El grupo ya tiene ${limits.maxPreachingShiftsPerGroup} turnos de predicación asignados`,
         );
       }
     } else {
@@ -609,9 +612,9 @@ export class ActivitiesService {
         .andWhere('a.id != :actId', { actId: activity.id })
         .andWhere('a.is_preaching_shift = :no', { no: false })
         .getCount();
-      if (activitiesCount >= 3) {
+      if (activitiesCount >= limits.maxActivitiesPerGroup) {
         throw new BadRequestException(
-          'El grupo ya tiene 3 actividades asignadas',
+          `El grupo ya tiene ${limits.maxActivitiesPerGroup} actividades asignadas`,
         );
       }
     }

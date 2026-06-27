@@ -3,14 +3,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RolePermissionsResponseDto } from './dto/role-permissions-response.dto';
 import { SmtpSettingsResponseDto } from './dto/smtp-settings-response.dto';
+import { CampaignSettingsResponseDto } from './dto/campaign-settings-response.dto';
 import { UpdatePermissionsDto } from './dto/update-permissions.dto';
 import { UpdateSmtpSettingsDto } from './dto/update-smtp-settings.dto';
+import { UpdateCampaignSettingsDto } from './dto/update-campaign-settings.dto';
 import { RolePermissions } from './entities/role-permissions.entity';
 import { SmtpSettings } from './entities/smtp-settings.entity';
+import { CampaignSettings } from './entities/campaign-settings.entity';
 
 const SINGLETON_ID = 1;
-
 const PERMISSIONS_ID = 1;
+const CAMPAIGN_ID = 1;
 
 const DEFAULT_REGION_ADMIN_SCREENS = [
   'dashboard',
@@ -23,6 +26,11 @@ const DEFAULT_REGION_ADMIN_SCREENS = [
   'carts',
 ];
 
+export interface CampaignLimits {
+  maxActivitiesPerGroup: number;
+  maxPreachingShiftsPerGroup: number;
+}
+
 @Injectable()
 export class SettingsService {
   constructor(
@@ -30,6 +38,8 @@ export class SettingsService {
     private readonly repo: Repository<SmtpSettings>,
     @InjectRepository(RolePermissions)
     private readonly permsRepo: Repository<RolePermissions>,
+    @InjectRepository(CampaignSettings)
+    private readonly campaignRepo: Repository<CampaignSettings>,
   ) {}
 
   async getSmtp(): Promise<SmtpSettingsResponseDto> {
@@ -63,6 +73,52 @@ export class SettingsService {
     if (dto.host_manager !== undefined) row.host_manager = dto.host_manager;
     const saved = await this.permsRepo.save(row);
     return this.toPermsDto(saved);
+  }
+
+  async getCampaignSettings(): Promise<CampaignSettingsResponseDto> {
+    const row = await this.ensureCampaignRow();
+    return this.toCampaignDto(row);
+  }
+
+  async updateCampaignSettings(
+    dto: UpdateCampaignSettingsDto,
+  ): Promise<CampaignSettingsResponseDto> {
+    const row = await this.ensureCampaignRow();
+    if (dto.max_activities_per_group !== undefined)
+      row.max_activities_per_group = dto.max_activities_per_group;
+    if (dto.max_preaching_shifts_per_group !== undefined)
+      row.max_preaching_shifts_per_group = dto.max_preaching_shifts_per_group;
+    const saved = await this.campaignRepo.save(row);
+    return this.toCampaignDto(saved);
+  }
+
+  async getCampaignLimits(): Promise<CampaignLimits> {
+    const row = await this.ensureCampaignRow();
+    return {
+      maxActivitiesPerGroup: row.max_activities_per_group,
+      maxPreachingShiftsPerGroup: row.max_preaching_shifts_per_group,
+    };
+  }
+
+  private async ensureCampaignRow(): Promise<CampaignSettings> {
+    let row = await this.campaignRepo.findOne({ where: { id: CAMPAIGN_ID } });
+    if (!row) {
+      row = this.campaignRepo.create({
+        id: CAMPAIGN_ID,
+        max_activities_per_group: 4,
+        max_preaching_shifts_per_group: 4,
+      });
+      row = await this.campaignRepo.save(row);
+    }
+    return row;
+  }
+
+  private toCampaignDto(row: CampaignSettings): CampaignSettingsResponseDto {
+    const dto = new CampaignSettingsResponseDto();
+    dto.max_activities_per_group = row.max_activities_per_group;
+    dto.max_preaching_shifts_per_group = row.max_preaching_shifts_per_group;
+    dto.updated_at = row.updated_at;
+    return dto;
   }
 
   private async ensurePermsRow(): Promise<RolePermissions> {

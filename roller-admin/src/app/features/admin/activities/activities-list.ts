@@ -30,6 +30,7 @@ import type { Region } from '../../../core/models/region.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
+import { SettingsService } from '../../../core/services/settings.service';
 import { StorageService } from '../../../core/services/storage.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 import { downloadFile } from '../../../core/utils/download-file';
@@ -82,6 +83,10 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   private readonly hostsSvc = inject(HostsService);
   private readonly volunteersSvc = inject(VolunteersService);
   private readonly storageSvc = inject(StorageService);
+  private readonly settingsSvc = inject(SettingsService);
+
+  readonly maxActivities = signal(4);
+  readonly maxPreachingShifts = signal(4);
   private readonly route = inject(ActivatedRoute);
 
   // When opened from the "Preaching Shifts" menu entry, the list is
@@ -607,10 +612,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
   readonly availableGroupItems = computed(() => {
     const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
+    const maxPreach = this.maxPreachingShifts();
+    const maxAct = this.maxActivities();
     return this.availableGroups().map((g) => {
-      const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= 3;
+      const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= maxPreach;
       const sameDayConflict = isPreachingShift && g.same_day_preaching_shift;
-      const activitiesLimitReached = !isPreachingShift && g.activities_count >= 3;
+      const activitiesLimitReached = !isPreachingShift && g.activities_count >= maxAct;
       return {
         value: g.id,
         label: g.group_code,
@@ -627,9 +634,9 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
             : sameDayConflict
               ? 'Already has a preaching shift today'
               : preachingLimitReached
-                ? `Max preaching shifts (${g.preaching_shifts_count}/3)`
+                ? `Max preaching shifts (${g.preaching_shifts_count}/${maxPreach})`
                 : activitiesLimitReached
-                  ? `Max activities (${g.activities_count}/3)`
+                  ? `Max activities (${g.activities_count}/${maxAct})`
                   : [
                       g.distance_km !== null ? `${g.distance_km} km` : null,
                       g.host_name ?? null,
@@ -685,11 +692,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
   readonly ungroupedGroupItems = computed(() => {
     const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
+    const maxPreach = this.maxPreachingShifts();
     return this.availableGroups()
       .filter((g) => !g.already_in_activity && !g.host_schedule_conflict)
       .map((g) => {
         const sameDayConflict = isPreachingShift && g.same_day_preaching_shift;
-        const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= 3;
+        const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= maxPreach;
         return {
           value: g.id,
           label: g.group_code,
@@ -697,7 +705,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
           meta: sameDayConflict
             ? 'Already has a preaching shift today'
             : preachingLimitReached
-              ? `Max preaching shifts (${g.preaching_shifts_count}/3)`
+              ? `Max preaching shifts (${g.preaching_shifts_count}/${maxPreach})`
               : [
                   g.distance_km !== null ? `${g.distance_km} km` : null,
                   g.host_name ?? null,
@@ -1001,7 +1009,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       if (ag.already_in_activity) continue;
       if (ag.host_schedule_conflict) continue;
       if (isPreachingShift && ag.same_day_preaching_shift) continue;
-      if (isPreachingShift && ag.preaching_shifts_count >= 3) continue;
+      if (isPreachingShift && ag.preaching_shifts_count >= this.maxPreachingShifts()) continue;
       if (allPgGroupIds.has(ag.id)) continue;
       if (ag.host_lat == null || ag.host_lng == null) continue;
       const slot = nextSlot(ag.host_lat, ag.host_lng);
@@ -1205,9 +1213,9 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     for (const ag of this.availableGroups()) {
       if (ag.already_in_activity) continue;
       if (ag.host_schedule_conflict) continue;
-      if (isPreachingShift && ag.preaching_shifts_count >= 3) continue;
+      if (isPreachingShift && ag.preaching_shifts_count >= this.maxPreachingShifts()) continue;
       if (isPreachingShift && ag.same_day_preaching_shift) continue;
-      if (!isPreachingShift && ag.activities_count >= 3) continue;
+      if (!isPreachingShift && ag.activities_count >= this.maxActivities()) continue;
       if (assignedIds.has(ag.id)) continue;
       if (ag.host_lat == null || ag.host_lng == null) continue;
 
@@ -1325,6 +1333,13 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadSavedFilters();
+
+    this.settingsSvc.getCampaignSettings().subscribe({
+      next: (s) => {
+        this.maxActivities.set(s.max_activities_per_group);
+        this.maxPreachingShifts.set(s.max_preaching_shifts_per_group);
+      },
+    });
 
     this.regionsSvc.getAll().subscribe({
       next: (r) => {
