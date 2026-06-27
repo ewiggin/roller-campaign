@@ -9,7 +9,7 @@ import { In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import type { Content } from 'pdfmake/interfaces';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { createPdfBuffer } from '../common/pdf/pdf.util';
+import { buildScheduleHeader, createPdfBuffer } from '../common/pdf/pdf.util';
 import { GuestGroup } from '../guest-groups/entities/guest-group.entity';
 import { GroupActivityRequest } from '../group-access/entities/group-activity-request.entity';
 import { Guest } from '../guests/entities/guest.entity';
@@ -2261,6 +2261,7 @@ export class ActivitiesService {
     const buffer = await createPdfBuffer({
       content,
       styles: SCHEDULE_PDF_STYLES,
+      header: buildScheduleHeader(region?.name),
       footer: (currentPage, pageCount) => ({
         text: `${currentPage} / ${pageCount}`,
         alignment: 'center',
@@ -2334,6 +2335,7 @@ export class ActivitiesService {
     const buffer = await createPdfBuffer({
       content,
       styles: SCHEDULE_PDF_STYLES,
+      header: buildScheduleHeader(region?.name),
       footer: (currentPage, pageCount) => ({
         text: `${currentPage} / ${pageCount}`,
         alignment: 'center',
@@ -2412,6 +2414,7 @@ export class ActivitiesService {
     const buffer = await createPdfBuffer({
       content,
       styles: SCHEDULE_PDF_STYLES,
+      header: buildScheduleHeader(),
       footer: (currentPage, pageCount) => ({
         text: `${currentPage} / ${pageCount}`,
         alignment: 'center',
