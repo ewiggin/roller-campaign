@@ -93,6 +93,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
   readonly maxActivities = signal(4);
   readonly maxPreachingShifts = signal(4);
+  readonly maxGuestGroupsPerPreachingGroup = signal(3);
   private readonly route = inject(ActivatedRoute);
 
   // When opened from the "Preaching Shifts" menu entry, the list is
@@ -1411,6 +1412,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       next: (s) => {
         this.maxActivities.set(s.max_activities_per_group);
         this.maxPreachingShifts.set(s.max_preaching_shifts_per_group);
+        this.maxGuestGroupsPerPreachingGroup.set(s.max_guest_groups_per_preaching_group);
       },
     });
 

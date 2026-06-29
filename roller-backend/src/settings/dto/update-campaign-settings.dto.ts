@@ -13,4 +13,10 @@ export class UpdateCampaignSettingsDto {
   @IsInt()
   @Min(1)
   max_preaching_shifts_per_group?: number;
+
+  @ApiPropertyOptional({ example: 3 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  max_guest_groups_per_preaching_group?: number;
 }
