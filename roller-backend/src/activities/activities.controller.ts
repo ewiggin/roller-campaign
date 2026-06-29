@@ -230,6 +230,22 @@ export class ActivitiesController {
     );
   }
 
+  @Post('preaching-groups/bulk-auto-assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description:
+      '{ shiftsProcessed, totalSkipped, unassignedGroups: { id, group_code, guest_count }[] }',
+  })
+  bulkAutoAssignGuestGroupsToPreachingGroups(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{
+    shiftsProcessed: number;
+    totalSkipped: number;
+    unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+  }> {
+    return this.svc.bulkAutoAssignGuestGroupsToPreachingGroups(user);
+  }
+
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
   @Get(':id')
@@ -386,7 +402,39 @@ export class ActivitiesController {
     return this.svc.unassignGuestGroup(id, groupId, user);
   }
 
+  @Delete(':id/guest-groups')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  resetGuestGroups(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.resetGuestGroups(id, user);
+  }
+
+  @Delete(':id/volunteers')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  resetVolunteers(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.resetVolunteers(id, user);
+  }
+
   // ── Preaching groups ──────────────────────────────────────────────────────
+
+  @Post(':id/preaching-groups/auto-assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description: '{ activity: ActivityResponseDto, skipped: number }',
+  })
+  autoAssignGuestGroupsToPreachingGroups(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
+    return this.svc.autoAssignGuestGroupsToPreachingGroups(id, user);
+  }
 
   @Post(':id/preaching-groups')
   @HttpCode(HttpStatus.OK)

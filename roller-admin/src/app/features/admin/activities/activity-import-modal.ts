@@ -171,7 +171,9 @@ export class ActivityImportModalComponent {
       error: (err: unknown) => {
         const errBody = (err as { error?: { message?: string | string[]; error?: string } })?.error;
         const raw = errBody?.message;
-        const msg = Array.isArray(raw) ? raw.join('; ') : (raw ?? errBody?.error ?? 'Error desconocido');
+        const msg = Array.isArray(raw)
+          ? raw.join('; ')
+          : (raw ?? errBody?.error ?? 'Error desconocido');
         this.entries.update((list) => {
           const copy = [...list];
           copy[index] = { ...copy[index], status: 'error', error: msg };

@@ -22,16 +22,19 @@ import type {
   AvailableCartForActivity,
   AvailableGroupForActivity,
   AvailableVolunteerForActivity,
+  PreachingGroup,
   RepeatType,
   UpdateActivityPayload,
 } from '../../../core/models/activity.model';
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { StorageService } from '../../../core/services/storage.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import { CalendarComponent } from '../../../shared/components/calendar/calendar';
@@ -76,7 +79,9 @@ interface LocationSlot {
 export class ActivitiesListComponent implements OnInit, OnDestroy {
   @ViewChild('mapContainer') private mapContainerRef?: ElementRef<HTMLDivElement>;
   @ViewChild('groupsMapContainer') private groupsMapContainerRef?: ElementRef<HTMLDivElement>;
-  @ViewChildren('pgMapContainer') private pgMapContainerRefs!: QueryList<ElementRef<HTMLDivElement>>;
+  @ViewChildren('pgMapContainer') private pgMapContainerRefs!: QueryList<
+    ElementRef<HTMLDivElement>
+  >;
 
   private readonly svc = inject(ActivitiesService);
   private readonly regionsSvc = inject(RegionsService);
@@ -84,9 +89,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   private readonly volunteersSvc = inject(VolunteersService);
   private readonly storageSvc = inject(StorageService);
   private readonly settingsSvc = inject(SettingsService);
+  private readonly confirmSvc = inject(ConfirmDialogService);
+  private readonly toastSvc = inject(ToastService);
 
   readonly maxActivities = signal(4);
   readonly maxPreachingShifts = signal(4);
+  readonly maxGuestsPerPreachingGroup = signal(3);
   private readonly route = inject(ActivatedRoute);
 
   // When opened from the "Preaching Shifts" menu entry, the list is
@@ -183,6 +191,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly exporting = signal(false);
   readonly exportingExcel = signal(false);
   readonly downloadingTemplate = signal(false);
+  readonly resetting = signal(false);
 
   readonly jsonMenuItems = computed<MenuItem[]>(() => [
     {
@@ -202,6 +211,19 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       label: this.downloadingTemplate() ? 'Downloading…' : 'Download template',
       action: () => this.downloadExcelTemplate(),
       disabled: this.downloadingTemplate(),
+    },
+  ]);
+
+  readonly resetMenuItems = computed<MenuItem[]>(() => [
+    {
+      label: 'Reset guest groups',
+      action: () => this.bulkResetGuestGroups(),
+      disabled: this.resetting(),
+    },
+    {
+      label: 'Reset volunteers',
+      action: () => this.bulkResetVolunteers(),
+      disabled: this.resetting(),
     },
   ]);
 
@@ -345,7 +367,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       });
   }
 
-  bulkDelete() {
+  async bulkDelete() {
     const ids = [...this.selectedIds()];
     if (!ids.length) return;
     const label = this.preachingShiftsOnly
@@ -355,7 +377,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       : ids.length > 1
         ? `${ids.length} activities`
         : 'this activity';
-    if (!confirm(`Delete ${label}? This cannot be undone.`)) return;
+    if (
+      !(await this.confirmSvc.confirm(`Delete ${label}? This cannot be undone.`, {
+        confirmLabel: 'Delete',
+      }))
+    )
+      return;
     this.bulkSaving.set(true);
     from(ids)
       .pipe(
@@ -377,10 +404,62 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         if (this.viewMode() === 'calendar')
           if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
         if (failedCount > 0) {
-          alert(
+          this.toastSvc.show(
             `${failedCount} of ${ids.length} could not be deleted (published activities must be unpublished first).`,
           );
         }
+      });
+  }
+
+  async bulkResetGuestGroups() {
+    const ids = [...this.selectedIds()];
+    if (!ids.length) return;
+    const label = ids.length > 1 ? `${ids.length} activities` : 'this activity';
+    if (
+      !(await this.confirmSvc.confirm(
+        `Reset all assigned guest groups from ${label}? This cannot be undone.`,
+      ))
+    )
+      return;
+    this.resetting.set(true);
+    from(ids)
+      .pipe(
+        concatMap((id) => this.svc.resetGuestGroups(id)),
+        last(),
+      )
+      .subscribe({
+        next: () => {
+          this.resetting.set(false);
+          this.clearSelection();
+          this.load();
+        },
+        error: () => this.resetting.set(false),
+      });
+  }
+
+  async bulkResetVolunteers() {
+    const ids = [...this.selectedIds()];
+    if (!ids.length) return;
+    const label = ids.length > 1 ? `${ids.length} activities` : 'this activity';
+    if (
+      !(await this.confirmSvc.confirm(
+        `Reset all assigned volunteers from ${label}? This cannot be undone.`,
+      ))
+    )
+      return;
+    this.resetting.set(true);
+    from(ids)
+      .pipe(
+        concatMap((id) => this.svc.resetVolunteers(id)),
+        last(),
+      )
+      .subscribe({
+        next: () => {
+          this.resetting.set(false);
+          this.clearSelection();
+          this.load();
+        },
+        error: () => this.resetting.set(false),
       });
   }
 
@@ -477,6 +556,13 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
   readonly detailError = signal('');
+  readonly bulkConfirmOpen = signal(false);
+  readonly bulkAssigning = signal(false);
+  readonly bulkAssignResult = signal<{
+    shiftsProcessed: number;
+    totalSkipped: number;
+    unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+  } | null>(null);
   readonly seriesChoiceVisible = signal(false);
   private pendingSavePayload: UpdateActivityPayload | null = null;
   readonly editIconValue = signal('');
@@ -746,6 +832,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   }
 
   readonly expandedGroupIds = signal<Record<string, boolean>>({});
+
+  preachingGroupGuestCount(group: { guest_groups: { guest_count: number }[] }): number {
+    return group.guest_groups
+      .filter((g) => g.guest_count > 0)
+      .reduce((sum, g) => sum + g.guest_count, 0);
+  }
 
   isGroupExpanded(groupId: string): boolean {
     return this.expandedGroupIds()[groupId] ?? false;
@@ -1080,9 +1172,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
           const midLat = (groupPos.lat + actPos.lat) / 2;
           const midLng = (groupPos.lng + actPos.lng) / 2;
           const km =
-            g.distance_km < 10
-              ? g.distance_km.toFixed(1)
-              : Math.round(g.distance_km).toString();
+            g.distance_km < 10 ? g.distance_km.toFixed(1) : Math.round(g.distance_km).toString();
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="18"><rect rx="4" width="52" height="18" fill="white" fill-opacity="0.92" stroke="#cbd5e1" stroke-width="1"/><text x="26" y="13" text-anchor="middle" font-size="10" font-family="sans-serif" fill="#475569" font-weight="600">${km} km</text></svg>`;
           const labelMarker = new google.maps.Marker({
             position: { lat: midLat, lng: midLng },
@@ -1288,9 +1378,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
           const midLat = (groupPos.lat + actPos.lat) / 2;
           const midLng = (groupPos.lng + actPos.lng) / 2;
           const km =
-            g.distance_km < 10
-              ? g.distance_km.toFixed(1)
-              : Math.round(g.distance_km).toString();
+            g.distance_km < 10 ? g.distance_km.toFixed(1) : Math.round(g.distance_km).toString();
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="18"><rect rx="4" width="52" height="18" fill="white" fill-opacity="0.92" stroke="#cbd5e1" stroke-width="1"/><text x="26" y="13" text-anchor="middle" font-size="10" font-family="sans-serif" fill="#475569" font-weight="600">${km} km</text></svg>`;
           const labelMarker = new google.maps.Marker({
             position: { lat: midLat, lng: midLng },
@@ -1338,6 +1426,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       next: (s) => {
         this.maxActivities.set(s.max_activities_per_group);
         this.maxPreachingShifts.set(s.max_preaching_shifts_per_group);
+        this.maxGuestsPerPreachingGroup.set(s.max_guests_per_preaching_group);
       },
     });
 
@@ -2145,6 +2234,45 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
   // ── Preaching groups ──────────────────────────────────────────────────────
 
+  autoAssignGuestGroupsToPreachingGroups() {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.autoAssignGuestGroupsToPreachingGroups(activity.id).subscribe({
+      next: ({ activity: updated, skipped }) => {
+        this.selectedActivity.set(updated);
+        this.reloadAvailableGroups();
+        this.load();
+        this.detailSaving.set(false);
+        if (skipped > 0) {
+          this.toastSvc.show(
+            `${skipped} group${skipped === 1 ? '' : 's'} could not be assigned: preaching groups are at capacity.`,
+            'info',
+          );
+        }
+      },
+      error: () => {
+        this.detailError.set('Error assigning groups automatically.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  bulkAutoAssignGuestGroupsToPreachingGroups() {
+    this.bulkAssigning.set(true);
+    this.bulkAssignResult.set(null);
+    this.svc.bulkAutoAssignGuestGroupsToPreachingGroups().subscribe({
+      next: (result) => {
+        this.bulkAssignResult.set(result);
+        this.bulkAssigning.set(false);
+        this.load();
+      },
+      error: () => {
+        this.bulkAssigning.set(false);
+      },
+    });
+  }
+
   addPreachingGroup() {
     const activity = this.selectedActivity();
     if (!activity) return;
@@ -2175,10 +2303,15 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     });
   }
 
-  removePreachingGroup(groupId: string) {
+  async removePreachingGroup(groupId: string) {
     const activity = this.selectedActivity();
     if (!activity) return;
-    if (!confirm('Delete this preaching group? Its members will be unassigned from the activity.'))
+    if (
+      !(await this.confirmSvc.confirm(
+        'Delete this preaching group? Its members will be unassigned from the activity.',
+        { confirmLabel: 'Delete' },
+      ))
+    )
       return;
     this.detailSaving.set(true);
     this.svc.removePreachingGroup(activity.id, groupId).subscribe({
@@ -2303,6 +2436,10 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     });
   }
 
+  guestCountForPreachingGroup(group: PreachingGroup): number {
+    return group.guest_groups.reduce((sum, g) => sum + (g.guest_count ?? 0), 0);
+  }
+
   addCartToGroup(groupId: string) {
     const activity = this.selectedActivity();
     const cartId = this.pickedCartFor(groupId);
@@ -2341,8 +2478,13 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
   // ── Delete ────────────────────────────────────────────────────────────────
 
-  deleteActivity(activity: Activity) {
-    if (!confirm(`Delete "${activity.name || activity.date}"?`)) return;
+  async deleteActivity(activity: Activity) {
+    if (
+      !(await this.confirmSvc.confirm(`Delete "${activity.name || activity.date}"?`, {
+        confirmLabel: 'Delete',
+      }))
+    )
+      return;
     this.svc.remove(activity.id).subscribe({
       next: () => {
         if (this.selectedActivity()?.id === activity.id) this.activeModal.set(null);
@@ -2350,15 +2492,15 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         if (this.viewMode() === 'calendar')
           if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
       },
-      error: () => alert('Error deleting activity.'),
     });
   }
 
-  deleteSeriesFromHere(activity: Activity) {
+  async deleteSeriesFromHere(activity: Activity) {
     if (
-      !confirm(
+      !(await this.confirmSvc.confirm(
         `Delete "${activity.name || activity.date}" and all future activities in this series?`,
-      )
+        { confirmLabel: 'Delete' },
+      ))
     )
       return;
     this.svc.removeSeriesFromDate(activity.id).subscribe({
@@ -2368,7 +2510,6 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         if (this.viewMode() === 'calendar')
           if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
       },
-      error: () => alert('Error deleting series.'),
     });
   }
 

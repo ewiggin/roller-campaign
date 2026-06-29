@@ -3,6 +3,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { UsersService } from '../../../core/services/users.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
+import { ToastService } from '../../../core/services/toast.service';
 import type { User, UserRole } from '../../../core/models/user.model';
 import type { Region } from '../../../core/models/region.model';
 
@@ -38,6 +40,8 @@ export class UsersListComponent implements OnInit {
   private readonly regionsSvc = inject(RegionsService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly confirmSvc = inject(ConfirmDialogService);
+  private readonly toastSvc = inject(ToastService);
 
   readonly currentUserId = signal(this.auth.currentUser()?.sub ?? '');
   readonly roles = ROLES;
@@ -161,16 +165,13 @@ export class UsersListComponent implements OnInit {
     this.saving.set(false);
   }
 
-  deleteUser(user: User) {
+  async deleteUser(user: User) {
     if (user.id === this.currentUserId()) {
-      alert('You cannot delete your own account.');
+      this.toastSvc.show('You cannot delete your own account.', 'info');
       return;
     }
-    if (!confirm(`Delete user "${user.email}"?`)) return;
-    this.svc.remove(user.id).subscribe({
-      next: () => this.load(),
-      error: () => alert('Error deleting user.'),
-    });
+    if (!(await this.confirmSvc.confirm(`Delete user "${user.email}"?`))) return;
+    this.svc.remove(user.id).subscribe({ next: () => this.load() });
   }
 
   closeModal() {

@@ -1926,4 +1926,239 @@ describe('Activities (e2e)', () => {
       expect(ids).toContain(groupWithNoShiftId);
     });
   });
+
+  describe('POST /activities/:id/preaching-groups/auto-assign', () => {
+    const DATE = '2024-08-20';
+    let shiftId: string;
+    let pg1Id: string;
+    let pg2Id: string;
+    let group1Id: string;
+    let group2Id: string;
+    let group3Id: string;
+
+    const auth = () => `Bearer ${adminToken}`;
+
+    beforeAll(async () => {
+      // Two guest groups in the region
+      group1Id = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `AA-G1-${Date.now()}`, region_id: regionId })
+      ).body.id;
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `AA-G1-P1-${Date.now()}`,
+          group_id: group1Id,
+          region_id: regionId,
+          full_name: 'Guest 1',
+        });
+
+      group2Id = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `AA-G2-${Date.now()}`, region_id: regionId })
+      ).body.id;
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `AA-G2-P1-${Date.now()}`,
+          group_id: group2Id,
+          region_id: regionId,
+          full_name: 'Guest 2',
+        });
+
+      group3Id = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `AA-G3-${Date.now()}`, region_id: regionId })
+      ).body.id;
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `AA-G3-P1-${Date.now()}`,
+          group_id: group3Id,
+          region_id: regionId,
+          full_name: 'Guest 3',
+        });
+
+      // Preaching shift
+      shiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Auto-assign shift',
+            date: DATE,
+            start_time: '09:00',
+            end_time: '11:00',
+            is_preaching_shift: true,
+          })
+      ).body.id;
+
+      // Two preaching groups
+      pg1Id = (
+        await request(server)
+          .post(`/api/activities/${shiftId}/preaching-groups`)
+          .set('Authorization', auth())
+          .send({ name: 'PG1' })
+      ).body.preaching_groups.at(-1).id;
+
+      pg2Id = (
+        await request(server)
+          .post(`/api/activities/${shiftId}/preaching-groups`)
+          .set('Authorization', auth())
+          .send({ name: 'PG2' })
+      ).body.preaching_groups.at(-1).id;
+    });
+
+    it('returns 400 when the activity is not a preaching shift', async () => {
+      const regular = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Regular activity',
+            date: DATE,
+            start_time: '12:00',
+            end_time: '13:00',
+          })
+      ).body;
+
+      await request(server)
+        .post(`/api/activities/${regular.id}/preaching-groups/auto-assign`)
+        .set('Authorization', auth())
+        .expect(400);
+    });
+
+    it('distributes eligible guest groups across preaching groups', async () => {
+      const res = await request(server)
+        .post(`/api/activities/${shiftId}/preaching-groups/auto-assign`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(res.body.skipped).toBe(0);
+      const activity = res.body.activity;
+      const allAssigned = activity.preaching_groups.flatMap(
+        (pg: { guest_groups: { id: string }[] }) =>
+          pg.guest_groups.map((g) => g.id),
+      );
+
+      // All three groups should be assigned somewhere
+      expect(allAssigned).toContain(group1Id);
+      expect(allAssigned).toContain(group2Id);
+      expect(allAssigned).toContain(group3Id);
+
+      // Each group appears in exactly one preaching group
+      expect(allAssigned.filter((id: string) => id === group1Id)).toHaveLength(
+        1,
+      );
+      expect(allAssigned.filter((id: string) => id === group2Id)).toHaveLength(
+        1,
+      );
+      expect(allAssigned.filter((id: string) => id === group3Id)).toHaveLength(
+        1,
+      );
+
+      // Both preaching groups have at least one group
+      const pg1 = activity.preaching_groups.find(
+        (pg: { id: string }) => pg.id === pg1Id,
+      );
+      const pg2 = activity.preaching_groups.find(
+        (pg: { id: string }) => pg.id === pg2Id,
+      );
+      expect(pg1.guest_groups.length).toBeGreaterThanOrEqual(1);
+      expect(pg2.guest_groups.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('reports skipped groups when preaching groups are at capacity', async () => {
+      // New shift with a single preaching group capped at 2 guests
+      const tinyShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Tiny capacity shift',
+            date: '2024-08-21',
+            start_time: '09:00',
+            end_time: '11:00',
+            is_preaching_shift: true,
+          })
+      ).body.id;
+
+      await request(server)
+        .post(`/api/activities/${tinyShiftId}/preaching-groups`)
+        .set('Authorization', auth())
+        .send({ name: 'PG' });
+
+      // Group with 3 guests — exceeds a limit of 2
+      const bigGroupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `AA-BIG-${Date.now()}`, region_id: regionId })
+      ).body.id;
+      for (let i = 0; i < 3; i++) {
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `AA-BIG-G${i}-${Date.now()}`,
+            group_id: bigGroupId,
+            region_id: regionId,
+            full_name: `Big Guest ${i}`,
+          });
+      }
+
+      await request(server)
+        .patch('/api/settings/campaign')
+        .set('Authorization', auth())
+        .send({ max_guests_per_preaching_group: 2 });
+
+      const res = await request(server)
+        .post(`/api/activities/${tinyShiftId}/preaching-groups/auto-assign`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(res.body.skipped).toBeGreaterThan(0);
+
+      // Restore limit
+      await request(server)
+        .patch('/api/settings/campaign')
+        .set('Authorization', auth())
+        .send({ max_guests_per_preaching_group: 8 });
+    });
+
+    it('is idempotent — re-running does not duplicate assignments', async () => {
+      const res = await request(server)
+        .post(`/api/activities/${shiftId}/preaching-groups/auto-assign`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const allAssigned = res.body.activity.preaching_groups.flatMap(
+        (pg: { guest_groups: { id: string }[] }) =>
+          pg.guest_groups.map((g) => g.id),
+      );
+
+      // Still exactly one entry per group
+      expect(allAssigned.filter((id: string) => id === group1Id)).toHaveLength(
+        1,
+      );
+      expect(allAssigned.filter((id: string) => id === group2Id)).toHaveLength(
+        1,
+      );
+      expect(allAssigned.filter((id: string) => id === group3Id)).toHaveLength(
+        1,
+      );
+    });
+  });
 });

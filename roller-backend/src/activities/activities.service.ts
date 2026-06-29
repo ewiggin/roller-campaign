@@ -644,6 +644,55 @@ export class ActivitiesService {
     return this.toDtoWithCounts(activity);
   }
 
+  async resetGuestGroups(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({
+      where: { id },
+      relations: ACTIVITY_RELATIONS,
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const preachingGroups = await this.preachingGroupsRepo.find({
+      where: { activity_id: id },
+      relations: { guestGroups: true },
+    });
+    for (const pg of preachingGroups) {
+      pg.guestGroups = [];
+      await this.preachingGroupsRepo.save(pg);
+    }
+
+    activity.guestGroups = [];
+    await this.activitiesRepo.save(activity);
+    return this.toDtoWithCounts(activity);
+  }
+
+  async resetVolunteers(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({
+      where: { id },
+      relations: ACTIVITY_RELATIONS,
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const preachingGroups = await this.preachingGroupsRepo.find({
+      where: { activity_id: id },
+    });
+    for (const pg of preachingGroups) {
+      await this.pgVolunteersRepo.delete({ preaching_group_id: pg.id });
+    }
+
+    await this.actVolRoleRepo.delete({ activity_id: id });
+    activity.volunteers = [];
+    await this.activitiesRepo.save(activity);
+    return this.toDtoWithCounts(activity);
+  }
+
   // ── Preaching groups ──────────────────────────────────────────────────────
   // A preaching group organizes a subset of the volunteers and guest groups
   // already assigned to the activity (region, schedule, host and availability
@@ -856,6 +905,197 @@ export class ActivitiesService {
     }
 
     return this.findOne(id, currentUser);
+  }
+
+  async autoAssignGuestGroupsToPreachingGroups(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
+    const activity = await this.activitiesRepo.findOne({ where: { id } });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    if (!activity.is_preaching_shift) {
+      throw new BadRequestException(
+        'La asignación automática solo está disponible para turnos de predicación',
+      );
+    }
+
+    const preachingGroups = await this.preachingGroupsRepo.find({
+      where: { activity_id: id },
+      relations: { guestGroups: true },
+    });
+
+    if (preachingGroups.length === 0) {
+      throw new BadRequestException(
+        'El turno no tiene grupos de predicación definidos',
+      );
+    }
+
+    const [availableGroups, limits] = await Promise.all([
+      this.getAvailableGroups(id, currentUser),
+      this.settingsService.getCampaignLimits(),
+    ]);
+
+    const alreadyInPreachingGroup = new Set(
+      preachingGroups.flatMap((pg) => pg.guestGroups.map((g) => g.id)),
+    );
+
+    // Candidates: eligible and not yet in any preaching group of this shift
+    const candidates = availableGroups.filter(
+      (g) =>
+        g.guest_count > 0 &&
+        !g.already_in_activity &&
+        !g.host_schedule_conflict &&
+        !g.same_day_preaching_shift &&
+        g.preaching_shifts_count < limits.maxPreachingShiftsPerGroup &&
+        !alreadyInPreachingGroup.has(g.id),
+    );
+
+    if (candidates.length === 0) {
+      return { activity: await this.findOne(id, currentUser), skipped: 0 };
+    }
+
+    // Build initial guest-count and group-count per preaching group
+    const existingGroupIds = preachingGroups.flatMap((pg) =>
+      pg.guestGroups.map((g) => g.id),
+    );
+    const existingCounts = await this.getGroupGuestCounts(existingGroupIds);
+    const guestCountPerPG = new Map<string, number>(
+      preachingGroups.map((pg) => [
+        pg.id,
+        pg.guestGroups.reduce(
+          (sum, g) => sum + (existingCounts.get(g.id) ?? 0),
+          0,
+        ),
+      ]),
+    );
+    // Secondary balance: number of groups assigned (used as tiebreaker when
+    // guest counts are equal, e.g. when groups have no guests yet).
+    const groupCountPerPG = new Map<string, number>(
+      preachingGroups.map((pg) => [pg.id, pg.guestGroups.length]),
+    );
+
+    const byLoad = (
+      [idA, guestsA]: [string, number],
+      [idB, guestsB]: [string, number],
+    ) => {
+      if (guestsA !== guestsB) return guestsA - guestsB;
+      return (groupCountPerPG.get(idA) ?? 0) - (groupCountPerPG.get(idB) ?? 0);
+    };
+
+    let skipped = 0;
+
+    // Greedy: candidates are already sorted by distance (closest first)
+    for (const candidate of candidates) {
+      const pgEntries = [...guestCountPerPG.entries()];
+
+      // Hard limit: only assign if at least one preaching group has room
+      const target = pgEntries
+        .filter(
+          ([, count]) =>
+            count + candidate.guest_count <= limits.maxGuestsPerPreachingGroup,
+        )
+        .sort(byLoad)[0];
+
+      if (!target) {
+        skipped++;
+        continue;
+      }
+
+      const [preachingGroupId] = target;
+      await this.assignGuestGroupToGroup(
+        id,
+        preachingGroupId,
+        candidate.id,
+        currentUser,
+      );
+      guestCountPerPG.set(
+        preachingGroupId,
+        (guestCountPerPG.get(preachingGroupId) ?? 0) + candidate.guest_count,
+      );
+      groupCountPerPG.set(
+        preachingGroupId,
+        (groupCountPerPG.get(preachingGroupId) ?? 0) + 1,
+      );
+    }
+
+    return { activity: await this.findOne(id, currentUser), skipped };
+  }
+
+  async bulkAutoAssignGuestGroupsToPreachingGroups(
+    currentUser: JwtPayload,
+  ): Promise<{
+    shiftsProcessed: number;
+    totalSkipped: number;
+    unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+  }> {
+    let regionIds: string[] = [];
+
+    if (currentUser.role !== 'superadmin') {
+      const user = await this.usersRepo.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      regionIds = (user?.regions ?? []).map((r) => r.id);
+      if (regionIds.length === 0)
+        return { shiftsProcessed: 0, totalSkipped: 0, unassignedGroups: [] };
+    }
+
+    const shiftsQb = this.activitiesRepo
+      .createQueryBuilder('a')
+      .select('a.id')
+      .where('a.is_preaching_shift = :yes', { yes: true });
+    if (regionIds.length > 0)
+      shiftsQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
+
+    const shifts = await shiftsQb.getMany();
+
+    let totalSkipped = 0;
+    for (const shift of shifts) {
+      try {
+        const result = await this.autoAssignGuestGroupsToPreachingGroups(
+          shift.id,
+          currentUser,
+        );
+        totalSkipped += result.skipped;
+      } catch {
+        // skip shifts that can't be processed (e.g., access denied)
+      }
+    }
+
+    const ggQb = this.groupsRepo
+      .createQueryBuilder('gg')
+      .leftJoin('gg.guests', 'g')
+      .select('gg.id', 'id')
+      .addSelect('gg.group_code', 'group_code')
+      .addSelect('COUNT(g.id)', 'guest_count')
+      .where(
+        `gg.id NOT IN (
+          SELECT "guestGroupId" FROM activity_preaching_group_guest_groups
+        )`,
+      )
+      .groupBy('gg.id')
+      .having('COUNT(g.id) > 0')
+      .orderBy('COUNT(g.id)', 'DESC');
+    if (regionIds.length > 0)
+      ggQb.andWhere('gg.region_id IN (:...regionIds)', { regionIds });
+
+    const rawUnassigned = await ggQb.getRawMany<{
+      id: string;
+      group_code: string;
+      guest_count: string;
+    }>();
+
+    return {
+      shiftsProcessed: shifts.length,
+      totalSkipped,
+      unassignedGroups: rawUnassigned.map((r) => ({
+        id: r.id,
+        group_code: r.group_code,
+        guest_count: parseInt(r.guest_count, 10),
+      })),
+    };
   }
 
   async removeGuestGroupFromGroup(
@@ -1299,11 +1539,15 @@ export class ActivitiesService {
           );
           if (hasAvailabilityData) {
             const anyAvailable = groupGuests.some((g) => {
-              if (g.available_from && activity.date > g.available_from === false)
+              if (
+                g.available_from &&
+                activity.date > g.available_from === false
+              )
                 return false;
               if (g.available_from && activity.date < g.available_from)
                 return false;
-              if (g.available_to && activity.date > g.available_to) return false;
+              if (g.available_to && activity.date > g.available_to)
+                return false;
               return true;
             });
             if (!anyAvailable) continue;
@@ -1340,7 +1584,8 @@ export class ActivitiesService {
         distance_km:
           distance_km !== null ? Math.round(distance_km * 10) / 10 : null,
         guest_count: groupGuests.length,
-        already_in_activity: isAssignedHere || conflictingGroupIds.has(group.id),
+        already_in_activity:
+          isAssignedHere || conflictingGroupIds.has(group.id),
         host_schedule_conflict: this.hasHostScheduleConflict(
           activity.date,
           activity.start_time,

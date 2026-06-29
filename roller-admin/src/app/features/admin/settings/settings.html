@@ -22,7 +22,7 @@
       </div>
     } @else {
       <div class="p-5 space-y-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label class="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">
               Máx. actividades por grupo
@@ -44,6 +44,18 @@
               min="1"
               [ngModel]="maxPreachingShiftsPerGroup()"
               (ngModelChange)="maxPreachingShiftsPerGroup.set($event)"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">
+              Máx. invitados por grupo de predicación
+            </label>
+            <input
+              type="number"
+              min="1"
+              [ngModel]="maxGuestsPerPreachingGroup()"
+              (ngModelChange)="maxGuestsPerPreachingGroup.set($event)"
               class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>

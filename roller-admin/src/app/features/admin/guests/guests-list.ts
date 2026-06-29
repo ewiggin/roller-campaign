@@ -21,6 +21,7 @@ import {
   type MenuItem,
 } from '../../../shared/components/menu-button/menu-button';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 
 const STATUSES: GuestStatus[] = ['pending', 'confirmed', 'cancelled', 'arrived', 'blocked'];
 
@@ -42,6 +43,7 @@ export class GuestsListComponent implements OnInit {
   private readonly regionsSvc = inject(RegionsService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly confirmSvc = inject(ConfirmDialogService);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
   readonly statuses = STATUSES;
@@ -339,12 +341,12 @@ export class GuestsListComponent implements OnInit {
     }
   }
 
-  deleteGuest(guest: Guest) {
-    if (!confirm(`Delete guest "${guest.full_name}" (${guest.guest_code})?`)) return;
-    this.svc.remove(guest.id).subscribe({
-      next: () => this.load(),
-      error: () => alert('Error deleting guest.'),
-    });
+  async deleteGuest(guest: Guest) {
+    if (
+      !(await this.confirmSvc.confirm(`Delete guest "${guest.full_name}" (${guest.guest_code})?`))
+    )
+      return;
+    this.svc.remove(guest.id).subscribe({ next: () => this.load() });
   }
 
   showToken(guest: Guest) {

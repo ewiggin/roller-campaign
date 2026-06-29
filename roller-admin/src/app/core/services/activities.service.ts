@@ -128,6 +128,14 @@ export class ActivitiesService {
     return this.http.delete<Activity>(`/api/activities/${id}/guest-groups/${groupId}`);
   }
 
+  resetGuestGroups(id: string) {
+    return this.http.delete<Activity>(`/api/activities/${id}/guest-groups`);
+  }
+
+  resetVolunteers(id: string) {
+    return this.http.delete<Activity>(`/api/activities/${id}/volunteers`);
+  }
+
   deleteAttendanceRequest(id: string, requestId: string) {
     return this.http.delete<Activity>(`/api/activities/${id}/requests/${requestId}`);
   }
@@ -185,6 +193,21 @@ export class ActivitiesService {
     return this.http.delete<Activity>(
       `/api/activities/${id}/preaching-groups/${groupId}/volunteers/${volunteerId}`,
     );
+  }
+
+  autoAssignGuestGroupsToPreachingGroups(id: string) {
+    return this.http.post<{ activity: Activity; skipped: number }>(
+      `/api/activities/${id}/preaching-groups/auto-assign`,
+      {},
+    );
+  }
+
+  bulkAutoAssignGuestGroupsToPreachingGroups() {
+    return this.http.post<{
+      shiftsProcessed: number;
+      totalSkipped: number;
+      unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+    }>(`/api/activities/preaching-groups/bulk-auto-assign`, {});
   }
 
   assignGuestGroupToGroup(id: string, groupId: string, guestGroupId: string) {

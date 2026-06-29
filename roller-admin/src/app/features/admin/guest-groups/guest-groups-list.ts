@@ -36,6 +36,7 @@ import {
   type MenuItem,
 } from '../../../shared/components/menu-button/menu-button';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 
 type ActiveModal =
   | 'create'
@@ -80,6 +81,7 @@ export class GuestGroupsListComponent implements OnInit {
   private readonly hostsSvc = inject(HostsService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly confirmSvc = inject(ConfirmDialogService);
   private readonly route = inject(ActivatedRoute);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
@@ -747,12 +749,14 @@ export class GuestGroupsListComponent implements OnInit {
     });
   }
 
-  deleteGroup(group: GuestGroup) {
-    if (!confirm(`Delete group "${group.group_code}"? This will fail if it has guests.`)) return;
-    this.svc.remove(group.id).subscribe({
-      next: () => this.loadGroups(),
-      error: () => alert('Cannot delete group. It may have guests assigned.'),
-    });
+  async deleteGroup(group: GuestGroup) {
+    if (
+      !(await this.confirmSvc.confirm(
+        `Delete group "${group.group_code}"? This will fail if it has guests.`,
+      ))
+    )
+      return;
+    this.svc.remove(group.id).subscribe({ next: () => this.loadGroups() });
   }
 
   recomputeAggregates() {
