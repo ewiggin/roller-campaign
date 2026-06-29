@@ -556,6 +556,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
   readonly detailError = signal('');
+  readonly bulkAssigning = signal(false);
+  readonly bulkAssignResult = signal<{
+    shiftsProcessed: number;
+    totalSkipped: number;
+    unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+  } | null>(null);
   readonly seriesChoiceVisible = signal(false);
   private pendingSavePayload: UpdateActivityPayload | null = null;
   readonly editIconValue = signal('');
@@ -2247,6 +2253,21 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       error: () => {
         this.detailError.set('Error assigning groups automatically.');
         this.detailSaving.set(false);
+      },
+    });
+  }
+
+  bulkAutoAssignGuestGroupsToPreachingGroups() {
+    this.bulkAssigning.set(true);
+    this.bulkAssignResult.set(null);
+    this.svc.bulkAutoAssignGuestGroupsToPreachingGroups().subscribe({
+      next: (result) => {
+        this.bulkAssignResult.set(result);
+        this.bulkAssigning.set(false);
+        this.load();
+      },
+      error: () => {
+        this.bulkAssigning.set(false);
       },
     });
   }

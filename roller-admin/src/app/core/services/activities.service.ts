@@ -202,6 +202,14 @@ export class ActivitiesService {
     );
   }
 
+  bulkAutoAssignGuestGroupsToPreachingGroups() {
+    return this.http.post<{
+      shiftsProcessed: number;
+      totalSkipped: number;
+      unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+    }>(`/api/activities/preaching-groups/bulk-auto-assign`, {});
+  }
+
   assignGuestGroupToGroup(id: string, groupId: string, guestGroupId: string) {
     return this.http.post<Activity>(
       `/api/activities/${id}/preaching-groups/${groupId}/guest-groups`,

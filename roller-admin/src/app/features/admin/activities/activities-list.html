@@ -65,6 +65,43 @@
       >
         Import
       </button>
+      @if (preachingShiftsOnly) {
+        <button
+          type="button"
+          (click)="bulkAutoAssignGuestGroupsToPreachingGroups()"
+          [disabled]="bulkAssigning()"
+          class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+        >
+          @if (bulkAssigning()) {
+            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          } @else {
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z"
+              />
+            </svg>
+          }
+          Auto-assign all
+        </button>
+      }
       <button
         (click)="openCreate()"
         class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
@@ -193,6 +230,75 @@
       (periodChange)="onPeriodChange($event)"
       (activityClick)="loadAndOpenDetail($event)"
     />
+  }
+
+  <!-- Bulk auto-assign result panel -->
+  @if (bulkAssignResult(); as result) {
+    <div
+      class="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 mb-4 flex flex-col gap-3"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <svg
+            class="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+            />
+          </svg>
+          <div class="text-sm text-emerald-800 dark:text-emerald-300">
+            <span class="font-semibold">{{ result.shiftsProcessed }}</span>
+            shift{{ result.shiftsProcessed === 1 ? '' : 's' }} processed.
+          </div>
+        </div>
+        <button
+          type="button"
+          (click)="bulkAssignResult.set(null)"
+          class="p-1 rounded text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors shrink-0"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      @if (result.unassignedGroups.length > 0) {
+        <div>
+          <p class="text-xs font-semibold text-red-700 dark:text-red-400 mb-1.5">
+            {{ result.unassignedGroups.length }} group{{
+              result.unassignedGroups.length === 1 ? '' : 's'
+            }}
+            with no preaching group assignment:
+          </p>
+          <div class="flex flex-wrap gap-1.5">
+            @for (g of result.unassignedGroups; track g.id) {
+              <span
+                class="inline-flex items-center gap-1 rounded-md bg-red-100 dark:bg-red-950 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300"
+              >
+                {{ g.group_code }}
+                <span class="text-red-400 dark:text-red-500">·</span>
+                {{ g.guest_count }}
+              </span>
+            }
+          </div>
+        </div>
+      } @else {
+        <p class="text-xs text-emerald-700 dark:text-emerald-400">
+          All groups with guests have been assigned to a preaching group.
+        </p>
+      }
+    </div>
   }
 
   <!-- List -->
@@ -2665,4 +2771,24 @@
     (imported)="onImportDone()"
     (close)="importModalOpen.set(false)"
   />
+}
+
+<!-- Bulk auto-assign processing modal -->
+@if (bulkAssigning()) {
+  <div class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+    <div
+      class="bg-white dark:bg-[#18181b] rounded-xl shadow-xl px-8 py-7 flex flex-col items-center gap-4 min-w-64"
+    >
+      <svg class="w-10 h-10 text-emerald-500 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+      </svg>
+      <div class="text-center">
+        <p class="text-sm font-semibold text-gray-800 dark:text-zinc-100">Auto-assigning groups…</p>
+        <p class="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+          Processing all preaching shifts. Please wait.
+        </p>
+      </div>
+    </div>
+  </div>
 }

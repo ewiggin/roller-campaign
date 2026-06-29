@@ -1023,6 +1023,81 @@ export class ActivitiesService {
     return { activity: await this.findOne(id, currentUser), skipped };
   }
 
+  async bulkAutoAssignGuestGroupsToPreachingGroups(
+    currentUser: JwtPayload,
+  ): Promise<{
+    shiftsProcessed: number;
+    totalSkipped: number;
+    unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+  }> {
+    let regionIds: string[] = [];
+
+    if (currentUser.role !== 'superadmin') {
+      const user = await this.usersRepo.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      regionIds = (user?.regions ?? []).map((r) => r.id);
+      if (regionIds.length === 0)
+        return { shiftsProcessed: 0, totalSkipped: 0, unassignedGroups: [] };
+    }
+
+    const shiftsQb = this.activitiesRepo
+      .createQueryBuilder('a')
+      .select('a.id')
+      .where('a.is_preaching_shift = :yes', { yes: true });
+    if (regionIds.length > 0)
+      shiftsQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
+
+    const shifts = await shiftsQb.getMany();
+
+    let totalSkipped = 0;
+    for (const shift of shifts) {
+      try {
+        const result = await this.autoAssignGuestGroupsToPreachingGroups(
+          shift.id,
+          currentUser,
+        );
+        totalSkipped += result.skipped;
+      } catch {
+        // skip shifts that can't be processed (e.g., access denied)
+      }
+    }
+
+    const ggQb = this.groupsRepo
+      .createQueryBuilder('gg')
+      .leftJoin('gg.guests', 'g')
+      .select('gg.id', 'id')
+      .addSelect('gg.group_code', 'group_code')
+      .addSelect('COUNT(g.id)', 'guest_count')
+      .where(
+        `gg.id NOT IN (
+          SELECT "guestGroupId" FROM activity_preaching_group_guest_groups
+        )`,
+      )
+      .groupBy('gg.id')
+      .having('COUNT(g.id) > 0')
+      .orderBy('COUNT(g.id)', 'DESC');
+    if (regionIds.length > 0)
+      ggQb.andWhere('gg.region_id IN (:...regionIds)', { regionIds });
+
+    const rawUnassigned = await ggQb.getRawMany<{
+      id: string;
+      group_code: string;
+      guest_count: string;
+    }>();
+
+    return {
+      shiftsProcessed: shifts.length,
+      totalSkipped,
+      unassignedGroups: rawUnassigned.map((r) => ({
+        id: r.id,
+        group_code: r.group_code,
+        guest_count: parseInt(r.guest_count, 10),
+      })),
+    };
+  }
+
   async removeGuestGroupFromGroup(
     id: string,
     groupId: string,

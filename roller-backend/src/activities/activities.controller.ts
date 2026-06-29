@@ -230,6 +230,22 @@ export class ActivitiesController {
     );
   }
 
+  @Post('preaching-groups/bulk-auto-assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description:
+      '{ shiftsProcessed, totalSkipped, unassignedGroups: { id, group_code, guest_count }[] }',
+  })
+  bulkAutoAssignGuestGroupsToPreachingGroups(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{
+    shiftsProcessed: number;
+    totalSkipped: number;
+    unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+  }> {
+    return this.svc.bulkAutoAssignGuestGroupsToPreachingGroups(user);
+  }
+
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
   @Get(':id')
