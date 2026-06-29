@@ -18,5 +18,5 @@ export class UpdateCampaignSettingsDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  max_guest_groups_per_preaching_group?: number;
+  max_guests_per_preaching_group?: number;
 }

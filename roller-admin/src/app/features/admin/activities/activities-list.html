@@ -2120,13 +2120,14 @@
                                 <span
                                   class="text-xs font-medium tabular-nums"
                                   [class]="
-                                    group.guest_groups.length > maxGuestGroupsPerPreachingGroup()
+                                    guestCountForPreachingGroup(group) >
+                                    maxGuestsPerPreachingGroup()
                                       ? 'text-red-500 dark:text-red-400'
                                       : 'text-gray-400 dark:text-zinc-500'
                                   "
                                 >
-                                  {{ group.guest_groups.length }} /
-                                  {{ maxGuestGroupsPerPreachingGroup() }}
+                                  {{ guestCountForPreachingGroup(group) }} /
+                                  {{ maxGuestsPerPreachingGroup() }}
                                 </span>
                               </div>
                               @if (group.guest_groups.length > 0) {

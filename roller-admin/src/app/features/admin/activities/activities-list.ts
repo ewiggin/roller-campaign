@@ -22,6 +22,7 @@ import type {
   AvailableCartForActivity,
   AvailableGroupForActivity,
   AvailableVolunteerForActivity,
+  PreachingGroup,
   RepeatType,
   UpdateActivityPayload,
 } from '../../../core/models/activity.model';
@@ -93,7 +94,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
   readonly maxActivities = signal(4);
   readonly maxPreachingShifts = signal(4);
-  readonly maxGuestGroupsPerPreachingGroup = signal(3);
+  readonly maxGuestsPerPreachingGroup = signal(3);
   private readonly route = inject(ActivatedRoute);
 
   // When opened from the "Preaching Shifts" menu entry, the list is
@@ -1412,7 +1413,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       next: (s) => {
         this.maxActivities.set(s.max_activities_per_group);
         this.maxPreachingShifts.set(s.max_preaching_shifts_per_group);
-        this.maxGuestGroupsPerPreachingGroup.set(s.max_guest_groups_per_preaching_group);
+        this.maxGuestsPerPreachingGroup.set(s.max_guests_per_preaching_group);
       },
     });
 
@@ -2381,6 +2382,10 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         this.detailSaving.set(false);
       },
     });
+  }
+
+  guestCountForPreachingGroup(group: PreachingGroup): number {
+    return group.guest_groups.reduce((sum, g) => sum + (g.guest_count ?? 0), 0);
   }
 
   addCartToGroup(groupId: string) {

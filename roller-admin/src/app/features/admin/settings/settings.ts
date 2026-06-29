@@ -90,7 +90,7 @@ export class SettingsComponent implements OnInit {
   readonly campaignError = signal('');
   readonly maxActivitiesPerGroup = signal(4);
   readonly maxPreachingShiftsPerGroup = signal(4);
-  readonly maxGuestGroupsPerPreachingGroup = signal(3);
+  readonly maxGuestsPerPreachingGroup = signal(3);
 
   ngOnInit() {
     this.loadSmtp();
@@ -103,7 +103,7 @@ export class SettingsComponent implements OnInit {
       next: (s) => {
         this.maxActivitiesPerGroup.set(s.max_activities_per_group);
         this.maxPreachingShiftsPerGroup.set(s.max_preaching_shifts_per_group);
-        this.maxGuestGroupsPerPreachingGroup.set(s.max_guest_groups_per_preaching_group);
+        this.maxGuestsPerPreachingGroup.set(s.max_guests_per_preaching_group);
         this.campaignLoading.set(false);
       },
       error: () => {
@@ -122,13 +122,13 @@ export class SettingsComponent implements OnInit {
       .updateCampaignSettings({
         max_activities_per_group: this.maxActivitiesPerGroup(),
         max_preaching_shifts_per_group: this.maxPreachingShiftsPerGroup(),
-        max_guest_groups_per_preaching_group: this.maxGuestGroupsPerPreachingGroup(),
+        max_guests_per_preaching_group: this.maxGuestsPerPreachingGroup(),
       })
       .subscribe({
         next: (s) => {
           this.maxActivitiesPerGroup.set(s.max_activities_per_group);
           this.maxPreachingShiftsPerGroup.set(s.max_preaching_shifts_per_group);
-          this.maxGuestGroupsPerPreachingGroup.set(s.max_guest_groups_per_preaching_group);
+          this.maxGuestsPerPreachingGroup.set(s.max_guests_per_preaching_group);
           this.campaignSaving.set(false);
           this.campaignSaveSuccess.set(true);
           setTimeout(() => this.campaignSaveSuccess.set(false), 3000);
