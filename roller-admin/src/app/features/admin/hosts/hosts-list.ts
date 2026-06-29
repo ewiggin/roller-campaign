@@ -202,7 +202,12 @@ export class HostsListComponent implements OnInit {
   }
 
   async delete(host: Host) {
-    if (!(await this.confirmSvc.confirm(`Delete congregation "${host.name}"? Groups assigned to it will be unassigned.`))) return;
+    if (
+      !(await this.confirmSvc.confirm(
+        `Delete congregation "${host.name}"? Groups assigned to it will be unassigned.`,
+      ))
+    )
+      return;
     this.svc.remove(host.id).subscribe({ next: () => this.load() });
   }
 

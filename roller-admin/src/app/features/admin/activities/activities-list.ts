@@ -78,7 +78,9 @@ interface LocationSlot {
 export class ActivitiesListComponent implements OnInit, OnDestroy {
   @ViewChild('mapContainer') private mapContainerRef?: ElementRef<HTMLDivElement>;
   @ViewChild('groupsMapContainer') private groupsMapContainerRef?: ElementRef<HTMLDivElement>;
-  @ViewChildren('pgMapContainer') private pgMapContainerRefs!: QueryList<ElementRef<HTMLDivElement>>;
+  @ViewChildren('pgMapContainer') private pgMapContainerRefs!: QueryList<
+    ElementRef<HTMLDivElement>
+  >;
 
   private readonly svc = inject(ActivitiesService);
   private readonly regionsSvc = inject(RegionsService);
@@ -373,7 +375,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       : ids.length > 1
         ? `${ids.length} activities`
         : 'this activity';
-    if (!(await this.confirmSvc.confirm(`Delete ${label}? This cannot be undone.`, { confirmLabel: 'Delete' }))) return;
+    if (
+      !(await this.confirmSvc.confirm(`Delete ${label}? This cannot be undone.`, {
+        confirmLabel: 'Delete',
+      }))
+    )
+      return;
     this.bulkSaving.set(true);
     from(ids)
       .pipe(
@@ -406,7 +413,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     const ids = [...this.selectedIds()];
     if (!ids.length) return;
     const label = ids.length > 1 ? `${ids.length} activities` : 'this activity';
-    if (!(await this.confirmSvc.confirm(`Reset all assigned guest groups from ${label}? This cannot be undone.`))) return;
+    if (
+      !(await this.confirmSvc.confirm(
+        `Reset all assigned guest groups from ${label}? This cannot be undone.`,
+      ))
+    )
+      return;
     this.resetting.set(true);
     from(ids)
       .pipe(
@@ -427,7 +439,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     const ids = [...this.selectedIds()];
     if (!ids.length) return;
     const label = ids.length > 1 ? `${ids.length} activities` : 'this activity';
-    if (!(await this.confirmSvc.confirm(`Reset all assigned volunteers from ${label}? This cannot be undone.`))) return;
+    if (
+      !(await this.confirmSvc.confirm(
+        `Reset all assigned volunteers from ${label}? This cannot be undone.`,
+      ))
+    )
+      return;
     this.resetting.set(true);
     from(ids)
       .pipe(
@@ -1140,9 +1157,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
           const midLat = (groupPos.lat + actPos.lat) / 2;
           const midLng = (groupPos.lng + actPos.lng) / 2;
           const km =
-            g.distance_km < 10
-              ? g.distance_km.toFixed(1)
-              : Math.round(g.distance_km).toString();
+            g.distance_km < 10 ? g.distance_km.toFixed(1) : Math.round(g.distance_km).toString();
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="18"><rect rx="4" width="52" height="18" fill="white" fill-opacity="0.92" stroke="#cbd5e1" stroke-width="1"/><text x="26" y="13" text-anchor="middle" font-size="10" font-family="sans-serif" fill="#475569" font-weight="600">${km} km</text></svg>`;
           const labelMarker = new google.maps.Marker({
             position: { lat: midLat, lng: midLng },
@@ -1348,9 +1363,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
           const midLat = (groupPos.lat + actPos.lat) / 2;
           const midLng = (groupPos.lng + actPos.lng) / 2;
           const km =
-            g.distance_km < 10
-              ? g.distance_km.toFixed(1)
-              : Math.round(g.distance_km).toString();
+            g.distance_km < 10 ? g.distance_km.toFixed(1) : Math.round(g.distance_km).toString();
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="18"><rect rx="4" width="52" height="18" fill="white" fill-opacity="0.92" stroke="#cbd5e1" stroke-width="1"/><text x="26" y="13" text-anchor="middle" font-size="10" font-family="sans-serif" fill="#475569" font-weight="600">${km} km</text></svg>`;
           const labelMarker = new google.maps.Marker({
             position: { lat: midLat, lng: midLng },
@@ -2238,7 +2251,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   async removePreachingGroup(groupId: string) {
     const activity = this.selectedActivity();
     if (!activity) return;
-    if (!(await this.confirmSvc.confirm('Delete this preaching group? Its members will be unassigned from the activity.', { confirmLabel: 'Delete' })))
+    if (
+      !(await this.confirmSvc.confirm(
+        'Delete this preaching group? Its members will be unassigned from the activity.',
+        { confirmLabel: 'Delete' },
+      ))
+    )
       return;
     this.detailSaving.set(true);
     this.svc.removePreachingGroup(activity.id, groupId).subscribe({
@@ -2402,7 +2420,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   // ── Delete ────────────────────────────────────────────────────────────────
 
   async deleteActivity(activity: Activity) {
-    if (!(await this.confirmSvc.confirm(`Delete "${activity.name || activity.date}"?`, { confirmLabel: 'Delete' }))) return;
+    if (
+      !(await this.confirmSvc.confirm(`Delete "${activity.name || activity.date}"?`, {
+        confirmLabel: 'Delete',
+      }))
+    )
+      return;
     this.svc.remove(activity.id).subscribe({
       next: () => {
         if (this.selectedActivity()?.id === activity.id) this.activeModal.set(null);

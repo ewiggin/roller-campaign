@@ -20,9 +20,7 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
           <div class="px-6 py-5">
             <p class="text-sm text-gray-600 dark:text-zinc-400">{{ svc.state()!.message }}</p>
           </div>
-          <div
-            class="flex justify-end gap-3 px-6 pb-5"
-          >
+          <div class="flex justify-end gap-3 px-6 pb-5">
             <button
               type="button"
               (click)="svc.dismiss()"

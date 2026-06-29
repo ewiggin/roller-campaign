@@ -438,7 +438,8 @@ export class CartsListComponent implements OnInit, OnDestroy {
   }
 
   async confirmDelete(cart: Cart) {
-    if (!(await this.confirmSvc.confirm(`Delete cart #${cart.number || cart.id.slice(0, 8)}?`))) return;
+    if (!(await this.confirmSvc.confirm(`Delete cart #${cart.number || cart.id.slice(0, 8)}?`)))
+      return;
     this.svc.remove(cart.id).subscribe({
       next: () => this.carts.update((list) => list.filter((c) => c.id !== cart.id)),
     });

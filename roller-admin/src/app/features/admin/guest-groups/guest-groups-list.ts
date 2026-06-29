@@ -750,7 +750,12 @@ export class GuestGroupsListComponent implements OnInit {
   }
 
   async deleteGroup(group: GuestGroup) {
-    if (!(await this.confirmSvc.confirm(`Delete group "${group.group_code}"? This will fail if it has guests.`))) return;
+    if (
+      !(await this.confirmSvc.confirm(
+        `Delete group "${group.group_code}"? This will fail if it has guests.`,
+      ))
+    )
+      return;
     this.svc.remove(group.id).subscribe({ next: () => this.loadGroups() });
   }
 

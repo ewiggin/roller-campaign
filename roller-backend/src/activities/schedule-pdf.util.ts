@@ -234,7 +234,10 @@ export function buildGroupScheduleContent(
       body.push([
         { text: timeText, style: 'tableCell' },
         { stack: nameStack },
-        { text: activity.is_food_shift ? '' : locationsText(activity.locations), style: 'tableCell' },
+        {
+          text: activity.is_food_shift ? '' : locationsText(activity.locations),
+          style: 'tableCell',
+        },
       ]);
     }
   }
@@ -321,7 +324,10 @@ export function buildVolunteerScheduleContent(
       body.push([
         { text: timeText, style: 'tableCell' },
         { stack: nameStack },
-        { text: activity.is_food_shift ? '' : locationsText(activity.locations), style: 'tableCell' },
+        {
+          text: activity.is_food_shift ? '' : locationsText(activity.locations),
+          style: 'tableCell',
+        },
       ]);
     }
   }

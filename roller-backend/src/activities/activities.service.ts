@@ -1348,11 +1348,15 @@ export class ActivitiesService {
           );
           if (hasAvailabilityData) {
             const anyAvailable = groupGuests.some((g) => {
-              if (g.available_from && activity.date > g.available_from === false)
+              if (
+                g.available_from &&
+                activity.date > g.available_from === false
+              )
                 return false;
               if (g.available_from && activity.date < g.available_from)
                 return false;
-              if (g.available_to && activity.date > g.available_to) return false;
+              if (g.available_to && activity.date > g.available_to)
+                return false;
               return true;
             });
             if (!anyAvailable) continue;
@@ -1389,7 +1393,8 @@ export class ActivitiesService {
         distance_km:
           distance_km !== null ? Math.round(distance_km * 10) / 10 : null,
         guest_count: groupGuests.length,
-        already_in_activity: isAssignedHere || conflictingGroupIds.has(group.id),
+        already_in_activity:
+          isAssignedHere || conflictingGroupIds.has(group.id),
         host_schedule_conflict: this.hasHostScheduleConflict(
           activity.date,
           activity.start_time,

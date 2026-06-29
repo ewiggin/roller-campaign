@@ -342,7 +342,10 @@ export class GuestsListComponent implements OnInit {
   }
 
   async deleteGuest(guest: Guest) {
-    if (!(await this.confirmSvc.confirm(`Delete guest "${guest.full_name}" (${guest.guest_code})?`))) return;
+    if (
+      !(await this.confirmSvc.confirm(`Delete guest "${guest.full_name}" (${guest.guest_code})?`))
+    )
+      return;
     this.svc.remove(guest.id).subscribe({ next: () => this.load() });
   }
 

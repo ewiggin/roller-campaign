@@ -8,7 +8,9 @@ import { SettingsController } from './settings.controller';
 import { SettingsService } from './settings.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SmtpSettings, RolePermissions, CampaignSettings])],
+  imports: [
+    TypeOrmModule.forFeature([SmtpSettings, RolePermissions, CampaignSettings]),
+  ],
   controllers: [SettingsController],
   providers: [SettingsService, MailerService],
   exports: [SettingsService, MailerService],
