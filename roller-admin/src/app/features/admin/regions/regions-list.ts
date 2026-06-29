@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import {
   MenuButtonComponent,
@@ -27,6 +28,7 @@ export class RegionsListComponent implements OnInit {
   private readonly svc = inject(RegionsService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly confirmSvc = inject(ConfirmDialogService);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
 
@@ -132,12 +134,9 @@ export class RegionsListComponent implements OnInit {
     });
   }
 
-  deleteRegion(region: Region) {
-    if (!confirm(`Delete region "${region.name}"?`)) return;
-    this.svc.remove(region.id).subscribe({
-      next: () => this.load(),
-      error: () => alert('Error deleting region.'),
-    });
+  async deleteRegion(region: Region) {
+    if (!(await this.confirmSvc.confirm(`Delete region "${region.name}"?`))) return;
+    this.svc.remove(region.id).subscribe({ next: () => this.load() });
   }
 
   openCoordinators(region: Region) {

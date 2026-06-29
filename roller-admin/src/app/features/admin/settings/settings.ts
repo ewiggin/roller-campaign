@@ -4,6 +4,7 @@ import { SettingsService } from '../../../core/services/settings.service';
 import { PermissionsService } from '../../../core/services/permissions.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { downloadFile } from '../../../core/utils/download-file';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { CONFIGURABLE_SCREENS } from '../../../core/models/settings.model';
 import type { DatabaseImportResult, ScreenKey } from '../../../core/models/settings.model';
 import { FormsModule } from '@angular/forms';
@@ -38,6 +39,7 @@ export class SettingsComponent implements OnInit {
   private readonly permsSvc = inject(PermissionsService);
   private readonly authSvc = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly confirmSvc = inject(ConfirmDialogService);
 
   readonly screens = CONFIGURABLE_SCREENS;
   readonly roles = CONFIGURABLE_ROLES;
@@ -309,17 +311,18 @@ export class SettingsComponent implements OnInit {
     });
   }
 
-  onImportFileSelected(event: Event) {
+  async onImportFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
     if (!file || this.dbImporting()) return;
 
     if (
-      !confirm(
+      !(await this.confirmSvc.confirm(
         'Esto sustituirá TODOS los datos actuales por los del archivo importado. ' +
           'Esta acción no se puede deshacer. ¿Deseas continuar?',
-      )
+        { title: 'Importar base de datos', confirmLabel: 'Importar' },
+      ))
     ) {
       return;
     }

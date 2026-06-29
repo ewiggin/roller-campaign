@@ -386,6 +386,26 @@ export class ActivitiesController {
     return this.svc.unassignGuestGroup(id, groupId, user);
   }
 
+  @Delete(':id/guest-groups')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  resetGuestGroups(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.resetGuestGroups(id, user);
+  }
+
+  @Delete(':id/volunteers')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ActivityResponseDto })
+  resetVolunteers(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    return this.svc.resetVolunteers(id, user);
+  }
+
   // ── Preaching groups ──────────────────────────────────────────────────────
 
   @Post(':id/preaching-groups')

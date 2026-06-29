@@ -644,6 +644,55 @@ export class ActivitiesService {
     return this.toDtoWithCounts(activity);
   }
 
+  async resetGuestGroups(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({
+      where: { id },
+      relations: ACTIVITY_RELATIONS,
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const preachingGroups = await this.preachingGroupsRepo.find({
+      where: { activity_id: id },
+      relations: { guestGroups: true },
+    });
+    for (const pg of preachingGroups) {
+      pg.guestGroups = [];
+      await this.preachingGroupsRepo.save(pg);
+    }
+
+    activity.guestGroups = [];
+    await this.activitiesRepo.save(activity);
+    return this.toDtoWithCounts(activity);
+  }
+
+  async resetVolunteers(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<ActivityResponseDto> {
+    const activity = await this.activitiesRepo.findOne({
+      where: { id },
+      relations: ACTIVITY_RELATIONS,
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    const preachingGroups = await this.preachingGroupsRepo.find({
+      where: { activity_id: id },
+    });
+    for (const pg of preachingGroups) {
+      await this.pgVolunteersRepo.delete({ preaching_group_id: pg.id });
+    }
+
+    await this.actVolRoleRepo.delete({ activity_id: id });
+    activity.volunteers = [];
+    await this.activitiesRepo.save(activity);
+    return this.toDtoWithCounts(activity);
+  }
+
   // ── Preaching groups ──────────────────────────────────────────────────────
   // A preaching group organizes a subset of the volunteers and guest groups
   // already assigned to the activity (region, schedule, host and availability

@@ -243,6 +243,7 @@
               Delete {{ selectedCount() > 1 ? selectedCount() + ' items' : '' }}
             }
           </button>
+          <app-menu-button label="Reset" [items]="resetMenuItems()" />
           <button
             (click)="clearSelection()"
             class="text-sm text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"

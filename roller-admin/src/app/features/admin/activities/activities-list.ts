@@ -28,10 +28,12 @@ import type {
 import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 import { ActivitiesService } from '../../../core/services/activities.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { StorageService } from '../../../core/services/storage.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { VolunteersService } from '../../../core/services/volunteers.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import { CalendarComponent } from '../../../shared/components/calendar/calendar';
@@ -84,6 +86,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   private readonly volunteersSvc = inject(VolunteersService);
   private readonly storageSvc = inject(StorageService);
   private readonly settingsSvc = inject(SettingsService);
+  private readonly confirmSvc = inject(ConfirmDialogService);
+  private readonly toastSvc = inject(ToastService);
 
   readonly maxActivities = signal(4);
   readonly maxPreachingShifts = signal(4);
@@ -183,6 +187,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly exporting = signal(false);
   readonly exportingExcel = signal(false);
   readonly downloadingTemplate = signal(false);
+  readonly resetting = signal(false);
 
   readonly jsonMenuItems = computed<MenuItem[]>(() => [
     {
@@ -202,6 +207,19 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       label: this.downloadingTemplate() ? 'Downloading…' : 'Download template',
       action: () => this.downloadExcelTemplate(),
       disabled: this.downloadingTemplate(),
+    },
+  ]);
+
+  readonly resetMenuItems = computed<MenuItem[]>(() => [
+    {
+      label: 'Reset guest groups',
+      action: () => this.bulkResetGuestGroups(),
+      disabled: this.resetting(),
+    },
+    {
+      label: 'Reset volunteers',
+      action: () => this.bulkResetVolunteers(),
+      disabled: this.resetting(),
     },
   ]);
 
@@ -345,7 +363,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       });
   }
 
-  bulkDelete() {
+  async bulkDelete() {
     const ids = [...this.selectedIds()];
     if (!ids.length) return;
     const label = this.preachingShiftsOnly
@@ -355,7 +373,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       : ids.length > 1
         ? `${ids.length} activities`
         : 'this activity';
-    if (!confirm(`Delete ${label}? This cannot be undone.`)) return;
+    if (!(await this.confirmSvc.confirm(`Delete ${label}? This cannot be undone.`, { confirmLabel: 'Delete' }))) return;
     this.bulkSaving.set(true);
     from(ids)
       .pipe(
@@ -377,10 +395,52 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         if (this.viewMode() === 'calendar')
           if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
         if (failedCount > 0) {
-          alert(
+          this.toastSvc.show(
             `${failedCount} of ${ids.length} could not be deleted (published activities must be unpublished first).`,
           );
         }
+      });
+  }
+
+  async bulkResetGuestGroups() {
+    const ids = [...this.selectedIds()];
+    if (!ids.length) return;
+    const label = ids.length > 1 ? `${ids.length} activities` : 'this activity';
+    if (!(await this.confirmSvc.confirm(`Reset all assigned guest groups from ${label}? This cannot be undone.`))) return;
+    this.resetting.set(true);
+    from(ids)
+      .pipe(
+        concatMap((id) => this.svc.resetGuestGroups(id)),
+        last(),
+      )
+      .subscribe({
+        next: () => {
+          this.resetting.set(false);
+          this.clearSelection();
+          this.load();
+        },
+        error: () => this.resetting.set(false),
+      });
+  }
+
+  async bulkResetVolunteers() {
+    const ids = [...this.selectedIds()];
+    if (!ids.length) return;
+    const label = ids.length > 1 ? `${ids.length} activities` : 'this activity';
+    if (!(await this.confirmSvc.confirm(`Reset all assigned volunteers from ${label}? This cannot be undone.`))) return;
+    this.resetting.set(true);
+    from(ids)
+      .pipe(
+        concatMap((id) => this.svc.resetVolunteers(id)),
+        last(),
+      )
+      .subscribe({
+        next: () => {
+          this.resetting.set(false);
+          this.clearSelection();
+          this.load();
+        },
+        error: () => this.resetting.set(false),
       });
   }
 
@@ -2175,10 +2235,10 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     });
   }
 
-  removePreachingGroup(groupId: string) {
+  async removePreachingGroup(groupId: string) {
     const activity = this.selectedActivity();
     if (!activity) return;
-    if (!confirm('Delete this preaching group? Its members will be unassigned from the activity.'))
+    if (!(await this.confirmSvc.confirm('Delete this preaching group? Its members will be unassigned from the activity.', { confirmLabel: 'Delete' })))
       return;
     this.detailSaving.set(true);
     this.svc.removePreachingGroup(activity.id, groupId).subscribe({
@@ -2341,8 +2401,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
   // ── Delete ────────────────────────────────────────────────────────────────
 
-  deleteActivity(activity: Activity) {
-    if (!confirm(`Delete "${activity.name || activity.date}"?`)) return;
+  async deleteActivity(activity: Activity) {
+    if (!(await this.confirmSvc.confirm(`Delete "${activity.name || activity.date}"?`, { confirmLabel: 'Delete' }))) return;
     this.svc.remove(activity.id).subscribe({
       next: () => {
         if (this.selectedActivity()?.id === activity.id) this.activeModal.set(null);
@@ -2350,15 +2410,15 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         if (this.viewMode() === 'calendar')
           if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
       },
-      error: () => alert('Error deleting activity.'),
     });
   }
 
-  deleteSeriesFromHere(activity: Activity) {
+  async deleteSeriesFromHere(activity: Activity) {
     if (
-      !confirm(
+      !(await this.confirmSvc.confirm(
         `Delete "${activity.name || activity.date}" and all future activities in this series?`,
-      )
+        { confirmLabel: 'Delete' },
+      ))
     )
       return;
     this.svc.removeSeriesFromDate(activity.id).subscribe({
@@ -2368,7 +2428,6 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         if (this.viewMode() === 'calendar')
           if (this.calendarPeriod) this.fetchCalendar(this.calendarPeriod);
       },
-      error: () => alert('Error deleting series.'),
     });
   }
 

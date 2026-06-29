@@ -33,6 +33,7 @@ import type {
 import type { Region } from '../../../core/models/region.model';
 import type { Host } from '../../../core/models/host.model';
 import { environment } from '../../../../environments/environment';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 
 type ModalMode = 'create' | 'edit' | null;
 
@@ -55,6 +56,7 @@ export class CartsListComponent implements OnInit, OnDestroy {
   private readonly hostsSvc = inject(HostsService);
   private readonly storageSvc = inject(StorageService);
   private readonly fb = inject(FormBuilder);
+  private readonly confirmSvc = inject(ConfirmDialogService);
 
   readonly excelMenuItems = computed<MenuItem[]>(() => [
     { label: 'Export Excel', action: () => this.downloadExcel() },
@@ -435,8 +437,8 @@ export class CartsListComponent implements OnInit, OnDestroy {
     });
   }
 
-  confirmDelete(cart: Cart) {
-    if (!confirm(`Delete cart #${cart.number || cart.id.slice(0, 8)}?`)) return;
+  async confirmDelete(cart: Cart) {
+    if (!(await this.confirmSvc.confirm(`Delete cart #${cart.number || cart.id.slice(0, 8)}?`))) return;
     this.svc.remove(cart.id).subscribe({
       next: () => this.carts.update((list) => list.filter((c) => c.id !== cart.id)),
     });

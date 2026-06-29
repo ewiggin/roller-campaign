@@ -5,6 +5,7 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 import { HostsService } from '../../../core/services/hosts.service';
 import { RegionsService } from '../../../core/services/regions.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import {
   MenuButtonComponent,
@@ -30,6 +31,7 @@ export class HostsListComponent implements OnInit {
   private readonly regionsSvc = inject(RegionsService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly confirmSvc = inject(ConfirmDialogService);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
 
@@ -199,13 +201,9 @@ export class HostsListComponent implements OnInit {
     });
   }
 
-  delete(host: Host) {
-    if (!confirm(`Delete congregation "${host.name}"? Groups assigned to it will be unassigned.`))
-      return;
-    this.svc.remove(host.id).subscribe({
-      next: () => this.load(),
-      error: () => alert('Error deleting congregation.'),
-    });
+  async delete(host: Host) {
+    if (!(await this.confirmSvc.confirm(`Delete congregation "${host.name}"? Groups assigned to it will be unassigned.`))) return;
+    this.svc.remove(host.id).subscribe({ next: () => this.load() });
   }
 
   closeModal() {

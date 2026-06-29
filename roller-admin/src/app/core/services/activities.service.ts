@@ -128,6 +128,14 @@ export class ActivitiesService {
     return this.http.delete<Activity>(`/api/activities/${id}/guest-groups/${groupId}`);
   }
 
+  resetGuestGroups(id: string) {
+    return this.http.delete<Activity>(`/api/activities/${id}/guest-groups`);
+  }
+
+  resetVolunteers(id: string) {
+    return this.http.delete<Activity>(`/api/activities/${id}/volunteers`);
+  }
+
   deleteAttendanceRequest(id: string, requestId: string) {
     return this.http.delete<Activity>(`/api/activities/${id}/requests/${requestId}`);
   }
