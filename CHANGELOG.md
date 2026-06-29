@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0] - 2026-06-29
+
+### Añadido
+
+- **Auto-asignación masiva de grupos de invitados a turnos de predicación**: nuevo botón "Auto-assign" en cada turno de predicación que aplica un algoritmo greedy para asignar automáticamente los mejores grupos disponibles; prioriza los grupos más cercanos a la ubicación del turno, respeta el límite configurado de grupos por turno, descarta grupos ya asignados, deshabilitados o en conflicto de mismo día, y muestra el resultado con el número de grupos asignados
+- **Auto-asignación masiva para toda la campaña**: nuevo botón de acción global en la cabecera de turnos de predicación que ejecuta el algoritmo greedy en todos los turnos de la campaña de una sola vez
+- **Modal de confirmación con explicación del algoritmo**: antes de ejecutar la auto-asignación (individual o masiva) se muestra un modal que explica el algoritmo (distancia, límites, conflictos) y los criterios de elegibilidad, con opción de cancelar
+- **Límite de grupos de invitados por turno de predicación**: nuevo ajuste `max_guest_groups_per_preaching_shift` en la página de Ajustes; en la vista de detalle del turno aparece un contador informativo que muestra los grupos asignados frente al límite configurado
+- **Acciones masivas de reset con modal Angular**: los botones de reset de grupos de invitados y voluntarios usan ahora modales de confirmación de Angular en lugar de `window.confirm` / `window.alert`
+
+### Mejorado
+
+- **Contador de invitados por grupo**: el contador muestra el total de invitados (suma de personas) en lugar del número de grupos de invitados asignados al turno
+- **Contador de grupos oculto cuando el límite es 0**: cuando `max_guest_groups_per_preaching_shift` es 0 (sin límite), el contador informativo no se muestra
+
+---
+
 ## [0.4.2] - 2026-06-27
 
 ### Añadido
