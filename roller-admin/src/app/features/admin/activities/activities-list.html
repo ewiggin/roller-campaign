@@ -68,7 +68,7 @@
       @if (preachingShiftsOnly) {
         <button
           type="button"
-          (click)="bulkAutoAssignGuestGroupsToPreachingGroups()"
+          (click)="bulkConfirmOpen.set(true)"
           [disabled]="bulkAssigning()"
           class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
         >
@@ -2771,6 +2771,236 @@
     (imported)="onImportDone()"
     (close)="importModalOpen.set(false)"
   />
+}
+
+<!-- Bulk auto-assign confirmation modal -->
+@if (bulkConfirmOpen()) {
+  <div
+    class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+    (click)="bulkConfirmOpen.set(false)"
+  >
+    <div
+      class="bg-white dark:bg-[#18181b] rounded-xl shadow-xl w-full max-w-lg flex flex-col overflow-hidden"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Header -->
+      <div
+        class="px-6 py-4 bg-gray-50 dark:bg-zinc-800/60 border-b border-gray-200 dark:border-zinc-700 flex items-center gap-3"
+      >
+        <svg
+          class="w-5 h-5 text-emerald-500 shrink-0"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z"
+          />
+        </svg>
+        <h3 class="text-sm font-semibold text-gray-800 dark:text-zinc-100">
+          Auto-assign groups to all preaching shifts
+        </h3>
+      </div>
+
+      <!-- Body -->
+      <div class="px-6 py-5 flex flex-col gap-4 text-sm text-gray-700 dark:text-zinc-300">
+        <p>
+          This action will automatically fill the available slots in
+          <strong>all preaching shifts</strong> of the campaign with guest groups, following these
+          criteria:
+        </p>
+        <ol class="flex flex-col gap-2 list-none">
+          <li class="flex items-start gap-2.5">
+            <span
+              class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-center mt-0.5"
+              >1</span
+            >
+            <span
+              ><strong>Closest first.</strong> Groups are sorted by their distance to the activity
+              location. Nearest groups are assigned first.</span
+            >
+          </li>
+          <li class="flex items-start gap-2.5">
+            <span
+              class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-center mt-0.5"
+              >2</span
+            >
+            <span
+              ><strong>Balanced load.</strong> Each group is assigned to the preaching group with
+              the fewest guests at that moment, distributing the load evenly.</span
+            >
+          </li>
+          <li class="flex items-start gap-2.5">
+            <span
+              class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-center mt-0.5"
+              >3</span
+            >
+            <span
+              ><strong>Hard limit.</strong> If a preaching group has reached its maximum guest
+              capacity, no more groups are assigned to it.</span
+            >
+          </li>
+          <li class="flex items-start gap-2.5">
+            <span
+              class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-center mt-0.5"
+              >4</span
+            >
+            <span
+              ><strong>Fills gaps only.</strong> Groups already assigned to a preaching group are
+              never moved or duplicated. This action only adds new assignments.</span
+            >
+          </li>
+        </ol>
+
+        <!-- Eligibility filters -->
+        <div
+          class="rounded-lg bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 px-4 py-3 flex flex-col gap-1.5"
+        >
+          <p
+            class="text-xs font-semibold text-gray-600 dark:text-zinc-400 uppercase tracking-wide mb-0.5"
+          >
+            A group is eligible only if…
+          </p>
+          <ul class="flex flex-col gap-1 text-xs text-gray-600 dark:text-zinc-400">
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              Belongs to the <strong>same region</strong> as the shift.
+            </li>
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              Has <strong>at least one guest</strong> registered.
+            </li>
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              Is <strong>not already assigned</strong> to this shift or to any preaching group
+              within it.
+            </li>
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              Has <strong>no other preaching shift on the same day</strong>.
+            </li>
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              Has not exceeded the <strong>maximum preaching shifts per group</strong> limit set in
+              campaign settings.
+            </li>
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              Its <strong>host has no schedule conflict</strong> at the time of the shift.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div
+        class="px-6 py-4 bg-gray-50 dark:bg-zinc-800/60 border-t border-gray-200 dark:border-zinc-700 flex justify-end gap-3"
+      >
+        <button
+          type="button"
+          (click)="bulkConfirmOpen.set(false)"
+          class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-600 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          (click)="bulkConfirmOpen.set(false); bulkAutoAssignGuestGroupsToPreachingGroups()"
+          class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 transition-colors"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z"
+            />
+          </svg>
+          Run auto-assign
+        </button>
+      </div>
+    </div>
+  </div>
 }
 
 <!-- Bulk auto-assign processing modal -->

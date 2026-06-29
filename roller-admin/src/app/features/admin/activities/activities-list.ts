@@ -556,6 +556,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
   readonly detailError = signal('');
+  readonly bulkConfirmOpen = signal(false);
   readonly bulkAssigning = signal(false);
   readonly bulkAssignResult = signal<{
     shiftsProcessed: number;
