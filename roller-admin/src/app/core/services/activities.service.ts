@@ -195,6 +195,13 @@ export class ActivitiesService {
     );
   }
 
+  autoAssignGuestGroupsToPreachingGroups(id: string) {
+    return this.http.post<{ activity: Activity; skipped: number }>(
+      `/api/activities/${id}/preaching-groups/auto-assign`,
+      {},
+    );
+  }
+
   assignGuestGroupToGroup(id: string, groupId: string, guestGroupId: string) {
     return this.http.post<Activity>(
       `/api/activities/${id}/preaching-groups/${groupId}/guest-groups`,

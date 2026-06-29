@@ -337,3 +337,73 @@ Si el archivo Excel tiene una columna `region_name`, cada grupo se asigna autom�
 | 1   | PIN adicional para acceso de invitados | Fase futura |
 | 2   | Recordatorios automáticos por email    | Fase 3      |
 | 3   | Métricas completas en dashboard admin  | Fase 3      |
+
+---
+
+## 11. Algoritmo de asignación automática de grupos a grupos de predicación
+
+### Objetivo
+
+Dado un turno de predicación (`activity` con `is_preaching_shift = true`), asignar automáticamente los grupos de invitados disponibles a los grupos de predicación (`preaching_groups`) del turno, minimizando la distancia total recorrida y equilibrando el número de grupos por grupo de predicación.
+
+### Reglas de elegibilidad (precondiciones, igual que asignación manual)
+
+Antes de ejecutar el algoritmo, se obtiene la lista de grupos disponibles mediante `getAvailableGroups()`, que ya aplica:
+
+1. Mismo región que la actividad
+2. Fecha dentro de la ventana de disponibilidad del grupo (`available_from` / `available_to`)
+3. Sin conflicto con la reunión del anfitrión del grupo
+4. Sin solapamiento de horario con otra actividad
+5. Sin exceder el límite de turnos de predicación (`maxPreachingShiftsPerGroup`, defecto 3)
+6. Sin otro turno de predicación el mismo día (`same_day_preaching_shift = false`)
+
+Solo los grupos con todos estos checks en verde entran al algoritmo. Los que ya están asignados a algún grupo de predicación de este turno se excluyen (son asignaciones existentes que no se tocan).
+
+### Configuración en settings
+
+Se añade `maxGuestsPerPreachingGroup` (entero, sin defecto fijo — debe configurarse por campaña) junto a los límites existentes:
+
+```
+maxPreachingShiftsPerGroup    (ya existe)
+maxActivitiesPerGroup         (ya existe)
+maxGuestsPerPreachingGroup    (nuevo)
+```
+
+### Algoritmo (Greedy por distancia con equilibrado por invitados)
+
+**Inputs:**
+- `groups`: lista de grupos de invitados disponibles, cada uno con su `guest_count` y coordenadas propias
+- `preachingGroups`: lista de grupos de predicación del turno, cada uno con coordenadas del punto de reunión
+- `maxGuests`: valor de `maxGuestsPerPreachingGroup` obtenido de settings
+
+**Pasos:**
+
+1. Calcular la distancia de cada grupo de invitados a cada grupo de predicación (distancia euclidiana sobre coordenadas lat/lng).
+2. Construir una lista plana de pares `(grupo_invitados, grupo_predicación, distancia)` y ordenarla de menor a mayor distancia.
+3. Iterar la lista en orden:
+   - Si el grupo de invitados ya fue asignado → saltar
+   - Si el grupo de predicación ya supera `maxGuests` sumando los invitados del grupo candidato → saltar
+   - En caso contrario → asignar (llamar a la lógica existente de `assignGuestGroupToGroup`)
+4. Si ningún grupo de predicación tiene hueco para el candidato (todos superarían `maxGuests`), el candidato se omite y se contabiliza como `skipped`. El límite es estricto: se respeta siempre.
+
+**Output:** lista de pares `(guest_group_id, preaching_group_id)` asignados.
+
+### Comportamiento ante casos límite
+
+| Caso | Comportamiento |
+| --- | --- |
+| Ningún grupo disponible | No hace nada, devuelve `{ activity, skipped: 0 }` |
+| Ningún grupo de predicación en el turno | Error: no se puede ejecutar sin grupos de predicación |
+| Grupos sin coordenadas (`distance_km = null`) | Se colocan al final (misma lógica que el ordenado actual en `getAvailableGroups`) |
+| Grupos ya asignados a un grupo de predicación | Se respetan; el algoritmo solo asigna los no asignados |
+| Grupos no asignados por límite de capacidad | Se devuelve `skipped > 0`; el frontend muestra un aviso con el número de grupos omitidos |
+
+### Endpoint
+
+`POST /activities/:id/auto-assign-preaching-groups`
+
+Devuelve la lista de asignaciones realizadas. No tiene modo "preview" en v1; la confirmación es implícita al llamar al endpoint. Se puede deshacer manualmente asignación por asignación.
+
+### UI
+
+Botón "Asignar automáticamente" en la pestaña de grupos de predicación del turno, visible solo si hay grupos de predicación definidos y hay grupos disponibles sin asignar.

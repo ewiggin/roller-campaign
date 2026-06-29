@@ -826,6 +826,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
   readonly expandedGroupIds = signal<Record<string, boolean>>({});
 
+  preachingGroupGuestCount(group: { guest_groups: { guest_count: number }[] }): number {
+    return group.guest_groups
+      .filter((g) => g.guest_count > 0)
+      .reduce((sum, g) => sum + g.guest_count, 0);
+  }
+
   isGroupExpanded(groupId: string): boolean {
     return this.expandedGroupIds()[groupId] ?? false;
   }
@@ -2220,6 +2226,30 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   }
 
   // ── Preaching groups ──────────────────────────────────────────────────────
+
+  autoAssignGuestGroupsToPreachingGroups() {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.autoAssignGuestGroupsToPreachingGroups(activity.id).subscribe({
+      next: ({ activity: updated, skipped }) => {
+        this.selectedActivity.set(updated);
+        this.reloadAvailableGroups();
+        this.load();
+        this.detailSaving.set(false);
+        if (skipped > 0) {
+          this.toastSvc.show(
+            `${skipped} group${skipped === 1 ? '' : 's'} could not be assigned: preaching groups are at capacity.`,
+            'info',
+          );
+        }
+      },
+      error: () => {
+        this.detailError.set('Error assigning groups automatically.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
 
   addPreachingGroup() {
     const activity = this.selectedActivity();

@@ -408,6 +408,18 @@ export class ActivitiesController {
 
   // ── Preaching groups ──────────────────────────────────────────────────────
 
+  @Post(':id/preaching-groups/auto-assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description: '{ activity: ActivityResponseDto, skipped: number }',
+  })
+  autoAssignGuestGroupsToPreachingGroups(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
+    return this.svc.autoAssignGuestGroupsToPreachingGroups(id, user);
+  }
+
   @Post(':id/preaching-groups')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ActivityResponseDto })
