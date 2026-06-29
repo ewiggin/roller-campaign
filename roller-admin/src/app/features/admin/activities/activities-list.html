@@ -2116,20 +2116,22 @@
                           <div class="flex gap-4 items-start">
                             <!-- Left: list -->
                             <div class="flex-1 min-w-0 space-y-2">
-                              <div class="flex items-center justify-end">
-                                <span
-                                  class="text-xs font-medium tabular-nums"
-                                  [class]="
-                                    guestCountForPreachingGroup(group) >
-                                    maxGuestsPerPreachingGroup()
-                                      ? 'text-red-500 dark:text-red-400'
-                                      : 'text-gray-400 dark:text-zinc-500'
-                                  "
-                                >
-                                  {{ guestCountForPreachingGroup(group) }} /
-                                  {{ maxGuestsPerPreachingGroup() }}
-                                </span>
-                              </div>
+                              @if (maxGuestsPerPreachingGroup() > 0) {
+                                <div class="flex items-center justify-end">
+                                  <span
+                                    class="text-xs font-medium tabular-nums"
+                                    [class]="
+                                      guestCountForPreachingGroup(group) >
+                                      maxGuestsPerPreachingGroup()
+                                        ? 'text-red-500 dark:text-red-400'
+                                        : 'text-gray-400 dark:text-zinc-500'
+                                    "
+                                  >
+                                    {{ guestCountForPreachingGroup(group) }} /
+                                    {{ maxGuestsPerPreachingGroup() }}
+                                  </span>
+                                </div>
+                              }
                               @if (group.guest_groups.length > 0) {
                                 <ul
                                   class="divide-y divide-gray-100 dark:divide-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden"

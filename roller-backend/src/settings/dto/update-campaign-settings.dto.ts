@@ -17,6 +17,6 @@ export class UpdateCampaignSettingsDto {
   @ApiPropertyOptional({ example: 3 })
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   max_guests_per_preaching_group?: number;
 }
