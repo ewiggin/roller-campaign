@@ -194,6 +194,13 @@ export class AvailableGroupForActivityDto {
       'True if the group is already assigned to any food shift in the campaign (only relevant when the activity is a food shift)',
   })
   already_in_food_shift: boolean;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'True if the group is already assigned to another activity with the same name (only relevant for non-typed activities)',
+  })
+  already_in_same_name_activity: boolean;
 }
 
 export class PreachingGroupVolunteerDto {

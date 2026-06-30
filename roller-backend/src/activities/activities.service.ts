@@ -619,6 +619,21 @@ export class ActivitiesService {
             `The group is already assigned to ${limits.maxFoodShiftsPerGroup} hospitality shift${limits.maxFoodShiftsPerGroup === 1 ? '' : 's'} in this campaign`,
           );
         }
+      } else if (activity.name) {
+        const sameNameCount = await this.activitiesRepo
+          .createQueryBuilder('a')
+          .innerJoin('a.guestGroups', 'g')
+          .where('g.id = :groupId', { groupId })
+          .andWhere('a.id != :actId', { actId: activity.id })
+          .andWhere('a.name = :name', { name: activity.name })
+          .andWhere('a.is_preaching_shift = :no', { no: false })
+          .andWhere('a.is_food_shift = :no2', { no2: false })
+          .getCount();
+        if (sameNameCount > 0) {
+          throw new BadRequestException(
+            `The group is already assigned to another "${activity.name}" activity`,
+          );
+        }
       }
       const activitiesCount = await this.activitiesRepo
         .createQueryBuilder('a')
@@ -1646,6 +1661,25 @@ export class ActivitiesService {
       sameDayPreachingGroupIds = new Set(sameDayRows.map((r) => r.groupId));
     }
 
+    // For non-typed activities with a name: groups already in another activity with the same name
+    let sameNameActivityGroupIds: Set<string> | null = null;
+    if (
+      !activity.is_preaching_shift &&
+      !activity.is_food_shift &&
+      activity.name
+    ) {
+      const sameNameRows = await this.activitiesRepo
+        .createQueryBuilder('a')
+        .innerJoin('a.guestGroups', 'gg')
+        .select('gg.id', 'groupId')
+        .where('a.name = :name', { name: activity.name })
+        .andWhere('a.id != :actId', { actId: activity.id })
+        .andWhere('a.is_preaching_shift = :no', { no: false })
+        .andWhere('a.is_food_shift = :no2', { no2: false })
+        .getRawMany<{ groupId: string }>();
+      sameNameActivityGroupIds = new Set(sameNameRows.map((r) => r.groupId));
+    }
+
     // For food shifts: only groups with a morning preaching shift (start < 12:00) that day
     let morningPreachingGroupIds: Set<string> | null = null;
     let foodShiftCountMap: Map<string, number> | null = null;
@@ -1765,6 +1799,9 @@ export class ActivitiesService {
         already_in_food_shift:
           foodShiftCountMap !== null &&
           (foodShiftCountMap.get(group.id) ?? 0) >= maxFoodShiftsPerGroup,
+        already_in_same_name_activity:
+          sameNameActivityGroupIds !== null &&
+          sameNameActivityGroupIds.has(group.id),
       });
     }
 

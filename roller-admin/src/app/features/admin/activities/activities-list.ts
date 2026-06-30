@@ -707,6 +707,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly availableGroupItems = computed(() => {
     const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
     const isFoodShift = this.selectedActivity()?.is_food_shift ?? false;
+    const activityName = this.selectedActivity()?.name ?? '';
     const maxPreach = this.maxPreachingShifts();
     const maxAct = this.maxActivities();
     const maxFood = this.maxFoodShifts();
@@ -715,6 +716,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       const sameDayConflict = isPreachingShift && g.same_day_preaching_shift;
       const activitiesLimitReached = !isPreachingShift && g.activities_count >= maxAct;
       const foodShiftConflict = isFoodShift && g.already_in_food_shift;
+      const sameNameConflict = !isPreachingShift && !isFoodShift && g.already_in_same_name_activity;
       return {
         value: g.id,
         label: g.group_code,
@@ -724,7 +726,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
           preachingLimitReached ||
           sameDayConflict ||
           activitiesLimitReached ||
-          foodShiftConflict,
+          foodShiftConflict ||
+          sameNameConflict,
         meta: g.already_in_activity
           ? 'Already in another activity'
           : g.host_schedule_conflict
@@ -733,17 +736,19 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
               ? 'Already has a preaching shift today'
               : foodShiftConflict
                 ? `Max hospitality shifts reached (${maxFood})`
-                : preachingLimitReached
-                  ? `Max preaching shifts (${g.preaching_shifts_count}/${maxPreach})`
-                  : activitiesLimitReached
-                    ? `Max activities (${g.activities_count}/${maxAct})`
-                    : [
-                        g.distance_km !== null ? `${g.distance_km} km` : null,
-                        g.host_name ?? null,
-                        `${g.guest_count} guests`,
-                      ]
-                        .filter(Boolean)
-                        .join(' · '),
+                : sameNameConflict
+                  ? `Already assigned to another "${activityName}"`
+                  : preachingLimitReached
+                    ? `Max preaching shifts (${g.preaching_shifts_count}/${maxPreach})`
+                    : activitiesLimitReached
+                      ? `Max activities (${g.activities_count}/${maxAct})`
+                      : [
+                          g.distance_km !== null ? `${g.distance_km} km` : null,
+                          g.host_name ?? null,
+                          `${g.guest_count} guests`,
+                        ]
+                          .filter(Boolean)
+                          .join(' · '),
       };
     });
   });

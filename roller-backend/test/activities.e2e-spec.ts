@@ -1374,7 +1374,7 @@ describe('Activities (e2e)', () => {
         await request(server)
           .post('/api/activities')
           .set('Authorization', auth())
-          .send({ ...baseTurn(), date: '2025-03-02' })
+          .send({ ...baseTurn(), date: '2025-03-02', name: `No-host-${Date.now()}` })
       ).body.id;
     });
 
