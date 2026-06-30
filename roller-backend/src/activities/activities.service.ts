@@ -2535,6 +2535,8 @@ export class ActivitiesService {
           forceFoodShift ||
           (!forcePreachingShift && this.parseXlsxBool(row['is_food_shift'])),
         request_attendance: this.parseXlsxBool(row['request_attendance']),
+        invite_all_congregation: false,
+        invite_all_region: false,
         volunteers: [],
         volunteer_count: 0,
         required_volunteers: this.parseXlsxInt(row['required_volunteers']),
