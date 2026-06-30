@@ -952,6 +952,12 @@ export class ActivitiesService {
       );
     }
 
+    if (activity.invite_all_congregation || activity.invite_all_region) {
+      throw new BadRequestException(
+        'Activities with a general invitation flag do not support auto-assignment of guest groups',
+      );
+    }
+
     const preachingGroups = await this.preachingGroupsRepo.find({
       where: { activity_id: id },
       relations: { guestGroups: true },
@@ -1076,7 +1082,9 @@ export class ActivitiesService {
     const shiftsQb = this.activitiesRepo
       .createQueryBuilder('a')
       .select('a.id')
-      .where('a.is_preaching_shift = :yes', { yes: true });
+      .where('a.is_preaching_shift = :yes', { yes: true })
+      .andWhere('a.invite_all_congregation = :no1', { no1: false })
+      .andWhere('a.invite_all_region = :no2', { no2: false });
     if (regionIds.length > 0)
       shiftsQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
 
@@ -1146,6 +1154,12 @@ export class ActivitiesService {
       );
     }
 
+    if (activity.invite_all_congregation || activity.invite_all_region) {
+      throw new BadRequestException(
+        'Activities with a general invitation flag do not support auto-assignment of guest groups',
+      );
+    }
+
     const availableGroups = await this.getAvailableGroups(id, currentUser);
 
     const candidates = availableGroups.filter(
@@ -1199,6 +1213,12 @@ export class ActivitiesService {
     if (activity.is_food_shift || activity.is_preaching_shift) {
       throw new BadRequestException(
         'La asignación automática general solo está disponible para actividades no tipificadas',
+      );
+    }
+
+    if (activity.invite_all_congregation || activity.invite_all_region) {
+      throw new BadRequestException(
+        'Activities with a general invitation flag do not support auto-assignment of guest groups',
       );
     }
 
@@ -1274,7 +1294,9 @@ export class ActivitiesService {
       .createQueryBuilder('a')
       .select('a.id')
       .where('a.is_food_shift = :no', { no: false })
-      .andWhere('a.is_preaching_shift = :no2', { no2: false });
+      .andWhere('a.is_preaching_shift = :no2', { no2: false })
+      .andWhere('a.invite_all_congregation = :no3', { no3: false })
+      .andWhere('a.invite_all_region = :no4', { no4: false });
     if (regionIds.length > 0)
       activitiesQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
 
@@ -1315,7 +1337,9 @@ export class ActivitiesService {
     const shiftsQb = this.activitiesRepo
       .createQueryBuilder('a')
       .select('a.id')
-      .where('a.is_food_shift = :yes', { yes: true });
+      .where('a.is_food_shift = :yes', { yes: true })
+      .andWhere('a.invite_all_congregation = :no1', { no1: false })
+      .andWhere('a.invite_all_region = :no2', { no2: false });
     if (regionIds.length > 0)
       shiftsQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
 

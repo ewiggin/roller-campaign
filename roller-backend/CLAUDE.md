@@ -1,3 +1,7 @@
+# Language
+
+All text in source code must be in English: error messages, exception strings, comments, log messages, and any other string literals.
+
 # Pre-commit checklist
 
 Before every commit, always run these steps in order and wait for each to pass:
