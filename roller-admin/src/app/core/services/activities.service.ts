@@ -24,6 +24,44 @@ export interface GroupScheduleActivity {
   is_congregation_meeting?: boolean;
   congregation_address?: string | null;
   status?: 'draft' | 'published';
+  activity_id?: string;
+  preaching_group_id?: string | null;
+}
+
+export interface AvailableForGroupActivity {
+  id: string;
+  name: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  status: 'draft' | 'published';
+  max_guests: number | null;
+  host_name: string | null;
+  total_groups: number;
+  total_guests: number;
+  distance_km: number | null;
+  already_assigned: boolean;
+  can_assign: boolean;
+  reason: string | null;
+}
+
+export interface AvailableForGroupPreachingGroup {
+  id: string;
+  name: string | null;
+  guest_count: number;
+  max_guests: number;
+  already_assigned: boolean;
+  can_assign: boolean;
+}
+
+export interface AvailableForGroupPreachingShift extends AvailableForGroupActivity {
+  preaching_groups: AvailableForGroupPreachingGroup[];
+}
+
+export interface AvailableForGroupResponse {
+  general_activities: AvailableForGroupActivity[];
+  food_shifts: AvailableForGroupActivity[];
+  preaching_shifts: AvailableForGroupPreachingShift[];
 }
 
 export interface GroupScheduleResponse {
@@ -195,47 +233,50 @@ export class ActivitiesService {
     );
   }
 
-  autoAssignGuestGroupsToPreachingGroups(id: string) {
+  autoAssignGuestGroupsToPreachingGroups(
+    id: string,
+    sortBy: 'distance' | 'group_size' = 'distance',
+  ) {
     return this.http.post<{ activity: Activity; skipped: number }>(
       `/api/activities/${id}/preaching-groups/auto-assign`,
-      {},
+      { sort_by: sortBy },
     );
   }
 
-  bulkAutoAssignGuestGroupsToPreachingGroups() {
+  bulkAutoAssignGuestGroupsToPreachingGroups(sortBy: 'distance' | 'group_size' = 'distance') {
     return this.http.post<{
       shiftsProcessed: number;
       totalSkipped: number;
       unassignedGroups: { id: string; group_code: string; guest_count: number }[];
-    }>(`/api/activities/preaching-groups/bulk-auto-assign`, {});
+    }>(`/api/activities/preaching-groups/bulk-auto-assign`, { sort_by: sortBy });
   }
 
-  autoAssignGuestGroupsToFoodShift(id: string) {
+  autoAssignGuestGroupsToFoodShift(id: string, sortBy: 'distance' | 'group_size' = 'distance') {
     return this.http.post<{ activity: Activity; skipped: number }>(
       `/api/activities/${id}/food-shift/auto-assign`,
-      {},
+      { sort_by: sortBy },
     );
   }
 
-  bulkAutoAssignGuestGroupsToFoodShifts() {
+  bulkAutoAssignGuestGroupsToFoodShifts(sortBy: 'distance' | 'group_size' = 'distance') {
     return this.http.post<{
       shiftsProcessed: number;
       totalSkipped: number;
       unassignedGroups: { id: string; group_code: string; guest_count: number }[];
-    }>(`/api/activities/food-shifts/bulk-auto-assign`, {});
+    }>(`/api/activities/food-shifts/bulk-auto-assign`, { sort_by: sortBy });
   }
 
-  autoAssignNonTypedActivity(id: string) {
+  autoAssignNonTypedActivity(id: string, sortBy: 'distance' | 'group_size' = 'distance') {
     return this.http.post<{ activity: Activity; skipped: number }>(
       `/api/activities/${id}/general/auto-assign`,
-      {},
+      { sort_by: sortBy },
     );
   }
 
-  bulkAutoAssignNonTypedActivities() {
+  bulkAutoAssignNonTypedActivities(sortBy: 'distance' | 'group_size' = 'distance') {
     return this.http.post<{ activitiesProcessed: number; totalSkipped: number }>(
       `/api/activities/general/bulk-auto-assign`,
-      {},
+      { sort_by: sortBy },
     );
   }
 
@@ -284,6 +325,12 @@ export class ActivitiesService {
     });
   }
 
+  getAvailableForGroup(groupId: string, date: string) {
+    return this.http.get<AvailableForGroupResponse>(`/api/activities/available-for-group`, {
+      params: new HttpParams().set('groupId', groupId).set('date', date),
+    });
+  }
+
   getVolunteerSchedule(volunteerId: string) {
     return this.http.get<GroupScheduleResponse>(`/api/activities/volunteer-schedule`, {
       params: new HttpParams().set('volunteerId', volunteerId),
@@ -306,6 +353,21 @@ export class ActivitiesService {
 
   exportHostSchedulesPdf(hostId: string) {
     return this.http.get(`/api/activities/export/schedule-pdf?hostId=${hostId}`, {
+      responseType: 'blob',
+    });
+  }
+
+  exportGroupSchedulesZip(filters: {
+    regionId: string;
+    search?: string;
+    hostId?: string;
+    noHost?: boolean;
+  }) {
+    const params = new URLSearchParams({ regionId: filters.regionId });
+    if (filters.search) params.set('search', filters.search);
+    if (filters.noHost) params.set('noHost', 'true');
+    else if (filters.hostId) params.set('hostId', filters.hostId);
+    return this.http.get(`/api/activities/export/group-schedules-zip?${params}`, {
       responseType: 'blob',
     });
   }

@@ -1,6 +1,6 @@
 {
   "name": "roller-backend",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "",
   "author": "ewiggin",
   "private": true,
@@ -44,6 +44,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "dotenv": "^16.4.7",
+    "jszip": "^3.10.1",
     "morgan": "^1.10.1",
     "nodemailer": "^8.0.9",
     "passport": "^0.7.0",

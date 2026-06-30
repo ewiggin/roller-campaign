@@ -315,6 +315,44 @@
         <div class="flex items-center gap-2 ml-auto">
           @if (planningMode()) {
             <button
+              (click)="downloadSchedulesZip()"
+              [disabled]="!selectedRegionId() || downloadingSchedulesZip()"
+              title="Download ZIP with individual schedule PDFs for all filtered groups. Requires a region to be selected."
+              class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              @if (downloadingSchedulesZip()) {
+                <svg class="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Generating…
+              } @else {
+                <svg
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+                  />
+                </svg>
+                Download Planning Zip
+              }
+            </button>
+          }
+          @if (planningMode()) {
+            <button
               (click)="expandAllSchedules()"
               class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
             >
@@ -570,6 +608,15 @@
                   }
                   @if (planningMode()) {
                     <button
+                      (click)="openGroupPlanningWindow(group.id, group.group_code)"
+                      title="Open planning in new window"
+                      class="p-1.5 rounded-md text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors"
+                    >
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                      </svg>
+                    </button>
+                    <button
                       (click)="toggleGroupSchedule(group.id)"
                       class="p-1.5 rounded-md text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors"
                       [title]="isScheduleExpanded(group.id) ? 'Ocultar planning' : 'Ver planning'"
@@ -614,9 +661,21 @@
                             ></th>
                             @for (day of sched.days; track day) {
                               <th
-                                class="px-2 py-1.5 text-center font-semibold text-indigo-700 dark:text-indigo-300 whitespace-nowrap border border-gray-200 dark:border-zinc-700 bg-indigo-50 dark:bg-indigo-950"
+                                class="px-2 py-1 text-center font-semibold text-indigo-700 dark:text-indigo-300 whitespace-nowrap border border-gray-200 dark:border-zinc-700 bg-indigo-50 dark:bg-indigo-950"
                               >
-                                {{ shortDayLabel(day) }}
+                                <div class="flex items-center justify-center gap-1.5">
+                                  <span>{{ shortDayLabel(day) }}</span>
+                                  <button
+                                    type="button"
+                                    title="Add activity"
+                                    (click)="openAssignModal(group, day)"
+                                    class="flex items-center justify-center w-4 h-4 rounded-full bg-indigo-200 hover:bg-indigo-300 dark:bg-indigo-800 dark:hover:bg-indigo-700 text-indigo-700 dark:text-indigo-200 transition-colors"
+                                  >
+                                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                    </svg>
+                                  </button>
+                                </div>
                               </th>
                             }
                           </tr>
@@ -640,49 +699,63 @@
                                   "
                                 >
                                   @for (act of cells; track act.name + act.start_time) {
-                                    <div
-                                      class="font-medium leading-snug"
-                                      [class]="
-                                        act.is_congregation_meeting
-                                          ? 'text-amber-700 dark:text-amber-400'
-                                          : 'text-gray-800 dark:text-zinc-200'
-                                      "
-                                    >
-                                      {{ act.name }}
-                                    </div>
-                                    @if (act.status) {
-                                      <span
-                                        class="inline-block rounded px-1 py-0.5 text-[9px] font-semibold leading-none mt-0.5"
+                                    <div class="group/act relative">
+                                      <div
+                                        class="font-medium leading-snug"
                                         [class]="
-                                          act.status === 'draft'
-                                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
-                                            : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                          act.is_congregation_meeting
+                                            ? 'text-amber-700 dark:text-amber-400'
+                                            : 'text-gray-800 dark:text-zinc-200'
                                         "
-                                        >{{
-                                          act.status === 'draft' ? 'borrador' : 'publicado'
-                                        }}</span
                                       >
-                                    }
-                                    @if (act.is_preaching_shift && act.preaching_group_name) {
-                                      <div class="text-gray-400 dark:text-zinc-500 italic">
-                                        {{ act.preaching_group_name }}
+                                        {{ act.name }}
                                       </div>
-                                    }
-                                    @if (act.description) {
-                                      <div class="text-gray-400 dark:text-zinc-500 italic">
-                                        {{ act.description }}
-                                      </div>
-                                    }
-                                    @if (!act.is_congregation_meeting && act.locations.length) {
-                                      <div class="text-gray-400 dark:text-zinc-500">
-                                        {{ act.locations[0].address }}
-                                      </div>
-                                    }
-                                    @if (act.is_congregation_meeting && act.congregation_address) {
-                                      <div class="text-amber-600 dark:text-amber-500">
-                                        {{ act.congregation_address }}
-                                      </div>
-                                    }
+                                      @if (act.status) {
+                                        <span
+                                          class="inline-block rounded px-1 py-0.5 text-[9px] font-semibold leading-none mt-0.5"
+                                          [class]="
+                                            act.status === 'draft'
+                                              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
+                                              : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                                          "
+                                          >{{
+                                            act.status === 'draft' ? 'borrador' : 'publicado'
+                                          }}</span
+                                        >
+                                      }
+                                      @if (act.is_preaching_shift && act.preaching_group_name) {
+                                        <div class="text-gray-400 dark:text-zinc-500 italic">
+                                          {{ act.preaching_group_name }}
+                                        </div>
+                                      }
+                                      @if (act.description) {
+                                        <div class="text-gray-400 dark:text-zinc-500 italic">
+                                          {{ act.description }}
+                                        </div>
+                                      }
+                                      @if (!act.is_congregation_meeting && act.locations.length) {
+                                        <div class="text-gray-400 dark:text-zinc-500">
+                                          {{ act.locations[0].address }}
+                                        </div>
+                                      }
+                                      @if (act.is_congregation_meeting && act.congregation_address) {
+                                        <div class="text-amber-600 dark:text-amber-500">
+                                          {{ act.congregation_address }}
+                                        </div>
+                                      }
+                                      @if (!act.is_congregation_meeting && act.activity_id) {
+                                        <button
+                                          type="button"
+                                          title="Remove"
+                                          (click)="removeActivityFromGroup(group, act)"
+                                          class="absolute top-0 right-0 opacity-0 group-hover/act:opacity-100 flex items-center justify-center w-4 h-4 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-800 text-red-600 dark:text-red-400 transition-opacity"
+                                        >
+                                          <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                          </svg>
+                                        </button>
+                                      }
+                                    </div>
                                   }
                                   @if (!cells.length) {
                                     <span class="text-gray-200 dark:text-zinc-700">—</span>
@@ -1726,5 +1799,226 @@
         </form>
       </div>
     }
+  </div>
+}
+
+@if (assignModal()) {
+  @let am = assignModal()!;
+  <div
+    class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+    (click)="closeAssignModal()"
+  >
+    <div
+      class="w-full max-w-sm bg-white dark:bg-[#18181b] rounded-xl shadow-xl flex flex-col max-h-[90vh]"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100 dark:border-zinc-800 shrink-0">
+        <div>
+          <h2 class="text-sm font-semibold text-gray-900 dark:text-zinc-100">
+            @if (am.step === 1) { Assign to {{ am.group.group_code }} }
+            @if (am.step === 2) {
+              @if (am.type === 'general') { Activities }
+              @if (am.type === 'food') { Hospitality shifts }
+              @if (am.type === 'preaching') { Preaching shifts }
+            }
+            @if (am.step === 3) { Preaching group — {{ am.selectedShift?.name }} }
+          </h2>
+          <p class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">{{ am.date }}</p>
+        </div>
+        <button
+          type="button"
+          (click)="closeAssignModal()"
+          class="text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Step 1: pick type -->
+      @if (am.step === 1) {
+        <div class="px-5 py-4 flex flex-col gap-2">
+          <button
+            type="button"
+            (click)="selectAssignType('general')"
+            class="flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 dark:border-zinc-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors text-left"
+          >
+            <svg class="w-5 h-5 text-indigo-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
+            <div>
+              <div class="text-sm font-medium text-gray-800 dark:text-zinc-200">Activity</div>
+              <div class="text-xs text-gray-400 dark:text-zinc-500">Regular activity or event</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            (click)="selectAssignType('food')"
+            class="flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 dark:border-zinc-700 hover:border-orange-400 dark:hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950 transition-colors text-left"
+          >
+            <svg class="w-5 h-5 text-orange-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 8.25v-1.5m-6 1.5v-1.5m12 9.75-1.5.75a3.354 3.354 0 01-3 0 3.354 3.354 0 00-3 0 3.354 3.354 0 01-3 0 3.354 3.354 0 00-3 0 3.354 3.354 0 01-1.5-.75M3 12h18m-9-6h.008v.008H12V6z" />
+            </svg>
+            <div>
+              <div class="text-sm font-medium text-gray-800 dark:text-zinc-200">Hospitality shift</div>
+              <div class="text-xs text-gray-400 dark:text-zinc-500">Food / meal assignment</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            (click)="selectAssignType('preaching')"
+            class="flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 dark:border-zinc-700 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors text-left"
+          >
+            <svg class="w-5 h-5 text-purple-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.966 8.966 0 00-6 2.292m0-14.25v14.25" />
+            </svg>
+            <div>
+              <div class="text-sm font-medium text-gray-800 dark:text-zinc-200">Preaching shift</div>
+              <div class="text-xs text-gray-400 dark:text-zinc-500">Field ministry turn</div>
+            </div>
+          </button>
+        </div>
+      }
+
+      <!-- Step 2: pick activity -->
+      @if (am.step === 2) {
+        <div class="flex-1 overflow-y-auto">
+          @if (am.loadingAvailable) {
+            <div class="px-5 py-8 text-center text-sm text-gray-400 dark:text-zinc-500">Loading…</div>
+          } @else {
+            @let items = assignModalActivitiesList();
+            @if (items.length === 0) {
+              <div class="px-5 py-8 text-center text-sm text-gray-400 dark:text-zinc-500 italic">
+                No activities of this type on this day.
+              </div>
+            } @else {
+              <ul class="px-3 py-3 flex flex-col gap-1">
+                @for (item of items; track item.id) {
+                  <li>
+                    <button
+                      type="button"
+                      [disabled]="!item.can_assign || am.saving"
+                      (click)="selectActivityToAssign(item)"
+                      class="w-full text-left px-3 py-2.5 rounded-lg border transition-colors"
+                      [class]="
+                        item.already_assigned
+                          ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 cursor-default'
+                          : item.can_assign
+                            ? 'border-gray-200 dark:border-zinc-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950 cursor-pointer'
+                            : 'border-gray-100 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50 opacity-60 cursor-not-allowed'
+                      "
+                    >
+                      <div class="flex items-start justify-between gap-2">
+                        <span class="text-sm font-medium" [class]="item.can_assign || item.already_assigned ? 'text-gray-800 dark:text-zinc-200' : 'text-gray-500 dark:text-zinc-400'">
+                          {{ item.name }}
+                        </span>
+                        @if (item.already_assigned) {
+                          <span class="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">Assigned</span>
+                        }
+                      </div>
+                      <div class="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">
+                        {{ item.start_time }} – {{ item.end_time }}
+                        @if (item.status === 'draft') {
+                          <span class="ml-1 text-amber-500">· draft</span>
+                        }
+                      </div>
+                      @if (item.host_name || item.distance_km !== null) {
+                        <div class="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                          @if (item.host_name) { {{ item.host_name }} }
+                          @if (item.host_name && item.distance_km !== null) { · }
+                          @if (item.distance_km !== null) { {{ item.distance_km }} km }
+                        </div>
+                      }
+                      @if (am.type === 'preaching' && (item.total_groups > 0 || item.total_guests > 0)) {
+                        <div class="flex items-center gap-2 mt-1">
+                          <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-300">
+                            {{ item.total_groups }} group{{ item.total_groups !== 1 ? 's' : '' }}
+                          </span>
+                          <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-300">
+                            {{ item.total_guests }} guest{{ item.total_guests !== 1 ? 's' : '' }}
+                          </span>
+                        </div>
+                      }
+                      @if (item.reason && !item.already_assigned) {
+                        <div class="text-xs text-red-500 dark:text-red-400 mt-0.5">{{ item.reason }}</div>
+                      }
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          }
+        </div>
+        <div class="px-5 py-3 border-t border-gray-100 dark:border-zinc-800 shrink-0">
+          <button
+            type="button"
+            (click)="assignModal.set({ ...am, step: 1, type: null, available: null })"
+            class="text-sm text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
+          >← Back</button>
+        </div>
+      }
+
+      <!-- Step 3: pick preaching group -->
+      @if (am.step === 3 && am.selectedShift) {
+        @let shift = am.selectedShift!;
+        <div class="flex-1 overflow-y-auto">
+          @if (shift.preaching_groups.length === 0) {
+            <div class="px-5 py-8 text-center text-sm text-gray-400 dark:text-zinc-500 italic">
+              No preaching groups in this shift.
+            </div>
+          } @else {
+            <ul class="px-3 py-3 flex flex-col gap-1">
+              @for (pg of shift.preaching_groups; track pg.id) {
+                <li>
+                  <button
+                    type="button"
+                    [disabled]="!pg.can_assign || am.saving"
+                    (click)="selectPreachingGroup(pg)"
+                    class="w-full text-left px-3 py-2.5 rounded-lg border transition-colors"
+                    [class]="
+                      pg.already_assigned
+                        ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 cursor-default'
+                        : pg.can_assign
+                          ? 'border-gray-200 dark:border-zinc-700 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950 cursor-pointer'
+                          : 'border-gray-100 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50 opacity-60 cursor-not-allowed'
+                    "
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-sm font-medium" [class]="pg.can_assign || pg.already_assigned ? 'text-gray-800 dark:text-zinc-200' : 'text-gray-500 dark:text-zinc-400'">
+                        {{ pg.name ?? 'Group' }}
+                      </span>
+                      <div class="flex items-center gap-1.5 shrink-0">
+                        @if (pg.already_assigned) {
+                          <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">Assigned</span>
+                        }
+                        <span class="text-xs" [class]="pg.guest_count >= pg.max_guests ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-zinc-500'">
+                          {{ pg.guest_count }}/{{ pg.max_guests }}
+                        </span>
+                      </div>
+                    </div>
+                    @if (!pg.can_assign && !pg.already_assigned) {
+                      <div class="text-xs text-red-500 dark:text-red-400 mt-0.5">At capacity</div>
+                    }
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+        <div class="px-5 py-3 border-t border-gray-100 dark:border-zinc-800 shrink-0">
+          <button
+            type="button"
+            (click)="assignModal.set({ ...am, step: 2, selectedShift: null })"
+            class="text-sm text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
+          >← Back</button>
+        </div>
+      }
+
+      @if (am.saving) {
+        <div class="px-5 py-3 border-t border-gray-100 dark:border-zinc-800 shrink-0 text-center text-sm text-gray-400 dark:text-zinc-500">Saving…</div>
+      }
+    </div>
   </div>
 }

@@ -54,6 +54,7 @@ import {
 import { CreateActivityBatchDto } from './dto/create-activity-batch.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+import { AutoAssignPreachingDto } from './dto/auto-assign-preaching.dto';
 
 @ApiTags('activities')
 @ApiBearerAuth()
@@ -114,6 +115,21 @@ export class ActivitiesController {
     return this.svc.getGroupScheduleJson(groupId, user);
   }
 
+  @Get('available-for-group')
+  @ApiOkResponse({
+    description:
+      'Actividades disponibles para asignar a un grupo en una fecha concreta',
+  })
+  getAvailableForGroup(
+    @Query('groupId') groupId: string | undefined,
+    @Query('date') date: string | undefined,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (!groupId) throw new BadRequestException('groupId es obligatorio');
+    if (!date) throw new BadRequestException('date es obligatorio');
+    return this.svc.getAvailableForGroup(groupId, date, user);
+  }
+
   @Get('export/schedule-pdf')
   @ApiOkResponse({
     description:
@@ -157,6 +173,35 @@ export class ActivitiesController {
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    res.send(buffer);
+  }
+
+  @Get('export/group-schedules-zip')
+  @ApiOkResponse({
+    description: 'ZIP with individual schedule PDFs for each filtered group',
+  })
+  async exportGroupSchedulesZip(
+    @Query('regionId') regionId: string | undefined,
+    @Query('search') search: string | undefined,
+    @Query('hostId') hostId: string | undefined,
+    @Query('noHost') noHost: string | undefined,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (!regionId) throw new BadRequestException('regionId is required');
+    const buffer = await this.svc.exportGroupSchedulesZip(
+      {
+        regionId,
+        search: search || undefined,
+        hostId: hostId || undefined,
+        noHost: noHost === 'true' ? true : undefined,
+      },
+      user,
+    );
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': 'attachment; filename="calendarios-grupos.zip"',
     });
     res.send(buffer);
   }
@@ -238,12 +283,16 @@ export class ActivitiesController {
   })
   bulkAutoAssignGuestGroupsToPreachingGroups(
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{
     shiftsProcessed: number;
     totalSkipped: number;
     unassignedGroups: { id: string; group_code: string; guest_count: number }[];
   }> {
-    return this.svc.bulkAutoAssignGuestGroupsToPreachingGroups(user);
+    return this.svc.bulkAutoAssignGuestGroupsToPreachingGroups(
+      user,
+      dto.sort_by,
+    );
   }
 
   @Post('general/bulk-auto-assign')
@@ -253,8 +302,9 @@ export class ActivitiesController {
   })
   bulkAutoAssignNonTypedActivities(
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{ activitiesProcessed: number; totalSkipped: number }> {
-    return this.svc.bulkAutoAssignNonTypedActivities(user);
+    return this.svc.bulkAutoAssignNonTypedActivities(user, dto.sort_by);
   }
 
   @Post('food-shifts/bulk-auto-assign')
@@ -265,12 +315,13 @@ export class ActivitiesController {
   })
   bulkAutoAssignGuestGroupsToFoodShifts(
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{
     shiftsProcessed: number;
     totalSkipped: number;
     unassignedGroups: { id: string; group_code: string; guest_count: number }[];
   }> {
-    return this.svc.bulkAutoAssignGuestGroupsToFoodShifts(user);
+    return this.svc.bulkAutoAssignGuestGroupsToFoodShifts(user, dto.sort_by);
   }
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
@@ -459,8 +510,13 @@ export class ActivitiesController {
   autoAssignGuestGroupsToPreachingGroups(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
-    return this.svc.autoAssignGuestGroupsToPreachingGroups(id, user);
+    return this.svc.autoAssignGuestGroupsToPreachingGroups(
+      id,
+      user,
+      dto.sort_by,
+    );
   }
 
   @Post(':id/food-shift/auto-assign')
@@ -471,8 +527,9 @@ export class ActivitiesController {
   autoAssignGuestGroupsToFoodShift(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
-    return this.svc.autoAssignGuestGroupsToFoodShift(id, user);
+    return this.svc.autoAssignGuestGroupsToFoodShift(id, user, dto.sort_by);
   }
 
   @Post(':id/general/auto-assign')
@@ -483,8 +540,9 @@ export class ActivitiesController {
   autoAssignNonTypedActivity(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
-    return this.svc.autoAssignNonTypedActivity(id, user);
+    return this.svc.autoAssignNonTypedActivity(id, user, dto.sort_by);
   }
 
   @Post(':id/preaching-groups')

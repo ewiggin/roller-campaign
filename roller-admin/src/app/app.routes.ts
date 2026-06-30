@@ -151,5 +151,11 @@ export const routes: Routes = [
       },
     ],
   },
+  {
+    path: 'group-planning',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/group-planning/group-planning').then((m) => m.GroupPlanningComponent),
+  },
   { path: '**', redirectTo: 'admin' },
 ];

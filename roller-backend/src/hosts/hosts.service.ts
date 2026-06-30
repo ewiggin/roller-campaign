@@ -589,6 +589,15 @@ export class HostsService {
       else groupsByHost.set(group.host_id!, [group]);
     }
 
+    const groupIds = groups.map((g) => g.id);
+    const contacts = groupIds.length
+      ? await this.guestsRepo.find({
+          where: { group_id: In(groupIds), is_group_contact: true },
+          select: { group_id: true, full_name: true, guest_code: true },
+        })
+      : [];
+    const contactByGroup = new Map(contacts.map((c) => [c.group_id, c]));
+
     const hostsByRegion = new Map<string, Host[]>();
     for (const host of hosts) {
       if ((groupsByHost.get(host.id)?.length ?? 0) === 0) continue;
@@ -698,13 +707,24 @@ export class HostsService {
 
         const hostGroups = groupsByHost.get(host.id) ?? [];
         const groupRows: Content[][] = [];
+        const buildGroupCell = (g: GuestGroup): Content => {
+          const contact = contactByGroup.get(g.id);
+          if (!contact) return { text: g.group_code, style: 'tableCell' };
+          return {
+            stack: [
+              { text: g.group_code, style: 'tableCell' },
+              {
+                text: `Contacto de grupo: ${contact.full_name} · ${contact.guest_code}`,
+                style: 'tableCellSub',
+              },
+            ],
+          };
+        };
         for (let i = 0; i < hostGroups.length; i += 2) {
           const right = hostGroups[i + 1];
           groupRows.push([
-            { text: hostGroups[i].group_code, style: 'tableCell' },
-            right
-              ? { text: right.group_code, style: 'tableCell' }
-              : { text: '', style: 'tableCell' },
+            buildGroupCell(hostGroups[i]),
+            right ? buildGroupCell(right) : { text: '', style: 'tableCell' },
           ]);
         }
 
@@ -745,6 +765,7 @@ export class HostsService {
         noteText: { fontSize: 9, color: '#92400e' },
         tableHeader: { fontSize: 11, bold: true },
         tableCell: { fontSize: 9 },
+        tableCellSub: { fontSize: 8, color: '#555555', margin: [0, 1, 0, 0] },
       },
       footer: (currentPage, pageCount) => ({
         text: `${currentPage} / ${pageCount}`,
