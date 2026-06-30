@@ -287,8 +287,9 @@ export class ActivitiesController {
   })
   bulkAutoAssignNonTypedActivities(
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{ activitiesProcessed: number; totalSkipped: number }> {
-    return this.svc.bulkAutoAssignNonTypedActivities(user);
+    return this.svc.bulkAutoAssignNonTypedActivities(user, dto.sort_by);
   }
 
   @Post('food-shifts/bulk-auto-assign')
@@ -299,12 +300,13 @@ export class ActivitiesController {
   })
   bulkAutoAssignGuestGroupsToFoodShifts(
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{
     shiftsProcessed: number;
     totalSkipped: number;
     unassignedGroups: { id: string; group_code: string; guest_count: number }[];
   }> {
-    return this.svc.bulkAutoAssignGuestGroupsToFoodShifts(user);
+    return this.svc.bulkAutoAssignGuestGroupsToFoodShifts(user, dto.sort_by);
   }
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
@@ -510,8 +512,9 @@ export class ActivitiesController {
   autoAssignGuestGroupsToFoodShift(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
-    return this.svc.autoAssignGuestGroupsToFoodShift(id, user);
+    return this.svc.autoAssignGuestGroupsToFoodShift(id, user, dto.sort_by);
   }
 
   @Post(':id/general/auto-assign')
@@ -522,8 +525,9 @@ export class ActivitiesController {
   autoAssignNonTypedActivity(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
-    return this.svc.autoAssignNonTypedActivity(id, user);
+    return this.svc.autoAssignNonTypedActivity(id, user, dto.sort_by);
   }
 
   @Post(':id/preaching-groups')

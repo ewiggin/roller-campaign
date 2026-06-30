@@ -559,6 +559,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly detailSaving = signal(false);
   readonly detailError = signal('');
   readonly preachSortBy = signal<'distance' | 'group_size'>('distance');
+  readonly foodSortBy = signal<'distance' | 'group_size'>('distance');
+  readonly generalSortBy = signal<'distance' | 'group_size'>('distance');
   readonly bulkConfirmOpen = signal(false);
   readonly bulkAssigning = signal(false);
   readonly bulkAssignResult = signal<{
@@ -2321,7 +2323,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     const activity = this.selectedActivity();
     if (!activity) return;
     this.detailSaving.set(true);
-    this.svc.autoAssignGuestGroupsToFoodShift(activity.id).subscribe({
+    this.svc.autoAssignGuestGroupsToFoodShift(activity.id, this.foodSortBy()).subscribe({
       next: ({ activity: updated, skipped }) => {
         this.selectedActivity.set(updated);
         this.reloadAvailableGroups();
@@ -2344,7 +2346,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   bulkAutoAssignGuestGroupsToFoodShifts() {
     this.foodBulkAssigning.set(true);
     this.foodBulkAssignResult.set(null);
-    this.svc.bulkAutoAssignGuestGroupsToFoodShifts().subscribe({
+    this.svc.bulkAutoAssignGuestGroupsToFoodShifts(this.foodSortBy()).subscribe({
       next: (result) => {
         this.foodBulkAssignResult.set(result);
         this.foodBulkAssigning.set(false);
@@ -2360,7 +2362,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     const activity = this.selectedActivity();
     if (!activity) return;
     this.detailSaving.set(true);
-    this.svc.autoAssignNonTypedActivity(activity.id).subscribe({
+    this.svc.autoAssignNonTypedActivity(activity.id, this.generalSortBy()).subscribe({
       next: ({ activity: updated, skipped }) => {
         this.selectedActivity.set(updated);
         this.reloadAvailableGroups();
@@ -2383,7 +2385,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   bulkAutoAssignNonTypedActivities() {
     this.generalBulkAssigning.set(true);
     this.generalBulkAssignResult.set(null);
-    this.svc.bulkAutoAssignNonTypedActivities().subscribe({
+    this.svc.bulkAutoAssignNonTypedActivities(this.generalSortBy()).subscribe({
       next: (result) => {
         this.generalBulkAssignResult.set(result);
         this.generalBulkAssigning.set(false);

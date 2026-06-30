@@ -213,32 +213,32 @@ export class ActivitiesService {
     }>(`/api/activities/preaching-groups/bulk-auto-assign`, { sort_by: sortBy });
   }
 
-  autoAssignGuestGroupsToFoodShift(id: string) {
+  autoAssignGuestGroupsToFoodShift(id: string, sortBy: 'distance' | 'group_size' = 'distance') {
     return this.http.post<{ activity: Activity; skipped: number }>(
       `/api/activities/${id}/food-shift/auto-assign`,
-      {},
+      { sort_by: sortBy },
     );
   }
 
-  bulkAutoAssignGuestGroupsToFoodShifts() {
+  bulkAutoAssignGuestGroupsToFoodShifts(sortBy: 'distance' | 'group_size' = 'distance') {
     return this.http.post<{
       shiftsProcessed: number;
       totalSkipped: number;
       unassignedGroups: { id: string; group_code: string; guest_count: number }[];
-    }>(`/api/activities/food-shifts/bulk-auto-assign`, {});
+    }>(`/api/activities/food-shifts/bulk-auto-assign`, { sort_by: sortBy });
   }
 
-  autoAssignNonTypedActivity(id: string) {
+  autoAssignNonTypedActivity(id: string, sortBy: 'distance' | 'group_size' = 'distance') {
     return this.http.post<{ activity: Activity; skipped: number }>(
       `/api/activities/${id}/general/auto-assign`,
-      {},
+      { sort_by: sortBy },
     );
   }
 
-  bulkAutoAssignNonTypedActivities() {
+  bulkAutoAssignNonTypedActivities(sortBy: 'distance' | 'group_size' = 'distance') {
     return this.http.post<{ activitiesProcessed: number; totalSkipped: number }>(
       `/api/activities/general/bulk-auto-assign`,
-      {},
+      { sort_by: sortBy },
     );
   }
 

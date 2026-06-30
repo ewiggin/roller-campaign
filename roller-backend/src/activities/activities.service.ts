@@ -1150,6 +1150,7 @@ export class ActivitiesService {
   async autoAssignGuestGroupsToFoodShift(
     id: string,
     currentUser: JwtPayload,
+    sortBy: 'distance' | 'group_size' = 'distance',
   ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
     const activity = await this.activitiesRepo.findOne({
       where: { id },
@@ -1184,6 +1185,10 @@ export class ActivitiesService {
       return { activity: await this.findOne(id, currentUser), skipped: 0 };
     }
 
+    if (sortBy === 'group_size') {
+      candidates.sort((a, b) => b.guest_count - a.guest_count);
+    }
+
     const existingCounts = await this.getGroupGuestCounts(
       activity.guestGroups.map((g) => g.id),
     );
@@ -1212,6 +1217,7 @@ export class ActivitiesService {
   async autoAssignNonTypedActivity(
     id: string,
     currentUser: JwtPayload,
+    sortBy: 'distance' | 'group_size' = 'distance',
   ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
     const activity = await this.activitiesRepo.findOne({
       where: { id },
@@ -1259,6 +1265,10 @@ export class ActivitiesService {
       return { activity: await this.findOne(id, currentUser), skipped: 0 };
     }
 
+    if (sortBy === 'group_size') {
+      candidates.sort((a, b) => b.guest_count - a.guest_count);
+    }
+
     const existingCounts = await this.getGroupGuestCounts(
       activity.guestGroups.map((g) => g.id),
     );
@@ -1284,7 +1294,10 @@ export class ActivitiesService {
     return { activity: await this.findOne(id, currentUser), skipped };
   }
 
-  async bulkAutoAssignNonTypedActivities(currentUser: JwtPayload): Promise<{
+  async bulkAutoAssignNonTypedActivities(
+    currentUser: JwtPayload,
+    sortBy: 'distance' | 'group_size' = 'distance',
+  ): Promise<{
     activitiesProcessed: number;
     totalSkipped: number;
   }> {
@@ -1315,7 +1328,11 @@ export class ActivitiesService {
     let totalSkipped = 0;
     for (const a of activities) {
       try {
-        const result = await this.autoAssignNonTypedActivity(a.id, currentUser);
+        const result = await this.autoAssignNonTypedActivity(
+          a.id,
+          currentUser,
+          sortBy,
+        );
         totalSkipped += result.skipped;
       } catch {
         // skip activities that cannot be processed
@@ -1327,6 +1344,7 @@ export class ActivitiesService {
 
   async bulkAutoAssignGuestGroupsToFoodShifts(
     currentUser: JwtPayload,
+    sortBy: 'distance' | 'group_size' = 'distance',
   ): Promise<{
     shiftsProcessed: number;
     totalSkipped: number;
@@ -1361,6 +1379,7 @@ export class ActivitiesService {
         const result = await this.autoAssignGuestGroupsToFoodShift(
           shift.id,
           currentUser,
+          sortBy,
         );
         totalSkipped += result.skipped;
       } catch {
