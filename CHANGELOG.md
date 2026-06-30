@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0] - 2026-06-30
+
+### Añadido
+
+- **Asignación y desasignación manual desde el calendario de planning**: en el modo Planning de la lista de grupos de invitados, cada columna de día incluye un botón "+" que abre un flujo modal de 3 pasos para asignar actividades generales, turnos de comida o turnos de predicación al grupo; para los turnos de predicación, un tercer paso permite escoger el grupo de predicación concreto. Las actividades que superan los límites de campaña o tienen restricciones (conflicto de horario, mismo nombre, reunión de congregación, límite alcanzado) aparecen deshabilitadas con el motivo indicado. Cada actividad asignada muestra un botón "×" para desasignarla directamente desde el calendario
+- **Información ampliada en el modal de asignación**: el listado de actividades disponibles muestra congregación del anfitrión, número de grupos y de invitados ya asignados, y distancia en km al grupo; los turnos de predicación muestran además las mismas columnas de congregación, grupos e invitados que aparecen en la lista de turnos de predicación
+- **Ventana de planning independiente**: botón de icono de calendario en la lista de actividades (pestaña Grupos y pestaña Invitados de cada grupo de predicación), en la lista de grupos de invitados (modo Planning) y en el sub-tab Guests de cada grupo de predicación; al hacer clic abre el calendario del grupo en una ventana Tauri separada con diseño de solo lectura
+- **Endpoint `GET /activities/available-for-group`**: devuelve las actividades disponibles para asignar a un grupo en una fecha concreta, con validación de todos los límites y restricciones de campaña y cálculo de distancia
+
+### Corregido
+
+- **Turnos de hospitalidad contabilizados incorrectamente como actividades generales**: al asignar un grupo a un turno de comida, el contador de actividades generales no se incrementa, permitiendo que un grupo tenga el máximo de actividades generales y además uno o más turnos de comida
+
+---
+
 ## [0.6.0] - 2026-06-30
 
 ### Añadido
