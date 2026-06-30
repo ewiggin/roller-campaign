@@ -23,6 +23,10 @@ import type { Host } from '../../../core/models/host.model';
 import type { Region } from '../../../core/models/region.model';
 import {
   ActivitiesService,
+  type AvailableForGroupActivity,
+  type AvailableForGroupPreachingGroup,
+  type AvailableForGroupPreachingShift,
+  type AvailableForGroupResponse,
   type GroupScheduleActivity,
 } from '../../../core/services/activities.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -149,6 +153,18 @@ export class GuestGroupsListComponent implements OnInit {
   readonly planningMode = signal(false);
   readonly expandedScheduleIds = signal<Set<string>>(new Set());
   readonly groupSchedules = signal<Map<string, GroupScheduleState>>(new Map());
+
+  // Assign-activity modal (3 steps)
+  readonly assignModal = signal<{
+    group: GuestGroup;
+    date: string;
+    step: 1 | 2 | 3;
+    type: 'general' | 'food' | 'preaching' | null;
+    available: AvailableForGroupResponse | null;
+    selectedShift: AvailableForGroupPreachingShift | null;
+    loadingAvailable: boolean;
+    saving: boolean;
+  } | null>(null);
 
   // Host assignment modal
   readonly hostAssignGroup = signal<GuestGroup | null>(null);
@@ -725,6 +741,107 @@ export class GuestGroupsListComponent implements OnInit {
     time: string,
   ): GroupScheduleActivity[] {
     return activities.filter((a) => a.date === day && a.start_time === time);
+  }
+
+  openAssignModal(group: GuestGroup, date: string) {
+    this.assignModal.set({
+      group,
+      date,
+      step: 1,
+      type: null,
+      available: null,
+      selectedShift: null,
+      loadingAvailable: false,
+      saving: false,
+    });
+  }
+
+  selectAssignType(type: 'general' | 'food' | 'preaching') {
+    const m = this.assignModal();
+    if (!m) return;
+    this.assignModal.set({ ...m, step: 2, type, loadingAvailable: true, available: null });
+    this.activitiesSvc.getAvailableForGroup(m.group.id, m.date).subscribe({
+      next: (data) => {
+        const cur = this.assignModal();
+        if (cur) this.assignModal.set({ ...cur, available: data, loadingAvailable: false });
+      },
+      error: () => {
+        const cur = this.assignModal();
+        if (cur) this.assignModal.set({ ...cur, loadingAvailable: false });
+      },
+    });
+  }
+
+  selectActivityToAssign(activity: AvailableForGroupActivity) {
+    const m = this.assignModal();
+    if (!m || !activity.can_assign) return;
+    if (m.type === 'preaching') {
+      this.assignModal.set({ ...m, step: 3, selectedShift: activity as AvailableForGroupPreachingShift });
+      return;
+    }
+    this.assignModal.set({ ...m, saving: true });
+    this.activitiesSvc.assignGuestGroup(activity.id, m.group.id).subscribe({
+      next: () => {
+        this.assignModal.set(null);
+        this.reloadSchedule(m.group.id);
+      },
+      error: () => {
+        const cur = this.assignModal();
+        if (cur) this.assignModal.set({ ...cur, saving: false });
+      },
+    });
+  }
+
+  selectPreachingGroup(pg: AvailableForGroupPreachingGroup) {
+    const m = this.assignModal();
+    if (!m?.selectedShift || !pg.can_assign) return;
+    this.assignModal.set({ ...m, saving: true });
+    this.activitiesSvc
+      .assignGuestGroupToGroup(m.selectedShift.id, pg.id, m.group.id)
+      .subscribe({
+        next: () => {
+          this.assignModal.set(null);
+          this.reloadSchedule(m.group.id);
+        },
+        error: () => {
+          const cur = this.assignModal();
+          if (cur) this.assignModal.set({ ...cur, saving: false });
+        },
+      });
+  }
+
+  closeAssignModal() {
+    this.assignModal.set(null);
+  }
+
+  async removeActivityFromGroup(group: GuestGroup, act: GroupScheduleActivity) {
+    if (!act.activity_id) return;
+    const confirmed = await this.confirmSvc.confirm(
+      `Remove "${act.name}" from group ${group.group_code}?`,
+    );
+    if (!confirmed) return;
+
+    const obs = act.is_preaching_shift && act.preaching_group_id
+      ? this.activitiesSvc.removeGuestGroupFromGroup(act.activity_id, act.preaching_group_id, group.id)
+      : this.activitiesSvc.unassignGuestGroup(act.activity_id, group.id);
+
+    obs.subscribe({ next: () => this.reloadSchedule(group.id) });
+  }
+
+  private reloadSchedule(groupId: string) {
+    const m = new Map(this.groupSchedules());
+    m.delete(groupId);
+    this.groupSchedules.set(m);
+    this.loadScheduleIfNeeded(groupId);
+  }
+
+  assignModalActivitiesList(): AvailableForGroupActivity[] {
+    const m = this.assignModal();
+    if (!m?.available) return [];
+    if (m.type === 'general') return m.available.general_activities;
+    if (m.type === 'food') return m.available.food_shifts;
+    if (m.type === 'preaching') return m.available.preaching_shifts;
+    return [];
   }
 
   shortDayLabel(iso: string): string {

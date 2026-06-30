@@ -115,6 +115,20 @@ export class ActivitiesController {
     return this.svc.getGroupScheduleJson(groupId, user);
   }
 
+  @Get('available-for-group')
+  @ApiOkResponse({
+    description: 'Actividades disponibles para asignar a un grupo en una fecha concreta',
+  })
+  getAvailableForGroup(
+    @Query('groupId') groupId: string | undefined,
+    @Query('date') date: string | undefined,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (!groupId) throw new BadRequestException('groupId es obligatorio');
+    if (!date) throw new BadRequestException('date es obligatorio');
+    return this.svc.getAvailableForGroup(groupId, date, user);
+  }
+
   @Get('export/schedule-pdf')
   @ApiOkResponse({
     description:

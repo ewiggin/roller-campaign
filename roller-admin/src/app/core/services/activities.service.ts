@@ -24,6 +24,44 @@ export interface GroupScheduleActivity {
   is_congregation_meeting?: boolean;
   congregation_address?: string | null;
   status?: 'draft' | 'published';
+  activity_id?: string;
+  preaching_group_id?: string | null;
+}
+
+export interface AvailableForGroupActivity {
+  id: string;
+  name: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  status: 'draft' | 'published';
+  max_guests: number | null;
+  host_name: string | null;
+  total_groups: number;
+  total_guests: number;
+  distance_km: number | null;
+  already_assigned: boolean;
+  can_assign: boolean;
+  reason: string | null;
+}
+
+export interface AvailableForGroupPreachingGroup {
+  id: string;
+  name: string | null;
+  guest_count: number;
+  max_guests: number;
+  already_assigned: boolean;
+  can_assign: boolean;
+}
+
+export interface AvailableForGroupPreachingShift extends AvailableForGroupActivity {
+  preaching_groups: AvailableForGroupPreachingGroup[];
+}
+
+export interface AvailableForGroupResponse {
+  general_activities: AvailableForGroupActivity[];
+  food_shifts: AvailableForGroupActivity[];
+  preaching_shifts: AvailableForGroupPreachingShift[];
 }
 
 export interface GroupScheduleResponse {
@@ -284,6 +322,12 @@ export class ActivitiesService {
   getGroupSchedule(groupId: string) {
     return this.http.get<GroupScheduleResponse>(`/api/activities/group-schedule`, {
       params: new HttpParams().set('groupId', groupId),
+    });
+  }
+
+  getAvailableForGroup(groupId: string, date: string) {
+    return this.http.get<AvailableForGroupResponse>(`/api/activities/available-for-group`, {
+      params: new HttpParams().set('groupId', groupId).set('date', date),
     });
   }
 
