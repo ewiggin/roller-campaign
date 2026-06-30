@@ -2294,6 +2294,8 @@ export class ActivitiesService {
     'is_preaching_shift',
     'is_food_shift',
     'request_attendance',
+    'invite_all_congregation',
+    'invite_all_region',
     'icon',
     'location_address',
     'status',
@@ -2341,7 +2343,11 @@ export class ActivitiesService {
       ];
     } else if (isPreachingShift) {
       columns = this.ACTIVITY_EXCEL_COLUMNS.filter(
-        (c) => c !== 'is_preaching_shift' && c !== 'is_food_shift',
+        (c) =>
+          c !== 'is_preaching_shift' &&
+          c !== 'is_food_shift' &&
+          c !== 'invite_all_congregation' &&
+          c !== 'invite_all_region',
       ) as string[];
       sampleRow = [
         'Nombre del turno',
@@ -2370,6 +2376,8 @@ export class ActivitiesService {
         '',
         '',
         '',
+        'FALSE',
+        'FALSE',
         'FALSE',
         'FALSE',
         'FALSE',
@@ -2413,6 +2421,8 @@ export class ActivitiesService {
       a.is_preaching_shift ? 'TRUE' : 'FALSE',
       a.is_food_shift ? 'TRUE' : 'FALSE',
       a.request_attendance ? 'TRUE' : 'FALSE',
+      a.invite_all_congregation ? 'TRUE' : 'FALSE',
+      a.invite_all_region ? 'TRUE' : 'FALSE',
       a.icon ?? '',
       a.activity_locations?.[0]?.address ?? '',
       a.status,
@@ -2535,8 +2545,14 @@ export class ActivitiesService {
           forceFoodShift ||
           (!forcePreachingShift && this.parseXlsxBool(row['is_food_shift'])),
         request_attendance: this.parseXlsxBool(row['request_attendance']),
-        invite_all_congregation: false,
-        invite_all_region: false,
+        invite_all_congregation:
+          !forcePreachingShift && !forceFoodShift
+            ? this.parseXlsxBool(row['invite_all_congregation'])
+            : false,
+        invite_all_region:
+          !forcePreachingShift && !forceFoodShift
+            ? this.parseXlsxBool(row['invite_all_region'])
+            : false,
         volunteers: [],
         volunteer_count: 0,
         required_volunteers: this.parseXlsxInt(row['required_volunteers']),
