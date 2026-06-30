@@ -336,6 +336,12 @@ export class ActivityResponseDto {
   @ApiProperty({ example: false })
   request_attendance: boolean;
 
+  @ApiProperty({ example: false })
+  invite_all_congregation: boolean;
+
+  @ApiProperty({ example: false })
+  invite_all_region: boolean;
+
   @ApiProperty({ type: [ActivityVolunteerDto] })
   volunteers: ActivityVolunteerDto[];
 

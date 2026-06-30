@@ -596,6 +596,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     request_attendance: [false],
   });
 
+  readonly editInviteAllCongregation = signal(false);
+  readonly editInviteAllRegion = signal(false);
+  readonly inviteAllCongregationDisabled = computed(
+    () => !this.editHostId() || this.editInviteAllRegion(),
+  );
+
   readonly editDescLen = signal(0);
 
   readonly editActivitySlots = signal<LocationSlot[]>([
@@ -1805,6 +1811,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       is_food_shift: activity.is_food_shift,
       request_attendance: activity.request_attendance,
     });
+    this.editInviteAllCongregation.set(activity.invite_all_congregation);
+    this.editInviteAllRegion.set(activity.invite_all_region);
     this.editDescLen.set(activity.description?.length ?? 0);
     this.editActivitySlots.set(
       (activity.activity_locations?.length ? activity.activity_locations : [null]).map((v) => ({
@@ -1941,6 +1949,9 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       request_attendance: v.request_attendance ?? false,
       is_preaching_shift: this.selectedActivity()?.is_preaching_shift ?? false,
       is_food_shift: this.selectedActivity()?.is_food_shift ?? false,
+      invite_all_congregation:
+        !this.inviteAllCongregationDisabled() && this.editInviteAllCongregation(),
+      invite_all_region: this.editInviteAllRegion(),
     };
   }
 

@@ -107,6 +107,8 @@ export class ActivitiesService {
       is_preaching_shift: dto.is_preaching_shift ?? false,
       is_food_shift: dto.is_food_shift ?? false,
       request_attendance: dto.request_attendance ?? false,
+      invite_all_congregation: dto.invite_all_congregation ?? false,
+      invite_all_region: dto.invite_all_region ?? false,
       status: 'draft',
       volunteers: [],
       guestGroups: [],
@@ -2244,6 +2246,8 @@ export class ActivitiesService {
     is_preaching_shift: activity.is_preaching_shift,
     is_food_shift: activity.is_food_shift,
     request_attendance: activity.request_attendance,
+    invite_all_congregation: activity.invite_all_congregation,
+    invite_all_region: activity.invite_all_region,
     volunteers: (activity.volunteers ?? []).map((v) => {
       const vr = volunteerRoles.get(v.id);
       return {
@@ -2624,17 +2628,59 @@ export class ActivitiesService {
     groupId: string,
     allStatuses = false,
   ): Promise<ScheduleActivityItem[]> {
-    let qb = this.activitiesRepo
+    const group = await this.groupsRepo.findOne({ where: { id: groupId } });
+    if (!group) return [];
+
+    // 1. Directly assigned activities where neither open-invite flag is active
+    const directQb = this.activitiesRepo
       .createQueryBuilder('a')
       .innerJoin('a.guestGroups', 'gg', 'gg.id = :groupId', { groupId })
-      .orderBy('a.date', 'ASC')
-      .addOrderBy('a.start_time', 'ASC');
+      .where('a.invite_all_congregation = :no', { no: false })
+      .andWhere('a.invite_all_region = :no2', { no2: false });
+    if (!allStatuses)
+      directQb.andWhere('a.status = :status', { status: 'published' });
+    const directActivities = await directQb.getMany();
 
-    if (!allStatuses) {
-      qb = qb.where('a.status = :status', { status: 'published' });
+    // 2. Invite-all-congregation activities (group must share the same host)
+    let congregationActivities: Activity[] = [];
+    if (group.host_id) {
+      const congQb = this.activitiesRepo
+        .createQueryBuilder('a')
+        .where('a.invite_all_congregation = :yes', { yes: true })
+        .andWhere('a.invite_all_region = :no', { no: false })
+        .andWhere('a.host_id = :hostId', { hostId: group.host_id });
+      if (!allStatuses)
+        congQb.andWhere('a.status = :status', { status: 'published' });
+      congregationActivities = await congQb.getMany();
     }
 
-    const activities = await qb.getMany();
+    // 3. Invite-all-region activities
+    const regionQb = this.activitiesRepo
+      .createQueryBuilder('a')
+      .where('a.invite_all_region = :yes', { yes: true })
+      .andWhere('a.region_id = :regionId', { regionId: group.region_id });
+    if (!allStatuses)
+      regionQb.andWhere('a.status = :status', { status: 'published' });
+    const regionActivities = await regionQb.getMany();
+
+    // Merge and deduplicate by id
+    const seen = new Set<string>();
+    const activities: Activity[] = [];
+    for (const a of [
+      ...directActivities,
+      ...congregationActivities,
+      ...regionActivities,
+    ]) {
+      if (!seen.has(a.id)) {
+        seen.add(a.id);
+        activities.push(a);
+      }
+    }
+    activities.sort((a, b) =>
+      a.date !== b.date
+        ? a.date.localeCompare(b.date)
+        : a.start_time.localeCompare(b.start_time),
+    );
 
     const preachingShiftIds = activities
       .filter((a) => a.is_preaching_shift)

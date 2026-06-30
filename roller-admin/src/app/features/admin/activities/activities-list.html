@@ -1397,6 +1397,74 @@
               </div>
             </div>
 
+            <!-- Invite all (non-typed activities only) -->
+            @if (!selectedActivity()?.is_preaching_shift && !selectedActivity()?.is_food_shift) {
+              <div class="flex flex-col gap-2">
+                <label
+                  class="flex items-center justify-between rounded-lg border px-4 py-3 transition-colors"
+                  [class]="
+                    inviteAllCongregationDisabled()
+                      ? 'border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 opacity-50 cursor-not-allowed'
+                      : 'border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 cursor-pointer'
+                  "
+                >
+                  <div>
+                    <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">
+                      Invitar a todos los grupos de la congregación
+                    </p>
+                    <p class="text-xs text-gray-400 dark:text-zinc-500">
+                      @if (!editHostId()) {
+                        Requiere que la actividad tenga congregación asignada
+                      } @else if (editInviteAllRegion()) {
+                        Cubierto por "Invitar a todos los grupos de la región"
+                      } @else {
+                        Todos los grupos hospedados en esta congregación verán la actividad en su
+                        calendario
+                      }
+                    </p>
+                  </div>
+                  <div class="relative inline-flex items-center shrink-0 ml-4">
+                    <input
+                      type="checkbox"
+                      [disabled]="inviteAllCongregationDisabled()"
+                      [ngModel]="editInviteAllCongregation()"
+                      (ngModelChange)="editInviteAllCongregation.set($event)"
+                      [ngModelOptions]="{ standalone: true }"
+                      class="sr-only peer"
+                    />
+                    <div
+                      class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
+                    ></div>
+                  </div>
+                </label>
+
+                <label
+                  class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/40 px-4 py-3 cursor-pointer"
+                >
+                  <div>
+                    <p class="text-sm font-medium text-gray-700 dark:text-zinc-200">
+                      Invitar a todos los grupos de la región
+                    </p>
+                    <p class="text-xs text-gray-400 dark:text-zinc-500">
+                      Todos los grupos de la región verán la actividad en su calendario
+                    </p>
+                  </div>
+                  <div class="relative inline-flex items-center shrink-0 ml-4">
+                    <input
+                      type="checkbox"
+                      [ngModel]="editInviteAllRegion()"
+                      (ngModelChange)="editInviteAllRegion.set($event)"
+                      [ngModelOptions]="{ standalone: true }"
+                      class="sr-only peer"
+                    />
+                    <div
+                      class="w-10 h-5 rounded-full bg-gray-200 dark:bg-zinc-700 peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"
+                    ></div>
+                  </div>
+                </label>
+              </div>
+            }
+
             <!-- Request attendance -->
             @if (!selectedActivity()?.is_preaching_shift && !selectedActivity()?.is_food_shift) {
               <label

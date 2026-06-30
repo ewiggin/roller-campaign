@@ -111,4 +111,14 @@ export class CreateActivityDto {
   @IsOptional()
   @IsBoolean()
   request_attendance?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  invite_all_congregation?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  invite_all_region?: boolean;
 }
