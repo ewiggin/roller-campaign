@@ -161,6 +161,35 @@ export class ActivitiesController {
     res.send(buffer);
   }
 
+  @Get('export/group-schedules-zip')
+  @ApiOkResponse({
+    description: 'ZIP with individual schedule PDFs for each filtered group',
+  })
+  async exportGroupSchedulesZip(
+    @Query('regionId') regionId: string | undefined,
+    @Query('search') search: string | undefined,
+    @Query('hostId') hostId: string | undefined,
+    @Query('noHost') noHost: string | undefined,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (!regionId) throw new BadRequestException('regionId is required');
+    const buffer = await this.svc.exportGroupSchedulesZip(
+      {
+        regionId,
+        search: search || undefined,
+        hostId: hostId || undefined,
+        noHost: noHost === 'true' ? true : undefined,
+      },
+      user,
+    );
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': 'attachment; filename="calendarios-grupos.zip"',
+    });
+    res.send(buffer);
+  }
+
   // ── Excel import / export ─────────────────────────────────────────────────
 
   @Get('import/template')

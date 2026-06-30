@@ -310,6 +310,21 @@ export class ActivitiesService {
     });
   }
 
+  exportGroupSchedulesZip(filters: {
+    regionId: string;
+    search?: string;
+    hostId?: string;
+    noHost?: boolean;
+  }) {
+    const params = new URLSearchParams({ regionId: filters.regionId });
+    if (filters.search) params.set('search', filters.search);
+    if (filters.noHost) params.set('noHost', 'true');
+    else if (filters.hostId) params.set('hostId', filters.hostId);
+    return this.http.get(`/api/activities/export/group-schedules-zip?${params}`, {
+      responseType: 'blob',
+    });
+  }
+
   // ── Excel import / export ─────────────────────────────────────────────────
 
   exportExcel(

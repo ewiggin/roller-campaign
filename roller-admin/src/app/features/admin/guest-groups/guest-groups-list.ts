@@ -135,6 +135,7 @@ export class GuestGroupsListComponent implements OnInit {
   });
   readonly recomputing = signal(false);
   readonly downloadingSchedulePdf = signal<string | null>(null);
+  readonly downloadingSchedulesZip = signal(false);
 
   // Congregation filter
   readonly filterHost = signal('');
@@ -625,6 +626,27 @@ export class GuestGroupsListComponent implements OnInit {
       },
       error: () => this.downloadingSchedulePdf.set(null),
     });
+  }
+
+  downloadSchedulesZip() {
+    const regionId = this.selectedRegionId();
+    if (!regionId || this.downloadingSchedulesZip()) return;
+    const host = this.filterHost();
+    this.downloadingSchedulesZip.set(true);
+    this.activitiesSvc
+      .exportGroupSchedulesZip({
+        regionId,
+        search: this.searchCode().trim() || undefined,
+        hostId: host && host !== '__none__' ? host : undefined,
+        noHost: host === '__none__' ? true : undefined,
+      })
+      .subscribe({
+        next: async (blob) => {
+          await downloadFile(blob, 'calendarios-grupos.zip');
+          this.downloadingSchedulesZip.set(false);
+        },
+        error: () => this.downloadingSchedulesZip.set(false),
+      });
   }
 
   togglePlanningMode() {

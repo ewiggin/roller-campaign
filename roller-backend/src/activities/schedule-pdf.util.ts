@@ -33,6 +33,8 @@ export interface ScheduleGroupInfo {
   composition: 'men_only' | 'mixed' | 'women_only' | null;
   guest_count: number;
   host_name: string | null;
+  contact_name: string | null;
+  contact_code: string | null;
 }
 
 const cellLayout = {
@@ -46,6 +48,7 @@ export const SCHEDULE_PDF_STYLES: TDocumentDefinitions['styles'] = {
   title: { fontSize: 16, bold: true, margin: [0, 0, 0, 2] },
   subtitle: { fontSize: 9, color: '#666666', margin: [0, 0, 0, 16] },
   groupTitle: { fontSize: 14, bold: true, margin: [0, 0, 0, 2] },
+  groupContact: { fontSize: 9, color: '#444444', margin: [0, 0, 0, 4] },
   groupSubtitle: { fontSize: 9, color: '#666666', margin: [0, 0, 0, 12] },
   tableHeader: { fontSize: 9, bold: true, fillColor: '#f0f0f0' },
   dayHeader: {
@@ -123,6 +126,16 @@ export function buildGroupScheduleContent(
   const { showGroupInfo = true } = options;
 
   content.push({ text: `Grupo ${group.group_code}`, style: 'groupTitle' });
+
+  if (group.contact_name || group.contact_code) {
+    const contactLabel = [group.contact_name, group.contact_code]
+      .filter(Boolean)
+      .join(' · ');
+    content.push({
+      text: `Contacto de grupo: ${contactLabel}`,
+      style: 'groupContact',
+    });
+  }
 
   if (showGroupInfo) {
     const subtitleParts = [

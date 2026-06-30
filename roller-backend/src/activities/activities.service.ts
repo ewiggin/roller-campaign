@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
 import type { Content } from 'pdfmake/interfaces';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { buildScheduleHeader, createPdfBuffer } from '../common/pdf/pdf.util';
@@ -2883,23 +2884,13 @@ export class ActivitiesService {
     return { days, activities: allActivities };
   }
 
-  async exportGroupSchedulePdf(
-    groupId: string,
-    currentUser: JwtPayload,
-  ): Promise<{ buffer: Buffer; filename: string }> {
-    const group = await this.groupsRepo.findOne({
-      where: { id: groupId },
-      relations: { host: true },
-    });
-    if (!group) throw new NotFoundException('Grupo no encontrado');
-    await this.assertRegionAccess(group.region_id, currentUser);
-
-    const region = await this.regionsRepo.findOne({
-      where: { id: group.region_id },
-    });
-    const activities = await this.getGroupScheduleActivities(groupId);
+  private async buildGroupScheduleBuffer(
+    group: GuestGroup & { host?: Host | null },
+    region: Region | null,
+    contact: { full_name: string; guest_code: string } | null,
+  ): Promise<Buffer> {
+    const activities = await this.getGroupScheduleActivities(group.id);
     const days = this.computeScheduleDays(region, activities);
-
     const meetings = group.host
       ? this.congregationMeetings(group.host, days)
       : [];
@@ -2908,20 +2899,20 @@ export class ActivitiesService {
         ? a.date.localeCompare(b.date)
         : a.start_time.localeCompare(b.start_time),
     );
-
     const content = buildGroupScheduleContent(
       {
         group_code: group.group_code,
         composition: group.composition,
         guest_count: group.agg_guest_count ?? 0,
         host_name: group.host?.name ?? null,
+        contact_name: contact?.full_name ?? null,
+        contact_code: contact?.guest_code ?? null,
       },
       days,
       allActivities,
       { showGroupInfo: false },
     );
-
-    const buffer = await createPdfBuffer({
+    return createPdfBuffer({
       content,
       styles: SCHEDULE_PDF_STYLES,
       header: buildScheduleHeader(region?.name),
@@ -2933,11 +2924,90 @@ export class ActivitiesService {
         margin: [0, 10, 0, 0],
       }),
     });
+  }
 
+  async exportGroupSchedulePdf(
+    groupId: string,
+    currentUser: JwtPayload,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const group = await this.groupsRepo.findOne({
+      where: { id: groupId },
+      relations: { host: true },
+    });
+    if (!group) throw new NotFoundException('Grupo no encontrado');
+    await this.assertRegionAccess(group.region_id, currentUser);
+
+    const [contact, region] = await Promise.all([
+      this.guestsRepo.findOne({
+        where: { group_id: groupId, is_group_contact: true },
+        select: { full_name: true, guest_code: true },
+      }),
+      this.regionsRepo.findOne({ where: { id: group.region_id } }),
+    ]);
+
+    const buffer = await this.buildGroupScheduleBuffer(group, region, contact);
     return {
       buffer,
       filename: `calendario-${group.group_code.toLowerCase()}.pdf`,
     };
+  }
+
+  async exportGroupSchedulesZip(
+    filters: {
+      regionId: string;
+      search?: string;
+      hostId?: string;
+      noHost?: boolean;
+    },
+    currentUser: JwtPayload,
+  ): Promise<Buffer> {
+    await this.assertRegionAccess(filters.regionId, currentUser);
+
+    const query = this.groupsRepo
+      .createQueryBuilder('gg')
+      .leftJoinAndSelect('gg.host', 'host')
+      .where('gg.region_id = :regionId', { regionId: filters.regionId })
+      .orderBy('gg.group_code', 'ASC');
+
+    if (filters.search) {
+      query.andWhere('gg.group_code LIKE :search', {
+        search: `%${filters.search}%`,
+      });
+    }
+    if (filters.noHost) {
+      query.andWhere('gg.host_id IS NULL');
+    } else if (filters.hostId) {
+      query.andWhere('gg.host_id = :hostId', { hostId: filters.hostId });
+    }
+
+    const groups = await query.getMany();
+
+    const region = await this.regionsRepo.findOne({
+      where: { id: filters.regionId },
+    });
+
+    const groupIds = groups.map((g) => g.id);
+    const contacts =
+      groupIds.length > 0
+        ? await this.guestsRepo.find({
+            where: { group_id: In(groupIds), is_group_contact: true },
+            select: { group_id: true, full_name: true, guest_code: true },
+          })
+        : [];
+    const contactByGroup = new Map(contacts.map((c) => [c.group_id, c]));
+
+    const zip = new JSZip();
+    for (const group of groups) {
+      const contact = contactByGroup.get(group.id) ?? null;
+      const pdfBuffer = await this.buildGroupScheduleBuffer(
+        group,
+        region,
+        contact,
+      );
+      zip.file(`calendario-${group.group_code.toLowerCase()}.pdf`, pdfBuffer);
+    }
+
+    return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
   }
 
   async exportHostSchedulesPdf(
@@ -2957,6 +3027,16 @@ export class ActivitiesService {
       where: { id: host.region_id },
     });
 
+    const groupIds = groups.map((g) => g.id);
+    const contacts =
+      groupIds.length > 0
+        ? await this.guestsRepo.find({
+            where: { group_id: In(groupIds), is_group_contact: true },
+            select: { group_id: true, full_name: true, guest_code: true },
+          })
+        : [];
+    const contactByGroup = new Map(contacts.map((c) => [c.group_id, c]));
+
     const content: Content[] = [];
     if (groups.length === 0) {
       content.push({
@@ -2966,6 +3046,7 @@ export class ActivitiesService {
 
     for (let i = 0; i < groups.length; i++) {
       const group = groups[i];
+      const contact = contactByGroup.get(group.id);
       const activities = await this.getGroupScheduleActivities(group.id);
       const days = this.computeScheduleDays(region, activities);
 
@@ -2982,6 +3063,8 @@ export class ActivitiesService {
           composition: group.composition,
           guest_count: group.agg_guest_count ?? 0,
           host_name: host.name,
+          contact_name: contact?.full_name ?? null,
+          contact_code: contact?.guest_code ?? null,
         },
         days,
         allActivities,
