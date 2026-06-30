@@ -407,3 +407,67 @@ Devuelve la lista de asignaciones realizadas. No tiene modo "preview" en v1; la 
 ### UI
 
 Botón "Asignar automáticamente" en la pestaña de grupos de predicación del turno, visible solo si hay grupos de predicación definidos y hay grupos disponibles sin asignar.
+
+---
+
+## 12. Algoritmo de asignación automática de grupos a turnos de hospitalidad
+
+### Objetivo
+
+Dado un turno de hospitalidad (`activity` con `is_food_shift = true`), asignar automáticamente los grupos de invitados disponibles al turno, respetando su capacidad máxima y los criterios de elegibilidad.
+
+### Reglas de elegibilidad
+
+Antes de ejecutar el algoritmo, se obtiene la lista de grupos mediante `getAvailableGroups()`, que para turnos de hospitalidad aplica:
+
+1. Mismo región que la actividad
+2. Tiene turno de predicación matutino (inicio < 12:00) asignado el mismo día en la misma región
+3. Fecha dentro de la ventana de disponibilidad del grupo (`available_from` / `available_to`)
+4. Al menos un invitado disponible ese día
+5. Sin solapamiento de horario con otra actividad (`already_in_activity = false`)
+6. Sin conflicto con la reunión del anfitrión del grupo (`host_schedule_conflict = false`)
+7. **No asignado a ningún otro turno de hospitalidad en toda la campaña** (`already_in_food_shift = false`)
+8. Al menos un invitado registrado (`guest_count > 0`)
+
+Los grupos que ya están asignados a este turno se excluyen (asignaciones existentes que no se tocan).
+
+### Restricción en asignación manual
+
+La regla "un grupo solo puede tener un turno de hospitalidad en toda la campaña" también se valida al asignar manualmente: el backend lanza error si se intenta asignar un grupo que ya tiene otro turno de hospitalidad. En el selector del frontend, estos grupos aparecen deshabilitados con el motivo "Already has a hospitality shift this campaign".
+
+### Algoritmo (Greedy por distancia)
+
+**Inputs:**
+- `groups`: lista de grupos candidatos, ordenados por distancia ascendente (más cercano primero)
+- `maxGuests`: valor de `max_guests` del turno (puede ser `null` — sin límite)
+- `currentGuestCount`: suma de invitados ya asignados al turno
+
+**Pasos:**
+
+1. Los grupos candidatos ya vienen ordenados por distancia de `getAvailableGroups()`.
+2. Iterar en orden:
+   - Si `max_guests` está configurado y `currentGuestCount + candidate.guest_count > max_guests` → saltar (`skipped++`)
+   - En caso contrario → asignar (`assignGuestGroup`); actualizar `currentGuestCount`
+3. Si un grupo no cabe (excede la capacidad), se contabiliza como `skipped`.
+
+**Output:** `{ activity, skipped }`
+
+### Comportamiento ante casos límite
+
+| Caso | Comportamiento |
+| --- | --- |
+| Ningún grupo elegible | No hace nada, devuelve `{ activity, skipped: 0 }` |
+| Turno sin `max_guests` | Se asignan todos los grupos elegibles sin límite |
+| Grupos sin coordenadas (`distance_km = null`) | Se colocan al final |
+| Grupos ya asignados al turno | Se respetan; el algoritmo solo añade nuevas asignaciones |
+| Grupos omitidos por capacidad | Se devuelve `skipped > 0`; el frontend muestra un aviso |
+
+### Endpoints
+
+- `POST /activities/:id/food-shift/auto-assign` — devuelve `{ activity, skipped }`
+- `POST /activities/food-shifts/bulk-auto-assign` — devuelve `{ shiftsProcessed, totalSkipped, unassignedGroups }`
+
+### UI
+
+- Botón "Auto-assign" en la pestaña Groups del detalle de un turno de hospitalidad.
+- Botón "Auto-assign all" en la cabecera de la lista de turnos de hospitalidad (bulk), con modal de confirmación que explica los criterios.

@@ -119,6 +119,7 @@ export interface AvailableGroupForActivity {
   preaching_shifts_count: number;
   same_day_preaching_shift: boolean;
   activities_count: number;
+  already_in_food_shift: boolean;
 }
 
 export interface ActivityListResponse {

@@ -210,6 +210,21 @@ export class ActivitiesService {
     }>(`/api/activities/preaching-groups/bulk-auto-assign`, {});
   }
 
+  autoAssignGuestGroupsToFoodShift(id: string) {
+    return this.http.post<{ activity: Activity; skipped: number }>(
+      `/api/activities/${id}/food-shift/auto-assign`,
+      {},
+    );
+  }
+
+  bulkAutoAssignGuestGroupsToFoodShifts() {
+    return this.http.post<{
+      shiftsProcessed: number;
+      totalSkipped: number;
+      unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+    }>(`/api/activities/food-shifts/bulk-auto-assign`, {});
+  }
+
   assignGuestGroupToGroup(id: string, groupId: string, guestGroupId: string) {
     return this.http.post<Activity>(
       `/api/activities/${id}/preaching-groups/${groupId}/guest-groups`,
