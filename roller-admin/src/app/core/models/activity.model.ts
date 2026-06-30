@@ -82,6 +82,8 @@ export interface Activity {
   is_preaching_shift: boolean;
   is_food_shift: boolean;
   request_attendance: boolean;
+  invite_all_congregation: boolean;
+  invite_all_region: boolean;
   volunteers: ActivityVolunteer[];
   volunteer_count: number;
   required_volunteers: number | null;
@@ -119,6 +121,8 @@ export interface AvailableGroupForActivity {
   preaching_shifts_count: number;
   same_day_preaching_shift: boolean;
   activities_count: number;
+  already_in_food_shift: boolean;
+  already_in_same_name_activity: boolean;
 }
 
 export interface ActivityListResponse {
@@ -160,4 +164,6 @@ export interface CreateActivityPayload {
   is_preaching_shift?: boolean;
   is_food_shift?: boolean;
   request_attendance?: boolean;
+  invite_all_congregation?: boolean;
+  invite_all_region?: boolean;
 }

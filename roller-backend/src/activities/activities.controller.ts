@@ -246,6 +246,33 @@ export class ActivitiesController {
     return this.svc.bulkAutoAssignGuestGroupsToPreachingGroups(user);
   }
 
+  @Post('general/bulk-auto-assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description: '{ activitiesProcessed: number, totalSkipped: number }',
+  })
+  bulkAutoAssignNonTypedActivities(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ activitiesProcessed: number; totalSkipped: number }> {
+    return this.svc.bulkAutoAssignNonTypedActivities(user);
+  }
+
+  @Post('food-shifts/bulk-auto-assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description:
+      '{ shiftsProcessed, totalSkipped, unassignedGroups: { id, group_code, guest_count }[] }',
+  })
+  bulkAutoAssignGuestGroupsToFoodShifts(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{
+    shiftsProcessed: number;
+    totalSkipped: number;
+    unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+  }> {
+    return this.svc.bulkAutoAssignGuestGroupsToFoodShifts(user);
+  }
+
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
   @Get(':id')
@@ -434,6 +461,30 @@ export class ActivitiesController {
     @CurrentUser() user: JwtPayload,
   ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
     return this.svc.autoAssignGuestGroupsToPreachingGroups(id, user);
+  }
+
+  @Post(':id/food-shift/auto-assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description: '{ activity: ActivityResponseDto, skipped: number }',
+  })
+  autoAssignGuestGroupsToFoodShift(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
+    return this.svc.autoAssignGuestGroupsToFoodShift(id, user);
+  }
+
+  @Post(':id/general/auto-assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    description: '{ activity: ActivityResponseDto, skipped: number }',
+  })
+  autoAssignNonTypedActivity(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
+    return this.svc.autoAssignNonTypedActivity(id, user);
   }
 
   @Post(':id/preaching-groups')

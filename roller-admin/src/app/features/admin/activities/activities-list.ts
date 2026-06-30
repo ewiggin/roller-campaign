@@ -95,6 +95,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly maxActivities = signal(4);
   readonly maxPreachingShifts = signal(4);
   readonly maxGuestsPerPreachingGroup = signal(3);
+  readonly maxFoodShifts = signal(1);
+  readonly restrictSameNameActivityGroup = signal(true);
   private readonly route = inject(ActivatedRoute);
 
   // When opened from the "Preaching Shifts" menu entry, the list is
@@ -563,6 +565,19 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     totalSkipped: number;
     unassignedGroups: { id: string; group_code: string; guest_count: number }[];
   } | null>(null);
+  readonly foodBulkConfirmOpen = signal(false);
+  readonly foodBulkAssigning = signal(false);
+  readonly foodBulkAssignResult = signal<{
+    shiftsProcessed: number;
+    totalSkipped: number;
+    unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+  } | null>(null);
+  readonly generalBulkConfirmOpen = signal(false);
+  readonly generalBulkAssigning = signal(false);
+  readonly generalBulkAssignResult = signal<{
+    activitiesProcessed: number;
+    totalSkipped: number;
+  } | null>(null);
   readonly seriesChoiceVisible = signal(false);
   private pendingSavePayload: UpdateActivityPayload | null = null;
   readonly editIconValue = signal('');
@@ -580,6 +595,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     is_food_shift: [false],
     request_attendance: [false],
   });
+
+  readonly editInviteAllCongregation = signal(false);
+  readonly editInviteAllRegion = signal(false);
+  readonly inviteAllCongregationDisabled = computed(
+    () => !this.editHostId() || this.editInviteAllRegion(),
+  );
 
   readonly editDescLen = signal(0);
 
@@ -698,12 +719,21 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
 
   readonly availableGroupItems = computed(() => {
     const isPreachingShift = this.selectedActivity()?.is_preaching_shift ?? false;
+    const isFoodShift = this.selectedActivity()?.is_food_shift ?? false;
+    const activityName = this.selectedActivity()?.name ?? '';
     const maxPreach = this.maxPreachingShifts();
     const maxAct = this.maxActivities();
+    const maxFood = this.maxFoodShifts();
     return this.availableGroups().map((g) => {
       const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= maxPreach;
       const sameDayConflict = isPreachingShift && g.same_day_preaching_shift;
       const activitiesLimitReached = !isPreachingShift && g.activities_count >= maxAct;
+      const foodShiftConflict = isFoodShift && g.already_in_food_shift;
+      const sameNameConflict =
+        this.restrictSameNameActivityGroup() &&
+        !isPreachingShift &&
+        !isFoodShift &&
+        g.already_in_same_name_activity;
       return {
         value: g.id,
         label: g.group_code,
@@ -712,24 +742,30 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
           g.host_schedule_conflict ||
           preachingLimitReached ||
           sameDayConflict ||
-          activitiesLimitReached,
+          activitiesLimitReached ||
+          foodShiftConflict ||
+          sameNameConflict,
         meta: g.already_in_activity
           ? 'Already in another activity'
           : g.host_schedule_conflict
             ? 'Host meeting conflict'
             : sameDayConflict
               ? 'Already has a preaching shift today'
-              : preachingLimitReached
-                ? `Max preaching shifts (${g.preaching_shifts_count}/${maxPreach})`
-                : activitiesLimitReached
-                  ? `Max activities (${g.activities_count}/${maxAct})`
-                  : [
-                      g.distance_km !== null ? `${g.distance_km} km` : null,
-                      g.host_name ?? null,
-                      `${g.guest_count} guests`,
-                    ]
-                      .filter(Boolean)
-                      .join(' · '),
+              : foodShiftConflict
+                ? `Max hospitality shifts reached (${maxFood})`
+                : sameNameConflict
+                  ? `Already assigned to another "${activityName}"`
+                  : preachingLimitReached
+                    ? `Max preaching shifts (${g.preaching_shifts_count}/${maxPreach})`
+                    : activitiesLimitReached
+                      ? `Max activities (${g.activities_count}/${maxAct})`
+                      : [
+                          g.distance_km !== null ? `${g.distance_km} km` : null,
+                          g.host_name ?? null,
+                          `${g.guest_count} guests`,
+                        ]
+                          .filter(Boolean)
+                          .join(' · '),
       };
     });
   });
@@ -1427,6 +1463,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         this.maxActivities.set(s.max_activities_per_group);
         this.maxPreachingShifts.set(s.max_preaching_shifts_per_group);
         this.maxGuestsPerPreachingGroup.set(s.max_guests_per_preaching_group);
+        this.maxFoodShifts.set(s.max_food_shifts_per_group);
+        this.restrictSameNameActivityGroup.set(s.restrict_same_name_activity_group);
       },
     });
 
@@ -1773,6 +1811,8 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       is_food_shift: activity.is_food_shift,
       request_attendance: activity.request_attendance,
     });
+    this.editInviteAllCongregation.set(activity.invite_all_congregation);
+    this.editInviteAllRegion.set(activity.invite_all_region);
     this.editDescLen.set(activity.description?.length ?? 0);
     this.editActivitySlots.set(
       (activity.activity_locations?.length ? activity.activity_locations : [null]).map((v) => ({
@@ -1909,6 +1949,9 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       request_attendance: v.request_attendance ?? false,
       is_preaching_shift: this.selectedActivity()?.is_preaching_shift ?? false,
       is_food_shift: this.selectedActivity()?.is_food_shift ?? false,
+      invite_all_congregation:
+        !this.inviteAllCongregationDisabled() && this.editInviteAllCongregation(),
+      invite_all_region: this.editInviteAllRegion(),
     };
   }
 
@@ -2269,6 +2312,84 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.bulkAssigning.set(false);
+      },
+    });
+  }
+
+  autoAssignGuestGroupsToFoodShift() {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.autoAssignGuestGroupsToFoodShift(activity.id).subscribe({
+      next: ({ activity: updated, skipped }) => {
+        this.selectedActivity.set(updated);
+        this.reloadAvailableGroups();
+        this.load();
+        this.detailSaving.set(false);
+        if (skipped > 0) {
+          this.toastSvc.show(
+            `${skipped} group${skipped === 1 ? '' : 's'} could not be assigned: shift is at capacity.`,
+            'info',
+          );
+        }
+      },
+      error: () => {
+        this.detailError.set('Error assigning groups automatically.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  bulkAutoAssignGuestGroupsToFoodShifts() {
+    this.foodBulkAssigning.set(true);
+    this.foodBulkAssignResult.set(null);
+    this.svc.bulkAutoAssignGuestGroupsToFoodShifts().subscribe({
+      next: (result) => {
+        this.foodBulkAssignResult.set(result);
+        this.foodBulkAssigning.set(false);
+        this.load();
+      },
+      error: () => {
+        this.foodBulkAssigning.set(false);
+      },
+    });
+  }
+
+  autoAssignNonTypedActivity() {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.autoAssignNonTypedActivity(activity.id).subscribe({
+      next: ({ activity: updated, skipped }) => {
+        this.selectedActivity.set(updated);
+        this.reloadAvailableGroups();
+        this.load();
+        this.detailSaving.set(false);
+        if (skipped > 0) {
+          this.toastSvc.show(
+            `${skipped} group${skipped === 1 ? '' : 's'} could not be assigned: activity is at capacity.`,
+            'info',
+          );
+        }
+      },
+      error: () => {
+        this.detailError.set('Error assigning groups automatically.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  bulkAutoAssignNonTypedActivities() {
+    this.generalBulkAssigning.set(true);
+    this.generalBulkAssignResult.set(null);
+    this.svc.bulkAutoAssignNonTypedActivities().subscribe({
+      next: (result) => {
+        this.generalBulkAssignResult.set(result);
+        this.generalBulkAssigning.set(false);
+        this.load();
+      },
+      error: () => {
+        this.generalBulkAssigning.set(false);
       },
     });
   }

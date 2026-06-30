@@ -206,6 +206,8 @@ export class ActivityImportModalComponent {
           is_preaching_shift: activity.is_preaching_shift,
           is_food_shift: activity.is_food_shift,
           request_attendance: activity.request_attendance,
+          invite_all_congregation: activity.invite_all_congregation,
+          invite_all_region: activity.invite_all_region,
         }),
       );
     } else if (sections.base) {
@@ -224,6 +226,8 @@ export class ActivityImportModalComponent {
           is_preaching_shift: activity.is_preaching_shift,
           is_food_shift: activity.is_food_shift,
           request_attendance: activity.request_attendance,
+          invite_all_congregation: activity.invite_all_congregation,
+          invite_all_region: activity.invite_all_region,
         }),
       );
     }

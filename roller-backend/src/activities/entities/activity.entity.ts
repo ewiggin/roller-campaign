@@ -83,6 +83,12 @@ export class Activity {
   @Column({ type: 'boolean', default: false })
   request_attendance: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  invite_all_congregation: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  invite_all_region: boolean;
+
   @ManyToMany(() => Volunteer, (v) => v.activities, { eager: false })
   @JoinTable({ name: 'activity_volunteers' })
   volunteers: Volunteer[];

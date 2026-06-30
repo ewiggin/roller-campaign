@@ -187,6 +187,20 @@ export class AvailableGroupForActivityDto {
       'Number of normal (non-preaching-shift) activities this group is already assigned to (excluding this activity)',
   })
   activities_count: number;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'True if the group is already assigned to any food shift in the campaign (only relevant when the activity is a food shift)',
+  })
+  already_in_food_shift: boolean;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'True if the group is already assigned to another activity with the same name (only relevant for non-typed activities)',
+  })
+  already_in_same_name_activity: boolean;
 }
 
 export class PreachingGroupVolunteerDto {
@@ -321,6 +335,12 @@ export class ActivityResponseDto {
 
   @ApiProperty({ example: false })
   request_attendance: boolean;
+
+  @ApiProperty({ example: false })
+  invite_all_congregation: boolean;
+
+  @ApiProperty({ example: false })
+  invite_all_region: boolean;
 
   @ApiProperty({ type: [ActivityVolunteerDto] })
   volunteers: ActivityVolunteerDto[];

@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.6.0] - 2026-06-30
+
+### Añadido
+
+- **Auto-asignación para actividades generales no tipificadas**: nuevo botón "Auto-assign" en la pestaña Grupos de cada actividad general que aplica el mismo algoritmo greedy por distancia que los turnos de comida; excluye automáticamente los grupos que ya tienen un turno de comida asignado el mismo día, respeta el límite de actividades por grupo y el aforo máximo si está configurado
+- **Auto-asignación masiva de actividades generales**: botón "Auto-assign all" en la cabecera del listado general de actividades con modal de confirmación que explica el algoritmo y los criterios de elegibilidad; muestra un panel de resultado con el número de actividades procesadas y los grupos omitidos por aforo
+- **Invitación abierta a grupos por congregación o región**: dos nuevos toggles en el formulario de edición de actividades generales — "Invitar a todos los grupos de la congregación" (requiere host asignado; se deshabilita automáticamente si está activo el de región) e "Invitar a todos los grupos de la región"; cuando alguno está activo, todos los grupos del ámbito correspondiente ven la actividad en su calendario PDF sin necesidad de asignación manual
+- **Restricción de mismo nombre entre actividades generales**: los grupos de invitados no pueden asignarse a dos actividades no tipificadas con el mismo nombre; los grupos ya en conflicto aparecen como no disponibles en el selector con el motivo indicado
+- **Ajuste para desactivar la restricción de mismo nombre**: nuevo checkbox en Ajustes → Límites de campaña que permite desactivar globalmente la restricción de mismo nombre en actividades generales
+
+### Mejorado
+
+- **Límite de turnos de comida por grupo configurable**: nuevo ajuste `max_food_shifts_per_group` en la página de Ajustes (por defecto 1); la validación al asignar y el estado del selector en frontend respetan este valor en lugar del límite fijo anterior
+- **Nombres de actividad normalizados al importar**: el campo `name` de `CreateActivityDto` aplica un `@Transform` de trim automático para eliminar espacios iniciales y finales, evitando que actividades con el mismo nombre difieran por espacios invisibles
+
+---
+
 ## [0.5.0] - 2026-06-29
 
 ### Añadido

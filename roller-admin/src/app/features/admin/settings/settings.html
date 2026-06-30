@@ -59,7 +59,30 @@
               class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 dark:text-zinc-300 mb-1">
+              Máx. turnos de hospitalidad por grupo
+            </label>
+            <input
+              type="number"
+              min="1"
+              [ngModel]="maxFoodShiftsPerGroup()"
+              (ngModelChange)="maxFoodShiftsPerGroup.set($event)"
+              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
         </div>
+        <label class="flex items-center gap-3 cursor-pointer select-none pt-1">
+          <input
+            type="checkbox"
+            [ngModel]="restrictSameNameActivityGroup()"
+            (ngModelChange)="restrictSameNameActivityGroup.set($event)"
+            class="w-4 h-4 rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+          />
+          <span class="text-sm text-gray-700 dark:text-zinc-300">
+            Restringir el mismo grupo a actividades con el mismo nombre
+          </span>
+        </label>
         <div class="flex items-center gap-3 pt-1">
           <button
             type="button"

@@ -66,6 +66,8 @@ export interface CampaignSettings {
   max_activities_per_group: number;
   max_preaching_shifts_per_group: number;
   max_guests_per_preaching_group: number;
+  max_food_shifts_per_group: number;
+  restrict_same_name_activity_group: boolean;
   updated_at: string;
 }
 
@@ -73,6 +75,8 @@ export interface UpdateCampaignSettingsPayload {
   max_activities_per_group?: number;
   max_preaching_shifts_per_group?: number;
   max_guests_per_preaching_group?: number;
+  max_food_shifts_per_group?: number;
+  restrict_same_name_activity_group?: boolean;
 }
 
 export interface DatabaseImportResult {

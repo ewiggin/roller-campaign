@@ -107,6 +107,8 @@ export class ActivitiesService {
       is_preaching_shift: dto.is_preaching_shift ?? false,
       is_food_shift: dto.is_food_shift ?? false,
       request_attendance: dto.request_attendance ?? false,
+      invite_all_congregation: dto.invite_all_congregation ?? false,
+      invite_all_region: dto.invite_all_region ?? false,
       status: 'draft',
       volunteers: [],
       guestGroups: [],
@@ -606,6 +608,35 @@ export class ActivitiesService {
         );
       }
     } else {
+      if (activity.is_food_shift) {
+        const foodShiftCount = await this.activitiesRepo
+          .createQueryBuilder('a')
+          .innerJoin('a.guestGroups', 'g')
+          .where('g.id = :groupId', { groupId })
+          .andWhere('a.id != :actId', { actId: activity.id })
+          .andWhere('a.is_food_shift = :yes', { yes: true })
+          .getCount();
+        if (foodShiftCount >= limits.maxFoodShiftsPerGroup) {
+          throw new BadRequestException(
+            `The group is already assigned to ${limits.maxFoodShiftsPerGroup} hospitality shift${limits.maxFoodShiftsPerGroup === 1 ? '' : 's'} in this campaign`,
+          );
+        }
+      } else if (limits.restrictSameNameActivityGroup && activity.name) {
+        const sameNameCount = await this.activitiesRepo
+          .createQueryBuilder('a')
+          .innerJoin('a.guestGroups', 'g')
+          .where('g.id = :groupId', { groupId })
+          .andWhere('a.id != :actId', { actId: activity.id })
+          .andWhere('a.name = :name', { name: activity.name })
+          .andWhere('a.is_preaching_shift = :no', { no: false })
+          .andWhere('a.is_food_shift = :no2', { no2: false })
+          .getCount();
+        if (sameNameCount > 0) {
+          throw new BadRequestException(
+            `The group is already assigned to another "${activity.name}" activity`,
+          );
+        }
+      }
       const activitiesCount = await this.activitiesRepo
         .createQueryBuilder('a')
         .innerJoin('a.guestGroups', 'g')
@@ -1098,6 +1129,247 @@ export class ActivitiesService {
     };
   }
 
+  async autoAssignGuestGroupsToFoodShift(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
+    const activity = await this.activitiesRepo.findOne({
+      where: { id },
+      relations: { guestGroups: true },
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    if (!activity.is_food_shift) {
+      throw new BadRequestException(
+        'La asignación automática de hospitalidad solo está disponible para turnos de comida',
+      );
+    }
+
+    const availableGroups = await this.getAvailableGroups(id, currentUser);
+
+    const candidates = availableGroups.filter(
+      (g) =>
+        g.guest_count > 0 &&
+        !g.already_in_activity &&
+        !g.host_schedule_conflict &&
+        !g.already_in_food_shift,
+    );
+
+    if (candidates.length === 0) {
+      return { activity: await this.findOne(id, currentUser), skipped: 0 };
+    }
+
+    const existingCounts = await this.getGroupGuestCounts(
+      activity.guestGroups.map((g) => g.id),
+    );
+    let currentGuestCount = activity.guestGroups.reduce(
+      (sum, g) => sum + (existingCounts.get(g.id) ?? 0),
+      0,
+    );
+
+    let skipped = 0;
+
+    for (const candidate of candidates) {
+      if (
+        activity.max_guests !== null &&
+        currentGuestCount + candidate.guest_count > activity.max_guests
+      ) {
+        skipped++;
+        continue;
+      }
+      await this.assignGuestGroup(id, candidate.id, currentUser);
+      currentGuestCount += candidate.guest_count;
+    }
+
+    return { activity: await this.findOne(id, currentUser), skipped };
+  }
+
+  async autoAssignNonTypedActivity(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
+    const activity = await this.activitiesRepo.findOne({
+      where: { id },
+      relations: { guestGroups: true },
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    if (activity.is_food_shift || activity.is_preaching_shift) {
+      throw new BadRequestException(
+        'La asignación automática general solo está disponible para actividades no tipificadas',
+      );
+    }
+
+    const limits = await this.settingsService.getCampaignLimits();
+    const availableGroups = await this.getAvailableGroups(id, currentUser);
+
+    const foodShiftOnDayRows = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'gg')
+      .select('gg.id', 'groupId')
+      .where('a.is_food_shift = :yes', { yes: true })
+      .andWhere('a.date = :date', { date: activity.date })
+      .getRawMany<{ groupId: string }>();
+    const foodShiftOnDayIds = new Set(foodShiftOnDayRows.map((r) => r.groupId));
+
+    const candidates = availableGroups.filter(
+      (g) =>
+        g.guest_count > 0 &&
+        !g.already_in_activity &&
+        !g.host_schedule_conflict &&
+        g.activities_count < limits.maxActivitiesPerGroup &&
+        (!limits.restrictSameNameActivityGroup ||
+          !g.already_in_same_name_activity) &&
+        !foodShiftOnDayIds.has(g.id),
+    );
+
+    if (candidates.length === 0) {
+      return { activity: await this.findOne(id, currentUser), skipped: 0 };
+    }
+
+    const existingCounts = await this.getGroupGuestCounts(
+      activity.guestGroups.map((g) => g.id),
+    );
+    let currentGuestCount = activity.guestGroups.reduce(
+      (sum, g) => sum + (existingCounts.get(g.id) ?? 0),
+      0,
+    );
+
+    let skipped = 0;
+
+    for (const candidate of candidates) {
+      if (
+        activity.max_guests !== null &&
+        currentGuestCount + candidate.guest_count > activity.max_guests
+      ) {
+        skipped++;
+        continue;
+      }
+      await this.assignGuestGroup(id, candidate.id, currentUser);
+      currentGuestCount += candidate.guest_count;
+    }
+
+    return { activity: await this.findOne(id, currentUser), skipped };
+  }
+
+  async bulkAutoAssignNonTypedActivities(currentUser: JwtPayload): Promise<{
+    activitiesProcessed: number;
+    totalSkipped: number;
+  }> {
+    let regionIds: string[] = [];
+
+    if (currentUser.role !== 'superadmin') {
+      const user = await this.usersRepo.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      regionIds = (user?.regions ?? []).map((r) => r.id);
+      if (regionIds.length === 0)
+        return { activitiesProcessed: 0, totalSkipped: 0 };
+    }
+
+    const activitiesQb = this.activitiesRepo
+      .createQueryBuilder('a')
+      .select('a.id')
+      .where('a.is_food_shift = :no', { no: false })
+      .andWhere('a.is_preaching_shift = :no2', { no2: false });
+    if (regionIds.length > 0)
+      activitiesQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
+
+    const activities = await activitiesQb.getMany();
+
+    let totalSkipped = 0;
+    for (const a of activities) {
+      try {
+        const result = await this.autoAssignNonTypedActivity(a.id, currentUser);
+        totalSkipped += result.skipped;
+      } catch {
+        // skip activities that cannot be processed
+      }
+    }
+
+    return { activitiesProcessed: activities.length, totalSkipped };
+  }
+
+  async bulkAutoAssignGuestGroupsToFoodShifts(
+    currentUser: JwtPayload,
+  ): Promise<{
+    shiftsProcessed: number;
+    totalSkipped: number;
+    unassignedGroups: { id: string; group_code: string; guest_count: number }[];
+  }> {
+    let regionIds: string[] = [];
+
+    if (currentUser.role !== 'superadmin') {
+      const user = await this.usersRepo.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      regionIds = (user?.regions ?? []).map((r) => r.id);
+      if (regionIds.length === 0)
+        return { shiftsProcessed: 0, totalSkipped: 0, unassignedGroups: [] };
+    }
+
+    const shiftsQb = this.activitiesRepo
+      .createQueryBuilder('a')
+      .select('a.id')
+      .where('a.is_food_shift = :yes', { yes: true });
+    if (regionIds.length > 0)
+      shiftsQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
+
+    const shifts = await shiftsQb.getMany();
+
+    let totalSkipped = 0;
+    for (const shift of shifts) {
+      try {
+        const result = await this.autoAssignGuestGroupsToFoodShift(
+          shift.id,
+          currentUser,
+        );
+        totalSkipped += result.skipped;
+      } catch {
+        // skip shifts that can't be processed
+      }
+    }
+
+    const ggQb = this.groupsRepo
+      .createQueryBuilder('gg')
+      .leftJoin('gg.guests', 'g')
+      .select('gg.id', 'id')
+      .addSelect('gg.group_code', 'group_code')
+      .addSelect('COUNT(g.id)', 'guest_count')
+      .where(
+        `gg.id NOT IN (
+          SELECT agg."guestGroupId" FROM activity_guest_groups agg
+          INNER JOIN activities a ON a.id = agg."activityId"
+          WHERE a.is_food_shift = true
+        )`,
+      )
+      .groupBy('gg.id')
+      .having('COUNT(g.id) > 0')
+      .orderBy('COUNT(g.id)', 'DESC');
+    if (regionIds.length > 0)
+      ggQb.andWhere('gg.region_id IN (:...regionIds)', { regionIds });
+
+    const rawUnassigned = await ggQb.getRawMany<{
+      id: string;
+      group_code: string;
+      guest_count: string;
+    }>();
+
+    return {
+      shiftsProcessed: shifts.length,
+      totalSkipped,
+      unassignedGroups: rawUnassigned.map((r) => ({
+        id: r.id,
+        group_code: r.group_code,
+        guest_count: parseInt(r.guest_count, 10),
+      })),
+    };
+  }
+
   async removeGuestGroupFromGroup(
     id: string,
     groupId: string,
@@ -1413,6 +1685,7 @@ export class ActivitiesService {
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
 
+    const limits = await this.settingsService.getCampaignLimits();
     const assignedIds = new Set(activity.guestGroups.map((g) => g.id));
 
     // Groups already assigned to other activities overlapping in date+time
@@ -1499,19 +1772,56 @@ export class ActivitiesService {
       sameDayPreachingGroupIds = new Set(sameDayRows.map((r) => r.groupId));
     }
 
-    // For food shifts: only groups with a morning preaching shift (start < 12:00) that day
-    let morningPreachingGroupIds: Set<string> | null = null;
-    if (activity.is_food_shift) {
-      const morningRows = await this.activitiesRepo
+    // For non-typed activities with a name: groups already in another activity with the same name
+    let sameNameActivityGroupIds: Set<string> | null = null;
+    if (
+      limits.restrictSameNameActivityGroup &&
+      !activity.is_preaching_shift &&
+      !activity.is_food_shift &&
+      activity.name
+    ) {
+      const sameNameRows = await this.activitiesRepo
         .createQueryBuilder('a')
         .innerJoin('a.guestGroups', 'gg')
         .select('gg.id', 'groupId')
-        .where('a.is_preaching_shift = :yes', { yes: true })
-        .andWhere('a.region_id = :regionId', { regionId: activity.region_id })
-        .andWhere('a.date = :date', { date: activity.date })
-        .andWhere('a.start_time < :noon', { noon: '12:00' })
+        .where('a.name = :name', { name: activity.name })
+        .andWhere('a.id != :actId', { actId: activity.id })
+        .andWhere('a.is_preaching_shift = :no', { no: false })
+        .andWhere('a.is_food_shift = :no2', { no2: false })
         .getRawMany<{ groupId: string }>();
+      sameNameActivityGroupIds = new Set(sameNameRows.map((r) => r.groupId));
+    }
+
+    // For food shifts: only groups with a morning preaching shift (start < 12:00) that day
+    let morningPreachingGroupIds: Set<string> | null = null;
+    let foodShiftCountMap: Map<string, number> | null = null;
+    let maxFoodShiftsPerGroup = 1;
+    if (activity.is_food_shift) {
+      maxFoodShiftsPerGroup = limits.maxFoodShiftsPerGroup;
+      const [morningRows, foodRows] = await Promise.all([
+        this.activitiesRepo
+          .createQueryBuilder('a')
+          .innerJoin('a.guestGroups', 'gg')
+          .select('gg.id', 'groupId')
+          .where('a.is_preaching_shift = :yes', { yes: true })
+          .andWhere('a.region_id = :regionId', { regionId: activity.region_id })
+          .andWhere('a.date = :date', { date: activity.date })
+          .andWhere('a.start_time < :noon', { noon: '12:00' })
+          .getRawMany<{ groupId: string }>(),
+        this.activitiesRepo
+          .createQueryBuilder('a')
+          .innerJoin('a.guestGroups', 'gg')
+          .select('gg.id', 'groupId')
+          .addSelect('COUNT(a.id)', 'count')
+          .where('a.is_food_shift = :yes', { yes: true })
+          .andWhere('a.id != :actId', { actId: activity.id })
+          .groupBy('gg.id')
+          .getRawMany<{ groupId: string; count: string }>(),
+      ]);
       morningPreachingGroupIds = new Set(morningRows.map((r) => r.groupId));
+      foodShiftCountMap = new Map(
+        foodRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
+      );
     }
 
     const result: AvailableGroupForActivityDto[] = [];
@@ -1597,6 +1907,12 @@ export class ActivitiesService {
           sameDayPreachingGroupIds !== null &&
           sameDayPreachingGroupIds.has(group.id),
         activities_count: activitiesCountMap.get(group.id) ?? 0,
+        already_in_food_shift:
+          foodShiftCountMap !== null &&
+          (foodShiftCountMap.get(group.id) ?? 0) >= maxFoodShiftsPerGroup,
+        already_in_same_name_activity:
+          sameNameActivityGroupIds !== null &&
+          sameNameActivityGroupIds.has(group.id),
       });
     }
 
@@ -1930,6 +2246,8 @@ export class ActivitiesService {
     is_preaching_shift: activity.is_preaching_shift,
     is_food_shift: activity.is_food_shift,
     request_attendance: activity.request_attendance,
+    invite_all_congregation: activity.invite_all_congregation,
+    invite_all_region: activity.invite_all_region,
     volunteers: (activity.volunteers ?? []).map((v) => {
       const vr = volunteerRoles.get(v.id);
       return {
@@ -1976,6 +2294,8 @@ export class ActivitiesService {
     'is_preaching_shift',
     'is_food_shift',
     'request_attendance',
+    'invite_all_congregation',
+    'invite_all_region',
     'icon',
     'location_address',
     'status',
@@ -2023,7 +2343,11 @@ export class ActivitiesService {
       ];
     } else if (isPreachingShift) {
       columns = this.ACTIVITY_EXCEL_COLUMNS.filter(
-        (c) => c !== 'is_preaching_shift' && c !== 'is_food_shift',
+        (c) =>
+          c !== 'is_preaching_shift' &&
+          c !== 'is_food_shift' &&
+          c !== 'invite_all_congregation' &&
+          c !== 'invite_all_region',
       ) as string[];
       sampleRow = [
         'Nombre del turno',
@@ -2052,6 +2376,8 @@ export class ActivitiesService {
         '',
         '',
         '',
+        'FALSE',
+        'FALSE',
         'FALSE',
         'FALSE',
         'FALSE',
@@ -2095,6 +2421,8 @@ export class ActivitiesService {
       a.is_preaching_shift ? 'TRUE' : 'FALSE',
       a.is_food_shift ? 'TRUE' : 'FALSE',
       a.request_attendance ? 'TRUE' : 'FALSE',
+      a.invite_all_congregation ? 'TRUE' : 'FALSE',
+      a.invite_all_region ? 'TRUE' : 'FALSE',
       a.icon ?? '',
       a.activity_locations?.[0]?.address ?? '',
       a.status,
@@ -2217,6 +2545,14 @@ export class ActivitiesService {
           forceFoodShift ||
           (!forcePreachingShift && this.parseXlsxBool(row['is_food_shift'])),
         request_attendance: this.parseXlsxBool(row['request_attendance']),
+        invite_all_congregation:
+          !forcePreachingShift && !forceFoodShift
+            ? this.parseXlsxBool(row['invite_all_congregation'])
+            : false,
+        invite_all_region:
+          !forcePreachingShift && !forceFoodShift
+            ? this.parseXlsxBool(row['invite_all_region'])
+            : false,
         volunteers: [],
         volunteer_count: 0,
         required_volunteers: this.parseXlsxInt(row['required_volunteers']),
@@ -2310,17 +2646,59 @@ export class ActivitiesService {
     groupId: string,
     allStatuses = false,
   ): Promise<ScheduleActivityItem[]> {
-    let qb = this.activitiesRepo
+    const group = await this.groupsRepo.findOne({ where: { id: groupId } });
+    if (!group) return [];
+
+    // 1. Directly assigned activities where neither open-invite flag is active
+    const directQb = this.activitiesRepo
       .createQueryBuilder('a')
       .innerJoin('a.guestGroups', 'gg', 'gg.id = :groupId', { groupId })
-      .orderBy('a.date', 'ASC')
-      .addOrderBy('a.start_time', 'ASC');
+      .where('a.invite_all_congregation = :no', { no: false })
+      .andWhere('a.invite_all_region = :no2', { no2: false });
+    if (!allStatuses)
+      directQb.andWhere('a.status = :status', { status: 'published' });
+    const directActivities = await directQb.getMany();
 
-    if (!allStatuses) {
-      qb = qb.where('a.status = :status', { status: 'published' });
+    // 2. Invite-all-congregation activities (group must share the same host)
+    let congregationActivities: Activity[] = [];
+    if (group.host_id) {
+      const congQb = this.activitiesRepo
+        .createQueryBuilder('a')
+        .where('a.invite_all_congregation = :yes', { yes: true })
+        .andWhere('a.invite_all_region = :no', { no: false })
+        .andWhere('a.host_id = :hostId', { hostId: group.host_id });
+      if (!allStatuses)
+        congQb.andWhere('a.status = :status', { status: 'published' });
+      congregationActivities = await congQb.getMany();
     }
 
-    const activities = await qb.getMany();
+    // 3. Invite-all-region activities
+    const regionQb = this.activitiesRepo
+      .createQueryBuilder('a')
+      .where('a.invite_all_region = :yes', { yes: true })
+      .andWhere('a.region_id = :regionId', { regionId: group.region_id });
+    if (!allStatuses)
+      regionQb.andWhere('a.status = :status', { status: 'published' });
+    const regionActivities = await regionQb.getMany();
+
+    // Merge and deduplicate by id
+    const seen = new Set<string>();
+    const activities: Activity[] = [];
+    for (const a of [
+      ...directActivities,
+      ...congregationActivities,
+      ...regionActivities,
+    ]) {
+      if (!seen.has(a.id)) {
+        seen.add(a.id);
+        activities.push(a);
+      }
+    }
+    activities.sort((a, b) =>
+      a.date !== b.date
+        ? a.date.localeCompare(b.date)
+        : a.start_time.localeCompare(b.start_time),
+    );
 
     const preachingShiftIds = activities
       .filter((a) => a.is_preaching_shift)

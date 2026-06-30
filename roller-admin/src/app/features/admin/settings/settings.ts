@@ -91,6 +91,8 @@ export class SettingsComponent implements OnInit {
   readonly maxActivitiesPerGroup = signal(4);
   readonly maxPreachingShiftsPerGroup = signal(4);
   readonly maxGuestsPerPreachingGroup = signal(3);
+  readonly maxFoodShiftsPerGroup = signal(1);
+  readonly restrictSameNameActivityGroup = signal(true);
 
   ngOnInit() {
     this.loadSmtp();
@@ -104,6 +106,8 @@ export class SettingsComponent implements OnInit {
         this.maxActivitiesPerGroup.set(s.max_activities_per_group);
         this.maxPreachingShiftsPerGroup.set(s.max_preaching_shifts_per_group);
         this.maxGuestsPerPreachingGroup.set(s.max_guests_per_preaching_group);
+        this.maxFoodShiftsPerGroup.set(s.max_food_shifts_per_group);
+        this.restrictSameNameActivityGroup.set(s.restrict_same_name_activity_group);
         this.campaignLoading.set(false);
       },
       error: () => {
@@ -123,12 +127,16 @@ export class SettingsComponent implements OnInit {
         max_activities_per_group: this.maxActivitiesPerGroup(),
         max_preaching_shifts_per_group: this.maxPreachingShiftsPerGroup(),
         max_guests_per_preaching_group: this.maxGuestsPerPreachingGroup(),
+        max_food_shifts_per_group: this.maxFoodShiftsPerGroup(),
+        restrict_same_name_activity_group: this.restrictSameNameActivityGroup(),
       })
       .subscribe({
         next: (s) => {
           this.maxActivitiesPerGroup.set(s.max_activities_per_group);
           this.maxPreachingShiftsPerGroup.set(s.max_preaching_shifts_per_group);
           this.maxGuestsPerPreachingGroup.set(s.max_guests_per_preaching_group);
+          this.maxFoodShiftsPerGroup.set(s.max_food_shifts_per_group);
+          this.restrictSameNameActivityGroup.set(s.restrict_same_name_activity_group);
           this.campaignSaving.set(false);
           this.campaignSaveSuccess.set(true);
           setTimeout(() => this.campaignSaveSuccess.set(false), 3000);
