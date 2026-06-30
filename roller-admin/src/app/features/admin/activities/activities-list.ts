@@ -1,3 +1,4 @@
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
@@ -2224,6 +2225,25 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
           this.detailSaving.set(false);
         },
       });
+  }
+
+  openGroupPlanningWindow(groupId: string, groupCode: string) {
+    const base = window.location.href.split('#')[0];
+    const port = (window as Window & { __ROLLER_API_PORT__?: number }).__ROLLER_API_PORT__;
+    const portParam = port != null ? `?_port=${port}` : '';
+    const url = `${base}${portParam}#/group-planning?groupId=${groupId}&groupCode=${encodeURIComponent(groupCode)}`;
+    if ('__TAURI_INTERNALS__' in window) {
+      const win = new WebviewWindow(`planning-${groupId}`, {
+        url,
+        title: `Planning — ${groupCode}`,
+        width: 1000,
+        height: 560,
+        resizable: true,
+      });
+      win.once('tauri://error', (e) => console.error('Planning window error:', e));
+    } else {
+      window.open(url, `planning-${groupId}`, 'width=1000,height=560');
+    }
   }
 
   removeGroup(groupId: string) {

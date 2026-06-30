@@ -117,7 +117,8 @@ export class ActivitiesController {
 
   @Get('available-for-group')
   @ApiOkResponse({
-    description: 'Actividades disponibles para asignar a un grupo en una fecha concreta',
+    description:
+      'Actividades disponibles para asignar a un grupo en una fecha concreta',
   })
   getAvailableForGroup(
     @Query('groupId') groupId: string | undefined,

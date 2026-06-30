@@ -8,7 +8,8 @@ declare global {
   }
 }
 
-const apiPort = window.__ROLLER_API_PORT__ ?? 3000;
+const urlPort = parseInt(new URLSearchParams(window.location.search).get('_port') ?? '', 10);
+const apiPort = window.__ROLLER_API_PORT__ ?? (Number.isFinite(urlPort) ? urlPort : 3000);
 
 export const environment = {
   production: true,

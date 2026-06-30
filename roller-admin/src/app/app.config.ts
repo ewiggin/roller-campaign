@@ -8,7 +8,7 @@ import {
   provideBrowserGlobalErrorListeners,
   provideAppInitializer,
 } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withHashLocation } from '@angular/router';
 
 import { routes } from './app.routes';
 import { apiUrlInterceptor } from './core/interceptors/api-url.interceptor';
@@ -21,7 +21,7 @@ registerLocaleData(localeEs);
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes),
+    provideRouter(routes, withHashLocation()),
     provideHttpClient(withInterceptors([apiUrlInterceptor, authInterceptor, errorInterceptor])),
     { provide: LOCALE_ID, useValue: 'es-ES' },
     provideAppInitializer(() => inject(AuthService).checkSession()),

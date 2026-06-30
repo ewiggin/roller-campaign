@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -87,6 +88,8 @@ export interface AvailableForGroupPreachingShift extends AvailableForGroupActivi
 
 @Injectable()
 export class ActivitiesService {
+  private readonly logger = new Logger(ActivitiesService.name);
+
   constructor(
     @InjectRepository(Activity)
     private readonly activitiesRepo: Repository<Activity>,
@@ -1139,8 +1142,10 @@ export class ActivitiesService {
           sortBy,
         );
         totalSkipped += result.skipped;
-      } catch {
-        // skip shifts that can't be processed (e.g., access denied)
+      } catch (e) {
+        this.logger.error(
+          `Bulk preaching auto-assign skipped shift ${shift.id}: ${e}`,
+        );
       }
     }
 
@@ -1365,8 +1370,10 @@ export class ActivitiesService {
           sortBy,
         );
         totalSkipped += result.skipped;
-      } catch {
-        // skip activities that cannot be processed
+      } catch (e) {
+        this.logger.error(
+          `Bulk general auto-assign skipped activity ${a.id}: ${e}`,
+        );
       }
     }
 
@@ -1413,8 +1420,10 @@ export class ActivitiesService {
           sortBy,
         );
         totalSkipped += result.skipped;
-      } catch {
-        // skip shifts that can't be processed
+      } catch (e) {
+        this.logger.error(
+          `Bulk food auto-assign skipped shift ${shift.id}: ${e}`,
+        );
       }
     }
 
@@ -2794,7 +2803,9 @@ export class ActivitiesService {
     );
 
     return activities.map((a) => {
-      const pgInfo = a.is_preaching_shift ? (turnoNames.get(a.id) ?? null) : null;
+      const pgInfo = a.is_preaching_shift
+        ? (turnoNames.get(a.id) ?? null)
+        : null;
       return {
         date: a.date,
         start_time: a.start_time,
@@ -2824,7 +2835,9 @@ export class ActivitiesService {
       .where('pg.activity_id IN (:...activityIds)', { activityIds })
       .getMany();
 
-    return new Map(groups.map((g) => [g.activity_id, { name: g.name, id: g.id }]));
+    return new Map(
+      groups.map((g) => [g.activity_id, { name: g.name, id: g.id }]),
+    );
   }
 
   private async getVolunteerPreachingGroupNames(
@@ -2947,7 +2960,10 @@ export class ActivitiesService {
 
     // Guest group + guest counts per candidate activity
     const candidateIds = candidates.map((a) => a.id);
-    const activityCounts = new Map<string, { groups: number; guests: number }>();
+    const activityCounts = new Map<
+      string,
+      { groups: number; guests: number }
+    >();
     if (candidateIds.length > 0) {
       const rows: { actId: string; groups: string; guests: string }[] =
         await this.activitiesRepo
@@ -2977,7 +2993,9 @@ export class ActivitiesService {
 
     const preachingCount = existing.filter((a) => a.is_preaching_shift).length;
     const foodCount = existing.filter((a) => a.is_food_shift).length;
-    const nonPreachingCount = existing.filter((a) => !a.is_preaching_shift && !a.is_food_shift).length;
+    const nonPreachingCount = existing.filter(
+      (a) => !a.is_preaching_shift && !a.is_food_shift,
+    ).length;
     const existingNamesSet = new Set(
       existing
         .filter((a) => !a.is_preaching_shift && !a.is_food_shift && a.name)
@@ -2987,7 +3005,10 @@ export class ActivitiesService {
 
     // Preaching shifts need their preaching groups with guest counts
     const preachingCandidates = candidates.filter((a) => a.is_preaching_shift);
-    const preachingGroupsByActivity = new Map<string, ActivityPreachingGroup[]>();
+    const preachingGroupsByActivity = new Map<
+      string,
+      ActivityPreachingGroup[]
+    >();
     if (preachingCandidates.length > 0) {
       const pgs = await this.preachingGroupsRepo.find({
         where: { activity_id: In(preachingCandidates.map((a) => a.id)) },
@@ -3000,20 +3021,44 @@ export class ActivitiesService {
       }
     }
 
-    const checkActivity = (a: Activity): { can_assign: boolean; reason: string | null } => {
+    const checkActivity = (
+      a: Activity,
+    ): { can_assign: boolean; reason: string | null } => {
       if (group.available_from && date < group.available_from)
-        return { can_assign: false, reason: 'Group not yet available on this date' };
+        return {
+          can_assign: false,
+          reason: 'Group not yet available on this date',
+        };
       if (group.available_to && date > group.available_to)
-        return { can_assign: false, reason: 'Group no longer available on this date' };
+        return {
+          can_assign: false,
+          reason: 'Group no longer available on this date',
+        };
 
-      if (this.hasHostScheduleConflict(date, a.start_time, a.end_time, group.host ?? null))
-        return { can_assign: false, reason: 'Conflicts with congregation meeting' };
+      if (
+        this.hasHostScheduleConflict(
+          date,
+          a.start_time,
+          a.end_time,
+          group.host ?? null,
+        )
+      )
+        return {
+          can_assign: false,
+          reason: 'Conflicts with congregation meeting',
+        };
 
       const timeConflict = assignedOnDate.some(
-        (ea) => ea.id !== a.id && ea.start_time < a.end_time && ea.end_time > a.start_time,
+        (ea) =>
+          ea.id !== a.id &&
+          ea.start_time < a.end_time &&
+          ea.end_time > a.start_time,
       );
       if (timeConflict)
-        return { can_assign: false, reason: 'Time conflict with another activity' };
+        return {
+          can_assign: false,
+          reason: 'Time conflict with another activity',
+        };
 
       if (a.is_preaching_shift) {
         if (preachingCount >= limits.maxPreachingShiftsPerGroup)
@@ -3028,8 +3073,15 @@ export class ActivitiesService {
               can_assign: false,
               reason: `Max hospitality shifts reached (${limits.maxFoodShiftsPerGroup})`,
             };
-        } else if (limits.restrictSameNameActivityGroup && a.name && existingNamesSet.has(a.name)) {
-          return { can_assign: false, reason: `Already assigned to another "${a.name}"` };
+        } else if (
+          limits.restrictSameNameActivityGroup &&
+          a.name &&
+          existingNamesSet.has(a.name)
+        ) {
+          return {
+            can_assign: false,
+            reason: `Already assigned to another "${a.name}"`,
+          };
         }
         if (nonPreachingCount >= limits.maxActivitiesPerGroup)
           return {
@@ -3044,7 +3096,10 @@ export class ActivitiesService {
     const groupLat = group.agg_avg_lat ?? group.host?.lat ?? null;
     const groupLng = group.agg_avg_lng ?? group.host?.lng ?? null;
 
-    const toBase = (a: Activity, alreadyAssigned: boolean): AvailableForGroupActivity => {
+    const toBase = (
+      a: Activity,
+      alreadyAssigned: boolean,
+    ): AvailableForGroupActivity => {
       const check = alreadyAssigned
         ? { can_assign: false, reason: 'Already assigned' }
         : checkActivity(a);
@@ -3053,8 +3108,13 @@ export class ActivitiesService {
       const actLat = actLoc?.lat ?? a.host?.lat ?? null;
       const actLng = actLoc?.lng ?? a.host?.lng ?? null;
       const distance_km =
-        groupLat !== null && groupLng !== null && actLat !== null && actLng !== null
-          ? Math.round(this.haversineKm(groupLat, groupLng, actLat, actLng) * 10) / 10
+        groupLat !== null &&
+        groupLng !== null &&
+        actLat !== null &&
+        actLng !== null
+          ? Math.round(
+              this.haversineKm(groupLat, groupLng, actLat, actLng) * 10,
+            ) / 10
           : null;
       return {
         id: a.id,
@@ -3095,7 +3155,9 @@ export class ActivitiesService {
                 (sum, gg) => sum + (gg.agg_guest_count ?? 0),
                 0,
               );
-              const pgAlreadyAssigned = pg.guestGroups.some((gg) => gg.id === groupId);
+              const pgAlreadyAssigned = pg.guestGroups.some(
+                (gg) => gg.id === groupId,
+              );
               return {
                 id: pg.id,
                 name: pg.name,
