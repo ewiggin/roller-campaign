@@ -10,6 +10,9 @@ export class CampaignSettingsResponseDto {
   @ApiProperty({ example: 3 })
   max_guests_per_preaching_group: number;
 
+  @ApiProperty({ example: 1 })
+  max_food_shifts_per_group: number;
+
   @ApiProperty()
   updated_at: Date;
 }

@@ -95,6 +95,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly maxActivities = signal(4);
   readonly maxPreachingShifts = signal(4);
   readonly maxGuestsPerPreachingGroup = signal(3);
+  readonly maxFoodShifts = signal(1);
   private readonly route = inject(ActivatedRoute);
 
   // When opened from the "Preaching Shifts" menu entry, the list is
@@ -708,6 +709,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     const isFoodShift = this.selectedActivity()?.is_food_shift ?? false;
     const maxPreach = this.maxPreachingShifts();
     const maxAct = this.maxActivities();
+    const maxFood = this.maxFoodShifts();
     return this.availableGroups().map((g) => {
       const preachingLimitReached = isPreachingShift && g.preaching_shifts_count >= maxPreach;
       const sameDayConflict = isPreachingShift && g.same_day_preaching_shift;
@@ -730,7 +732,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
             : sameDayConflict
               ? 'Already has a preaching shift today'
               : foodShiftConflict
-                ? 'Already has a hospitality shift this campaign'
+                ? `Max hospitality shifts reached (${maxFood})`
                 : preachingLimitReached
                   ? `Max preaching shifts (${g.preaching_shifts_count}/${maxPreach})`
                   : activitiesLimitReached
@@ -1439,6 +1441,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         this.maxActivities.set(s.max_activities_per_group);
         this.maxPreachingShifts.set(s.max_preaching_shifts_per_group);
         this.maxGuestsPerPreachingGroup.set(s.max_guests_per_preaching_group);
+        this.maxFoodShifts.set(s.max_food_shifts_per_group);
       },
     });
 

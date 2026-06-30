@@ -426,14 +426,25 @@ Antes de ejecutar el algoritmo, se obtiene la lista de grupos mediante `getAvail
 4. Al menos un invitado disponible ese día
 5. Sin solapamiento de horario con otra actividad (`already_in_activity = false`)
 6. Sin conflicto con la reunión del anfitrión del grupo (`host_schedule_conflict = false`)
-7. **No asignado a ningún otro turno de hospitalidad en toda la campaña** (`already_in_food_shift = false`)
+7. **No ha superado el límite de turnos de hospitalidad** (`already_in_food_shift = false`), configurable como `maxFoodShiftsPerGroup` en settings (defecto: 1)
 8. Al menos un invitado registrado (`guest_count > 0`)
 
 Los grupos que ya están asignados a este turno se excluyen (asignaciones existentes que no se tocan).
 
+### Configuración en settings
+
+Se añade `maxFoodShiftsPerGroup` (entero, mínimo 1, defecto 1) junto a los límites existentes:
+
+```
+maxPreachingShiftsPerGroup    (ya existe)
+maxActivitiesPerGroup         (ya existe)
+maxGuestsPerPreachingGroup    (ya existe)
+maxFoodShiftsPerGroup         (nuevo)
+```
+
 ### Restricción en asignación manual
 
-La regla "un grupo solo puede tener un turno de hospitalidad en toda la campaña" también se valida al asignar manualmente: el backend lanza error si se intenta asignar un grupo que ya tiene otro turno de hospitalidad. En el selector del frontend, estos grupos aparecen deshabilitados con el motivo "Already has a hospitality shift this campaign".
+El límite `maxFoodShiftsPerGroup` también se valida al asignar manualmente: el backend lanza error si el grupo ya ha alcanzado el límite. En el selector del frontend, estos grupos aparecen deshabilitados con el motivo "Max hospitality shifts reached (N)".
 
 ### Algoritmo (Greedy por distancia)
 

@@ -614,9 +614,9 @@ export class ActivitiesService {
           .andWhere('a.id != :actId', { actId: activity.id })
           .andWhere('a.is_food_shift = :yes', { yes: true })
           .getCount();
-        if (foodShiftCount > 0) {
+        if (foodShiftCount >= limits.maxFoodShiftsPerGroup) {
           throw new BadRequestException(
-            'El grupo ya está asignado a otro turno de hospitalidad en esta campaña',
+            `The group is already assigned to ${limits.maxFoodShiftsPerGroup} hospitality shift${limits.maxFoodShiftsPerGroup === 1 ? '' : 's'} in this campaign`,
           );
         }
       }
@@ -1648,8 +1648,11 @@ export class ActivitiesService {
 
     // For food shifts: only groups with a morning preaching shift (start < 12:00) that day
     let morningPreachingGroupIds: Set<string> | null = null;
-    let foodShiftGroupIds: Set<string> | null = null;
+    let foodShiftCountMap: Map<string, number> | null = null;
+    let maxFoodShiftsPerGroup = 1;
     if (activity.is_food_shift) {
+      const limits = await this.settingsService.getCampaignLimits();
+      maxFoodShiftsPerGroup = limits.maxFoodShiftsPerGroup;
       const [morningRows, foodRows] = await Promise.all([
         this.activitiesRepo
           .createQueryBuilder('a')
@@ -1664,12 +1667,16 @@ export class ActivitiesService {
           .createQueryBuilder('a')
           .innerJoin('a.guestGroups', 'gg')
           .select('gg.id', 'groupId')
+          .addSelect('COUNT(a.id)', 'count')
           .where('a.is_food_shift = :yes', { yes: true })
           .andWhere('a.id != :actId', { actId: activity.id })
-          .getRawMany<{ groupId: string }>(),
+          .groupBy('gg.id')
+          .getRawMany<{ groupId: string; count: string }>(),
       ]);
       morningPreachingGroupIds = new Set(morningRows.map((r) => r.groupId));
-      foodShiftGroupIds = new Set(foodRows.map((r) => r.groupId));
+      foodShiftCountMap = new Map(
+        foodRows.map((r) => [r.groupId, parseInt(r.count, 10)]),
+      );
     }
 
     const result: AvailableGroupForActivityDto[] = [];
@@ -1756,7 +1763,8 @@ export class ActivitiesService {
           sameDayPreachingGroupIds.has(group.id),
         activities_count: activitiesCountMap.get(group.id) ?? 0,
         already_in_food_shift:
-          foodShiftGroupIds !== null && foodShiftGroupIds.has(group.id),
+          foodShiftCountMap !== null &&
+          (foodShiftCountMap.get(group.id) ?? 0) >= maxFoodShiftsPerGroup,
       });
     }
 

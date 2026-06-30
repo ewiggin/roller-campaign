@@ -14,6 +14,9 @@ export class CampaignSettings {
   @Column({ type: 'int', default: 3 })
   max_guests_per_preaching_group: number;
 
+  @Column({ type: 'int', default: 1 })
+  max_food_shifts_per_group: number;
+
   @UpdateDateColumn()
   updated_at: Date;
 }

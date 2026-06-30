@@ -19,4 +19,10 @@ export class UpdateCampaignSettingsDto {
   @IsInt()
   @Min(0)
   max_guests_per_preaching_group?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  max_food_shifts_per_group?: number;
 }
