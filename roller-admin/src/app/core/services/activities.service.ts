@@ -195,19 +195,22 @@ export class ActivitiesService {
     );
   }
 
-  autoAssignGuestGroupsToPreachingGroups(id: string) {
+  autoAssignGuestGroupsToPreachingGroups(
+    id: string,
+    sortBy: 'distance' | 'group_size' = 'distance',
+  ) {
     return this.http.post<{ activity: Activity; skipped: number }>(
       `/api/activities/${id}/preaching-groups/auto-assign`,
-      {},
+      { sort_by: sortBy },
     );
   }
 
-  bulkAutoAssignGuestGroupsToPreachingGroups() {
+  bulkAutoAssignGuestGroupsToPreachingGroups(sortBy: 'distance' | 'group_size' = 'distance') {
     return this.http.post<{
       shiftsProcessed: number;
       totalSkipped: number;
       unassignedGroups: { id: string; group_code: string; guest_count: number }[];
-    }>(`/api/activities/preaching-groups/bulk-auto-assign`, {});
+    }>(`/api/activities/preaching-groups/bulk-auto-assign`, { sort_by: sortBy });
   }
 
   autoAssignGuestGroupsToFoodShift(id: string) {

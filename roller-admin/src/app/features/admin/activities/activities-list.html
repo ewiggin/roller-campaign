@@ -2165,6 +2165,15 @@
           <div class="space-y-4">
             <div class="flex justify-end gap-2">
               @if (selectedActivity()!.preaching_groups.length > 0) {
+                <select
+                  [value]="preachSortBy()"
+                  (change)="preachSortBy.set($any($event.target).value)"
+                  [disabled]="detailSaving()"
+                  class="rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-sm text-gray-700 dark:text-zinc-200 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                >
+                  <option value="distance">Closest first</option>
+                  <option value="group_size">Largest first</option>
+                </select>
                 <button
                   type="button"
                   (click)="autoAssignGuestGroupsToPreachingGroups()"
@@ -3105,16 +3114,42 @@
           <strong>all preaching shifts</strong> of the campaign with guest groups, following these
           criteria:
         </p>
+
+        <!-- Sort preference -->
+        <div class="flex items-center gap-3">
+          <label
+            for="preachSortBy"
+            class="text-xs font-semibold text-gray-600 dark:text-zinc-400 uppercase tracking-wide whitespace-nowrap"
+            >Sort candidates by</label
+          >
+          <select
+            id="preachSortBy"
+            [value]="preachSortBy()"
+            (change)="preachSortBy.set($any($event.target).value)"
+            class="rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-sm text-gray-700 dark:text-zinc-200 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="distance">Distance (closest first)</option>
+            <option value="group_size">Group size (largest first)</option>
+          </select>
+        </div>
+
         <ol class="flex flex-col gap-2 list-none">
           <li class="flex items-start gap-2.5">
             <span
               class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-center mt-0.5"
               >1</span
             >
-            <span
-              ><strong>Closest first.</strong> Groups are sorted by their distance to the activity
-              location. Nearest groups are assigned first.</span
-            >
+            @if (preachSortBy() === 'distance') {
+              <span
+                ><strong>Closest first.</strong> Groups are sorted by their distance to the activity
+                location. Nearest groups are assigned first.</span
+              >
+            } @else {
+              <span
+                ><strong>Largest first.</strong> Groups are sorted by number of guests, largest
+                first. Among groups of equal size, the nearest are assigned first.</span
+              >
+            }
           </li>
           <li class="flex items-start gap-2.5">
             <span

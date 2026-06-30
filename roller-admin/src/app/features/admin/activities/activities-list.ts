@@ -558,6 +558,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
   readonly detailError = signal('');
+  readonly preachSortBy = signal<'distance' | 'group_size'>('distance');
   readonly bulkConfirmOpen = signal(false);
   readonly bulkAssigning = signal(false);
   readonly bulkAssignResult = signal<{
@@ -2281,7 +2282,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     const activity = this.selectedActivity();
     if (!activity) return;
     this.detailSaving.set(true);
-    this.svc.autoAssignGuestGroupsToPreachingGroups(activity.id).subscribe({
+    this.svc.autoAssignGuestGroupsToPreachingGroups(activity.id, this.preachSortBy()).subscribe({
       next: ({ activity: updated, skipped }) => {
         this.selectedActivity.set(updated);
         this.reloadAvailableGroups();
@@ -2304,7 +2305,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   bulkAutoAssignGuestGroupsToPreachingGroups() {
     this.bulkAssigning.set(true);
     this.bulkAssignResult.set(null);
-    this.svc.bulkAutoAssignGuestGroupsToPreachingGroups().subscribe({
+    this.svc.bulkAutoAssignGuestGroupsToPreachingGroups(this.preachSortBy()).subscribe({
       next: (result) => {
         this.bulkAssignResult.set(result);
         this.bulkAssigning.set(false);

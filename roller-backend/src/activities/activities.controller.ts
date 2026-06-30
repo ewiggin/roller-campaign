@@ -54,6 +54,7 @@ import {
 import { CreateActivityBatchDto } from './dto/create-activity-batch.dto';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+import { AutoAssignPreachingDto } from './dto/auto-assign-preaching.dto';
 
 @ApiTags('activities')
 @ApiBearerAuth()
@@ -267,12 +268,16 @@ export class ActivitiesController {
   })
   bulkAutoAssignGuestGroupsToPreachingGroups(
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{
     shiftsProcessed: number;
     totalSkipped: number;
     unassignedGroups: { id: string; group_code: string; guest_count: number }[];
   }> {
-    return this.svc.bulkAutoAssignGuestGroupsToPreachingGroups(user);
+    return this.svc.bulkAutoAssignGuestGroupsToPreachingGroups(
+      user,
+      dto.sort_by,
+    );
   }
 
   @Post('general/bulk-auto-assign')
@@ -488,8 +493,13 @@ export class ActivitiesController {
   autoAssignGuestGroupsToPreachingGroups(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
+    @Body() dto: AutoAssignPreachingDto,
   ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
-    return this.svc.autoAssignGuestGroupsToPreachingGroups(id, user);
+    return this.svc.autoAssignGuestGroupsToPreachingGroups(
+      id,
+      user,
+      dto.sort_by,
+    );
   }
 
   @Post(':id/food-shift/auto-assign')

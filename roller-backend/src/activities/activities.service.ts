@@ -942,6 +942,7 @@ export class ActivitiesService {
   async autoAssignGuestGroupsToPreachingGroups(
     id: string,
     currentUser: JwtPayload,
+    sortBy: 'distance' | 'group_size' = 'distance',
   ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
     const activity = await this.activitiesRepo.findOne({ where: { id } });
     if (!activity) throw new NotFoundException('Actividad no encontrada');
@@ -992,6 +993,12 @@ export class ActivitiesService {
 
     if (candidates.length === 0) {
       return { activity: await this.findOne(id, currentUser), skipped: 0 };
+    }
+
+    if (sortBy === 'group_size') {
+      // Largest groups first; distance is the implicit tiebreaker because
+      // getAvailableGroups already returns candidates sorted by distance.
+      candidates.sort((a, b) => b.guest_count - a.guest_count);
     }
 
     // Build initial guest-count and group-count per preaching group
@@ -1063,6 +1070,7 @@ export class ActivitiesService {
 
   async bulkAutoAssignGuestGroupsToPreachingGroups(
     currentUser: JwtPayload,
+    sortBy: 'distance' | 'group_size' = 'distance',
   ): Promise<{
     shiftsProcessed: number;
     totalSkipped: number;
@@ -1097,6 +1105,7 @@ export class ActivitiesService {
         const result = await this.autoAssignGuestGroupsToPreachingGroups(
           shift.id,
           currentUser,
+          sortBy,
         );
         totalSkipped += result.skipped;
       } catch {
