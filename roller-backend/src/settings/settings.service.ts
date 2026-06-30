@@ -31,6 +31,7 @@ export interface CampaignLimits {
   maxPreachingShiftsPerGroup: number;
   maxGuestsPerPreachingGroup: number;
   maxFoodShiftsPerGroup: number;
+  restrictSameNameActivityGroup: boolean;
 }
 
 @Injectable()
@@ -94,6 +95,9 @@ export class SettingsService {
       row.max_guests_per_preaching_group = dto.max_guests_per_preaching_group;
     if (dto.max_food_shifts_per_group !== undefined)
       row.max_food_shifts_per_group = dto.max_food_shifts_per_group;
+    if (dto.restrict_same_name_activity_group !== undefined)
+      row.restrict_same_name_activity_group =
+        dto.restrict_same_name_activity_group;
     const saved = await this.campaignRepo.save(row);
     return this.toCampaignDto(saved);
   }
@@ -105,6 +109,7 @@ export class SettingsService {
       maxPreachingShiftsPerGroup: row.max_preaching_shifts_per_group,
       maxGuestsPerPreachingGroup: row.max_guests_per_preaching_group,
       maxFoodShiftsPerGroup: row.max_food_shifts_per_group,
+      restrictSameNameActivityGroup: row.restrict_same_name_activity_group,
     };
   }
 
@@ -127,6 +132,8 @@ export class SettingsService {
     dto.max_preaching_shifts_per_group = row.max_preaching_shifts_per_group;
     dto.max_guests_per_preaching_group = row.max_guests_per_preaching_group;
     dto.max_food_shifts_per_group = row.max_food_shifts_per_group;
+    dto.restrict_same_name_activity_group =
+      row.restrict_same_name_activity_group;
     dto.updated_at = row.updated_at;
     return dto;
   }

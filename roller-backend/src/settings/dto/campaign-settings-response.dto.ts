@@ -13,6 +13,9 @@ export class CampaignSettingsResponseDto {
   @ApiProperty({ example: 1 })
   max_food_shifts_per_group: number;
 
+  @ApiProperty({ example: true })
+  restrict_same_name_activity_group: boolean;
+
   @ApiProperty()
   updated_at: Date;
 }

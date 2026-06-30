@@ -17,6 +17,9 @@ export class CampaignSettings {
   @Column({ type: 'int', default: 1 })
   max_food_shifts_per_group: number;
 
+  @Column({ type: 'boolean', default: true })
+  restrict_same_name_activity_group: boolean;
+
   @UpdateDateColumn()
   updated_at: Date;
 }

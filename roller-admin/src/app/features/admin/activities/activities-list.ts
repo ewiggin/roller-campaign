@@ -96,6 +96,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly maxPreachingShifts = signal(4);
   readonly maxGuestsPerPreachingGroup = signal(3);
   readonly maxFoodShifts = signal(1);
+  readonly restrictSameNameActivityGroup = signal(true);
   private readonly route = inject(ActivatedRoute);
 
   // When opened from the "Preaching Shifts" menu entry, the list is
@@ -716,7 +717,11 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       const sameDayConflict = isPreachingShift && g.same_day_preaching_shift;
       const activitiesLimitReached = !isPreachingShift && g.activities_count >= maxAct;
       const foodShiftConflict = isFoodShift && g.already_in_food_shift;
-      const sameNameConflict = !isPreachingShift && !isFoodShift && g.already_in_same_name_activity;
+      const sameNameConflict =
+        this.restrictSameNameActivityGroup() &&
+        !isPreachingShift &&
+        !isFoodShift &&
+        g.already_in_same_name_activity;
       return {
         value: g.id,
         label: g.group_code,
@@ -1447,6 +1452,9 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         this.maxPreachingShifts.set(s.max_preaching_shifts_per_group);
         this.maxGuestsPerPreachingGroup.set(s.max_guests_per_preaching_group);
         this.maxFoodShifts.set(s.max_food_shifts_per_group);
+        this.restrictSameNameActivityGroup.set(
+          s.restrict_same_name_activity_group,
+        );
       },
     });
 

@@ -72,6 +72,17 @@
             />
           </div>
         </div>
+        <label class="flex items-center gap-3 cursor-pointer select-none pt-1">
+          <input
+            type="checkbox"
+            [ngModel]="restrictSameNameActivityGroup()"
+            (ngModelChange)="restrictSameNameActivityGroup.set($event)"
+            class="w-4 h-4 rounded border-gray-300 dark:border-zinc-600 text-blue-500 focus:ring-blue-400"
+          />
+          <span class="text-sm text-gray-700 dark:text-zinc-300">
+            Restringir el mismo grupo a actividades con el mismo nombre
+          </span>
+        </label>
         <div class="flex items-center gap-3 pt-1">
           <button
             type="button"

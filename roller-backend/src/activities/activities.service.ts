@@ -619,7 +619,7 @@ export class ActivitiesService {
             `The group is already assigned to ${limits.maxFoodShiftsPerGroup} hospitality shift${limits.maxFoodShiftsPerGroup === 1 ? '' : 's'} in this campaign`,
           );
         }
-      } else if (activity.name) {
+      } else if (limits.restrictSameNameActivityGroup && activity.name) {
         const sameNameCount = await this.activitiesRepo
           .createQueryBuilder('a')
           .innerJoin('a.guestGroups', 'g')
@@ -1575,6 +1575,7 @@ export class ActivitiesService {
     if (!activity) throw new NotFoundException('Actividad no encontrada');
     await this.assertRegionAccess(activity.region_id, currentUser);
 
+    const limits = await this.settingsService.getCampaignLimits();
     const assignedIds = new Set(activity.guestGroups.map((g) => g.id));
 
     // Groups already assigned to other activities overlapping in date+time
@@ -1664,6 +1665,7 @@ export class ActivitiesService {
     // For non-typed activities with a name: groups already in another activity with the same name
     let sameNameActivityGroupIds: Set<string> | null = null;
     if (
+      limits.restrictSameNameActivityGroup &&
       !activity.is_preaching_shift &&
       !activity.is_food_shift &&
       activity.name
@@ -1685,7 +1687,6 @@ export class ActivitiesService {
     let foodShiftCountMap: Map<string, number> | null = null;
     let maxFoodShiftsPerGroup = 1;
     if (activity.is_food_shift) {
-      const limits = await this.settingsService.getCampaignLimits();
       maxFoodShiftsPerGroup = limits.maxFoodShiftsPerGroup;
       const [morningRows, foodRows] = await Promise.all([
         this.activitiesRepo
