@@ -592,6 +592,84 @@ describe('Activities (e2e)', () => {
     });
   });
 
+  describe('Same-name restriction for non-typed activities', () => {
+    let actA: string;
+    let actB: string;
+    let grp: string;
+    const sharedName = `Shared-${Date.now()}`;
+
+    beforeAll(async () => {
+      const base = {
+        region_id: regionId,
+        date: '2024-07-01',
+        start_time: '09:00',
+        end_time: '13:00',
+      };
+      actA = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({ ...base, name: sharedName })
+      ).body.id;
+      actB = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({ ...base, date: '2024-07-02', name: sharedName })
+      ).body.id;
+      grp = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `GRPSAME-${Date.now()}`, region_id: regionId })
+      ).body.id;
+
+      await request(server)
+        .post(`/api/activities/${actA}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: grp })
+        .expect(200);
+    });
+
+    it('flags the group as already_in_same_name_activity in the second activity', async () => {
+      const res = await request(server)
+        .get(`/api/activities/${actB}/available-groups`)
+        .set('Authorization', auth())
+        .expect(200);
+      const found = res.body.find((g: { id: string }) => g.id === grp);
+      expect(found).toBeDefined();
+      expect(found.already_in_same_name_activity).toBe(true);
+    });
+
+    it('returns 400 when assigning a group already in a same-name activity', async () => {
+      await request(server)
+        .post(`/api/activities/${actB}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: grp })
+        .expect(400);
+    });
+
+    it('allows assigning the group to an activity with a different name', async () => {
+      const actC = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: `Different-${Date.now()}`,
+            date: '2024-07-03',
+            start_time: '09:00',
+            end_time: '13:00',
+          })
+      ).body.id;
+      await request(server)
+        .post(`/api/activities/${actC}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: grp })
+        .expect(200);
+    });
+  });
+
   describe('Publish / Unpublish', () => {
     let activityId: string;
 
@@ -1374,7 +1452,11 @@ describe('Activities (e2e)', () => {
         await request(server)
           .post('/api/activities')
           .set('Authorization', auth())
-          .send({ ...baseTurn(), date: '2025-03-02', name: `No-host-${Date.now()}` })
+          .send({
+            ...baseTurn(),
+            date: '2025-03-02',
+            name: `No-host-${Date.now()}`,
+          })
       ).body.id;
     });
 
