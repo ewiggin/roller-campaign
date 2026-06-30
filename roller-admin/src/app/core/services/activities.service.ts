@@ -225,6 +225,20 @@ export class ActivitiesService {
     }>(`/api/activities/food-shifts/bulk-auto-assign`, {});
   }
 
+  autoAssignNonTypedActivity(id: string) {
+    return this.http.post<{ activity: Activity; skipped: number }>(
+      `/api/activities/${id}/general/auto-assign`,
+      {},
+    );
+  }
+
+  bulkAutoAssignNonTypedActivities() {
+    return this.http.post<{ activitiesProcessed: number; totalSkipped: number }>(
+      `/api/activities/general/bulk-auto-assign`,
+      {},
+    );
+  }
+
   assignGuestGroupToGroup(id: string, groupId: string, guestGroupId: string) {
     return this.http.post<Activity>(
       `/api/activities/${id}/preaching-groups/${groupId}/guest-groups`,

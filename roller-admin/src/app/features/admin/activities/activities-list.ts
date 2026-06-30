@@ -572,6 +572,12 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     totalSkipped: number;
     unassignedGroups: { id: string; group_code: string; guest_count: number }[];
   } | null>(null);
+  readonly generalBulkConfirmOpen = signal(false);
+  readonly generalBulkAssigning = signal(false);
+  readonly generalBulkAssignResult = signal<{
+    activitiesProcessed: number;
+    totalSkipped: number;
+  } | null>(null);
   readonly seriesChoiceVisible = signal(false);
   private pendingSavePayload: UpdateActivityPayload | null = null;
   readonly editIconValue = signal('');
@@ -1452,9 +1458,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
         this.maxPreachingShifts.set(s.max_preaching_shifts_per_group);
         this.maxGuestsPerPreachingGroup.set(s.max_guests_per_preaching_group);
         this.maxFoodShifts.set(s.max_food_shifts_per_group);
-        this.restrictSameNameActivityGroup.set(
-          s.restrict_same_name_activity_group,
-        );
+        this.restrictSameNameActivityGroup.set(s.restrict_same_name_activity_group);
       },
     });
 
@@ -2336,6 +2340,45 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.foodBulkAssigning.set(false);
+      },
+    });
+  }
+
+  autoAssignNonTypedActivity() {
+    const activity = this.selectedActivity();
+    if (!activity) return;
+    this.detailSaving.set(true);
+    this.svc.autoAssignNonTypedActivity(activity.id).subscribe({
+      next: ({ activity: updated, skipped }) => {
+        this.selectedActivity.set(updated);
+        this.reloadAvailableGroups();
+        this.load();
+        this.detailSaving.set(false);
+        if (skipped > 0) {
+          this.toastSvc.show(
+            `${skipped} group${skipped === 1 ? '' : 's'} could not be assigned: activity is at capacity.`,
+            'info',
+          );
+        }
+      },
+      error: () => {
+        this.detailError.set('Error assigning groups automatically.');
+        this.detailSaving.set(false);
+      },
+    });
+  }
+
+  bulkAutoAssignNonTypedActivities() {
+    this.generalBulkAssigning.set(true);
+    this.generalBulkAssignResult.set(null);
+    this.svc.bulkAutoAssignNonTypedActivities().subscribe({
+      next: (result) => {
+        this.generalBulkAssignResult.set(result);
+        this.generalBulkAssigning.set(false);
+        this.load();
+      },
+      error: () => {
+        this.generalBulkAssigning.set(false);
       },
     });
   }

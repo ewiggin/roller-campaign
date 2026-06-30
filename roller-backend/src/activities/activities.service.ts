@@ -1183,6 +1183,114 @@ export class ActivitiesService {
     return { activity: await this.findOne(id, currentUser), skipped };
   }
 
+  async autoAssignNonTypedActivity(
+    id: string,
+    currentUser: JwtPayload,
+  ): Promise<{ activity: ActivityResponseDto; skipped: number }> {
+    const activity = await this.activitiesRepo.findOne({
+      where: { id },
+      relations: { guestGroups: true },
+    });
+    if (!activity) throw new NotFoundException('Actividad no encontrada');
+    await this.assertRegionAccess(activity.region_id, currentUser);
+
+    if (activity.is_food_shift || activity.is_preaching_shift) {
+      throw new BadRequestException(
+        'La asignación automática general solo está disponible para actividades no tipificadas',
+      );
+    }
+
+    const limits = await this.settingsService.getCampaignLimits();
+    const availableGroups = await this.getAvailableGroups(id, currentUser);
+
+    const foodShiftOnDayRows = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'gg')
+      .select('gg.id', 'groupId')
+      .where('a.is_food_shift = :yes', { yes: true })
+      .andWhere('a.date = :date', { date: activity.date })
+      .getRawMany<{ groupId: string }>();
+    const foodShiftOnDayIds = new Set(foodShiftOnDayRows.map((r) => r.groupId));
+
+    const candidates = availableGroups.filter(
+      (g) =>
+        g.guest_count > 0 &&
+        !g.already_in_activity &&
+        !g.host_schedule_conflict &&
+        g.activities_count < limits.maxActivitiesPerGroup &&
+        (!limits.restrictSameNameActivityGroup ||
+          !g.already_in_same_name_activity) &&
+        !foodShiftOnDayIds.has(g.id),
+    );
+
+    if (candidates.length === 0) {
+      return { activity: await this.findOne(id, currentUser), skipped: 0 };
+    }
+
+    const existingCounts = await this.getGroupGuestCounts(
+      activity.guestGroups.map((g) => g.id),
+    );
+    let currentGuestCount = activity.guestGroups.reduce(
+      (sum, g) => sum + (existingCounts.get(g.id) ?? 0),
+      0,
+    );
+
+    let skipped = 0;
+
+    for (const candidate of candidates) {
+      if (
+        activity.max_guests !== null &&
+        currentGuestCount + candidate.guest_count > activity.max_guests
+      ) {
+        skipped++;
+        continue;
+      }
+      await this.assignGuestGroup(id, candidate.id, currentUser);
+      currentGuestCount += candidate.guest_count;
+    }
+
+    return { activity: await this.findOne(id, currentUser), skipped };
+  }
+
+  async bulkAutoAssignNonTypedActivities(currentUser: JwtPayload): Promise<{
+    activitiesProcessed: number;
+    totalSkipped: number;
+  }> {
+    let regionIds: string[] = [];
+
+    if (currentUser.role !== 'superadmin') {
+      const user = await this.usersRepo.findOne({
+        where: { id: currentUser.sub },
+        relations: { regions: true },
+      });
+      regionIds = (user?.regions ?? []).map((r) => r.id);
+      if (regionIds.length === 0)
+        return { activitiesProcessed: 0, totalSkipped: 0 };
+    }
+
+    const activitiesQb = this.activitiesRepo
+      .createQueryBuilder('a')
+      .select('a.id')
+      .where('a.is_food_shift = :no', { no: false })
+      .andWhere('a.is_preaching_shift = :no2', { no2: false });
+    if (regionIds.length > 0)
+      activitiesQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
+
+    const activities = await activitiesQb.getMany();
+
+    let totalSkipped = 0;
+    for (const a of activities) {
+      try {
+        const result = await this.autoAssignNonTypedActivity(a.id, currentUser);
+        totalSkipped += result.skipped;
+      } catch {
+        // skip activities that cannot be processed
+      }
+    }
+
+    return { activitiesProcessed: activities.length, totalSkipped };
+  }
+
   async bulkAutoAssignGuestGroupsToFoodShifts(
     currentUser: JwtPayload,
   ): Promise<{

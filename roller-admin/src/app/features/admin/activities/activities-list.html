@@ -139,6 +139,43 @@
           Auto-assign all
         </button>
       }
+      @if (!preachingShiftsOnly && !foodShiftsOnly) {
+        <button
+          type="button"
+          (click)="generalBulkConfirmOpen.set(true)"
+          [disabled]="generalBulkAssigning()"
+          class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+        >
+          @if (generalBulkAssigning()) {
+            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          } @else {
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z"
+              />
+            </svg>
+          }
+          Auto-assign all
+        </button>
+      }
       <button
         (click)="openCreate()"
         class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
@@ -404,6 +441,56 @@
           All groups with guests have been assigned to a hospitality shift.
         </p>
       }
+    </div>
+  }
+
+  <!-- General activities bulk auto-assign result panel -->
+  @if (generalBulkAssignResult(); as result) {
+    <div
+      class="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 mb-4 flex flex-col gap-3"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <svg
+            class="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+            />
+          </svg>
+          <div class="text-sm text-emerald-800 dark:text-emerald-300">
+            <span class="font-semibold">{{ result.activitiesProcessed }}</span>
+            activit{{ result.activitiesProcessed === 1 ? 'y' : 'ies' }} processed.
+            @if (result.totalSkipped > 0) {
+              <span class="text-amber-700 dark:text-amber-400 ml-1">
+                {{ result.totalSkipped }} group{{ result.totalSkipped === 1 ? '' : 's' }} skipped
+                (capacity reached).
+              </span>
+            }
+          </div>
+        </div>
+        <button
+          type="button"
+          (click)="generalBulkAssignResult.set(null)"
+          class="p-1 rounded text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors shrink-0"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
     </div>
   }
 
@@ -1713,11 +1800,18 @@
 
         <!-- Groups tab -->
         @if (detailTab() === 'groups') {
-          @if (selectedActivity()!.is_food_shift) {
+          @if (
+            selectedActivity()!.is_food_shift ||
+            (!selectedActivity()!.is_food_shift && !selectedActivity()!.is_preaching_shift)
+          ) {
             <div class="flex justify-end mb-3">
               <button
                 type="button"
-                (click)="autoAssignGuestGroupsToFoodShift()"
+                (click)="
+                  selectedActivity()!.is_food_shift
+                    ? autoAssignGuestGroupsToFoodShift()
+                    : autoAssignNonTypedActivity()
+                "
                 [disabled]="detailSaving()"
                 class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors"
               >
@@ -3371,6 +3465,245 @@
         <p class="text-sm font-semibold text-gray-800 dark:text-zinc-100">Auto-assigning groups…</p>
         <p class="text-xs text-gray-500 dark:text-zinc-400 mt-1">
           Processing all hospitality shifts. Please wait.
+        </p>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- General activities bulk auto-assign confirmation modal -->
+@if (generalBulkConfirmOpen()) {
+  <div
+    class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+    (click)="generalBulkConfirmOpen.set(false)"
+  >
+    <div
+      class="bg-white dark:bg-[#18181b] rounded-xl shadow-xl w-full max-w-lg flex flex-col overflow-hidden"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Header -->
+      <div
+        class="px-6 py-4 bg-gray-50 dark:bg-zinc-800/60 border-b border-gray-200 dark:border-zinc-700 flex items-center gap-3"
+      >
+        <svg
+          class="w-5 h-5 text-emerald-500 shrink-0"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z"
+          />
+        </svg>
+        <h3 class="text-sm font-semibold text-gray-800 dark:text-zinc-100">
+          Auto-assign groups to all general activities
+        </h3>
+      </div>
+
+      <!-- Body -->
+      <div class="px-6 py-5 flex flex-col gap-4 text-sm text-gray-700 dark:text-zinc-300">
+        <p>
+          This action will automatically fill the available slots in
+          <strong>all general (non-typed) activities</strong> of the campaign with guest groups,
+          following these criteria:
+        </p>
+        <ol class="flex flex-col gap-2 list-none">
+          <li class="flex items-start gap-2.5">
+            <span
+              class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-center mt-0.5"
+              >1</span
+            >
+            <span
+              ><strong>Closest first.</strong> Groups are sorted by their distance to the activity
+              location. Nearest groups are assigned first.</span
+            >
+          </li>
+          <li class="flex items-start gap-2.5">
+            <span
+              class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-center mt-0.5"
+              >2</span
+            >
+            <span
+              ><strong>Hard limit.</strong> If the activity has reached its maximum guest capacity,
+              no more groups are assigned to it.</span
+            >
+          </li>
+          <li class="flex items-start gap-2.5">
+            <span
+              class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-center mt-0.5"
+              >3</span
+            >
+            <span
+              ><strong>Fills gaps only.</strong> Groups already assigned to an activity are never
+              moved or duplicated. This action only adds new assignments.</span
+            >
+          </li>
+        </ol>
+
+        <!-- Eligibility filters -->
+        <div
+          class="rounded-lg bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 px-4 py-3 flex flex-col gap-1.5"
+        >
+          <p
+            class="text-xs font-semibold text-gray-600 dark:text-zinc-400 uppercase tracking-wide mb-0.5"
+          >
+            A group is eligible only if…
+          </p>
+          <ul class="flex flex-col gap-1 text-xs text-gray-600 dark:text-zinc-400">
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              It has <strong>at least one guest</strong> registered.
+            </li>
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              It is in the same <strong>region</strong> as the activity.
+            </li>
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              The activity date falls within its <strong>availability window</strong>.
+            </li>
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              It has <strong>no time conflict</strong> with another activity at the same time.
+            </li>
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              It has <strong>not exceeded</strong> the maximum number of general activities per
+              group.
+            </li>
+            <li class="flex items-start gap-1.5">
+              <svg
+                class="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75"
+                />
+              </svg>
+              It does <strong>not have a hospitality shift</strong> on the same day as the activity.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div
+        class="px-6 py-4 bg-gray-50 dark:bg-zinc-800/60 border-t border-gray-200 dark:border-zinc-700 flex justify-end gap-3"
+      >
+        <button
+          type="button"
+          (click)="generalBulkConfirmOpen.set(false)"
+          class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-600 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          (click)="generalBulkConfirmOpen.set(false); bulkAutoAssignNonTypedActivities()"
+          class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 transition-colors"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z"
+            />
+          </svg>
+          Run auto-assign
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- General activities bulk auto-assign processing modal -->
+@if (generalBulkAssigning()) {
+  <div class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+    <div
+      class="bg-white dark:bg-[#18181b] rounded-xl shadow-xl px-8 py-7 flex flex-col items-center gap-4 min-w-64"
+    >
+      <svg class="w-10 h-10 text-emerald-500 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+      </svg>
+      <div class="text-center">
+        <p class="text-sm font-semibold text-gray-800 dark:text-zinc-100">Auto-assigning groups…</p>
+        <p class="text-xs text-gray-500 dark:text-zinc-400 mt-1">
+          Processing all general activities. Please wait.
         </p>
       </div>
     </div>

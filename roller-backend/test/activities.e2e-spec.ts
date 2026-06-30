@@ -2243,4 +2243,268 @@ describe('Activities (e2e)', () => {
       );
     });
   });
+
+  describe('POST /activities/:id/general/auto-assign', () => {
+    const DATE = '2024-09-10';
+    let actId: string;
+    let group1Id: string;
+    let group2Id: string;
+
+    const auth = () => `Bearer ${adminToken}`;
+
+    beforeAll(async () => {
+      group1Id = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `GAUTO-G1-${Date.now()}`, region_id: regionId })
+      ).body.id;
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `GAUTO-G1-P1-${Date.now()}`,
+          group_id: group1Id,
+          region_id: regionId,
+          full_name: 'GAuto Guest 1',
+        });
+
+      group2Id = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: `GAUTO-G2-${Date.now()}`, region_id: regionId })
+      ).body.id;
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `GAUTO-G2-P1-${Date.now()}`,
+          group_id: group2Id,
+          region_id: regionId,
+          full_name: 'GAuto Guest 2',
+        });
+
+      actId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: `GAuto Activity ${Date.now()}`,
+            date: DATE,
+            start_time: '10:00',
+            end_time: '12:00',
+          })
+      ).body.id;
+    });
+
+    it('returns 400 when the activity is a food shift', async () => {
+      const foodShift = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Food shift',
+            date: DATE,
+            start_time: '13:00',
+            end_time: '14:00',
+            is_food_shift: true,
+          })
+      ).body;
+
+      await request(server)
+        .post(`/api/activities/${foodShift.id}/general/auto-assign`)
+        .set('Authorization', auth())
+        .expect(400);
+    });
+
+    it('auto-assigns eligible groups to the activity', async () => {
+      const res = await request(server)
+        .post(`/api/activities/${actId}/general/auto-assign`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(res.body.activity).toBeDefined();
+      expect(res.body.skipped).toBeDefined();
+      const assignedIds = res.body.activity.guest_groups.map(
+        (g: { id: string }) => g.id,
+      );
+      expect(assignedIds).toContain(group1Id);
+      expect(assignedIds).toContain(group2Id);
+    });
+
+    it('skips groups that already have a food shift on the same day', async () => {
+      const newActId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: `GAuto Skip ${Date.now()}`,
+            date: DATE,
+            start_time: '15:00',
+            end_time: '16:00',
+          })
+      ).body.id;
+
+      const foodShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'Food shift same day',
+            date: DATE,
+            start_time: '08:00',
+            end_time: '09:00',
+            is_food_shift: true,
+          })
+      ).body.id;
+
+      // Create a fresh group and assign it to the food shift
+      const skippedGroupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({
+            group_code: `GAUTO-SKIP-${Date.now()}`,
+            region_id: regionId,
+          })
+      ).body.id;
+      await request(server)
+        .post('/api/guests')
+        .set('Authorization', auth())
+        .send({
+          guest_code: `GAUTO-SKIP-P1-${Date.now()}`,
+          group_id: skippedGroupId,
+          region_id: regionId,
+          full_name: 'Skip Guest',
+        });
+      await request(server)
+        .post(`/api/activities/${foodShiftId}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: skippedGroupId })
+        .expect(200);
+
+      const res = await request(server)
+        .post(`/api/activities/${newActId}/general/auto-assign`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const assignedIds = res.body.activity.guest_groups.map(
+        (g: { id: string }) => g.id,
+      );
+      expect(assignedIds).not.toContain(skippedGroupId);
+    });
+
+    it('respects max_guests when set', async () => {
+      const cappedActId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: `GAuto Capped ${Date.now()}`,
+            date: '2024-09-11',
+            start_time: '10:00',
+            end_time: '12:00',
+            max_guests: 1,
+          })
+      ).body.id;
+
+      const res = await request(server)
+        .post(`/api/activities/${cappedActId}/general/auto-assign`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(res.body.activity.guest_groups.length).toBeLessThanOrEqual(1);
+      expect(res.body.skipped).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('POST /activities/general/bulk-auto-assign', () => {
+    const DATE = '2024-09-15';
+    let act1Id: string;
+    let act2Id: string;
+
+    const auth = () => `Bearer ${adminToken}`;
+
+    beforeAll(async () => {
+      act1Id = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: `GBulk Act1 ${Date.now()}`,
+            date: DATE,
+            start_time: '09:00',
+            end_time: '11:00',
+          })
+      ).body.id;
+
+      act2Id = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: `GBulk Act2 ${Date.now()}`,
+            date: DATE,
+            start_time: '14:00',
+            end_time: '16:00',
+          })
+      ).body.id;
+    });
+
+    it('returns activitiesProcessed and totalSkipped', async () => {
+      const res = await request(server)
+        .post('/api/activities/general/bulk-auto-assign')
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(typeof res.body.activitiesProcessed).toBe('number');
+      expect(typeof res.body.totalSkipped).toBe('number');
+      expect(res.body.activitiesProcessed).toBeGreaterThanOrEqual(2);
+    });
+
+    it('only processes non-typed activities (not food or preaching shifts)', async () => {
+      const before1 = (
+        await request(server)
+          .get(`/api/activities/${act1Id}`)
+          .set('Authorization', auth())
+      ).body;
+      const before2 = (
+        await request(server)
+          .get(`/api/activities/${act2Id}`)
+          .set('Authorization', auth())
+      ).body;
+
+      await request(server)
+        .post('/api/activities/general/bulk-auto-assign')
+        .set('Authorization', auth())
+        .expect(200);
+
+      const after1 = (
+        await request(server)
+          .get(`/api/activities/${act1Id}`)
+          .set('Authorization', auth())
+      ).body;
+      const after2 = (
+        await request(server)
+          .get(`/api/activities/${act2Id}`)
+          .set('Authorization', auth())
+      ).body;
+
+      // Both activities should have been processed (guest_groups may have grown)
+      expect(after1.guest_groups.length).toBeGreaterThanOrEqual(
+        before1.guest_groups.length,
+      );
+      expect(after2.guest_groups.length).toBeGreaterThanOrEqual(
+        before2.guest_groups.length,
+      );
+    });
+  });
 });
