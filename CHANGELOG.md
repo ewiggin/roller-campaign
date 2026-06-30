@@ -4,14 +4,21 @@
 
 ### Añadido
 
+- **Nombre del contacto de grupo en los PDFs de horario**: los tres tipos de PDF de horario de grupo (individual, bulk por anfitrión y bulk de grupos asignados) muestran ahora el nombre del contacto de grupo junto al código de grupo
+- **Descarga masiva de PDFs en ZIP**: nuevo botón en la lista de grupos de invitados (visible en modo Planning) que empaqueta en un ZIP los PDFs de horario individuales de todos los grupos que cumplan los filtros activos; nuevo endpoint `GET /api/activities/group-schedule-zip`
+- **Orden de asignación automática configurable**: al ejecutar la auto-asignación de turnos de predicación, turnos de comida y actividades generales (tanto individual como masiva), el usuario puede escoger entre "más cercano primero" (por defecto) y "grupo más grande primero"; la preferencia se expone como desplegable en el tab de detalle y en el modal de confirmación masiva; el backend acepta el parámetro `sort_by` en el cuerpo de la petición
 - **Asignación y desasignación manual desde el calendario de planning**: en el modo Planning de la lista de grupos de invitados, cada columna de día incluye un botón "+" que abre un flujo modal de 3 pasos para asignar actividades generales, turnos de comida o turnos de predicación al grupo; para los turnos de predicación, un tercer paso permite escoger el grupo de predicación concreto. Las actividades que superan los límites de campaña o tienen restricciones (conflicto de horario, mismo nombre, reunión de congregación, límite alcanzado) aparecen deshabilitadas con el motivo indicado. Cada actividad asignada muestra un botón "×" para desasignarla directamente desde el calendario
-- **Información ampliada en el modal de asignación**: el listado de actividades disponibles muestra congregación del anfitrión, número de grupos y de invitados ya asignados, y distancia en km al grupo; los turnos de predicación muestran además las mismas columnas de congregación, grupos e invitados que aparecen en la lista de turnos de predicación
-- **Ventana de planning independiente**: botón de icono de calendario en la lista de actividades (pestaña Grupos y pestaña Invitados de cada grupo de predicación), en la lista de grupos de invitados (modo Planning) y en el sub-tab Guests de cada grupo de predicación; al hacer clic abre el calendario del grupo en una ventana Tauri separada con diseño de solo lectura
+- **Información ampliada en el modal de asignación**: el listado de actividades disponibles muestra congregación del anfitrión, número de grupos y de invitados ya asignados, y distancia en km al grupo; los turnos de predicación muestran además las mismas columnas que aparecen en la lista de turnos de predicación
+- **Ventana de planning independiente**: botón de icono de calendario en la lista de actividades (pestaña Grupos y sub-tab Guests de cada grupo de predicación), en la lista de grupos de invitados (modo Planning) y en el sub-tab Guests de cada grupo de predicación; al hacer clic abre el calendario del grupo en una ventana Tauri separada de solo lectura
 - **Endpoint `GET /activities/available-for-group`**: devuelve las actividades disponibles para asignar a un grupo en una fecha concreta, con validación de todos los límites y restricciones de campaña y cálculo de distancia
+
+### Mejorado
+
+- **Auto-asignación omite actividades de invitación abierta**: las actividades con "invitar a todos los grupos de la congregación" o "de la región" activado se excluyen automáticamente de los flujos de auto-asignación individual y masiva, ya que todos los grupos del ámbito ya las tienen en su calendario
 
 ### Corregido
 
-- **Turnos de hospitalidad contabilizados incorrectamente como actividades generales**: al asignar un grupo a un turno de comida, el contador de actividades generales no se incrementa, permitiendo que un grupo tenga el máximo de actividades generales y además uno o más turnos de comida
+- **Turnos de hospitalidad contabilizados incorrectamente como actividades generales**: al asignar o comprobar disponibilidad, los turnos de comida ya no cuentan para el límite `max_activities_per_group`, permitiendo que un grupo tenga el máximo de actividades generales y además uno o más turnos de comida
 
 ---
 
