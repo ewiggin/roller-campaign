@@ -477,6 +477,36 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     this.regions().map((r) => ({ value: r.id, label: r.name })),
   );
 
+  // One button per day of the selected region's event date range
+  readonly regionDayItems = computed(() => {
+    const region = this.regions().find((r) => r.id === this.filterRegion());
+    if (!region?.event_start_date || !region.event_end_date) return [];
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+    const days: { value: string; label: string }[] = [];
+    const end = new Date(region.event_end_date + 'T00:00:00');
+    // Cap the range to protect the UI from misconfigured region dates
+    for (
+      let d = new Date(region.event_start_date + 'T00:00:00');
+      d <= end && days.length < 60;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+        d.getDate(),
+      ).padStart(2, '0')}`;
+      days.push({ value: iso, label: fmt.format(d) });
+    }
+    return days;
+  });
+
+  selectDayFilter(date: string) {
+    this.filterDate.set(this.filterDate() === date ? '' : date);
+    this.applyFilters();
+  }
+
   readonly filterHostItems = computed(() =>
     this.filterHosts().map((h) => ({ value: h.id, label: h.name, meta: h.address ?? undefined })),
   );

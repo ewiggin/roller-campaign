@@ -255,6 +255,40 @@
         </button>
       </div>
     </div>
+
+    <!-- Event day picker for the selected region -->
+    @if (filterRegion() && regionDayItems().length > 0) {
+      <div
+        class="mt-3 pt-3 border-t border-gray-100 dark:border-zinc-800 flex flex-wrap items-center gap-1.5"
+      >
+        <button
+          type="button"
+          (click)="selectDayFilter('')"
+          [class]="
+            'rounded-lg px-2.5 py-1 text-xs font-medium border transition-colors ' +
+            (!filterDate()
+              ? 'bg-blue-500 border-blue-500 text-white'
+              : 'border-gray-300 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800')
+          "
+        >
+          All days
+        </button>
+        @for (day of regionDayItems(); track day.value) {
+          <button
+            type="button"
+            (click)="selectDayFilter(day.value)"
+            [class]="
+              'rounded-lg px-2.5 py-1 text-xs font-medium border transition-colors ' +
+              (filterDate() === day.value
+                ? 'bg-blue-500 border-blue-500 text-white'
+                : 'border-gray-300 dark:border-zinc-700 text-gray-600 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-800')
+            "
+          >
+            {{ day.label }}
+          </button>
+        }
+      </div>
+    }
   </div>
 
   <!-- Map -->
