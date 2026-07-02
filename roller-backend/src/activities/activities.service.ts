@@ -20,8 +20,10 @@ import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import {
+  buildFoodShiftsByCongregationContent,
   buildGroupScheduleContent,
   buildVolunteerScheduleContent,
+  FoodShiftPdfSection,
   SCHEDULE_PDF_STYLES,
   ScheduleActivityItem,
 } from './schedule-pdf.util';
@@ -55,6 +57,9 @@ import { Activity } from './entities/activity.entity';
 import { CampaignLimits, SettingsService } from '../settings/settings.service';
 
 const ACTIVITY_RELATIONS = { volunteers: true, guestGroups: true, host: true };
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface AvailableForGroupActivity {
   id: string;
@@ -132,6 +137,7 @@ export class ActivitiesService {
       icon: dto.icon ?? null,
       description: dto.description ?? null,
       host_id: dto.host_id ?? null,
+      host_person_name: dto.host_person_name ?? null,
       required_volunteers: dto.required_volunteers ?? null,
       max_guests: dto.max_guests ?? null,
       date: dto.date,
@@ -173,6 +179,7 @@ export class ActivitiesService {
             icon: dto.icon ?? null,
             description: dto.description ?? null,
             host_id: dto.host_id ?? null,
+            host_person_name: dto.host_person_name ?? null,
             required_volunteers: dto.required_volunteers ?? null,
             max_guests: dto.max_guests ?? null,
             date,
@@ -221,6 +228,7 @@ export class ActivitiesService {
       dateTo,
       hostId,
       volunteerId,
+      status,
       is_preaching_shift,
       is_food_shift,
       page = 1,
@@ -287,12 +295,14 @@ export class ActivitiesService {
     }
 
     if (name)
-      qb.andWhere('LOWER(a.name) LIKE :name', {
-        name: `%${name.toLowerCase()}%`,
-      });
+      qb.andWhere(
+        '(LOWER(a.name) LIKE :name OR LOWER(a.host_person_name) LIKE :name)',
+        { name: `%${name.toLowerCase()}%` },
+      );
     if (date) qb.andWhere('a.date = :date', { date });
     if (dateFrom) qb.andWhere('a.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('a.date <= :dateTo', { dateTo });
+    if (status) qb.andWhere('a.status = :status', { status });
     if (hostId) qb.andWhere('a.host_id = :hostId', { hostId });
     if (volunteerId)
       qb.andWhere('volunteers.id = :volunteerId', { volunteerId });
@@ -2842,6 +2852,7 @@ export class ActivitiesService {
     status: activity.status,
     host_id: activity.host_id,
     host_name: activity.host?.name ?? null,
+    host_person_name: activity.host_person_name ?? null,
     date: activity.date,
     start_time: activity.start_time,
     end_time: activity.end_time,
@@ -2886,12 +2897,14 @@ export class ActivitiesService {
   // ── Excel import / export ─────────────────────────────────────────────────
 
   private readonly ACTIVITY_EXCEL_COLUMNS = [
+    'id',
     'name',
     'date',
     'start_time',
     'end_time',
     'region_name',
     'host_name',
+    'host_person_name',
     'description',
     'required_volunteers',
     'max_guests',
@@ -2912,6 +2925,7 @@ export class ActivitiesService {
     if (isFoodShift) {
       // Food shifts: replace 'description' with the three host-person columns
       columns = [
+        'id',
         'name',
         'date',
         'start_time',
@@ -2929,6 +2943,7 @@ export class ActivitiesService {
         'status',
       ];
       sampleRow = [
+        '',
         'Nombre del turno',
         '2025-01-15',
         '09:00',
@@ -2948,12 +2963,14 @@ export class ActivitiesService {
     } else if (isPreachingShift) {
       columns = this.ACTIVITY_EXCEL_COLUMNS.filter(
         (c) =>
+          c !== 'host_person_name' &&
           c !== 'is_preaching_shift' &&
           c !== 'is_food_shift' &&
           c !== 'invite_all_congregation' &&
           c !== 'invite_all_region',
       ) as string[];
       sampleRow = [
+        '',
         'Nombre del turno',
         '2025-01-15',
         '09:00',
@@ -2971,12 +2988,14 @@ export class ActivitiesService {
     } else {
       columns = [...this.ACTIVITY_EXCEL_COLUMNS] as string[];
       sampleRow = [
+        '',
         'Nombre de la actividad',
         '2025-01-15',
         '09:00',
         '12:00',
         'Nombre de la región',
         'Nombre de la congregación',
+        '',
         '',
         '',
         '',
@@ -3013,12 +3032,14 @@ export class ActivitiesService {
     const regionMap = new Map(regions.map((r) => [r.id, r.name]));
 
     const rows = result.data.map((a) => [
+      a.id,
       a.name,
       a.date,
       a.start_time,
       a.end_time,
       regionMap.get(a.region_id) ?? '',
       a.host_name ?? '',
+      a.host_person_name ?? '',
       a.description ?? '',
       a.required_volunteers ?? '',
       a.max_guests ?? '',
@@ -3099,6 +3120,13 @@ export class ActivitiesService {
         continue;
       }
 
+      // An id column allows re-importing an export to update existing rows
+      const rawId = this.parseXlsxString(row['id']);
+      if (rawId && !UUID_REGEX.test(rawId)) {
+        errors.push(`Fila ${rowNum}: id '${rawId}' is not a valid UUID`);
+        continue;
+      }
+
       const hostName = this.parseXlsxString(row['host_name']);
       let host_id: string | null = null;
       let host_name: string | null = null;
@@ -3125,7 +3153,7 @@ export class ActivitiesService {
       }
 
       activities.push({
-        id: crypto.randomUUID(),
+        id: rawId ?? crypto.randomUUID(),
         region_id: region.id,
         series_id: null,
         name: name!,
@@ -3137,6 +3165,7 @@ export class ActivitiesService {
             : 'draft',
         host_id,
         host_name,
+        host_person_name: this.parseXlsxString(row['host_person_name']),
         date: date!,
         start_time: start_time!,
         end_time: end_time!,
@@ -3195,12 +3224,14 @@ export class ActivitiesService {
     row: Record<string, unknown>,
     forceFoodShift: boolean,
   ): string | null {
-    if (!forceFoodShift) return this.parseXlsxString(row['description']);
+    // An explicit description column wins (e.g. re-importing an export);
+    // otherwise food shifts compose it from the host-person columns.
+    const explicit = this.parseXlsxString(row['description']);
+    if (!forceFoodShift || explicit) return explicit;
     const name = this.parseXlsxString(row['host_person_name']);
     const address = this.parseXlsxString(row['host_person_address']);
     const phone = this.parseXlsxString(row['host_person_phone']);
-    if (!name && !address && !phone)
-      return this.parseXlsxString(row['description']);
+    if (!name && !address && !phone) return null;
     let desc = 'Estais invitados a comer';
     if (name) desc += ` en casa de ${name}`;
     if (address) desc += ` en ${address}`;
@@ -3930,6 +3961,69 @@ export class ActivitiesService {
 
     const safeName = host.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     return { buffer, filename: `calendario-${safeName}.pdf` };
+  }
+
+  async exportFoodShiftsPdf(
+    query: ActivityListQueryDto,
+    currentUser: JwtPayload,
+  ): Promise<Buffer> {
+    const result = await this.findAll(
+      { ...query, is_food_shift: true, limit: 10000, page: 1 },
+      currentUser,
+    );
+
+    // Group the shifts by host congregation; shifts without one go last.
+    const sectionsByName = new Map<string, FoodShiftPdfSection>();
+    for (const a of result.data) {
+      const key = a.host_name ?? '';
+      let section = sectionsByName.get(key);
+      if (!section) {
+        section = { congregation_name: a.host_name, shifts: [] };
+        sectionsByName.set(key, section);
+      }
+      section.shifts.push({
+        date: a.date,
+        start_time: a.start_time,
+        end_time: a.end_time,
+        host_person_name: a.host_person_name,
+        groups: [...a.guest_groups]
+          .sort((g1, g2) => g1.group_code.localeCompare(g2.group_code))
+          .map((g) => ({
+            group_code: g.group_code,
+            guest_count: g.guest_count,
+          })),
+      });
+    }
+
+    const sections = [...sectionsByName.values()].sort((s1, s2) => {
+      if (s1.congregation_name === null) return 1;
+      if (s2.congregation_name === null) return -1;
+      return s1.congregation_name.localeCompare(s2.congregation_name);
+    });
+    for (const section of sections) {
+      section.shifts.sort((a, b) =>
+        a.date !== b.date
+          ? a.date.localeCompare(b.date)
+          : a.start_time.localeCompare(b.start_time),
+      );
+    }
+
+    const region = query.regionId
+      ? await this.regionsRepo.findOne({ where: { id: query.regionId } })
+      : null;
+
+    return createPdfBuffer({
+      content: buildFoodShiftsByCongregationContent(sections),
+      styles: SCHEDULE_PDF_STYLES,
+      header: buildScheduleHeader(region?.name),
+      footer: (currentPage, pageCount) => ({
+        text: `${currentPage} / ${pageCount}`,
+        alignment: 'center',
+        fontSize: 8,
+        color: '#999999',
+        margin: [0, 10, 0, 0],
+      }),
+    });
   }
 
   async exportVolunteerSchedulePdf(

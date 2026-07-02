@@ -309,6 +309,13 @@ export class ActivityResponseDto {
   @ApiPropertyOptional({ example: 'Congregación Norte', nullable: true })
   host_name: string | null;
 
+  @ApiPropertyOptional({
+    example: 'María García',
+    nullable: true,
+    description: 'Name of the person hosting the meal (food shifts only)',
+  })
+  host_person_name: string | null;
+
   @ApiProperty({ example: '2024-06-15' })
   date: string;
 

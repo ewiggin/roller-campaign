@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import type {
   Activity,
   ActivityListResponse,
+  ActivityStatus,
   AvailableCartForActivity,
   AvailableGroupForActivity,
   AvailableVolunteerForActivity,
@@ -353,6 +354,27 @@ export class ActivitiesService {
 
   exportHostSchedulesPdf(hostId: string) {
     return this.http.get(`/api/activities/export/schedule-pdf?hostId=${hostId}`, {
+      responseType: 'blob',
+    });
+  }
+
+  exportFoodShiftsPdf(
+    query: {
+      regionId?: string;
+      name?: string;
+      date?: string;
+      hostId?: string;
+      status?: ActivityStatus;
+    } = {},
+  ) {
+    let params = new HttpParams();
+    if (query.regionId) params = params.set('regionId', query.regionId);
+    if (query.name) params = params.set('name', query.name);
+    if (query.date) params = params.set('date', query.date);
+    if (query.hostId) params = params.set('hostId', query.hostId);
+    if (query.status) params = params.set('status', query.status);
+    return this.http.get('/api/activities/export/food-shifts-pdf', {
+      params,
       responseType: 'blob',
     });
   }

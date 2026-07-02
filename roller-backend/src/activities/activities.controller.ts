@@ -177,6 +177,25 @@ export class ActivitiesController {
     res.send(buffer);
   }
 
+  @Get('export/food-shifts-pdf')
+  @ApiOkResponse({
+    description:
+      'PDF con los turnos de comida agrupados por congregación: cada fila ' +
+      'muestra fecha, anfitrión y los grupos asignados con su nº de invitados.',
+  })
+  async exportFoodShiftsPdf(
+    @Query() query: ActivityListQueryDto,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.svc.exportFoodShiftsPdf(query, user);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="turnos-comida.pdf"',
+    });
+    res.send(buffer);
+  }
+
   @Get('export/group-schedules-zip')
   @ApiOkResponse({
     description: 'ZIP with individual schedule PDFs for each filtered group',

@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp, loginAdmin } from './test-app';
+import * as XLSX from 'xlsx';
+import { binaryParser, createTestApp, loginAdmin } from './test-app';
 
 describe('Activities (e2e)', () => {
   let app: INestApplication;
@@ -1847,6 +1848,248 @@ describe('Activities (e2e)', () => {
       expect(
         res.body.data.every(
           (a: { is_food_shift: boolean }) => a.is_food_shift === false,
+        ),
+      ).toBe(true);
+    });
+  });
+
+  // ── status filter ──────────────────────────────────────────────────────────
+
+  describe('status filter', () => {
+    it('filters by status=published and status=draft', async () => {
+      const created = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({ ...baseTurn(), name: 'Status filter turn' })
+          .expect(201)
+      ).body;
+      await request(server)
+        .post(`/api/activities/${created.id}/publish`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const published = await request(server)
+        .get('/api/activities')
+        .query({ regionId, status: 'published' })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(published.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(
+        published.body.data.every(
+          (a: { status: string }) => a.status === 'published',
+        ),
+      ).toBe(true);
+
+      const drafts = await request(server)
+        .get('/api/activities')
+        .query({ regionId, status: 'draft' })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(
+        drafts.body.data.every((a: { status: string }) => a.status === 'draft'),
+      ).toBe(true);
+    });
+
+    it('rejects an invalid status value', async () => {
+      await request(server)
+        .get('/api/activities')
+        .query({ regionId, status: 'archived' })
+        .set('Authorization', auth())
+        .expect(400);
+    });
+  });
+
+  // ── Excel export / import roundtrip ────────────────────────────────────────
+
+  describe('Excel export/import roundtrip', () => {
+    it('exports id and host_person_name and reuses them on import parse', async () => {
+      const created = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            ...baseTurn(),
+            name: 'Roundtrip food shift',
+            is_food_shift: true,
+            host_person_name: 'Anfitrión Roundtrip',
+          })
+          .expect(201)
+      ).body;
+
+      const exportRes = await request(server)
+        .get(`/api/activities/export/excel?regionId=${regionId}&name=roundtrip`)
+        .set('Authorization', auth())
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+
+      const wb = XLSX.read(exportRes.body as Buffer, { type: 'buffer' });
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+        wb.Sheets[wb.SheetNames[0]],
+      );
+      const row = rows.find((r) => r['id'] === created.id);
+      expect(row).toBeDefined();
+      expect(row!['host_person_name']).toBe('Anfitrión Roundtrip');
+
+      const parseRes = await request(server)
+        .post('/api/activities/import/parse-excel')
+        .set('Authorization', auth())
+        .attach('file', exportRes.body as Buffer, 'export.xlsx')
+        .expect(200);
+      const parsed = parseRes.body.activities.find(
+        (a: { id: string }) => a.id === created.id,
+      );
+      expect(parsed).toBeDefined();
+      expect(parsed.host_person_name).toBe('Anfitrión Roundtrip');
+      expect(parsed.description).toBe(created.description);
+      expect(parsed.is_food_shift).toBe(true);
+    });
+
+    it('rejects rows with an invalid id', async () => {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([
+        ['id', 'name', 'date', 'start_time', 'end_time', 'region_name'],
+        [
+          'not-a-uuid',
+          'Bad id turn',
+          '2024-06-15',
+          '09:00',
+          '13:00',
+          'Turns Region',
+        ],
+      ]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
+      const buffer = Buffer.from(
+        XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer,
+      );
+
+      const res = await request(server)
+        .post('/api/activities/import/parse-excel')
+        .set('Authorization', auth())
+        .attach('file', buffer, 'bad.xlsx')
+        .expect(200);
+      expect(res.body.activities).toHaveLength(0);
+      expect(res.body.errors.join(' ')).toContain('not a valid UUID');
+    });
+  });
+
+  // ── host_person_name field ────────────────────────────────────────────────
+
+  describe('host_person_name field', () => {
+    it('defaults to null when not provided', async () => {
+      const res = await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), is_food_shift: true })
+        .expect(201);
+      expect(res.body.host_person_name).toBeNull();
+    });
+
+    it('persists the value on create', async () => {
+      const res = await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({
+          ...baseTurn(),
+          is_food_shift: true,
+          host_person_name: 'María García',
+        })
+        .expect(201);
+      expect(res.body.host_person_name).toBe('María García');
+    });
+
+    it('can be updated and cleared via PATCH', async () => {
+      const created = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({ ...baseTurn(), is_food_shift: true })
+      ).body;
+
+      const updated = (
+        await request(server)
+          .patch(`/api/activities/${created.id}`)
+          .set('Authorization', auth())
+          .send({ host_person_name: 'Juan Pérez' })
+          .expect(200)
+      ).body;
+      expect(updated.host_person_name).toBe('Juan Pérez');
+
+      const cleared = (
+        await request(server)
+          .patch(`/api/activities/${created.id}`)
+          .set('Authorization', auth())
+          .send({ host_person_name: null })
+          .expect(200)
+      ).body;
+      expect(cleared.host_person_name).toBeNull();
+    });
+
+    it('is included in batch create', async () => {
+      const res = await request(server)
+        .post('/api/activities/batch')
+        .set('Authorization', auth())
+        .send({
+          ...baseTurn(),
+          date: '2024-12-10',
+          is_food_shift: true,
+          host_person_name: 'Ana López',
+          repetition: { type: 'daily', count: 2 },
+        })
+        .expect(201);
+      expect(
+        res.body.every(
+          (a: { host_person_name: string | null }) =>
+            a.host_person_name === 'Ana López',
+        ),
+      ).toBe(true);
+    });
+
+    it('is included in the food shifts PDF export', async () => {
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({
+          ...baseTurn(),
+          is_food_shift: true,
+          host_person_name: 'Anfitrión PDF',
+        })
+        .expect(201);
+
+      const res = await request(server)
+        .get(`/api/activities/export/food-shifts-pdf?regionId=${regionId}`)
+        .set('Authorization', auth())
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+
+      expect(res.headers['content-type']).toMatch(/application\/pdf/);
+      const buffer = res.body as Buffer;
+      expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
+      expect(buffer.length).toBeGreaterThan(500);
+    });
+
+    it('is matched by the name filter', async () => {
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({
+          ...baseTurn(),
+          is_food_shift: true,
+          host_person_name: 'Bartolomeo Anfitrion',
+        })
+        .expect(201);
+
+      const res = await request(server)
+        .get('/api/activities')
+        .query({ regionId, name: 'bartolomeo' })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(
+        res.body.data.some(
+          (a: { host_person_name: string | null }) =>
+            a.host_person_name === 'Bartolomeo Anfitrion',
         ),
       ).toBe(true);
     });

@@ -58,6 +58,17 @@
       </div>
       <app-menu-button label="JSON" [items]="jsonMenuItems()" />
       <app-menu-button label="Excel" [items]="excelMenuItems()" />
+      @if (foodShiftsOnly) {
+        <button
+          type="button"
+          (click)="exportFoodShiftsPdf()"
+          [disabled]="exportingPdf()"
+          title="Download PDF with food shifts grouped by congregation"
+          class="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-zinc-300 border border-gray-300 dark:border-zinc-600 hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+        >
+          {{ exportingPdf() ? 'Generating…' : 'PDF' }}
+        </button>
+      }
       <button
         type="button"
         (click)="importModalOpen.set(true)"
@@ -696,6 +707,13 @@
                         {{ activity.host_name }}
                       </span>
                     }
+                    @if (activity.is_food_shift && activity.host_person_name) {
+                      <span
+                        class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-800 truncate max-w-[160px]"
+                      >
+                        {{ activity.host_person_name }}
+                      </span>
+                    }
                   </p>
                   <div class="flex items-center gap-2 mt-0.5">
                     @if (!activity.is_food_shift) {
@@ -951,6 +969,23 @@
                 emptyLabel="— None —"
               />
             </div>
+            @if (foodShiftsOnly) {
+              <div>
+                <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+                  >Host person
+                  <span class="font-normal text-gray-400 dark:text-zinc-600"
+                    >(optional)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  formControlName="host_person_name"
+                  maxlength="200"
+                  placeholder="e.g. María García"
+                  class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+                />
+              </div>
+            }
             <div class="grid grid-cols-2 gap-3">
               @if (!foodShiftsOnly) {
                 <div>
@@ -1376,6 +1411,23 @@
                 class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
               ></textarea>
             </div>
+            @if (selectedActivity()?.is_food_shift) {
+              <div>
+                <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
+                  >Host person
+                  <span class="font-normal text-gray-400 dark:text-zinc-600"
+                    >(optional)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  formControlName="host_person_name"
+                  maxlength="200"
+                  placeholder="e.g. María García"
+                  class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 dark:placeholder-zinc-500"
+                />
+              </div>
+            }
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"

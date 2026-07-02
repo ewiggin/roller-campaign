@@ -266,6 +266,87 @@ export function buildGroupScheduleContent(
   return content;
 }
 
+export interface FoodShiftPdfGroup {
+  group_code: string;
+  guest_count: number;
+}
+
+export interface FoodShiftPdfItem {
+  date: string;
+  start_time: string;
+  end_time: string;
+  host_person_name: string | null;
+  groups: FoodShiftPdfGroup[];
+}
+
+export interface FoodShiftPdfSection {
+  congregation_name: string | null;
+  shifts: FoodShiftPdfItem[];
+}
+
+export function buildFoodShiftsByCongregationContent(
+  sections: FoodShiftPdfSection[],
+): Content[] {
+  const content: Content[] = [];
+
+  content.push({ text: 'Turnos de comida', style: 'title' });
+  content.push({
+    text: 'Anfitriones y grupos asignados por congregación',
+    style: 'subtitle',
+  });
+
+  if (sections.length === 0) {
+    content.push({ text: 'No hay turnos de comida.' });
+    return content;
+  }
+
+  for (const section of sections) {
+    content.push({
+      text: section.congregation_name ?? 'Sin congregación',
+      style: 'groupTitle',
+      margin: [0, 8, 0, 6],
+    });
+
+    const body: ContentTable['table']['body'] = [
+      [
+        { text: 'Fecha', style: 'tableHeader' },
+        { text: 'Anfitrión', style: 'tableHeader' },
+        { text: 'Grupos asignados', style: 'tableHeader' },
+      ],
+    ];
+
+    for (const shift of section.shifts) {
+      const timeText = shift.end_time
+        ? `${shift.start_time} - ${shift.end_time}`
+        : shift.start_time;
+      const groupsText = shift.groups
+        .map((g) => `${g.group_code} (${g.guest_count})`)
+        .join(' · ');
+
+      body.push([
+        {
+          stack: [
+            { text: dayLabel(shift.date), style: 'activityName' },
+            { text: timeText, style: 'activityMeta' },
+          ],
+        },
+        { text: shift.host_person_name ?? '—', style: 'tableCell' },
+        groupsText
+          ? { text: groupsText, style: 'tableCell' }
+          : { text: 'Sin grupos asignados', style: 'emptyCell' },
+      ]);
+    }
+
+    content.push({
+      table: { headerRows: 1, widths: [130, '*', '*'], body },
+      layout: cellLayout,
+      margin: [0, 0, 0, 12],
+    });
+  }
+
+  return content;
+}
+
 export function buildVolunteerScheduleContent(
   volunteer: ScheduleVolunteerInfo,
   days: string[],

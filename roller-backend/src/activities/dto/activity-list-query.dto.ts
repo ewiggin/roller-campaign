@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsIn,
   IsISO8601,
   IsInt,
   IsOptional,
@@ -47,6 +48,11 @@ export class ActivityListQueryDto {
   @IsOptional()
   @IsUUID()
   volunteerId?: string;
+
+  @ApiPropertyOptional({ example: 'published', enum: ['draft', 'published'] })
+  @IsOptional()
+  @IsIn(['draft', 'published'])
+  status?: 'draft' | 'published';
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()
