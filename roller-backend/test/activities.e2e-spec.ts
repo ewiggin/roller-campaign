@@ -2507,4 +2507,185 @@ describe('Activities (e2e)', () => {
       );
     });
   });
+
+  describe('POST /activities/food-shifts/bulk-auto-assign', () => {
+    const DATE = '2024-10-05';
+    let bigShiftId: string;
+    let smallShiftId: string;
+    let bigGroupId: string;
+    let small1Id: string;
+    let small2Id: string;
+
+    const auth = () => `Bearer ${adminToken}`;
+
+    const createGroup = async (code: string, guests: number) => {
+      const groupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: code, region_id: regionId })
+      ).body.id as string;
+      for (let i = 0; i < guests; i++) {
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `${code}-P${i}`,
+            group_id: groupId,
+            region_id: regionId,
+            full_name: `${code} Guest ${i}`,
+          });
+      }
+      return groupId;
+    };
+
+    const assignedIdsOf = async (activityId: string): Promise<string[]> => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}`)
+        .set('Authorization', auth())
+        .expect(200);
+      return res.body.guest_groups.map((g: { id: string }) => g.id);
+    };
+
+    beforeAll(async () => {
+      // One big group and two small ones, all preaching on DATE morning so
+      // they are eligible for that day's food shifts
+      bigGroupId = await createGroup(`FB-BIG-${Date.now()}`, 8);
+      small1Id = await createGroup(`FB-SM1-${Date.now()}`, 2);
+      small2Id = await createGroup(`FB-SM2-${Date.now()}`, 2);
+
+      const morningShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'FB morning preaching',
+            date: DATE,
+            start_time: '09:00',
+            end_time: '11:00',
+            is_preaching_shift: true,
+          })
+      ).body.id;
+      for (const groupId of [bigGroupId, small1Id, small2Id]) {
+        await request(server)
+          .post(`/api/activities/${morningShiftId}/guest-groups`)
+          .set('Authorization', auth())
+          .send({ groupId })
+          .expect(200);
+      }
+
+      // Two food shifts at the same hour: a large home and a small one
+      bigShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'FB food shift big home',
+            date: DATE,
+            start_time: '13:00',
+            end_time: '14:30',
+            is_food_shift: true,
+            max_guests: 12,
+          })
+      ).body.id;
+
+      smallShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'FB food shift small home',
+            date: DATE,
+            start_time: '13:00',
+            end_time: '14:30',
+            is_food_shift: true,
+            max_guests: 4,
+          })
+      ).body.id;
+    });
+
+    it('balances group_size assignment so no shift is starved', async () => {
+      const res = await request(server)
+        .post('/api/activities/food-shifts/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(res.body.shiftsProcessed).toBeGreaterThanOrEqual(2);
+
+      // A per-shift greedy would pack 8+2+2 into the big home and leave the
+      // small home empty; balancing must give the small home the small groups
+      const bigAssigned = await assignedIdsOf(bigShiftId);
+      const smallAssigned = await assignedIdsOf(smallShiftId);
+
+      expect(bigAssigned).toEqual([bigGroupId]);
+      expect(smallAssigned).toHaveLength(2);
+      expect(smallAssigned).toContain(small1Id);
+      expect(smallAssigned).toContain(small2Id);
+
+      const unassignedIds = res.body.unassignedGroups.map(
+        (g: { id: string }) => g.id,
+      );
+      expect(unassignedIds).not.toContain(bigGroupId);
+      expect(unassignedIds).not.toContain(small1Id);
+      expect(unassignedIds).not.toContain(small2Id);
+    });
+
+    it('is idempotent — re-running does not move or duplicate groups', async () => {
+      await request(server)
+        .post('/api/activities/food-shifts/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(await assignedIdsOf(bigShiftId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(smallShiftId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+
+    it('reports groups that fit in no shift as skipped and unassigned', async () => {
+      // Both homes are now too full for a 6-guest group (room: 4 and 0)
+      const hugeGroupId = await createGroup(`FB-HUGE-${Date.now()}`, 6);
+      const morningShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'FB morning preaching 2',
+            date: DATE,
+            start_time: '09:00',
+            end_time: '11:00',
+            is_preaching_shift: true,
+          })
+      ).body.id;
+      await request(server)
+        .post(`/api/activities/${morningShiftId}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: hugeGroupId })
+        .expect(200);
+
+      const res = await request(server)
+        .post('/api/activities/food-shifts/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(res.body.totalSkipped).toBeGreaterThanOrEqual(1);
+      const unassignedIds = res.body.unassignedGroups.map(
+        (g: { id: string }) => g.id,
+      );
+      expect(unassignedIds).toContain(hugeGroupId);
+
+      // Existing assignments remain untouched
+      expect(await assignedIdsOf(bigShiftId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(smallShiftId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+  });
 });

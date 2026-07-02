@@ -1243,8 +1243,16 @@ export class ActivitiesService {
         skipped++;
         continue;
       }
-      await this.assignGuestGroup(id, candidate.id, currentUser);
-      currentGuestCount += candidate.guest_count;
+      try {
+        await this.assignGuestGroup(id, candidate.id, currentUser);
+        currentGuestCount += candidate.guest_count;
+      } catch (e) {
+        // A single rejected group must not abort the remaining candidates
+        this.logger.warn(
+          `Food auto-assign could not assign group ${candidate.id} to shift ${id}: ${e}`,
+        );
+        skipped++;
+      }
     }
 
     return { activity: await this.findOne(id, currentUser), skipped };
@@ -1400,31 +1408,33 @@ export class ActivitiesService {
         return { shiftsProcessed: 0, totalSkipped: 0, unassignedGroups: [] };
     }
 
-    const shiftsQb = this.activitiesRepo
-      .createQueryBuilder('a')
-      .select('a.id')
-      .where('a.is_food_shift = :yes', { yes: true })
-      .andWhere('a.invite_all_congregation = :no1', { no1: false })
-      .andWhere('a.invite_all_region = :no2', { no2: false });
-    if (regionIds.length > 0)
-      shiftsQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
+    const shifts = await this.activitiesRepo.find({
+      where: {
+        is_food_shift: true,
+        invite_all_congregation: false,
+        invite_all_region: false,
+        ...(regionIds.length > 0 ? { region_id: In(regionIds) } : {}),
+      },
+      relations: { guestGroups: true },
+      order: { date: 'ASC', start_time: 'ASC' },
+    });
 
-    const shifts = await shiftsQb.getMany();
+    // Shifts on the same date compete for the same candidate pool (groups
+    // with a morning preaching shift that day), so they must be balanced
+    // together instead of letting each shift greedily drain the pool.
+    const shiftsByDate = new Map<string, Activity[]>();
+    for (const shift of shifts) {
+      if (!shiftsByDate.has(shift.date)) shiftsByDate.set(shift.date, []);
+      shiftsByDate.get(shift.date)!.push(shift);
+    }
 
     let totalSkipped = 0;
-    for (const shift of shifts) {
-      try {
-        const result = await this.autoAssignGuestGroupsToFoodShift(
-          shift.id,
-          currentUser,
-          sortBy,
-        );
-        totalSkipped += result.skipped;
-      } catch (e) {
-        this.logger.error(
-          `Bulk food auto-assign skipped shift ${shift.id}: ${e}`,
-        );
-      }
+    for (const dayShifts of shiftsByDate.values()) {
+      totalSkipped += await this.autoAssignFoodShiftsForDay(
+        dayShifts,
+        currentUser,
+        sortBy,
+      );
     }
 
     const ggQb = this.groupsRepo
@@ -1461,6 +1471,131 @@ export class ActivitiesService {
         guest_count: parseInt(r.guest_count, 10),
       })),
     };
+  }
+
+  /**
+   * Distributes one day's eligible groups across that day's food shifts.
+   *
+   * Iterates over groups (not shifts) and places each one into the least
+   * loaded shift with room (group_size) or the closest shift with room
+   * (distance). A per-shift greedy would let the first shifts consume the
+   * small groups as capacity fillers, leaving later shifts only groups too
+   * large for their max_guests — i.e. empty.
+   *
+   * Returns the number of eligible groups that could not be placed.
+   */
+  private async autoAssignFoodShiftsForDay(
+    shifts: Activity[],
+    currentUser: JwtPayload,
+    sortBy: 'distance' | 'group_size',
+  ): Promise<number> {
+    interface ShiftState {
+      id: string;
+      max: number | null;
+      current: number;
+      // Doubles as the per-shift eligibility set: a group absent from this
+      // map cannot be assigned to this shift.
+      distanceByGroup: Map<string, number | null>;
+    }
+
+    const assignedIds = shifts.flatMap((s) => s.guestGroups.map((g) => g.id));
+    const assignedCounts = await this.getGroupGuestCounts(assignedIds);
+
+    const states: ShiftState[] = [];
+    const poolSizes = new Map<string, number>();
+
+    for (const shift of shifts) {
+      let available: AvailableGroupForActivityDto[];
+      try {
+        available = await this.getAvailableGroups(shift.id, currentUser);
+      } catch (e) {
+        this.logger.error(
+          `Bulk food auto-assign skipped shift ${shift.id}: ${e}`,
+        );
+        continue;
+      }
+      const distanceByGroup = new Map<string, number | null>();
+      for (const g of available) {
+        if (
+          g.guest_count > 0 &&
+          !g.already_in_activity &&
+          !g.host_schedule_conflict &&
+          !g.already_in_food_shift
+        ) {
+          distanceByGroup.set(g.id, g.distance_km);
+          poolSizes.set(g.id, g.guest_count);
+        }
+      }
+      states.push({
+        id: shift.id,
+        max: shift.max_guests,
+        current: shift.guestGroups.reduce(
+          (sum, g) => sum + (assignedCounts.get(g.id) ?? 0),
+          0,
+        ),
+        distanceByGroup,
+      });
+    }
+
+    const nearestDistance = new Map<string, number>();
+    for (const state of states) {
+      for (const [groupId, distance] of state.distanceByGroup) {
+        const best = nearestDistance.get(groupId) ?? Infinity;
+        if (distance !== null && distance < best)
+          nearestDistance.set(groupId, distance);
+        else if (!nearestDistance.has(groupId))
+          nearestDistance.set(groupId, best);
+      }
+    }
+
+    // Avoids Infinity - Infinity = NaN in sort comparators
+    const cmp = (a: number, b: number) => (a === b ? 0 : a - b);
+
+    const candidates = [...poolSizes.entries()].map(([id, guestCount]) => ({
+      id,
+      guestCount,
+      nearest: nearestDistance.get(id) ?? Infinity,
+    }));
+    candidates.sort((a, b) =>
+      sortBy === 'group_size'
+        ? b.guestCount - a.guestCount || cmp(a.nearest, b.nearest)
+        : cmp(a.nearest, b.nearest) || b.guestCount - a.guestCount,
+    );
+
+    let skipped = 0;
+
+    for (const candidate of candidates) {
+      const options = states
+        .filter(
+          (s) =>
+            s.distanceByGroup.has(candidate.id) &&
+            (s.max === null || s.current + candidate.guestCount <= s.max),
+        )
+        .sort((a, b) => {
+          const distA = a.distanceByGroup.get(candidate.id) ?? Infinity;
+          const distB = b.distanceByGroup.get(candidate.id) ?? Infinity;
+          return sortBy === 'group_size'
+            ? a.current - b.current || cmp(distA, distB)
+            : cmp(distA, distB) || a.current - b.current;
+        });
+
+      let placed = false;
+      for (const target of options) {
+        try {
+          await this.assignGuestGroup(target.id, candidate.id, currentUser);
+          target.current += candidate.guestCount;
+          placed = true;
+          break;
+        } catch (e) {
+          this.logger.warn(
+            `Bulk food auto-assign could not assign group ${candidate.id} to shift ${target.id}: ${e}`,
+          );
+        }
+      }
+      if (!placed) skipped++;
+    }
+
+    return skipped;
   }
 
   async removeGuestGroupFromGroup(
