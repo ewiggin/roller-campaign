@@ -2688,4 +2688,276 @@ describe('Activities (e2e)', () => {
       );
     });
   });
+
+  describe('POST /activities/preaching-groups/bulk-auto-assign', () => {
+    const DATE = '2024-11-02';
+    let pbRegionId: string;
+    let twoGroupShiftId: string;
+    let oneGroupShiftId: string;
+    let bigGroupId: string;
+    let small1Id: string;
+    let small2Id: string;
+
+    const auth = () => `Bearer ${adminToken}`;
+
+    const createGroup = async (code: string, guests: number) => {
+      const groupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: code, region_id: pbRegionId })
+      ).body.id as string;
+      for (let i = 0; i < guests; i++) {
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `${code}-P${i}`,
+            group_id: groupId,
+            region_id: pbRegionId,
+            full_name: `${code} Guest ${i}`,
+          });
+      }
+      return groupId;
+    };
+
+    const assignedIdsOf = async (activityId: string): Promise<string[]> => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}`)
+        .set('Authorization', auth())
+        .expect(200);
+      return res.body.guest_groups.map((g: { id: string }) => g.id);
+    };
+
+    beforeAll(async () => {
+      // Isolated region so the campaign-wide bulk cannot pull groups from
+      // (or push groups into) the fixtures of other describes
+      pbRegionId = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({
+            name: `PB Region ${Date.now()}`,
+            event_start_date: '2024-11-01',
+            event_end_date: '2024-11-09',
+          })
+      ).body.id;
+
+      await request(server)
+        .patch('/api/settings/campaign')
+        .set('Authorization', auth())
+        .send({ max_guests_per_preaching_group: 8 });
+
+      bigGroupId = await createGroup(`PB-BIG-${Date.now()}`, 8);
+      small1Id = await createGroup(`PB-SM1-${Date.now()}`, 2);
+      small2Id = await createGroup(`PB-SM2-${Date.now()}`, 2);
+
+      // A shift with two preaching groups (16-guest capacity)…
+      twoGroupShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: pbRegionId,
+            name: 'PB shift two groups',
+            date: DATE,
+            start_time: '09:00',
+            end_time: '11:00',
+            is_preaching_shift: true,
+          })
+      ).body.id;
+      for (const name of ['PG1', 'PG2']) {
+        await request(server)
+          .post(`/api/activities/${twoGroupShiftId}/preaching-groups`)
+          .set('Authorization', auth())
+          .send({ name })
+          .expect(200);
+      }
+
+      // …and a later shift with a single preaching group
+      oneGroupShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: pbRegionId,
+            name: 'PB shift one group',
+            date: DATE,
+            start_time: '11:30',
+            end_time: '13:30',
+            is_preaching_shift: true,
+          })
+      ).body.id;
+      await request(server)
+        .post(`/api/activities/${oneGroupShiftId}/preaching-groups`)
+        .set('Authorization', auth())
+        .send({ name: 'PG1' })
+        .expect(200);
+    });
+
+    it('balances group_size assignment so no shift is starved', async () => {
+      const res = await request(server)
+        .post('/api/activities/preaching-groups/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(res.body.shiftsProcessed).toBeGreaterThanOrEqual(2);
+
+      // A per-shift greedy would pack 8+2+2 into the two-group shift and
+      // leave the second shift empty (a group preaches at most once per day)
+      expect(await assignedIdsOf(twoGroupShiftId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(oneGroupShiftId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+
+    it('is idempotent — re-running does not move or duplicate groups', async () => {
+      await request(server)
+        .post('/api/activities/preaching-groups/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(await assignedIdsOf(twoGroupShiftId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(oneGroupShiftId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+  });
+
+  describe('POST /activities/general/bulk-auto-assign (balanced)', () => {
+    const DATE = '2024-11-10';
+    let gbRegionId: string;
+    let bigActId: string;
+    let smallActId: string;
+    let bigGroupId: string;
+    let small1Id: string;
+    let small2Id: string;
+    let previousMaxActivities: number;
+
+    const auth = () => `Bearer ${adminToken}`;
+
+    const createGroup = async (code: string, guests: number) => {
+      const groupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: code, region_id: gbRegionId })
+      ).body.id as string;
+      for (let i = 0; i < guests; i++) {
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `${code}-P${i}`,
+            group_id: groupId,
+            region_id: gbRegionId,
+            full_name: `${code} Guest ${i}`,
+          });
+      }
+      return groupId;
+    };
+
+    const assignedIdsOf = async (activityId: string): Promise<string[]> => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}`)
+        .set('Authorization', auth())
+        .expect(200);
+      return res.body.guest_groups.map((g: { id: string }) => g.id);
+    };
+
+    beforeAll(async () => {
+      gbRegionId = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({
+            name: `GB Region ${Date.now()}`,
+            event_start_date: '2024-11-09',
+            event_end_date: '2024-11-16',
+          })
+      ).body.id;
+
+      previousMaxActivities = (
+        await request(server)
+          .get('/api/settings/campaign')
+          .set('Authorization', auth())
+      ).body.max_activities_per_group;
+      // One activity per group makes the two activities compete for the pool
+      await request(server)
+        .patch('/api/settings/campaign')
+        .set('Authorization', auth())
+        .send({ max_activities_per_group: 1 });
+
+      bigGroupId = await createGroup(`GB-BIG-${Date.now()}`, 8);
+      small1Id = await createGroup(`GB-SM1-${Date.now()}`, 2);
+      small2Id = await createGroup(`GB-SM2-${Date.now()}`, 2);
+
+      bigActId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: gbRegionId,
+            name: 'GB big activity',
+            date: DATE,
+            start_time: '10:00',
+            end_time: '12:00',
+            max_guests: 12,
+          })
+      ).body.id;
+
+      smallActId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: gbRegionId,
+            name: 'GB small activity',
+            date: DATE,
+            start_time: '15:00',
+            end_time: '17:00',
+            max_guests: 4,
+          })
+      ).body.id;
+    });
+
+    afterAll(async () => {
+      await request(server)
+        .patch('/api/settings/campaign')
+        .set('Authorization', auth())
+        .send({ max_activities_per_group: previousMaxActivities });
+    });
+
+    it('balances group_size assignment so no activity is starved', async () => {
+      const res = await request(server)
+        .post('/api/activities/general/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(res.body.activitiesProcessed).toBeGreaterThanOrEqual(2);
+
+      // A per-activity greedy would pack 8+2+2 into the big activity and
+      // leave the small one empty (each group has a 1-activity budget)
+      expect(await assignedIdsOf(bigActId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(smallActId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+
+    it('is idempotent — re-running does not move or duplicate groups', async () => {
+      await request(server)
+        .post('/api/activities/general/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(await assignedIdsOf(bigActId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(smallActId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+  });
 });
