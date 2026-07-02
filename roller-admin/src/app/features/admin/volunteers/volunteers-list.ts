@@ -99,6 +99,10 @@ export class VolunteersListComponent implements OnInit {
   readonly filterAvailability = signal<string[]>([]);
   readonly filterTermsAccepted = signal<'' | 'true' | 'false'>('');
   readonly filterSearch = signal('');
+  readonly termsItems = [
+    { value: 'true', label: 'Accepted' },
+    { value: 'false', label: 'Not accepted' },
+  ];
   readonly page = signal(1);
   readonly limit = 50;
 

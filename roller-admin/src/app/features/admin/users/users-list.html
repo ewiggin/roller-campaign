@@ -186,14 +186,7 @@
           <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
             >Role *</label
           >
-          <select
-            formControlName="role"
-            class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          >
-            @for (role of roles; track role) {
-              <option [value]="role">{{ roleLabels[role] }}</option>
-            }
-          </select>
+          <app-searchable-select formControlName="role" [items]="roleItems" />
         </div>
 
         @if (showRegions()) {

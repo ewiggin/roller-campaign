@@ -14,10 +14,11 @@ import { GuestGroupsService } from '../../../core/services/guest-groups.service'
 import { ActivitiesService } from '../../../core/services/activities.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import type { Host, GroupSuggestion } from '../../../core/models/host.model';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 @Component({
   selector: 'app-host-detail',
-  imports: [RouterLink],
+  imports: [RouterLink, SearchableSelectComponent],
   templateUrl: './host-detail.html',
 })
 export class HostDetailComponent implements OnInit {
@@ -25,6 +26,11 @@ export class HostDetailComponent implements OnInit {
   private readonly svc = inject(HostsService);
   private readonly groupsSvc = inject(GuestGroupsService);
   private readonly activitiesSvc = inject(ActivitiesService);
+
+  readonly carsFilterItems = [
+    { value: 'true', label: 'With cars' },
+    { value: 'false', label: 'Without cars' },
+  ];
 
   readonly host = signal<Host | null>(null);
   readonly loading = signal(true);

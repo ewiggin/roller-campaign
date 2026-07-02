@@ -38,6 +38,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   readonly compact = input(false);
   readonly invalid = input(false);
   readonly multi = input(false);
+  readonly disabled = input(false);
 
   // Single mode
   readonly selected = model('');
@@ -47,6 +48,12 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   protected readonly open = signal(false);
   protected readonly query = signal('');
   protected readonly dropdownStyle = signal<Record<string, string>>({});
+  private readonly cvaDisabled = signal(false);
+
+  protected readonly isDisabled = computed(() => this.disabled() || this.cvaDisabled());
+
+  // Short lists don't need a search box; it only adds noise
+  protected readonly showSearch = computed(() => this.items().length >= 8);
 
   @ViewChild('trigger') private readonly triggerEl?: ElementRef<HTMLButtonElement>;
   @ViewChild('searchInput') private readonly searchInput?: ElementRef<HTMLInputElement>;
@@ -84,6 +91,9 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   }
   registerOnTouched(fn: () => void): void {
     this.onTouched = fn;
+  }
+  setDisabledState(isDisabled: boolean): void {
+    this.cvaDisabled.set(isDisabled);
   }
 
   // Capture phase, so clicks swallowed by stopPropagation (e.g. modal
@@ -159,6 +169,6 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   protected triggerClass() {
     const py = this.compact() ? 'py-1.5' : 'py-2';
     const border = this.invalid() ? 'border-red-400' : 'border-gray-300 dark:border-zinc-700';
-    return `w-full flex items-center justify-between gap-2 rounded-lg border ${border} bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 ${py} text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors`;
+    return `w-full flex items-center justify-between gap-2 rounded-lg border ${border} bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 ${py} text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`;
   }
 }

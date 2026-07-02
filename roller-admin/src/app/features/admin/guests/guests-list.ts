@@ -46,7 +46,11 @@ export class GuestsListComponent implements OnInit {
   private readonly confirmSvc = inject(ConfirmDialogService);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
-  readonly statuses = STATUSES;
+  readonly statusItems = STATUSES.map((s) => ({ value: s, label: s }));
+  readonly termsItems = [
+    { value: 'true', label: 'Accepted' },
+    { value: 'false', label: 'Not accepted' },
+  ];
 
   readonly excelMenuItems = computed<MenuItem[]>(() => [
     { label: 'Export Excel', action: () => this.downloadExcel() },

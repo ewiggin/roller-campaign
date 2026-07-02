@@ -1,5 +1,11 @@
 <div>
-  <button #trigger type="button" (click)="toggle()" [class]="triggerClass()">
+  <button
+    #trigger
+    type="button"
+    (click)="toggle()"
+    [disabled]="isDisabled()"
+    [class]="triggerClass()"
+  >
     <span
       class="truncate"
       [class.text-gray-400]="!selectedLabel()"
@@ -25,18 +31,20 @@
       [ngStyle]="dropdownStyle()"
       class="z-[9999] min-w-56 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#18181b] shadow-lg overflow-hidden"
     >
-      <div class="p-2 border-b border-gray-100 dark:border-zinc-800">
-        <input
-          #searchInput
-          type="text"
-          [ngModel]="query()"
-          (ngModelChange)="query.set($event)"
-          (keydown.escape)="close()"
-          placeholder="Search…"
-          autocomplete="off"
-          class="w-full rounded-md border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-3 py-1.5 text-sm text-gray-900 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-      </div>
+      @if (showSearch()) {
+        <div class="p-2 border-b border-gray-100 dark:border-zinc-800">
+          <input
+            #searchInput
+            type="text"
+            [ngModel]="query()"
+            (ngModelChange)="query.set($event)"
+            (keydown.escape)="close()"
+            placeholder="Search…"
+            autocomplete="off"
+            class="w-full rounded-md border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#27272a] px-3 py-1.5 text-sm text-gray-900 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+      }
 
       <ul class="max-h-60 overflow-y-auto divide-y divide-gray-50 dark:divide-zinc-800">
         <!-- Single mode: empty option -->

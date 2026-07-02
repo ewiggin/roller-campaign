@@ -126,15 +126,14 @@
       <!-- Cars filter -->
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">Cars</label>
-        <select
-          [value]="hasCars() === true ? 'true' : hasCars() === false ? 'false' : ''"
-          (change)="onHasCarsChange($any($event.target).value)"
-          class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-        >
-          <option value="">All</option>
-          <option value="true">With cars</option>
-          <option value="false">Without cars</option>
-        </select>
+        <app-searchable-select
+          [items]="carsFilterItems"
+          placeholder="All"
+          emptyLabel="All"
+          [compact]="true"
+          [selected]="hasCars() === true ? 'true' : hasCars() === false ? 'false' : ''"
+          (selectedChange)="onHasCarsChange($event)"
+        />
       </div>
 
       <!-- Languages multiselect -->
@@ -1777,15 +1776,12 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1"
               >Composition</label
             >
-            <select
+            <app-searchable-select
               formControlName="composition"
-              class="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
-              <option value="">— Not specified —</option>
-              @for (opt of compositionOptions; track opt[0]) {
-                <option [value]="opt[0]">{{ opt[1] }}</option>
-              }
-            </select>
+              [items]="compositionItems"
+              placeholder="— Not specified —"
+              emptyLabel="— Not specified —"
+            />
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>

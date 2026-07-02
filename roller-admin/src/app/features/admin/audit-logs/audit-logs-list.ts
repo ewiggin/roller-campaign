@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AuditLogsService } from '../../../core/services/audit-logs.service';
 import { downloadFile } from '../../../core/utils/download-file';
 import type { AuditLog, AuditAction, AuditResource } from '../../../core/models/audit-log.model';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 const RESOURCES: AuditResource[] = [
   'auth',
@@ -32,14 +33,14 @@ const ACTIONS: AuditAction[] = [
 
 @Component({
   selector: 'app-audit-logs-list',
-  imports: [FormsModule, DatePipe, DecimalPipe],
+  imports: [FormsModule, DatePipe, DecimalPipe, SearchableSelectComponent],
   templateUrl: './audit-logs-list.html',
 })
 export class AuditLogsListComponent implements OnInit {
   private readonly svc = inject(AuditLogsService);
 
-  readonly resources = RESOURCES;
-  readonly actions = ACTIONS;
+  readonly resourceItems = RESOURCES.map((r) => ({ value: r, label: r }));
+  readonly actionItems = ACTIONS.map((a) => ({ value: a, label: a }));
 
   readonly logs = signal<AuditLog[]>([]);
   readonly total = signal(0);

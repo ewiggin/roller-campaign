@@ -556,6 +556,28 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     ),
   );
 
+  readonly statusFilterItems = [
+    { value: 'draft', label: 'Draft' },
+    { value: 'published', label: 'Published' },
+  ];
+  readonly repeatTypeItems = [
+    { value: 'daily', label: 'Every day' },
+    { value: 'weekly', label: 'Every week' },
+    { value: 'same_day', label: 'Same day (copies)' },
+  ];
+  readonly sortByItems = [
+    { value: 'distance', label: 'Closest first' },
+    { value: 'group_size', label: 'Largest first' },
+  ];
+  readonly sortByItemsLong = [
+    { value: 'distance', label: 'Distance (closest first)' },
+    { value: 'group_size', label: 'Group size (largest first)' },
+  ];
+
+  roleItemsOf(roles: { id: string; name: string }[]): { value: string; label: string }[] {
+    return roles.map((r) => ({ value: r.id, label: r.name }));
+  }
+
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
   readonly detailError = signal('');

@@ -91,6 +91,11 @@ export class GuestGroupsListComponent implements OnInit {
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
   readonly compositionOptions = Object.entries(COMPOSITION_LABELS) as [GroupComposition, string][];
+  readonly compositionItems = this.compositionOptions.map(([value, label]) => ({ value, label }));
+  readonly carsFilterItems = [
+    { value: 'true', label: 'With cars' },
+    { value: 'false', label: 'Without cars' },
+  ];
 
   readonly excelMenuItems = computed<MenuItem[]>(() => [
     { label: 'Export Excel', action: () => this.downloadExcel() },

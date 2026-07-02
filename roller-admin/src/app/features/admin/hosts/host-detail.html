@@ -297,15 +297,15 @@
         <div class="flex items-center gap-3 flex-1 justify-end">
           @if (!suggestionsLoading()) {
             <!-- Cars filter -->
-            <select
-              [value]="hasCars() === true ? 'true' : hasCars() === false ? 'false' : ''"
-              (change)="onHasCarsChange($any($event.target).value)"
-              class="rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-[#27272a] text-gray-900 dark:text-zinc-100 px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
-              <option value="">All cars</option>
-              <option value="true">With cars</option>
-              <option value="false">Without cars</option>
-            </select>
+            <app-searchable-select
+              class="w-36 shrink-0"
+              [items]="carsFilterItems"
+              placeholder="All cars"
+              emptyLabel="All cars"
+              [compact]="true"
+              [selected]="hasCars() === true ? 'true' : hasCars() === false ? 'false' : ''"
+              (selectedChange)="onHasCarsChange($event)"
+            />
 
             <!-- Language filter -->
             <div class="relative" #langDropdown>
