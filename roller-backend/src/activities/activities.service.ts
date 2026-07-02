@@ -20,8 +20,10 @@ import { Region } from '../regions/entities/region.entity';
 import { User } from '../users/entities/user.entity';
 import { Volunteer } from '../volunteers/entities/volunteer.entity';
 import {
+  buildFoodShiftsByCongregationContent,
   buildGroupScheduleContent,
   buildVolunteerScheduleContent,
+  FoodShiftPdfSection,
   SCHEDULE_PDF_STYLES,
   ScheduleActivityItem,
 } from './schedule-pdf.util';
@@ -52,9 +54,12 @@ import {
 } from './dto/preaching-group.dto';
 import { AssignGroupVolunteerDto } from './dto/assign-group-volunteer.dto';
 import { Activity } from './entities/activity.entity';
-import { SettingsService } from '../settings/settings.service';
+import { CampaignLimits, SettingsService } from '../settings/settings.service';
 
 const ACTIVITY_RELATIONS = { volunteers: true, guestGroups: true, host: true };
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface AvailableForGroupActivity {
   id: string;
@@ -132,6 +137,7 @@ export class ActivitiesService {
       icon: dto.icon ?? null,
       description: dto.description ?? null,
       host_id: dto.host_id ?? null,
+      host_person_name: dto.host_person_name ?? null,
       required_volunteers: dto.required_volunteers ?? null,
       max_guests: dto.max_guests ?? null,
       date: dto.date,
@@ -173,6 +179,7 @@ export class ActivitiesService {
             icon: dto.icon ?? null,
             description: dto.description ?? null,
             host_id: dto.host_id ?? null,
+            host_person_name: dto.host_person_name ?? null,
             required_volunteers: dto.required_volunteers ?? null,
             max_guests: dto.max_guests ?? null,
             date,
@@ -221,6 +228,7 @@ export class ActivitiesService {
       dateTo,
       hostId,
       volunteerId,
+      status,
       is_preaching_shift,
       is_food_shift,
       page = 1,
@@ -287,12 +295,14 @@ export class ActivitiesService {
     }
 
     if (name)
-      qb.andWhere('LOWER(a.name) LIKE :name', {
-        name: `%${name.toLowerCase()}%`,
-      });
+      qb.andWhere(
+        '(LOWER(a.name) LIKE :name OR LOWER(a.host_person_name) LIKE :name)',
+        { name: `%${name.toLowerCase()}%` },
+      );
     if (date) qb.andWhere('a.date = :date', { date });
     if (dateFrom) qb.andWhere('a.date >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('a.date <= :dateTo', { dateTo });
+    if (status) qb.andWhere('a.status = :status', { status });
     if (hostId) qb.andWhere('a.host_id = :hostId', { hostId });
     if (volunteerId)
       qb.andWhere('volunteers.id = :volunteerId', { volunteerId });
@@ -1083,12 +1093,21 @@ export class ActivitiesService {
       }
 
       const [preachingGroupId] = target;
-      await this.assignGuestGroupToGroup(
-        id,
-        preachingGroupId,
-        candidate.id,
-        currentUser,
-      );
+      try {
+        await this.assignGuestGroupToGroup(
+          id,
+          preachingGroupId,
+          candidate.id,
+          currentUser,
+        );
+      } catch (e) {
+        // A single rejected group must not abort the remaining candidates
+        this.logger.warn(
+          `Preaching auto-assign could not assign group ${candidate.id} to shift ${id}: ${e}`,
+        );
+        skipped++;
+        continue;
+      }
       guestCountPerPG.set(
         preachingGroupId,
         (guestCountPerPG.get(preachingGroupId) ?? 0) + candidate.guest_count,
@@ -1122,31 +1141,31 @@ export class ActivitiesService {
         return { shiftsProcessed: 0, totalSkipped: 0, unassignedGroups: [] };
     }
 
-    const shiftsQb = this.activitiesRepo
-      .createQueryBuilder('a')
-      .select('a.id')
-      .where('a.is_preaching_shift = :yes', { yes: true })
-      .andWhere('a.invite_all_congregation = :no1', { no1: false })
-      .andWhere('a.invite_all_region = :no2', { no2: false });
-    if (regionIds.length > 0)
-      shiftsQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
+    const shifts = await this.activitiesRepo.find({
+      where: {
+        is_preaching_shift: true,
+        invite_all_congregation: false,
+        invite_all_region: false,
+        ...(regionIds.length > 0 ? { region_id: In(regionIds) } : {}),
+      },
+      order: { date: 'ASC', start_time: 'ASC' },
+    });
 
-    const shifts = await shiftsQb.getMany();
+    // A group can preach at most once per day, so shifts sharing a date
+    // compete for the same candidate pool and must be balanced together.
+    const shiftsByDate = new Map<string, Activity[]>();
+    for (const shift of shifts) {
+      if (!shiftsByDate.has(shift.date)) shiftsByDate.set(shift.date, []);
+      shiftsByDate.get(shift.date)!.push(shift);
+    }
 
     let totalSkipped = 0;
-    for (const shift of shifts) {
-      try {
-        const result = await this.autoAssignGuestGroupsToPreachingGroups(
-          shift.id,
-          currentUser,
-          sortBy,
-        );
-        totalSkipped += result.skipped;
-      } catch (e) {
-        this.logger.error(
-          `Bulk preaching auto-assign skipped shift ${shift.id}: ${e}`,
-        );
-      }
+    for (const dayShifts of shiftsByDate.values()) {
+      totalSkipped += await this.autoAssignPreachingShiftsForDay(
+        dayShifts,
+        currentUser,
+        sortBy,
+      );
     }
 
     const ggQb = this.groupsRepo
@@ -1181,6 +1200,192 @@ export class ActivitiesService {
         guest_count: parseInt(r.guest_count, 10),
       })),
     };
+  }
+
+  /**
+   * Distributes one day's eligible groups across that day's preaching shifts.
+   *
+   * Iterates over groups (not shifts) and places each one into the least
+   * loaded shift with room (group_size) or the closest shift with room
+   * (distance), then into the least loaded preaching group within it. A
+   * per-shift greedy would let the first shifts drain the day's pool and
+   * leave the remaining shifts empty.
+   *
+   * Returns the number of eligible groups that could not be placed.
+   */
+  private async autoAssignPreachingShiftsForDay(
+    shifts: Activity[],
+    currentUser: JwtPayload,
+    sortBy: 'distance' | 'group_size',
+  ): Promise<number> {
+    interface ShiftState {
+      id: string;
+      current: number;
+      pgLoads: Map<string, number>;
+      pgGroupCounts: Map<string, number>;
+      // Doubles as the per-shift eligibility set: a group absent from this
+      // map cannot be assigned to this shift.
+      distanceByGroup: Map<string, number | null>;
+    }
+
+    const limits = await this.settingsService.getCampaignLimits();
+    const states: ShiftState[] = [];
+    const poolSizes = new Map<string, number>();
+
+    for (const shift of shifts) {
+      const preachingGroups = await this.preachingGroupsRepo.find({
+        where: { activity_id: shift.id },
+        relations: { guestGroups: true },
+      });
+      if (preachingGroups.length === 0) {
+        this.logger.warn(
+          `Bulk preaching auto-assign skipped shift ${shift.id}: no preaching groups defined`,
+        );
+        continue;
+      }
+
+      let available: AvailableGroupForActivityDto[];
+      try {
+        available = await this.getAvailableGroups(shift.id, currentUser);
+      } catch (e) {
+        this.logger.error(
+          `Bulk preaching auto-assign skipped shift ${shift.id}: ${e}`,
+        );
+        continue;
+      }
+
+      const alreadyInPreachingGroup = new Set(
+        preachingGroups.flatMap((pg) => pg.guestGroups.map((g) => g.id)),
+      );
+      const distanceByGroup = new Map<string, number | null>();
+      for (const g of available) {
+        if (
+          g.guest_count > 0 &&
+          !g.already_in_activity &&
+          !g.host_schedule_conflict &&
+          !g.same_day_preaching_shift &&
+          g.preaching_shifts_count < limits.maxPreachingShiftsPerGroup &&
+          !alreadyInPreachingGroup.has(g.id)
+        ) {
+          distanceByGroup.set(g.id, g.distance_km);
+          poolSizes.set(g.id, g.guest_count);
+        }
+      }
+
+      const memberCounts = await this.getGroupGuestCounts([
+        ...alreadyInPreachingGroup,
+      ]);
+      const pgLoads = new Map(
+        preachingGroups.map((pg) => [
+          pg.id,
+          pg.guestGroups.reduce(
+            (sum, g) => sum + (memberCounts.get(g.id) ?? 0),
+            0,
+          ),
+        ]),
+      );
+      const pgGroupCounts = new Map(
+        preachingGroups.map((pg) => [pg.id, pg.guestGroups.length]),
+      );
+
+      states.push({
+        id: shift.id,
+        current: [...pgLoads.values()].reduce((a, b) => a + b, 0),
+        pgLoads,
+        pgGroupCounts,
+        distanceByGroup,
+      });
+    }
+
+    const nearestDistance = new Map<string, number>();
+    for (const state of states) {
+      for (const [groupId, distance] of state.distanceByGroup) {
+        const best = nearestDistance.get(groupId) ?? Infinity;
+        if (distance !== null && distance < best)
+          nearestDistance.set(groupId, distance);
+        else if (!nearestDistance.has(groupId))
+          nearestDistance.set(groupId, best);
+      }
+    }
+
+    // Avoids Infinity - Infinity = NaN in sort comparators
+    const cmp = (a: number, b: number) => (a === b ? 0 : a - b);
+
+    const candidates = [...poolSizes.entries()].map(([id, guestCount]) => ({
+      id,
+      guestCount,
+      nearest: nearestDistance.get(id) ?? Infinity,
+    }));
+    candidates.sort((a, b) =>
+      sortBy === 'group_size'
+        ? b.guestCount - a.guestCount || cmp(a.nearest, b.nearest)
+        : cmp(a.nearest, b.nearest) || b.guestCount - a.guestCount,
+    );
+
+    let skipped = 0;
+
+    for (const candidate of candidates) {
+      const options = states
+        .filter(
+          (s) =>
+            s.distanceByGroup.has(candidate.id) &&
+            [...s.pgLoads.values()].some(
+              (load) =>
+                load + candidate.guestCount <=
+                limits.maxGuestsPerPreachingGroup,
+            ),
+        )
+        .sort((a, b) => {
+          const distA = a.distanceByGroup.get(candidate.id) ?? Infinity;
+          const distB = b.distanceByGroup.get(candidate.id) ?? Infinity;
+          return sortBy === 'group_size'
+            ? a.current - b.current || cmp(distA, distB)
+            : cmp(distA, distB) || a.current - b.current;
+        });
+
+      let placed = false;
+      for (const target of options) {
+        const pgEntry = [...target.pgLoads.entries()]
+          .filter(
+            ([, load]) =>
+              load + candidate.guestCount <= limits.maxGuestsPerPreachingGroup,
+          )
+          .sort(
+            ([idA, loadA], [idB, loadB]) =>
+              loadA - loadB ||
+              (target.pgGroupCounts.get(idA) ?? 0) -
+                (target.pgGroupCounts.get(idB) ?? 0),
+          )[0];
+        if (!pgEntry) continue;
+        const [pgId] = pgEntry;
+        try {
+          await this.assignGuestGroupToGroup(
+            target.id,
+            pgId,
+            candidate.id,
+            currentUser,
+          );
+          target.pgLoads.set(
+            pgId,
+            (target.pgLoads.get(pgId) ?? 0) + candidate.guestCount,
+          );
+          target.pgGroupCounts.set(
+            pgId,
+            (target.pgGroupCounts.get(pgId) ?? 0) + 1,
+          );
+          target.current += candidate.guestCount;
+          placed = true;
+          break;
+        } catch (e) {
+          this.logger.warn(
+            `Bulk preaching auto-assign could not assign group ${candidate.id} to shift ${target.id}: ${e}`,
+          );
+        }
+      }
+      if (!placed) skipped++;
+    }
+
+    return skipped;
   }
 
   async autoAssignGuestGroupsToFoodShift(
@@ -1243,8 +1448,16 @@ export class ActivitiesService {
         skipped++;
         continue;
       }
-      await this.assignGuestGroup(id, candidate.id, currentUser);
-      currentGuestCount += candidate.guest_count;
+      try {
+        await this.assignGuestGroup(id, candidate.id, currentUser);
+        currentGuestCount += candidate.guest_count;
+      } catch (e) {
+        // A single rejected group must not abort the remaining candidates
+        this.logger.warn(
+          `Food auto-assign could not assign group ${candidate.id} to shift ${id}: ${e}`,
+        );
+        skipped++;
+      }
     }
 
     return { activity: await this.findOne(id, currentUser), skipped };
@@ -1275,26 +1488,10 @@ export class ActivitiesService {
     }
 
     const limits = await this.settingsService.getCampaignLimits();
-    const availableGroups = await this.getAvailableGroups(id, currentUser);
-
-    const foodShiftOnDayRows = await this.activitiesRepo
-      .createQueryBuilder('a')
-      .innerJoin('a.guestGroups', 'gg')
-      .select('gg.id', 'groupId')
-      .where('a.is_food_shift = :yes', { yes: true })
-      .andWhere('a.date = :date', { date: activity.date })
-      .getRawMany<{ groupId: string }>();
-    const foodShiftOnDayIds = new Set(foodShiftOnDayRows.map((r) => r.groupId));
-
-    const candidates = availableGroups.filter(
-      (g) =>
-        g.guest_count > 0 &&
-        !g.already_in_activity &&
-        !g.host_schedule_conflict &&
-        g.activities_count < limits.maxActivitiesPerGroup &&
-        (!limits.restrictSameNameActivityGroup ||
-          !g.already_in_same_name_activity) &&
-        !foodShiftOnDayIds.has(g.id),
+    const candidates = await this.getNonTypedCandidates(
+      activity,
+      currentUser,
+      limits,
     );
 
     if (candidates.length === 0) {
@@ -1323,11 +1520,51 @@ export class ActivitiesService {
         skipped++;
         continue;
       }
-      await this.assignGuestGroup(id, candidate.id, currentUser);
-      currentGuestCount += candidate.guest_count;
+      try {
+        await this.assignGuestGroup(id, candidate.id, currentUser);
+        currentGuestCount += candidate.guest_count;
+      } catch (e) {
+        // A single rejected group must not abort the remaining candidates
+        this.logger.warn(
+          `General auto-assign could not assign group ${candidate.id} to activity ${id}: ${e}`,
+        );
+        skipped++;
+      }
     }
 
     return { activity: await this.findOne(id, currentUser), skipped };
+  }
+
+  /** Eligible guest groups for a non-typed activity's auto-assignment. */
+  private async getNonTypedCandidates(
+    activity: Activity,
+    currentUser: JwtPayload,
+    limits: CampaignLimits,
+  ): Promise<AvailableGroupForActivityDto[]> {
+    const availableGroups = await this.getAvailableGroups(
+      activity.id,
+      currentUser,
+    );
+
+    const foodShiftOnDayRows = await this.activitiesRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.guestGroups', 'gg')
+      .select('gg.id', 'groupId')
+      .where('a.is_food_shift = :yes', { yes: true })
+      .andWhere('a.date = :date', { date: activity.date })
+      .getRawMany<{ groupId: string }>();
+    const foodShiftOnDayIds = new Set(foodShiftOnDayRows.map((r) => r.groupId));
+
+    return availableGroups.filter(
+      (g) =>
+        g.guest_count > 0 &&
+        !g.already_in_activity &&
+        !g.host_schedule_conflict &&
+        g.activities_count < limits.maxActivitiesPerGroup &&
+        (!limits.restrictSameNameActivityGroup ||
+          !g.already_in_same_name_activity) &&
+        !foodShiftOnDayIds.has(g.id),
+    );
   }
 
   async bulkAutoAssignNonTypedActivities(
@@ -1349,35 +1586,191 @@ export class ActivitiesService {
         return { activitiesProcessed: 0, totalSkipped: 0 };
     }
 
-    const activitiesQb = this.activitiesRepo
-      .createQueryBuilder('a')
-      .select('a.id')
-      .where('a.is_food_shift = :no', { no: false })
-      .andWhere('a.is_preaching_shift = :no2', { no2: false })
-      .andWhere('a.invite_all_congregation = :no3', { no3: false })
-      .andWhere('a.invite_all_region = :no4', { no4: false });
-    if (regionIds.length > 0)
-      activitiesQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
+    const activities = await this.activitiesRepo.find({
+      where: {
+        is_food_shift: false,
+        is_preaching_shift: false,
+        invite_all_congregation: false,
+        invite_all_region: false,
+        ...(regionIds.length > 0 ? { region_id: In(regionIds) } : {}),
+      },
+      relations: { guestGroups: true },
+      order: { date: 'ASC', start_time: 'ASC' },
+    });
 
-    const activities = await activitiesQb.getMany();
+    const totalSkipped = await this.autoAssignNonTypedBalanced(
+      activities,
+      currentUser,
+      sortBy,
+    );
 
-    let totalSkipped = 0;
-    for (const a of activities) {
+    return { activitiesProcessed: activities.length, totalSkipped };
+  }
+
+  /**
+   * Distributes eligible groups across all non-typed activities.
+   *
+   * Unlike food and preaching shifts, a group may join several activities
+   * (up to maxActivitiesPerGroup), so placement happens in rounds: each
+   * round gives every group at most one new activity — the least loaded
+   * with room (group_size) or the closest with room (distance) — until
+   * nothing more can be placed. Coverage is spread before the groups'
+   * budgets are spent, so the last-processed activities are not starved.
+   *
+   * Returns the number of eligible groups that could not be placed anywhere.
+   */
+  private async autoAssignNonTypedBalanced(
+    activities: Activity[],
+    currentUser: JwtPayload,
+    sortBy: 'distance' | 'group_size',
+  ): Promise<number> {
+    interface ActivityState {
+      id: string;
+      name: string | null;
+      date: string;
+      start: string;
+      end: string;
+      max: number | null;
+      current: number;
+      // Doubles as the per-activity eligibility set: a group absent from
+      // this map cannot be assigned to this activity.
+      distanceByGroup: Map<string, number | null>;
+    }
+    interface CandidateState {
+      id: string;
+      guestCount: number;
+      budget: number;
+      nearest: number;
+      placedActivityIds: Set<string>;
+      placedNames: Set<string>;
+      placedSlots: { date: string; start: string; end: string }[];
+    }
+
+    const limits = await this.settingsService.getCampaignLimits();
+
+    const assignedIds = activities.flatMap((a) =>
+      a.guestGroups.map((g) => g.id),
+    );
+    const assignedCounts = await this.getGroupGuestCounts(assignedIds);
+
+    const states: ActivityState[] = [];
+    const candidateById = new Map<string, CandidateState>();
+
+    for (const activity of activities) {
+      let candidates: AvailableGroupForActivityDto[];
       try {
-        const result = await this.autoAssignNonTypedActivity(
-          a.id,
+        candidates = await this.getNonTypedCandidates(
+          activity,
           currentUser,
-          sortBy,
+          limits,
         );
-        totalSkipped += result.skipped;
       } catch (e) {
         this.logger.error(
-          `Bulk general auto-assign skipped activity ${a.id}: ${e}`,
+          `Bulk general auto-assign skipped activity ${activity.id}: ${e}`,
         );
+        continue;
+      }
+      const distanceByGroup = new Map<string, number | null>();
+      for (const g of candidates) {
+        distanceByGroup.set(g.id, g.distance_km);
+        if (!candidateById.has(g.id)) {
+          candidateById.set(g.id, {
+            id: g.id,
+            guestCount: g.guest_count,
+            budget: limits.maxActivitiesPerGroup - g.activities_count,
+            nearest: Infinity,
+            placedActivityIds: new Set(),
+            placedNames: new Set(),
+            placedSlots: [],
+          });
+        }
+        const candidate = candidateById.get(g.id)!;
+        if (g.distance_km !== null && g.distance_km < candidate.nearest)
+          candidate.nearest = g.distance_km;
+      }
+      states.push({
+        id: activity.id,
+        name: activity.name ?? null,
+        date: activity.date,
+        start: activity.start_time,
+        end: activity.end_time,
+        max: activity.max_guests,
+        current: activity.guestGroups.reduce(
+          (sum, g) => sum + (assignedCounts.get(g.id) ?? 0),
+          0,
+        ),
+        distanceByGroup,
+      });
+    }
+
+    // Avoids Infinity - Infinity = NaN in sort comparators
+    const cmp = (a: number, b: number) => (a === b ? 0 : a - b);
+
+    const candidates = [...candidateById.values()];
+    candidates.sort((a, b) =>
+      sortBy === 'group_size'
+        ? b.guestCount - a.guestCount || cmp(a.nearest, b.nearest)
+        : cmp(a.nearest, b.nearest) || b.guestCount - a.guestCount,
+    );
+
+    let progress = true;
+    while (progress) {
+      progress = false;
+      for (const candidate of candidates) {
+        if (candidate.budget <= 0) continue;
+        const options = states
+          .filter(
+            (s) =>
+              s.distanceByGroup.has(candidate.id) &&
+              !candidate.placedActivityIds.has(s.id) &&
+              (s.max === null || s.current + candidate.guestCount <= s.max) &&
+              !(
+                limits.restrictSameNameActivityGroup &&
+                s.name &&
+                candidate.placedNames.has(s.name)
+              ) &&
+              !candidate.placedSlots.some(
+                (slot) =>
+                  slot.date === s.date &&
+                  slot.start < s.end &&
+                  slot.end > s.start,
+              ),
+          )
+          .sort((a, b) => {
+            const distA = a.distanceByGroup.get(candidate.id) ?? Infinity;
+            const distB = b.distanceByGroup.get(candidate.id) ?? Infinity;
+            return sortBy === 'group_size'
+              ? a.current - b.current || cmp(distA, distB)
+              : cmp(distA, distB) || a.current - b.current;
+          });
+
+        for (const target of options) {
+          try {
+            await this.assignGuestGroup(target.id, candidate.id, currentUser);
+          } catch (e) {
+            this.logger.warn(
+              `Bulk general auto-assign could not assign group ${candidate.id} to activity ${target.id}: ${e}`,
+            );
+            // The rejection is permanent — stop considering this pairing
+            target.distanceByGroup.delete(candidate.id);
+            continue;
+          }
+          target.current += candidate.guestCount;
+          candidate.budget--;
+          candidate.placedActivityIds.add(target.id);
+          if (target.name) candidate.placedNames.add(target.name);
+          candidate.placedSlots.push({
+            date: target.date,
+            start: target.start,
+            end: target.end,
+          });
+          progress = true;
+          break;
+        }
       }
     }
 
-    return { activitiesProcessed: activities.length, totalSkipped };
+    return candidates.filter((c) => c.placedActivityIds.size === 0).length;
   }
 
   async bulkAutoAssignGuestGroupsToFoodShifts(
@@ -1400,31 +1793,33 @@ export class ActivitiesService {
         return { shiftsProcessed: 0, totalSkipped: 0, unassignedGroups: [] };
     }
 
-    const shiftsQb = this.activitiesRepo
-      .createQueryBuilder('a')
-      .select('a.id')
-      .where('a.is_food_shift = :yes', { yes: true })
-      .andWhere('a.invite_all_congregation = :no1', { no1: false })
-      .andWhere('a.invite_all_region = :no2', { no2: false });
-    if (regionIds.length > 0)
-      shiftsQb.andWhere('a.region_id IN (:...regionIds)', { regionIds });
+    const shifts = await this.activitiesRepo.find({
+      where: {
+        is_food_shift: true,
+        invite_all_congregation: false,
+        invite_all_region: false,
+        ...(regionIds.length > 0 ? { region_id: In(regionIds) } : {}),
+      },
+      relations: { guestGroups: true },
+      order: { date: 'ASC', start_time: 'ASC' },
+    });
 
-    const shifts = await shiftsQb.getMany();
+    // Shifts on the same date compete for the same candidate pool (groups
+    // with a morning preaching shift that day), so they must be balanced
+    // together instead of letting each shift greedily drain the pool.
+    const shiftsByDate = new Map<string, Activity[]>();
+    for (const shift of shifts) {
+      if (!shiftsByDate.has(shift.date)) shiftsByDate.set(shift.date, []);
+      shiftsByDate.get(shift.date)!.push(shift);
+    }
 
     let totalSkipped = 0;
-    for (const shift of shifts) {
-      try {
-        const result = await this.autoAssignGuestGroupsToFoodShift(
-          shift.id,
-          currentUser,
-          sortBy,
-        );
-        totalSkipped += result.skipped;
-      } catch (e) {
-        this.logger.error(
-          `Bulk food auto-assign skipped shift ${shift.id}: ${e}`,
-        );
-      }
+    for (const dayShifts of shiftsByDate.values()) {
+      totalSkipped += await this.autoAssignFoodShiftsForDay(
+        dayShifts,
+        currentUser,
+        sortBy,
+      );
     }
 
     const ggQb = this.groupsRepo
@@ -1461,6 +1856,131 @@ export class ActivitiesService {
         guest_count: parseInt(r.guest_count, 10),
       })),
     };
+  }
+
+  /**
+   * Distributes one day's eligible groups across that day's food shifts.
+   *
+   * Iterates over groups (not shifts) and places each one into the least
+   * loaded shift with room (group_size) or the closest shift with room
+   * (distance). A per-shift greedy would let the first shifts consume the
+   * small groups as capacity fillers, leaving later shifts only groups too
+   * large for their max_guests — i.e. empty.
+   *
+   * Returns the number of eligible groups that could not be placed.
+   */
+  private async autoAssignFoodShiftsForDay(
+    shifts: Activity[],
+    currentUser: JwtPayload,
+    sortBy: 'distance' | 'group_size',
+  ): Promise<number> {
+    interface ShiftState {
+      id: string;
+      max: number | null;
+      current: number;
+      // Doubles as the per-shift eligibility set: a group absent from this
+      // map cannot be assigned to this shift.
+      distanceByGroup: Map<string, number | null>;
+    }
+
+    const assignedIds = shifts.flatMap((s) => s.guestGroups.map((g) => g.id));
+    const assignedCounts = await this.getGroupGuestCounts(assignedIds);
+
+    const states: ShiftState[] = [];
+    const poolSizes = new Map<string, number>();
+
+    for (const shift of shifts) {
+      let available: AvailableGroupForActivityDto[];
+      try {
+        available = await this.getAvailableGroups(shift.id, currentUser);
+      } catch (e) {
+        this.logger.error(
+          `Bulk food auto-assign skipped shift ${shift.id}: ${e}`,
+        );
+        continue;
+      }
+      const distanceByGroup = new Map<string, number | null>();
+      for (const g of available) {
+        if (
+          g.guest_count > 0 &&
+          !g.already_in_activity &&
+          !g.host_schedule_conflict &&
+          !g.already_in_food_shift
+        ) {
+          distanceByGroup.set(g.id, g.distance_km);
+          poolSizes.set(g.id, g.guest_count);
+        }
+      }
+      states.push({
+        id: shift.id,
+        max: shift.max_guests,
+        current: shift.guestGroups.reduce(
+          (sum, g) => sum + (assignedCounts.get(g.id) ?? 0),
+          0,
+        ),
+        distanceByGroup,
+      });
+    }
+
+    const nearestDistance = new Map<string, number>();
+    for (const state of states) {
+      for (const [groupId, distance] of state.distanceByGroup) {
+        const best = nearestDistance.get(groupId) ?? Infinity;
+        if (distance !== null && distance < best)
+          nearestDistance.set(groupId, distance);
+        else if (!nearestDistance.has(groupId))
+          nearestDistance.set(groupId, best);
+      }
+    }
+
+    // Avoids Infinity - Infinity = NaN in sort comparators
+    const cmp = (a: number, b: number) => (a === b ? 0 : a - b);
+
+    const candidates = [...poolSizes.entries()].map(([id, guestCount]) => ({
+      id,
+      guestCount,
+      nearest: nearestDistance.get(id) ?? Infinity,
+    }));
+    candidates.sort((a, b) =>
+      sortBy === 'group_size'
+        ? b.guestCount - a.guestCount || cmp(a.nearest, b.nearest)
+        : cmp(a.nearest, b.nearest) || b.guestCount - a.guestCount,
+    );
+
+    let skipped = 0;
+
+    for (const candidate of candidates) {
+      const options = states
+        .filter(
+          (s) =>
+            s.distanceByGroup.has(candidate.id) &&
+            (s.max === null || s.current + candidate.guestCount <= s.max),
+        )
+        .sort((a, b) => {
+          const distA = a.distanceByGroup.get(candidate.id) ?? Infinity;
+          const distB = b.distanceByGroup.get(candidate.id) ?? Infinity;
+          return sortBy === 'group_size'
+            ? a.current - b.current || cmp(distA, distB)
+            : cmp(distA, distB) || a.current - b.current;
+        });
+
+      let placed = false;
+      for (const target of options) {
+        try {
+          await this.assignGuestGroup(target.id, candidate.id, currentUser);
+          target.current += candidate.guestCount;
+          placed = true;
+          break;
+        } catch (e) {
+          this.logger.warn(
+            `Bulk food auto-assign could not assign group ${candidate.id} to shift ${target.id}: ${e}`,
+          );
+        }
+      }
+      if (!placed) skipped++;
+    }
+
+    return skipped;
   }
 
   async removeGuestGroupFromGroup(
@@ -2332,6 +2852,7 @@ export class ActivitiesService {
     status: activity.status,
     host_id: activity.host_id,
     host_name: activity.host?.name ?? null,
+    host_person_name: activity.host_person_name ?? null,
     date: activity.date,
     start_time: activity.start_time,
     end_time: activity.end_time,
@@ -2376,12 +2897,14 @@ export class ActivitiesService {
   // ── Excel import / export ─────────────────────────────────────────────────
 
   private readonly ACTIVITY_EXCEL_COLUMNS = [
+    'id',
     'name',
     'date',
     'start_time',
     'end_time',
     'region_name',
     'host_name',
+    'host_person_name',
     'description',
     'required_volunteers',
     'max_guests',
@@ -2402,6 +2925,7 @@ export class ActivitiesService {
     if (isFoodShift) {
       // Food shifts: replace 'description' with the three host-person columns
       columns = [
+        'id',
         'name',
         'date',
         'start_time',
@@ -2419,6 +2943,7 @@ export class ActivitiesService {
         'status',
       ];
       sampleRow = [
+        '',
         'Nombre del turno',
         '2025-01-15',
         '09:00',
@@ -2438,12 +2963,14 @@ export class ActivitiesService {
     } else if (isPreachingShift) {
       columns = this.ACTIVITY_EXCEL_COLUMNS.filter(
         (c) =>
+          c !== 'host_person_name' &&
           c !== 'is_preaching_shift' &&
           c !== 'is_food_shift' &&
           c !== 'invite_all_congregation' &&
           c !== 'invite_all_region',
       ) as string[];
       sampleRow = [
+        '',
         'Nombre del turno',
         '2025-01-15',
         '09:00',
@@ -2461,12 +2988,14 @@ export class ActivitiesService {
     } else {
       columns = [...this.ACTIVITY_EXCEL_COLUMNS] as string[];
       sampleRow = [
+        '',
         'Nombre de la actividad',
         '2025-01-15',
         '09:00',
         '12:00',
         'Nombre de la región',
         'Nombre de la congregación',
+        '',
         '',
         '',
         '',
@@ -2503,12 +3032,14 @@ export class ActivitiesService {
     const regionMap = new Map(regions.map((r) => [r.id, r.name]));
 
     const rows = result.data.map((a) => [
+      a.id,
       a.name,
       a.date,
       a.start_time,
       a.end_time,
       regionMap.get(a.region_id) ?? '',
       a.host_name ?? '',
+      a.host_person_name ?? '',
       a.description ?? '',
       a.required_volunteers ?? '',
       a.max_guests ?? '',
@@ -2589,6 +3120,13 @@ export class ActivitiesService {
         continue;
       }
 
+      // An id column allows re-importing an export to update existing rows
+      const rawId = this.parseXlsxString(row['id']);
+      if (rawId && !UUID_REGEX.test(rawId)) {
+        errors.push(`Fila ${rowNum}: id '${rawId}' is not a valid UUID`);
+        continue;
+      }
+
       const hostName = this.parseXlsxString(row['host_name']);
       let host_id: string | null = null;
       let host_name: string | null = null;
@@ -2615,7 +3153,7 @@ export class ActivitiesService {
       }
 
       activities.push({
-        id: crypto.randomUUID(),
+        id: rawId ?? crypto.randomUUID(),
         region_id: region.id,
         series_id: null,
         name: name!,
@@ -2627,6 +3165,7 @@ export class ActivitiesService {
             : 'draft',
         host_id,
         host_name,
+        host_person_name: this.parseXlsxString(row['host_person_name']),
         date: date!,
         start_time: start_time!,
         end_time: end_time!,
@@ -2685,12 +3224,14 @@ export class ActivitiesService {
     row: Record<string, unknown>,
     forceFoodShift: boolean,
   ): string | null {
-    if (!forceFoodShift) return this.parseXlsxString(row['description']);
+    // An explicit description column wins (e.g. re-importing an export);
+    // otherwise food shifts compose it from the host-person columns.
+    const explicit = this.parseXlsxString(row['description']);
+    if (!forceFoodShift || explicit) return explicit;
     const name = this.parseXlsxString(row['host_person_name']);
     const address = this.parseXlsxString(row['host_person_address']);
     const phone = this.parseXlsxString(row['host_person_phone']);
-    if (!name && !address && !phone)
-      return this.parseXlsxString(row['description']);
+    if (!name && !address && !phone) return null;
     let desc = 'Estais invitados a comer';
     if (name) desc += ` en casa de ${name}`;
     if (address) desc += ` en ${address}`;
@@ -3420,6 +3961,69 @@ export class ActivitiesService {
 
     const safeName = host.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     return { buffer, filename: `calendario-${safeName}.pdf` };
+  }
+
+  async exportFoodShiftsPdf(
+    query: ActivityListQueryDto,
+    currentUser: JwtPayload,
+  ): Promise<Buffer> {
+    const result = await this.findAll(
+      { ...query, is_food_shift: true, limit: 10000, page: 1 },
+      currentUser,
+    );
+
+    // Group the shifts by host congregation; shifts without one go last.
+    const sectionsByName = new Map<string, FoodShiftPdfSection>();
+    for (const a of result.data) {
+      const key = a.host_name ?? '';
+      let section = sectionsByName.get(key);
+      if (!section) {
+        section = { congregation_name: a.host_name, shifts: [] };
+        sectionsByName.set(key, section);
+      }
+      section.shifts.push({
+        date: a.date,
+        start_time: a.start_time,
+        end_time: a.end_time,
+        host_person_name: a.host_person_name,
+        groups: [...a.guest_groups]
+          .sort((g1, g2) => g1.group_code.localeCompare(g2.group_code))
+          .map((g) => ({
+            group_code: g.group_code,
+            guest_count: g.guest_count,
+          })),
+      });
+    }
+
+    const sections = [...sectionsByName.values()].sort((s1, s2) => {
+      if (s1.congregation_name === null) return 1;
+      if (s2.congregation_name === null) return -1;
+      return s1.congregation_name.localeCompare(s2.congregation_name);
+    });
+    for (const section of sections) {
+      section.shifts.sort((a, b) =>
+        a.date !== b.date
+          ? a.date.localeCompare(b.date)
+          : a.start_time.localeCompare(b.start_time),
+      );
+    }
+
+    const region = query.regionId
+      ? await this.regionsRepo.findOne({ where: { id: query.regionId } })
+      : null;
+
+    return createPdfBuffer({
+      content: buildFoodShiftsByCongregationContent(sections),
+      styles: SCHEDULE_PDF_STYLES,
+      header: buildScheduleHeader(region?.name),
+      footer: (currentPage, pageCount) => ({
+        text: `${currentPage} / ${pageCount}`,
+        alignment: 'center',
+        fontSize: 8,
+        color: '#999999',
+        margin: [0, 10, 0, 0],
+      }),
+    });
   }
 
   async exportVolunteerSchedulePdf(

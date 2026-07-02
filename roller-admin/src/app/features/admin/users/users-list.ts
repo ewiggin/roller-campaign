@@ -7,6 +7,7 @@ import { ConfirmDialogService } from '../../../core/services/confirm-dialog.serv
 import { ToastService } from '../../../core/services/toast.service';
 import type { User, UserRole } from '../../../core/models/user.model';
 import type { Region } from '../../../core/models/region.model';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select';
 
 type ModalMode = 'create' | 'edit' | null;
 
@@ -32,7 +33,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 @Component({
   selector: 'app-users-list',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, SearchableSelectComponent],
   templateUrl: './users-list.html',
 })
 export class UsersListComponent implements OnInit {
@@ -44,8 +45,8 @@ export class UsersListComponent implements OnInit {
   private readonly toastSvc = inject(ToastService);
 
   readonly currentUserId = signal(this.auth.currentUser()?.sub ?? '');
-  readonly roles = ROLES;
   readonly roleLabels = ROLE_LABELS;
+  readonly roleItems = ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] }));
 
   readonly users = signal<User[]>([]);
   readonly regions = signal<Region[]>([]);

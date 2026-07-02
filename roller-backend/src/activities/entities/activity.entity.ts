@@ -59,6 +59,10 @@ export class Activity {
   @Column({ type: 'varchar', nullable: true, default: null })
   host_id: string | null;
 
+  // Name of the person hosting the meal (only used by food shifts)
+  @Column({ type: 'varchar', nullable: true, default: null })
+  host_person_name: string | null;
+
   @Column({ type: 'varchar' })
   date: string;
 

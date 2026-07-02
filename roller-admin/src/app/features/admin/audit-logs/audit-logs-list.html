@@ -1,6 +1,6 @@
 <div>
   <!-- Header -->
-  <div class="flex items-center justify-between mb-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">Audit Log</h2>
     <button
       (click)="exportCsv()"
@@ -23,27 +23,21 @@
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm p-4 mb-4"
   >
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      <select
-        [ngModel]="filterResource()"
-        (ngModelChange)="filterResource.set($event)"
-        class="rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-gray-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-      >
-        <option value="">All resources</option>
-        @for (r of resources; track r) {
-          <option [value]="r">{{ r }}</option>
-        }
-      </select>
+      <app-searchable-select
+        [items]="resourceItems"
+        placeholder="All resources"
+        emptyLabel="All resources"
+        [selected]="filterResource()"
+        (selectedChange)="filterResource.set($event)"
+      />
 
-      <select
-        [ngModel]="filterAction()"
-        (ngModelChange)="filterAction.set($event)"
-        class="rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-gray-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-      >
-        <option value="">All actions</option>
-        @for (a of actions; track a) {
-          <option [value]="a">{{ a }}</option>
-        }
-      </select>
+      <app-searchable-select
+        [items]="actionItems"
+        placeholder="All actions"
+        emptyLabel="All actions"
+        [selected]="filterAction()"
+        (selectedChange)="filterAction.set($event)"
+      />
 
       <input
         type="text"

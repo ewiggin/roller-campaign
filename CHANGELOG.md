@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.7.1] - 2026-07-03
+
+### Añadido
+
+- **Nombre del anfitrión en turnos de comida**: nuevo campo `host_person_name` en las actividades, con migración que lo recupera automáticamente parseando la descripción generada de los turnos de comida existentes ("Estais invitados a comer en casa de…"). Es editable desde los modales de crear y editar turno de comida, se muestra como chip junto a la congregación en la lista, y el filtro por nombre busca también por él (en lista, calendario y exports). El import de Excel lo guarda además de componer la descripción
+- **PDF de turnos de comida por congregación**: nuevo botón "PDF" en la lista de turnos de comida que descarga un listado agrupado por congregación con el mismo diseño que los PDFs de horario; cada fila muestra fecha y hora, nombre del anfitrión y los grupos asignados con su código y nº de invitados entre paréntesis. Respeta los filtros activos (región, nombre, fecha, congregación y estado) y los turnos sin congregación aparecen en una sección final. Nuevo endpoint `GET /api/activities/export/food-shifts-pdf`
+- **Columna `id` en el export/import de Excel de actividades**: el export incluye ahora las columnas `id` y `host_person_name`, de modo que un Excel exportado puede reimportarse para actualizar las actividades existentes en lugar de duplicarlas (el modal de importación detecta el id y entra por el flujo de actualización). Las plantillas incluyen la columna `id` (vacía crea, con valor actualiza) y los ids con formato inválido se reportan como error de fila. Al reimportar, una columna `description` con contenido tiene prioridad sobre la composición automática, preservando la descripción original
+- **Filtro por estado en el listado de actividades**: `GET /api/activities` acepta el parámetro `status` (draft/published), usado por el export PDF para respetar el filtro de estado de la lista
+- **Botones de filtro por día**: con una región seleccionada en las listas de actividades, turnos de predicación y turnos de comida aparece una fila de botones por cada día del evento (más "All days") sincronizada con el filtro de fecha, los filtros guardados y las vistas de lista y calendario
+- **Barra lateral colapsable**: la barra lateral del admin puede plegarse a un carril de iconos mediante un botón chevron; los elementos muestran su etiqueta como tooltip y la preferencia se guarda en `localStorage`
+
+### Mejorado
+
+- **Auto-asignación masiva equilibrada**: los endpoints de auto-asignación masiva (turnos de comida, predicación y actividades generales) reparten ahora de forma centrada en los grupos en lugar de rellenar cada turno por orden: comida y predicación se equilibran por día (cada grupo entra como máximo en un turno por día, en el menos cargado o el más cercano según el criterio), y las generales se reparten por rondas respetando el presupuesto de actividades por grupo, la restricción de mismo nombre y los solapes de horario. Un rechazo puntual ya no aborta el resto de candidatos del turno: se contabiliza como omitido
+- **Selects con búsqueda en toda la app**: todos los `<select>` nativos (filtros, formularios y selectores inline de logs de auditoría, invitados, voluntarios, grupos, congregaciones, usuarios y actividades) usan ahora el componente compartido searchable-select, que además soporta estado deshabilitado y oculta la caja de búsqueda en listas de menos de 8 opciones
+- **Diseño en pantallas pequeñas**: en anchos de tablet y portátil pequeño las cabeceras de página envuelven en lugar de comprimir sus botones, las barras de filtros pasan por conteos de columnas intermedios, los modales de actividades ocupan el 95% del viewport por debajo de xl y las cuadrículas de ajustes se apilan por debajo de md
+
+### Corregido
+
+- **Dropdown del searchable-select**: el desplegable (posicionado con `position: fixed`) se quedaba flotando lejos de su disparador al hacer scroll en la página o dentro de un modal — ahora sigue al disparador en scroll y resize; el clic fuera no cerraba el desplegable dentro de modales (que detienen la propagación del clic) — ahora se detecta con un listener `pointerdown` en fase de captura
+
+---
+
 ## [0.7.0] - 2026-06-30
 
 ### Añadido

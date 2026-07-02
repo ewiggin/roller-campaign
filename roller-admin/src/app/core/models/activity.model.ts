@@ -74,6 +74,7 @@ export interface Activity {
   status: ActivityStatus;
   host_id: string | null;
   host_name: string | null;
+  host_person_name: string | null;
   date: string;
   start_time: string;
   end_time: string;
@@ -154,6 +155,7 @@ export interface CreateActivityPayload {
   icon?: string | null;
   description?: string | null;
   host_id?: string | null;
+  host_person_name?: string | null;
   required_volunteers?: number | null;
   max_guests?: number | null;
   date: string;

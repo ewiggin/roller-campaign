@@ -39,8 +39,8 @@ export class GuestDetailComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
-  readonly statuses = STATUSES;
-  readonly transports = TRANSPORTS;
+  readonly statusItems = STATUSES.map((s) => ({ value: s, label: s }));
+  readonly transportItems = TRANSPORTS.map((t) => ({ value: t, label: t }));
 
   readonly guest = signal<Guest | null>(null);
   readonly loading = signal(true);

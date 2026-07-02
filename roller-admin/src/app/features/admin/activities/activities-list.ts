@@ -193,6 +193,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
   readonly importModalOpen = signal(false);
   readonly exporting = signal(false);
   readonly exportingExcel = signal(false);
+  readonly exportingPdf = signal(false);
   readonly downloadingTemplate = signal(false);
   readonly resetting = signal(false);
 
@@ -267,6 +268,30 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
           this.exporting.set(false);
         },
         error: () => this.exporting.set(false),
+      });
+  }
+
+  exportFoodShiftsPdf() {
+    this.exportingPdf.set(true);
+    this.svc
+      .exportFoodShiftsPdf({
+        regionId: this.filterRegion() || undefined,
+        name: this.filterName() || undefined,
+        date: this.filterDate() || undefined,
+        hostId: this.filterHost() || undefined,
+        status: this.filterStatus() || undefined,
+      })
+      .subscribe({
+        next: async (blob) => {
+          const parts: string[] = ['comida'];
+          const regionName = this.regions().find((r) => r.id === this.filterRegion())?.name;
+          if (regionName) parts.push(regionName.replace(/[^a-z0-9]/gi, '-').toLowerCase());
+          if (this.filterDate()) parts.push(this.filterDate());
+          parts.push(new Date().toISOString().slice(0, 10));
+          await downloadFile(blob as Blob, `${parts.join('-')}.pdf`);
+          this.exportingPdf.set(false);
+        },
+        error: () => this.exportingPdf.set(false),
       });
   }
 
@@ -477,6 +502,36 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     this.regions().map((r) => ({ value: r.id, label: r.name })),
   );
 
+  // One button per day of the selected region's event date range
+  readonly regionDayItems = computed(() => {
+    const region = this.regions().find((r) => r.id === this.filterRegion());
+    if (!region?.event_start_date || !region.event_end_date) return [];
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+    const days: { value: string; label: string }[] = [];
+    const end = new Date(region.event_end_date + 'T00:00:00');
+    // Cap the range to protect the UI from misconfigured region dates
+    for (
+      let d = new Date(region.event_start_date + 'T00:00:00');
+      d <= end && days.length < 60;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+        d.getDate(),
+      ).padStart(2, '0')}`;
+      days.push({ value: iso, label: fmt.format(d) });
+    }
+    return days;
+  });
+
+  selectDayFilter(date: string) {
+    this.filterDate.set(this.filterDate() === date ? '' : date);
+    this.applyFilters();
+  }
+
   readonly filterHostItems = computed(() =>
     this.filterHosts().map((h) => ({ value: h.id, label: h.name, meta: h.address ?? undefined })),
   );
@@ -526,6 +581,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     end_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     description: ['', Validators.maxLength(500)],
     host_id: [null as string | null],
+    host_person_name: ['', Validators.maxLength(200)],
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
     is_preaching_shift: [false],
@@ -555,6 +611,28 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       this.naturalCollator.compare(a.name ?? '', b.name ?? ''),
     ),
   );
+
+  readonly statusFilterItems = [
+    { value: 'draft', label: 'Draft' },
+    { value: 'published', label: 'Published' },
+  ];
+  readonly repeatTypeItems = [
+    { value: 'daily', label: 'Every day' },
+    { value: 'weekly', label: 'Every week' },
+    { value: 'same_day', label: 'Same day (copies)' },
+  ];
+  readonly sortByItems = [
+    { value: 'distance', label: 'Closest first' },
+    { value: 'group_size', label: 'Largest first' },
+  ];
+  readonly sortByItemsLong = [
+    { value: 'distance', label: 'Distance (closest first)' },
+    { value: 'group_size', label: 'Group size (largest first)' },
+  ];
+
+  roleItemsOf(roles: { id: string; name: string }[]): { value: string; label: string }[] {
+    return roles.map((r) => ({ value: r.id, label: r.name }));
+  }
 
   readonly detailTab = signal<DetailTab>('info');
   readonly detailSaving = signal(false);
@@ -593,6 +671,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
     end_time: ['', [Validators.required, Validators.pattern(/^([01]\d|2[0-3]):[0-5]\d$/)]],
     description: ['', Validators.maxLength(500)],
     host_id: [null as string | null],
+    host_person_name: ['', Validators.maxLength(200)],
     required_volunteers: [null as number | null, [Validators.min(1), Validators.max(999)]],
     max_guests: [null as number | null, [Validators.min(1)]],
     is_preaching_shift: [false],
@@ -1696,6 +1775,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       icon: this.createIconValue() || null,
       description: v.description || null,
       host_id: v.host_id || null,
+      host_person_name: this.foodShiftsOnly ? v.host_person_name?.trim() || null : null,
       required_volunteers: v.required_volunteers || null,
       max_guests: v.max_guests || null,
       date: v.date!,
@@ -1809,6 +1889,7 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       end_time: activity.end_time,
       description: activity.description ?? '',
       host_id: activity.host_id,
+      host_person_name: activity.host_person_name ?? '',
       required_volunteers: activity.required_volunteers,
       max_guests: activity.max_guests,
       is_preaching_shift: activity.is_preaching_shift,
@@ -1947,6 +2028,9 @@ export class ActivitiesListComponent implements OnInit, OnDestroy {
       end_time: v.end_time!,
       description: v.description || null,
       host_id: v.host_id || null,
+      host_person_name: this.selectedActivity()?.is_food_shift
+        ? v.host_person_name?.trim() || null
+        : (this.selectedActivity()?.host_person_name ?? null),
       required_volunteers: v.required_volunteers || null,
       max_guests: v.max_guests || null,
       activity_locations: activityLocs.length > 0 ? activityLocs : null,

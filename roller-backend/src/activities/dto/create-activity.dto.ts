@@ -57,6 +57,16 @@ export class CreateActivityDto {
   @IsUUID()
   host_id?: string | null;
 
+  @ApiPropertyOptional({
+    example: 'María García',
+    nullable: true,
+    description: 'Name of the person hosting the meal (food shifts only)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  host_person_name?: string | null;
+
   @ApiPropertyOptional({ example: 3, nullable: true })
   @IsOptional()
   @IsInt()

@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp, loginAdmin } from './test-app';
+import * as XLSX from 'xlsx';
+import { binaryParser, createTestApp, loginAdmin } from './test-app';
 
 describe('Activities (e2e)', () => {
   let app: INestApplication;
@@ -1852,6 +1853,248 @@ describe('Activities (e2e)', () => {
     });
   });
 
+  // ── status filter ──────────────────────────────────────────────────────────
+
+  describe('status filter', () => {
+    it('filters by status=published and status=draft', async () => {
+      const created = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({ ...baseTurn(), name: 'Status filter turn' })
+          .expect(201)
+      ).body;
+      await request(server)
+        .post(`/api/activities/${created.id}/publish`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      const published = await request(server)
+        .get('/api/activities')
+        .query({ regionId, status: 'published' })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(published.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(
+        published.body.data.every(
+          (a: { status: string }) => a.status === 'published',
+        ),
+      ).toBe(true);
+
+      const drafts = await request(server)
+        .get('/api/activities')
+        .query({ regionId, status: 'draft' })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(
+        drafts.body.data.every((a: { status: string }) => a.status === 'draft'),
+      ).toBe(true);
+    });
+
+    it('rejects an invalid status value', async () => {
+      await request(server)
+        .get('/api/activities')
+        .query({ regionId, status: 'archived' })
+        .set('Authorization', auth())
+        .expect(400);
+    });
+  });
+
+  // ── Excel export / import roundtrip ────────────────────────────────────────
+
+  describe('Excel export/import roundtrip', () => {
+    it('exports id and host_person_name and reuses them on import parse', async () => {
+      const created = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            ...baseTurn(),
+            name: 'Roundtrip food shift',
+            is_food_shift: true,
+            host_person_name: 'Anfitrión Roundtrip',
+          })
+          .expect(201)
+      ).body;
+
+      const exportRes = await request(server)
+        .get(`/api/activities/export/excel?regionId=${regionId}&name=roundtrip`)
+        .set('Authorization', auth())
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+
+      const wb = XLSX.read(exportRes.body as Buffer, { type: 'buffer' });
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+        wb.Sheets[wb.SheetNames[0]],
+      );
+      const row = rows.find((r) => r['id'] === created.id);
+      expect(row).toBeDefined();
+      expect(row!['host_person_name']).toBe('Anfitrión Roundtrip');
+
+      const parseRes = await request(server)
+        .post('/api/activities/import/parse-excel')
+        .set('Authorization', auth())
+        .attach('file', exportRes.body as Buffer, 'export.xlsx')
+        .expect(200);
+      const parsed = parseRes.body.activities.find(
+        (a: { id: string }) => a.id === created.id,
+      );
+      expect(parsed).toBeDefined();
+      expect(parsed.host_person_name).toBe('Anfitrión Roundtrip');
+      expect(parsed.description).toBe(created.description);
+      expect(parsed.is_food_shift).toBe(true);
+    });
+
+    it('rejects rows with an invalid id', async () => {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([
+        ['id', 'name', 'date', 'start_time', 'end_time', 'region_name'],
+        [
+          'not-a-uuid',
+          'Bad id turn',
+          '2024-06-15',
+          '09:00',
+          '13:00',
+          'Turns Region',
+        ],
+      ]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
+      const buffer = Buffer.from(
+        XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer,
+      );
+
+      const res = await request(server)
+        .post('/api/activities/import/parse-excel')
+        .set('Authorization', auth())
+        .attach('file', buffer, 'bad.xlsx')
+        .expect(200);
+      expect(res.body.activities).toHaveLength(0);
+      expect(res.body.errors.join(' ')).toContain('not a valid UUID');
+    });
+  });
+
+  // ── host_person_name field ────────────────────────────────────────────────
+
+  describe('host_person_name field', () => {
+    it('defaults to null when not provided', async () => {
+      const res = await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({ ...baseTurn(), is_food_shift: true })
+        .expect(201);
+      expect(res.body.host_person_name).toBeNull();
+    });
+
+    it('persists the value on create', async () => {
+      const res = await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({
+          ...baseTurn(),
+          is_food_shift: true,
+          host_person_name: 'María García',
+        })
+        .expect(201);
+      expect(res.body.host_person_name).toBe('María García');
+    });
+
+    it('can be updated and cleared via PATCH', async () => {
+      const created = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({ ...baseTurn(), is_food_shift: true })
+      ).body;
+
+      const updated = (
+        await request(server)
+          .patch(`/api/activities/${created.id}`)
+          .set('Authorization', auth())
+          .send({ host_person_name: 'Juan Pérez' })
+          .expect(200)
+      ).body;
+      expect(updated.host_person_name).toBe('Juan Pérez');
+
+      const cleared = (
+        await request(server)
+          .patch(`/api/activities/${created.id}`)
+          .set('Authorization', auth())
+          .send({ host_person_name: null })
+          .expect(200)
+      ).body;
+      expect(cleared.host_person_name).toBeNull();
+    });
+
+    it('is included in batch create', async () => {
+      const res = await request(server)
+        .post('/api/activities/batch')
+        .set('Authorization', auth())
+        .send({
+          ...baseTurn(),
+          date: '2024-12-10',
+          is_food_shift: true,
+          host_person_name: 'Ana López',
+          repetition: { type: 'daily', count: 2 },
+        })
+        .expect(201);
+      expect(
+        res.body.every(
+          (a: { host_person_name: string | null }) =>
+            a.host_person_name === 'Ana López',
+        ),
+      ).toBe(true);
+    });
+
+    it('is included in the food shifts PDF export', async () => {
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({
+          ...baseTurn(),
+          is_food_shift: true,
+          host_person_name: 'Anfitrión PDF',
+        })
+        .expect(201);
+
+      const res = await request(server)
+        .get(`/api/activities/export/food-shifts-pdf?regionId=${regionId}`)
+        .set('Authorization', auth())
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+
+      expect(res.headers['content-type']).toMatch(/application\/pdf/);
+      const buffer = res.body as Buffer;
+      expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
+      expect(buffer.length).toBeGreaterThan(500);
+    });
+
+    it('is matched by the name filter', async () => {
+      await request(server)
+        .post('/api/activities')
+        .set('Authorization', auth())
+        .send({
+          ...baseTurn(),
+          is_food_shift: true,
+          host_person_name: 'Bartolomeo Anfitrion',
+        })
+        .expect(201);
+
+      const res = await request(server)
+        .get('/api/activities')
+        .query({ regionId, name: 'bartolomeo' })
+        .set('Authorization', auth())
+        .expect(200);
+      expect(
+        res.body.data.some(
+          (a: { host_person_name: string | null }) =>
+            a.host_person_name === 'Bartolomeo Anfitrion',
+        ),
+      ).toBe(true);
+    });
+  });
+
   // ── Food shift: available-groups filter ───────────────────────────────────
 
   describe('Food shift: available-groups morning preaching filter', () => {
@@ -2504,6 +2747,459 @@ describe('Activities (e2e)', () => {
       );
       expect(after2.guest_groups.length).toBeGreaterThanOrEqual(
         before2.guest_groups.length,
+      );
+    });
+  });
+
+  describe('POST /activities/food-shifts/bulk-auto-assign', () => {
+    const DATE = '2024-10-05';
+    let bigShiftId: string;
+    let smallShiftId: string;
+    let bigGroupId: string;
+    let small1Id: string;
+    let small2Id: string;
+
+    const auth = () => `Bearer ${adminToken}`;
+
+    const createGroup = async (code: string, guests: number) => {
+      const groupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: code, region_id: regionId })
+      ).body.id as string;
+      for (let i = 0; i < guests; i++) {
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `${code}-P${i}`,
+            group_id: groupId,
+            region_id: regionId,
+            full_name: `${code} Guest ${i}`,
+          });
+      }
+      return groupId;
+    };
+
+    const assignedIdsOf = async (activityId: string): Promise<string[]> => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}`)
+        .set('Authorization', auth())
+        .expect(200);
+      return res.body.guest_groups.map((g: { id: string }) => g.id);
+    };
+
+    beforeAll(async () => {
+      // One big group and two small ones, all preaching on DATE morning so
+      // they are eligible for that day's food shifts
+      bigGroupId = await createGroup(`FB-BIG-${Date.now()}`, 8);
+      small1Id = await createGroup(`FB-SM1-${Date.now()}`, 2);
+      small2Id = await createGroup(`FB-SM2-${Date.now()}`, 2);
+
+      const morningShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'FB morning preaching',
+            date: DATE,
+            start_time: '09:00',
+            end_time: '11:00',
+            is_preaching_shift: true,
+          })
+      ).body.id;
+      for (const groupId of [bigGroupId, small1Id, small2Id]) {
+        await request(server)
+          .post(`/api/activities/${morningShiftId}/guest-groups`)
+          .set('Authorization', auth())
+          .send({ groupId })
+          .expect(200);
+      }
+
+      // Two food shifts at the same hour: a large home and a small one
+      bigShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'FB food shift big home',
+            date: DATE,
+            start_time: '13:00',
+            end_time: '14:30',
+            is_food_shift: true,
+            max_guests: 12,
+          })
+      ).body.id;
+
+      smallShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'FB food shift small home',
+            date: DATE,
+            start_time: '13:00',
+            end_time: '14:30',
+            is_food_shift: true,
+            max_guests: 4,
+          })
+      ).body.id;
+    });
+
+    it('balances group_size assignment so no shift is starved', async () => {
+      const res = await request(server)
+        .post('/api/activities/food-shifts/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(res.body.shiftsProcessed).toBeGreaterThanOrEqual(2);
+
+      // A per-shift greedy would pack 8+2+2 into the big home and leave the
+      // small home empty; balancing must give the small home the small groups
+      const bigAssigned = await assignedIdsOf(bigShiftId);
+      const smallAssigned = await assignedIdsOf(smallShiftId);
+
+      expect(bigAssigned).toEqual([bigGroupId]);
+      expect(smallAssigned).toHaveLength(2);
+      expect(smallAssigned).toContain(small1Id);
+      expect(smallAssigned).toContain(small2Id);
+
+      const unassignedIds = res.body.unassignedGroups.map(
+        (g: { id: string }) => g.id,
+      );
+      expect(unassignedIds).not.toContain(bigGroupId);
+      expect(unassignedIds).not.toContain(small1Id);
+      expect(unassignedIds).not.toContain(small2Id);
+    });
+
+    it('is idempotent — re-running does not move or duplicate groups', async () => {
+      await request(server)
+        .post('/api/activities/food-shifts/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(await assignedIdsOf(bigShiftId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(smallShiftId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+
+    it('reports groups that fit in no shift as skipped and unassigned', async () => {
+      // Both homes are now too full for a 6-guest group (room: 4 and 0)
+      const hugeGroupId = await createGroup(`FB-HUGE-${Date.now()}`, 6);
+      const morningShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: regionId,
+            name: 'FB morning preaching 2',
+            date: DATE,
+            start_time: '09:00',
+            end_time: '11:00',
+            is_preaching_shift: true,
+          })
+      ).body.id;
+      await request(server)
+        .post(`/api/activities/${morningShiftId}/guest-groups`)
+        .set('Authorization', auth())
+        .send({ groupId: hugeGroupId })
+        .expect(200);
+
+      const res = await request(server)
+        .post('/api/activities/food-shifts/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(res.body.totalSkipped).toBeGreaterThanOrEqual(1);
+      const unassignedIds = res.body.unassignedGroups.map(
+        (g: { id: string }) => g.id,
+      );
+      expect(unassignedIds).toContain(hugeGroupId);
+
+      // Existing assignments remain untouched
+      expect(await assignedIdsOf(bigShiftId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(smallShiftId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+  });
+
+  describe('POST /activities/preaching-groups/bulk-auto-assign', () => {
+    const DATE = '2024-11-02';
+    let pbRegionId: string;
+    let twoGroupShiftId: string;
+    let oneGroupShiftId: string;
+    let bigGroupId: string;
+    let small1Id: string;
+    let small2Id: string;
+
+    const auth = () => `Bearer ${adminToken}`;
+
+    const createGroup = async (code: string, guests: number) => {
+      const groupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: code, region_id: pbRegionId })
+      ).body.id as string;
+      for (let i = 0; i < guests; i++) {
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `${code}-P${i}`,
+            group_id: groupId,
+            region_id: pbRegionId,
+            full_name: `${code} Guest ${i}`,
+          });
+      }
+      return groupId;
+    };
+
+    const assignedIdsOf = async (activityId: string): Promise<string[]> => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}`)
+        .set('Authorization', auth())
+        .expect(200);
+      return res.body.guest_groups.map((g: { id: string }) => g.id);
+    };
+
+    beforeAll(async () => {
+      // Isolated region so the campaign-wide bulk cannot pull groups from
+      // (or push groups into) the fixtures of other describes
+      pbRegionId = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({
+            name: `PB Region ${Date.now()}`,
+            event_start_date: '2024-11-01',
+            event_end_date: '2024-11-09',
+          })
+      ).body.id;
+
+      await request(server)
+        .patch('/api/settings/campaign')
+        .set('Authorization', auth())
+        .send({ max_guests_per_preaching_group: 8 });
+
+      bigGroupId = await createGroup(`PB-BIG-${Date.now()}`, 8);
+      small1Id = await createGroup(`PB-SM1-${Date.now()}`, 2);
+      small2Id = await createGroup(`PB-SM2-${Date.now()}`, 2);
+
+      // A shift with two preaching groups (16-guest capacity)…
+      twoGroupShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: pbRegionId,
+            name: 'PB shift two groups',
+            date: DATE,
+            start_time: '09:00',
+            end_time: '11:00',
+            is_preaching_shift: true,
+          })
+      ).body.id;
+      for (const name of ['PG1', 'PG2']) {
+        await request(server)
+          .post(`/api/activities/${twoGroupShiftId}/preaching-groups`)
+          .set('Authorization', auth())
+          .send({ name })
+          .expect(200);
+      }
+
+      // …and a later shift with a single preaching group
+      oneGroupShiftId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: pbRegionId,
+            name: 'PB shift one group',
+            date: DATE,
+            start_time: '11:30',
+            end_time: '13:30',
+            is_preaching_shift: true,
+          })
+      ).body.id;
+      await request(server)
+        .post(`/api/activities/${oneGroupShiftId}/preaching-groups`)
+        .set('Authorization', auth())
+        .send({ name: 'PG1' })
+        .expect(200);
+    });
+
+    it('balances group_size assignment so no shift is starved', async () => {
+      const res = await request(server)
+        .post('/api/activities/preaching-groups/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(res.body.shiftsProcessed).toBeGreaterThanOrEqual(2);
+
+      // A per-shift greedy would pack 8+2+2 into the two-group shift and
+      // leave the second shift empty (a group preaches at most once per day)
+      expect(await assignedIdsOf(twoGroupShiftId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(oneGroupShiftId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+
+    it('is idempotent — re-running does not move or duplicate groups', async () => {
+      await request(server)
+        .post('/api/activities/preaching-groups/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(await assignedIdsOf(twoGroupShiftId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(oneGroupShiftId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+  });
+
+  describe('POST /activities/general/bulk-auto-assign (balanced)', () => {
+    const DATE = '2024-11-10';
+    let gbRegionId: string;
+    let bigActId: string;
+    let smallActId: string;
+    let bigGroupId: string;
+    let small1Id: string;
+    let small2Id: string;
+    let previousMaxActivities: number;
+
+    const auth = () => `Bearer ${adminToken}`;
+
+    const createGroup = async (code: string, guests: number) => {
+      const groupId = (
+        await request(server)
+          .post('/api/guest-groups')
+          .set('Authorization', auth())
+          .send({ group_code: code, region_id: gbRegionId })
+      ).body.id as string;
+      for (let i = 0; i < guests; i++) {
+        await request(server)
+          .post('/api/guests')
+          .set('Authorization', auth())
+          .send({
+            guest_code: `${code}-P${i}`,
+            group_id: groupId,
+            region_id: gbRegionId,
+            full_name: `${code} Guest ${i}`,
+          });
+      }
+      return groupId;
+    };
+
+    const assignedIdsOf = async (activityId: string): Promise<string[]> => {
+      const res = await request(server)
+        .get(`/api/activities/${activityId}`)
+        .set('Authorization', auth())
+        .expect(200);
+      return res.body.guest_groups.map((g: { id: string }) => g.id);
+    };
+
+    beforeAll(async () => {
+      gbRegionId = (
+        await request(server)
+          .post('/api/regions')
+          .set('Authorization', auth())
+          .send({
+            name: `GB Region ${Date.now()}`,
+            event_start_date: '2024-11-09',
+            event_end_date: '2024-11-16',
+          })
+      ).body.id;
+
+      previousMaxActivities = (
+        await request(server)
+          .get('/api/settings/campaign')
+          .set('Authorization', auth())
+      ).body.max_activities_per_group;
+      // One activity per group makes the two activities compete for the pool
+      await request(server)
+        .patch('/api/settings/campaign')
+        .set('Authorization', auth())
+        .send({ max_activities_per_group: 1 });
+
+      bigGroupId = await createGroup(`GB-BIG-${Date.now()}`, 8);
+      small1Id = await createGroup(`GB-SM1-${Date.now()}`, 2);
+      small2Id = await createGroup(`GB-SM2-${Date.now()}`, 2);
+
+      bigActId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: gbRegionId,
+            name: 'GB big activity',
+            date: DATE,
+            start_time: '10:00',
+            end_time: '12:00',
+            max_guests: 12,
+          })
+      ).body.id;
+
+      smallActId = (
+        await request(server)
+          .post('/api/activities')
+          .set('Authorization', auth())
+          .send({
+            region_id: gbRegionId,
+            name: 'GB small activity',
+            date: DATE,
+            start_time: '15:00',
+            end_time: '17:00',
+            max_guests: 4,
+          })
+      ).body.id;
+    });
+
+    afterAll(async () => {
+      await request(server)
+        .patch('/api/settings/campaign')
+        .set('Authorization', auth())
+        .send({ max_activities_per_group: previousMaxActivities });
+    });
+
+    it('balances group_size assignment so no activity is starved', async () => {
+      const res = await request(server)
+        .post('/api/activities/general/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(res.body.activitiesProcessed).toBeGreaterThanOrEqual(2);
+
+      // A per-activity greedy would pack 8+2+2 into the big activity and
+      // leave the small one empty (each group has a 1-activity budget)
+      expect(await assignedIdsOf(bigActId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(smallActId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
+      );
+    });
+
+    it('is idempotent — re-running does not move or duplicate groups', async () => {
+      await request(server)
+        .post('/api/activities/general/bulk-auto-assign')
+        .set('Authorization', auth())
+        .send({ sort_by: 'group_size' })
+        .expect(200);
+
+      expect(await assignedIdsOf(bigActId)).toEqual([bigGroupId]);
+      expect((await assignedIdsOf(smallActId)).sort()).toEqual(
+        [small1Id, small2Id].sort(),
       );
     });
   });

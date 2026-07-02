@@ -91,6 +91,11 @@ export class GuestGroupsListComponent implements OnInit {
 
   readonly isSuperAdmin = this.auth.isSuperAdmin;
   readonly compositionOptions = Object.entries(COMPOSITION_LABELS) as [GroupComposition, string][];
+  readonly compositionItems = this.compositionOptions.map(([value, label]) => ({ value, label }));
+  readonly carsFilterItems = [
+    { value: 'true', label: 'With cars' },
+    { value: 'false', label: 'Without cars' },
+  ];
 
   readonly excelMenuItems = computed<MenuItem[]>(() => [
     { label: 'Export Excel', action: () => this.downloadExcel() },
@@ -796,7 +801,11 @@ export class GuestGroupsListComponent implements OnInit {
     const m = this.assignModal();
     if (!m || !activity.can_assign) return;
     if (m.type === 'preaching') {
-      this.assignModal.set({ ...m, step: 3, selectedShift: activity as AvailableForGroupPreachingShift });
+      this.assignModal.set({
+        ...m,
+        step: 3,
+        selectedShift: activity as AvailableForGroupPreachingShift,
+      });
       return;
     }
     this.assignModal.set({ ...m, saving: true });
@@ -816,18 +825,16 @@ export class GuestGroupsListComponent implements OnInit {
     const m = this.assignModal();
     if (!m?.selectedShift || !pg.can_assign) return;
     this.assignModal.set({ ...m, saving: true });
-    this.activitiesSvc
-      .assignGuestGroupToGroup(m.selectedShift.id, pg.id, m.group.id)
-      .subscribe({
-        next: () => {
-          this.assignModal.set(null);
-          this.reloadSchedule(m.group.id);
-        },
-        error: () => {
-          const cur = this.assignModal();
-          if (cur) this.assignModal.set({ ...cur, saving: false });
-        },
-      });
+    this.activitiesSvc.assignGuestGroupToGroup(m.selectedShift.id, pg.id, m.group.id).subscribe({
+      next: () => {
+        this.assignModal.set(null);
+        this.reloadSchedule(m.group.id);
+      },
+      error: () => {
+        const cur = this.assignModal();
+        if (cur) this.assignModal.set({ ...cur, saving: false });
+      },
+    });
   }
 
   closeAssignModal() {
@@ -841,9 +848,14 @@ export class GuestGroupsListComponent implements OnInit {
     );
     if (!confirmed) return;
 
-    const obs = act.is_preaching_shift && act.preaching_group_id
-      ? this.activitiesSvc.removeGuestGroupFromGroup(act.activity_id, act.preaching_group_id, group.id)
-      : this.activitiesSvc.unassignGuestGroup(act.activity_id, group.id);
+    const obs =
+      act.is_preaching_shift && act.preaching_group_id
+        ? this.activitiesSvc.removeGuestGroupFromGroup(
+            act.activity_id,
+            act.preaching_group_id,
+            group.id,
+          )
+        : this.activitiesSvc.unassignGuestGroup(act.activity_id, group.id);
 
     obs.subscribe({ next: () => this.reloadSchedule(group.id) });
   }
