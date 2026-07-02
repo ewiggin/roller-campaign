@@ -1,7 +1,7 @@
 import {
   Component,
   ElementRef,
-  HostListener,
+  OnDestroy,
   ViewChild,
   computed,
   forwardRef,
@@ -31,7 +31,7 @@ export interface SearchableSelectItem {
     },
   ],
 })
-export class SearchableSelectComponent implements ControlValueAccessor {
+export class SearchableSelectComponent implements ControlValueAccessor, OnDestroy {
   readonly items = input<SearchableSelectItem[]>([]);
   readonly placeholder = input('Select…');
   readonly emptyLabel = input('');
@@ -86,9 +86,17 @@ export class SearchableSelectComponent implements ControlValueAccessor {
     this.onTouched = fn;
   }
 
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(e: MouseEvent) {
+  // Capture phase, so clicks swallowed by stopPropagation (e.g. modal
+  // panels) still reach us and close the dropdown.
+  private readonly onDocumentPointerDown = (e: Event) => {
     if (!this.el.nativeElement.contains(e.target as Node)) this.close();
+  };
+  // The dropdown is position:fixed, so it must follow the trigger when any
+  // ancestor (page or modal body) scrolls or the window resizes.
+  private readonly onViewportChange = () => this.updateDropdownPosition();
+
+  ngOnDestroy(): void {
+    this.removeGlobalListeners();
   }
 
   protected toggle() {
@@ -96,23 +104,36 @@ export class SearchableSelectComponent implements ControlValueAccessor {
   }
 
   protected openDropdown() {
-    if (this.triggerEl) {
-      const rect = this.triggerEl.nativeElement.getBoundingClientRect();
-      this.dropdownStyle.set({
-        position: 'fixed',
-        top: `${rect.bottom + 4}px`,
-        left: `${rect.left}px`,
-        width: `${rect.width}px`,
-      });
-    }
+    this.updateDropdownPosition();
     this.query.set('');
     this.open.set(true);
+    document.addEventListener('pointerdown', this.onDocumentPointerDown, true);
+    window.addEventListener('scroll', this.onViewportChange, true);
+    window.addEventListener('resize', this.onViewportChange);
     setTimeout(() => this.searchInput?.nativeElement.focus(), 0);
   }
 
   protected close() {
     this.open.set(false);
     this.query.set('');
+    this.removeGlobalListeners();
+  }
+
+  private updateDropdownPosition() {
+    if (!this.triggerEl) return;
+    const rect = this.triggerEl.nativeElement.getBoundingClientRect();
+    this.dropdownStyle.set({
+      position: 'fixed',
+      top: `${rect.bottom + 4}px`,
+      left: `${rect.left}px`,
+      width: `${rect.width}px`,
+    });
+  }
+
+  private removeGlobalListeners() {
+    document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
+    window.removeEventListener('scroll', this.onViewportChange, true);
+    window.removeEventListener('resize', this.onViewportChange);
   }
 
   // Single mode: select and close
