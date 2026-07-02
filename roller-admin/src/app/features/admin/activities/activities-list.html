@@ -1,6 +1,6 @@
 <div>
   <!-- Header -->
-  <div class="flex items-center justify-between mb-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <h2 class="text-lg font-semibold text-gray-900 dark:text-zinc-100">{{ pageTitle }}</h2>
     <div class="flex items-center gap-2">
       <!-- View toggle -->
@@ -189,7 +189,7 @@
   <div
     class="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-sm mb-4 p-4"
   >
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-6">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       <div>
         <label class="block text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1"
           >Region</label
@@ -829,7 +829,7 @@
     (click)="closeModal()"
   >
     <div
-      class="w-[80%] h-[85vh] flex flex-col bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
+      class="w-[95%] xl:w-[80%] h-[85vh] flex flex-col bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden"
       (click)="$event.stopPropagation()"
     >
       <div
@@ -1256,7 +1256,7 @@
     (click)="closeModal()"
   >
     <div
-      class="w-[80%] h-[85vh] bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden flex flex-col relative"
+      class="w-[95%] xl:w-[80%] h-[85vh] bg-white dark:bg-[#18181b] rounded-xl shadow-xl overflow-hidden flex flex-col relative"
       (click)="$event.stopPropagation()"
     >
       <!-- Header -->
